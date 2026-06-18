@@ -934,6 +934,9 @@ class Retur extends MY_Controller
 		ob_start();
 		header('Content-Type: application/json');
 
+		log_message('error', 'Upload Jubelio: request masuk, method=' . $this->input->method()
+			. ', files=' . (isset($_FILES['jubelioFile']) ? $_FILES['jubelioFile']['name'] . ' (err ' . $_FILES['jubelioFile']['error'] . ')' : 'TIDAK ADA'));
+
 		try {
 			if ($this->input->method() !== 'post') {
 				throw new Exception('Metode request tidak valid.');
@@ -1012,6 +1015,8 @@ class Retur extends MY_Controller
 
 			$batch_id = date('YmdHis') . '_' . substr(md5(uniqid('', true)), 0, 6);
 			$result   = $this->retur_fcd->insert_jubelio_batch($rows, $batch_id, $this->data['user']['id_user']);
+
+			log_message('error', "Upload Jubelio: batch $batch_id, inserted={$result['inserted']}, matched={$result['matched']}");
 
 			if (ob_get_length()) ob_clean();
 			$this->make_ajax_response(
@@ -1177,6 +1182,83 @@ class Retur extends MY_Controller
 		}
 
 		echo json_encode(['data' => $data, 'summary' => $summary]);
+		exit();
+	}
+
+	/**
+	 * List data Jubelio yang sudah masuk (server-side DataTable) — "List Retur Jubelio".
+	 */
+	public function get_jubelio_list_data()
+	{
+		while (ob_get_level() > 0) ob_end_clean();
+		header('Content-Type: application/json');
+
+		$draw  = intval($this->input->post('draw'));
+		$order = $this->input->post('order');
+
+		$params['start']  = intval($this->input->post('start'));
+		$params['length'] = intval($this->input->post('length'));
+		$params['search'] = $this->input->post('search')['value'] ?? '';
+
+		$start_date = $this->input->post('start_date');
+		$end_date   = $this->input->post('end_date');
+
+		$col = 0;
+		$dir = 'desc';
+		if (!empty($order)) {
+			foreach ($order as $o) {
+				$col = $o['column'];
+				$dir = $o['dir'];
+			}
+		}
+		$params['dir'] = $dir;
+		$params['valid_columns'] = array(
+			0 => null,
+			1 => 'j.no_resi',
+			2 => 'j.no_pesanan',
+			3 => 'j.sku',
+			4 => 'j.nama_barang',
+			5 => 'j.qty',
+			6 => 'j.marketplace',
+			7 => 'j.nama_toko',
+			8 => 'j.kurir',
+			9 => 'j.status_jubelio',
+			10 => 'j.tanggal_retur',
+			11 => 'j.found_in_iresis',
+		);
+		$params['order'] = isset($params['valid_columns'][$col]) ? $params['valid_columns'][$col] : 'j.id_jubelio';
+
+		$list  = $this->retur_fcd->get_jubelio_list($params, $start_date, $end_date);
+		$total = $this->retur_fcd->get_total_jubelio_list($params, $start_date, $end_date);
+
+		$rows = array();
+		$no = $params['start'] + 1;
+		foreach ($list->result() as $r) {
+			$cocok = $r->found_in_iresis
+				? '<span class="label label-success">Ya</span>'
+				: '<span class="label label-default">Belum</span>';
+			$rows[] = array(
+				$no++ . '.',
+				htmlspecialchars($r->no_resi ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->no_pesanan ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->sku ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->nama_barang ?: '-', ENT_QUOTES, 'UTF-8'),
+				$r->qty !== null ? (int) $r->qty : '-',
+				htmlspecialchars($r->marketplace ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->nama_toko ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->kurir ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->status_jubelio ?: '-', ENT_QUOTES, 'UTF-8'),
+				$r->tanggal_retur ? date('Y-m-d H:i', strtotime($r->tanggal_retur)) : '-',
+				$cocok,
+			);
+		}
+
+		echo json_encode(array(
+			'draw'            => $draw,
+			'recordsTotal'    => $total,
+			'recordsFiltered' => $total,
+			'data'            => $rows,
+		));
 		exit();
 	}
 
