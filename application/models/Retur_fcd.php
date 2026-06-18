@@ -1127,6 +1127,68 @@ class Retur_fcd extends CI_Model
     }
 
     /**
+     * List data mentah Jubelio yang sudah masuk (server-side DataTable).
+     */
+    function get_jubelio_list($data, $start_date = null, $end_date = null)
+    {
+        $this->_build_jubelio_list_query($data, $start_date, $end_date);
+
+        if (!empty($data['order'])) {
+            $this->db->order_by($data['order'], $data['dir'], FALSE);
+        } else {
+            $this->db->order_by('j.id_jubelio', 'DESC');
+        }
+
+        if (!empty($data['length'])) {
+            $this->db->limit($data['length'], $data['start']);
+        }
+
+        return $this->db->get();
+    }
+
+    function get_total_jubelio_list($data, $start_date = null, $end_date = null)
+    {
+        $this->_build_jubelio_list_query($data, $start_date, $end_date);
+        return $this->db->count_all_results();
+    }
+
+    private function _build_jubelio_list_query($data, $start_date = null, $end_date = null)
+    {
+        $this->db->select('
+            j.id_jubelio,
+            j.no_resi,
+            j.no_pesanan,
+            j.sku,
+            j.nama_barang,
+            j.qty,
+            j.marketplace,
+            j.nama_toko,
+            j.kurir,
+            j.status_jubelio,
+            j.tanggal_retur,
+            j.found_in_iresis,
+            j.uploaded_at
+        ');
+        $this->db->from('tblreturjubelio j');
+
+        if (!empty($start_date) && !empty($end_date)) {
+            $this->db->where('COALESCE(j.tanggal_retur, j.uploaded_at) >=', $start_date);
+            $this->db->where('COALESCE(j.tanggal_retur, j.uploaded_at) <=', $end_date);
+        }
+
+        if (!empty($data['search'])) {
+            $this->db->group_start();
+            $this->db->like('j.no_resi', $data['search']);
+            $this->db->or_like('j.no_pesanan', $data['search']);
+            $this->db->or_like('j.sku', $data['search']);
+            $this->db->or_like('j.nama_barang', $data['search']);
+            $this->db->or_like('j.marketplace', $data['search']);
+            $this->db->or_like('j.nama_toko', $data['search']);
+            $this->db->group_end();
+        }
+    }
+
+    /**
      * Ambil data retur iresis (per no_resi) untuk rekonsiliasi, dalam rentang
      * tanggal terima retur. Termasuk kategori (Terima Retur / Buka Retur).
      */

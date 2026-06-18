@@ -141,6 +141,7 @@ $route['retur/export-excel-buka-retur'] = 'retur/export_excel_buka_retur';
 $route['retur/validasi-jubelio'] = 'retur/validasi_jubelio';
 $route['retur/upload-jubelio'] = 'retur/upload_jubelio';
 $route['retur/get-rekonsiliasi-data'] = 'retur/get_rekonsiliasi_data';
+$route['retur/get-jubelio-list-data'] = 'retur/get_jubelio_list_data';
 $route['retur/export-rekonsiliasi'] = 'retur/export_rekonsiliasi';
 $route['retur/complain'] = 'retur/complain';
 $route['retur/save-refund-complain'] = 'retur/save_refund_complain';
