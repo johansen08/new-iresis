@@ -41,6 +41,9 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
+                <th>Terverifikasi</th>
+                <th>Diverifikasi Oleh</th>
+                <th>Waktu Verifikasi</th>
             </tr>
         </thead>
         <tbody>
@@ -60,10 +63,13 @@
                         <td><?= (int) $row['qty_jubelio'] ?></td>
                         <td><?= htmlspecialchars($row['tanggal']) ?></td>
                         <td><?= htmlspecialchars($row['kondisi']) ?></td>
+                        <td><?= !empty($row['verified']) ? 'Ya' : 'Belum' ?></td>
+                        <td><?= htmlspecialchars($row['verified_by'] ?? '') ?></td>
+                        <td><?= !empty($row['verified_at']) ? date('Y-m-d H:i', strtotime($row['verified_at'])) : '' ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php else: ?>
-                <tr><td colspan="12" style="text-align:center;">Tidak ada data</td></tr>
+                <tr><td colspan="15" style="text-align:center;">Tidak ada data</td></tr>
             <?php endif; ?>
         </tbody>
     </table>

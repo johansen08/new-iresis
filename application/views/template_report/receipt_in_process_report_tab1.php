@@ -32,6 +32,7 @@
       <th>Nomor Resi</th>
       <th>Kurir</th>
       <th>Nomor Pick List</th>
+      <th>Status Pesanan</th>
       <th>Tanggal Pick</th>
       <th>Jam Pick</th>
       <th>Picker</th>
@@ -48,6 +49,7 @@
         <td><?= $data['noresi'] ?></td>
         <td><?= $data['nama_kurir'] ?></td>
         <td><?= $data['nomorpicklist'] ?></td>
+        <td><?= $data['status_pesanan'] ?></td>
         <td><?= empty($data['tanggal_resiambilbarang']) ? null : date('Y-m-d', strtotime($data['tanggal_resiambilbarang'])) ?></td>
         <td><?= empty($data['tanggal_resiambilbarang']) ? null : date('H:i', strtotime($data['tanggal_resiambilbarang'])) ?></td>
         <td><?= $data['picker'] ?></td>

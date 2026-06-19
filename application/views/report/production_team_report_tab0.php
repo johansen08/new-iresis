@@ -32,6 +32,10 @@
     <table class="table table-striped" id="datatable-production-team-tab0">
         <thead>
         <tr>
+            <th colspan="2" class="text-right">Grand Total</th>
+            <th id="grand_total_production_picker">-</th>
+        </tr>
+        <tr>
             <th>Nama</th>
             <th>Tanggal</th>
             <th>Jumlah</th>
@@ -64,6 +68,9 @@
     var table_production_team_tab0 = $('#datatable-production-team-tab0').DataTable({
         dom: '<if<t>lp>',
         'destroy': true,
+        'drawCallback': function() {
+            $('#grand_total_production_picker').text('-');
+        }
     });
     $('#btn-search-production-team-tab0').on('click', function() {
         // Show loading overlay
@@ -103,6 +110,9 @@
             'drawCallback': function() {
                 // Hide loading after draw
                 $('#loading-overlay-tab0').hide();
+                var json = this.api().ajax.json();
+                var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
+                $('#grand_total_production_picker').text(total);
             }
         });
     });

@@ -225,7 +225,8 @@ class Receipt_fcd extends CI_Model
             t.tanggal_printresi,
             t.noresi,
             t4.nama_kurir,
-            t.nomorpicklist
+            t.nomorpicklist,
+            t.status_pesanan
         ');
 
         $this->db->distinct();
@@ -310,6 +311,7 @@ class Receipt_fcd extends CI_Model
             t2.noresi,
             t4.nama_kurir,
             t2.nomorpicklist,
+            t2.status_pesanan,
             t.tanggal_resiambilbarang,
             t5.nama_pegawai picker
         ');
@@ -399,6 +401,7 @@ class Receipt_fcd extends CI_Model
             t4.nama_marketplace,
             t2.tanggal_printresi,
             t2.noresi,
+            t2.status_pesanan,
             t5.nama_kurir,
             t2.nomorpicklist,
             t3.tanggal_resiambilbarang,
@@ -468,59 +471,7 @@ class Receipt_fcd extends CI_Model
 
     function get_data_daily_report($data, $start_date, $end_date)
     {
-        // Build search WHERE clause
-        $search_where = '';
-        if (!empty($data['search'])) {
-            $search = $this->db->escape_like_str($data['search']);
-            $search_conditions = [
-                "f.nama_marketplace LIKE '%{$search}%'",
-                "e.nama_kurir LIKE '%{$search}%'",
-                "a.noresi LIKE '%{$search}%'",
-                "a.nomorpicklist LIKE '%{$search}%'",
-                "t1.nama_pegawai LIKE '%{$search}%'",
-                "t2.nama_pegawai LIKE '%{$search}%'",
-                "t3.name LIKE '%{$search}%'",
-                "t4.nama_pegawai LIKE '%{$search}%'"
-            ];
-            $search_where = " AND (" . implode(" OR ", $search_conditions) . ")";
-        }
-
-        // Build ORDER BY clause
-        $order_by = '';
-        if (!empty($data) && !empty($data['order'])) {
-            // Map column names to SELECT aliases for ORDER BY compatibility
-            $column_mapping = [
-                'f.nama_marketplace' => 'nama_marketplace',
-                'e.nama_kurir' => 'nama_kurir',
-                'a.noresi' => 'a.noresi',
-                'a.nomorpicklist' => 'nomorpicklist',
-                'a.tanggal_printresi' => 'tanggal_printresi',
-                't1.nama_pegawai' => 'admin_scan',
-                'b.tanggal_resiambilbarang' => 'tanggal_resiambilbarang',
-                't2.nama_pegawai' => 'admin_picker',
-                'c.tanggal_packing' => 'tanggal_packing',
-                't3.name' => 'admin_packer',
-                'd.tanggal_resikeluar' => 'tanggal_resikeluar',
-                't4.nama_pegawai' => 'admin_ho',
-            ];
-            
-            $order_column = isset($column_mapping[$data['order']]) ? $column_mapping[$data['order']] : 'tanggal_printresi';
-            $order_by = " ORDER BY " . $order_column . " " . strtoupper($data['dir']);
-        } else {
-            // Default: Urutkan berdasarkan tanggal print resi (lebih cepat dari GREATEST)
-            $order_by = " ORDER BY a.tanggal_printresi DESC";
-        }
-
-        // Build LIMIT clause
-        $limit_clause = '';
-        if (!empty($data['length'])) {
-            $limit_clause = " LIMIT " . intval($data['length']) . " OFFSET " . intval($data['start']);
-        }
-
-        // OPTIMIZED V4: Simplified query - status diambil dari kolom status_performa_id yang sudah ada
-        // Gunakan STRAIGHT_JOIN untuk force MySQL mengikuti urutan JOIN yang optimal
-        $sql = "
-        SELECT STRAIGHT_JOIN
+        $this->db->select('
             f.nama_marketplace,
             e.nama_kurir,
             a.noresi,
@@ -528,96 +479,140 @@ class Receipt_fcd extends CI_Model
             a.tanggal_printresi,
             t1.nama_pegawai as admin_scan,
             b.tanggal_resiambilbarang,
-            b.admin_pegawai as picker_user_id,
             t2.nama_pegawai as admin_picker,
-            COALESCE(sp_picker.status_name, '') as picker_status,
+            COALESCE(sp_picker.status_name, "") as picker_status,
             c.tanggal_packing,
-            c.packer_pegawai,
             t3.name as admin_packer,
-            COALESCE(sp_packer.status_name, '') as packer_status,
+            COALESCE(sp_packer.status_name, "") as packer_status,
             d.tanggal_resikeluar,
             t4.nama_pegawai as admin_ho
-        FROM tblprintresi a USE INDEX (idx_printresi_tanggal)
-        LEFT JOIN tblresiambilbarang b ON a.id_printresi = b.id_resi
-        LEFT JOIN tblpacking c ON a.id_printresi = c.id_resi
-        LEFT JOIN tblresikeluar d ON a.id_printresi = d.id_resi
-        LEFT JOIN tblkurir e ON e.id_kurir = a.id_kurir
-        LEFT JOIN tblmarketplace f ON f.id_marketplace = a.id_marketplace
-        LEFT JOIN tblpegawai t1 ON t1.kode_pegawai = a.admin_pegawai
-        LEFT JOIN tblpegawai t2 ON t2.kode_pegawai = b.yangambil_pegawai
-        LEFT JOIN tbluser t3 ON t3.id_user = c.packer_pegawai
-        LEFT JOIN tblpegawai t4 ON t4.kode_pegawai = d.id_pegawai
-        LEFT JOIN tblmasterstatusperforma sp_picker ON sp_picker.id_statusperforma = b.status_performa_id
-        LEFT JOIN tblmasterstatusperforma sp_packer ON sp_packer.id_statusperforma = c.status_performa_id
-        WHERE a.tanggal_printresi >= " . $this->db->escape($start_date) . "
-        AND a.tanggal_printresi <= " . $this->db->escape($end_date) . "
-        {$search_where}
-        {$order_by}
-        {$limit_clause}
-        ";
-
-        return $this->db->query($sql);
-    }
-
-    function get_total_data_daily_report($data, $start_date, $end_date)
-    {
-        if (!empty($data['search'])) {
-            $x = 0;
-
-            $this->db->group_start();
-
-            foreach ($data['valid_columns'] as $sterm) {
-                if (empty($sterm)) continue;
-
-                if ($x == 0) {
-                    $this->db->like($sterm, $data['search']);
-                } else {
-                    $this->db->or_like($sterm, $data['search']);
-                }
-
-                $x++;
-            }
-
-            $this->db->group_end();
-        }
-
+        ');
+        $this->db->from('tblprintresi a');
         $this->db->join('tblresiambilbarang b', 'a.id_printresi = b.id_resi', 'left');
         $this->db->join('tblpacking c', 'a.id_printresi = c.id_resi', 'left');
         $this->db->join('tblresikeluar d', 'a.id_printresi = d.id_resi', 'left');
         $this->db->join('tblkurir e', 'e.id_kurir = a.id_kurir', 'left');
         $this->db->join('tblmarketplace f', 'f.id_marketplace = a.id_marketplace', 'left');
-        $this->db->join('tblpegawai t1', 't1.kode_pegawai = a.admin_pegawai ', 'left');
-        $this->db->join('tblpegawai t2', 't2.kode_pegawai = b.yangambil_pegawai ', 'left');
-        $this->db->join('tbluser t3', 't3.id_user = c.packer_pegawai ', 'left');
+        $this->db->join('tblpegawai t1', 't1.kode_pegawai = a.admin_pegawai', 'left');
+        $this->db->join('tblpegawai t2', 't2.kode_pegawai = b.yangambil_pegawai', 'left');
+        $this->db->join('tbluser t3', 't3.id_user = c.packer_pegawai', 'left');
         $this->db->join('tblpegawai t4', 't4.kode_pegawai = d.id_pegawai', 'left');
+        $this->db->join('tblmasterstatusperforma sp_picker', 'sp_picker.id_statusperforma = b.status_performa_id', 'left');
+        $this->db->join('tblmasterstatusperforma sp_packer', 'sp_packer.id_statusperforma = c.status_performa_id', 'left');
 
-        // Filter berdasarkan tanggal print resi
         $this->db->where('a.tanggal_printresi >=', $start_date);
         $this->db->where('a.tanggal_printresi <=', $end_date);
 
-        $query = $this->db->select("COUNT(DISTINCT a.noresi) AS num")->get("tblprintresi a");
-        $result = $query->row();
+        if (!empty($data['search'])) {
+            $x = 0;
+            $this->db->group_start();
+            foreach ($data['valid_columns'] as $sterm) {
+                if (empty($sterm)) continue;
+                if ($x == 0) {
+                    $this->db->like($sterm, $data['search']);
+                } else {
+                    $this->db->or_like($sterm, $data['search']);
+                }
+                $x++;
+            }
+            $this->db->group_end();
+        }
 
-        return isset($result) ? $result->num : 0;
+        if (!empty($data['order'])) {
+            $this->db->order_by($data['order'], $data['dir']);
+        } else {
+            $this->db->order_by('a.tanggal_printresi', 'DESC');
+        }
+
+        if (!empty($data['length'])) {
+            $this->db->limit($data['length'], $data['start']);
+        }
+
+        return $this->db->get();
+    }
+
+    function get_total_data_daily_report($data, $start_date, $end_date)
+    {
+        $this->db->from('tblprintresi a');
+        $this->db->where('a.tanggal_printresi >=', $start_date);
+        $this->db->where('a.tanggal_printresi <=', $end_date);
+
+        if (!empty($data['search'])) {
+            $this->db->join('tblresiambilbarang b', 'a.id_printresi = b.id_resi', 'left');
+            $this->db->join('tblpacking c', 'a.id_printresi = c.id_resi', 'left');
+            $this->db->join('tblresikeluar d', 'a.id_printresi = d.id_resi', 'left');
+            $this->db->join('tblkurir e', 'e.id_kurir = a.id_kurir', 'left');
+            $this->db->join('tblmarketplace f', 'f.id_marketplace = a.id_marketplace', 'left');
+            $this->db->join('tblpegawai t1', 't1.kode_pegawai = a.admin_pegawai', 'left');
+            $this->db->join('tblpegawai t2', 't2.kode_pegawai = b.yangambil_pegawai', 'left');
+            $this->db->join('tbluser t3', 't3.id_user = c.packer_pegawai', 'left');
+            $this->db->join('tblpegawai t4', 't4.kode_pegawai = d.id_pegawai', 'left');
+
+            $x = 0;
+            $this->db->group_start();
+            foreach ($data['valid_columns'] as $sterm) {
+                if (empty($sterm)) continue;
+                if ($x == 0) {
+                    $this->db->like($sterm, $data['search']);
+                } else {
+                    $this->db->or_like($sterm, $data['search']);
+                }
+                $x++;
+            }
+            $this->db->group_end();
+        }
+
+        return $this->db->count_all_results();
     }
 
     function get_header_daily_report($start_date, $end_date)
     {
-        $this->db->select('
-            count(DISTINCT case when a.tanggal_printresi is not null THEN a.noresi END) total_scan_resi
-            , count(DISTINCT case when b.tanggal_resiambilbarang is not null THEN a.noresi END) total_pick_resi
-            , count(DISTINCT case when c.tanggal_packing is not null THEN a.noresi END) total_pack_resi
-            , count(DISTINCT case when d.tanggal_resikeluar is not null THEN a.noresi END) total_ho_resi
-        ');
+        // OPTIMIZED V5: 4 separate simple queries are much faster than 1 big join on large datasets
+        
+        // 1. Scan Resi
+        $q_scan = $this->db->select("COUNT(a.id_printresi) as num")
+                           ->where('a.tanggal_printresi >=', $start_date)
+                           ->where('a.tanggal_printresi <=', $end_date)
+                           ->get("tblprintresi a");
+        $total_scan = $q_scan->row()->num;
 
-        $this->db->join('tblresiambilbarang b', 'a.id_printresi = b.id_resi', 'left');
-        $this->db->join('tblpacking c', 'a.id_printresi = c.id_resi', 'left');
-        $this->db->join('tblresikeluar d', 'a.id_printresi = d.id_resi', 'left');
+        // 2. Pick Resi
+        $q_pick = $this->db->select("COUNT(b.id_resiambilbarang) as num")
+                           ->join('tblprintresi a', 'a.id_printresi = b.id_resi')
+                           ->where('a.tanggal_printresi >=', $start_date)
+                           ->where('a.tanggal_printresi <=', $end_date)
+                           ->get("tblresiambilbarang b");
+        $total_pick = $q_pick->row()->num;
 
-        $this->db->where('a.tanggal_printresi >=', $start_date);
-        $this->db->where('a.tanggal_printresi <=', $end_date);
+        // 3. Pack Resi
+        $q_pack = $this->db->select("COUNT(c.id_packing) as num")
+                           ->join('tblprintresi a', 'a.id_printresi = c.id_resi')
+                           ->where('a.tanggal_printresi >=', $start_date)
+                           ->where('a.tanggal_printresi <=', $end_date)
+                           ->get("tblpacking c");
+        $total_pack = $q_pack->row()->num;
 
-        return $this->db->get('tblprintresi a');
+        // 4. HO Resi
+        $q_ho = $this->db->select("COUNT(d.id_resikeluar) as num")
+                          ->join('tblprintresi a', 'a.id_printresi = d.id_resi')
+                          ->where('a.tanggal_printresi >=', $start_date)
+                          ->where('a.tanggal_printresi <=', $end_date)
+                          ->get("tblresikeluar d");
+        $total_ho = $q_ho->row()->num;
+
+        // Package result in a way that matches row_array() expected by controller
+        $result = new stdClass();
+        $result->total_scan_resi = $total_scan;
+        $result->total_pick_resi = $total_pick;
+        $result->total_pack_resi = $total_pack;
+        $result->total_ho_resi = $total_ho;
+
+        // Return a mock query object that works with ->row_array()
+        return new class($result) {
+            private $data;
+            public function __construct($data) { $this->data = $data; }
+            public function row_array() { return (array)$this->data; }
+        };
     }
 
     function destroy($id_printresi, $id_user)
@@ -1143,8 +1138,22 @@ class Receipt_fcd extends CI_Model
             };
             $combineDateTime = function ($date, $time) {
                 if (!$date || !$time) return null;
+
+                // 1. Try original format d/m/Y H:i:s
                 $dt = DateTime::createFromFormat('d/m/Y H:i:s', "$date $time");
-                return $dt ? $dt->format('Y-m-d H:i:s') : null;
+                if ($dt) return $dt->format('Y-m-d H:i:s');
+
+                // 2. Try Y-m-d H:i:s (ISO) usually from Excel general format
+                $dt = DateTime::createFromFormat('Y-m-d H:i:s', "$date $time");
+                if ($dt) return $dt->format('Y-m-d H:i:s');
+
+                // 3. Fallback to smart parsing
+                try {
+                    $dt = new DateTime("$date $time");
+                    return $dt->format('Y-m-d H:i:s');
+                } catch (Exception $e) {
+                    return null;
+                }
             };
 
             $courier_aliases = [
@@ -1263,7 +1272,7 @@ class Receipt_fcd extends CI_Model
                         $kurirRaw = $row['S'] ?? '';
                         $kurir = $detectCourier($kurirRaw);
                         // Override: if marketplace is Lazada but detected courier is JNE or Ninja, force Lazada courier
-                        if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja'], true)) {
+                        if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt'], true)) {
                             $kurir = 'lazada';
                         }
                         $id_kurir = $kurir_map[$kurir] ?? 99;
@@ -1303,7 +1312,7 @@ class Receipt_fcd extends CI_Model
                 $kurirRaw = $row['S'] ?? '';
                 $kurir = $detectCourier($kurirRaw);
                 // Override: if marketplace is Lazada but detected courier is JNE or Ninja, force Lazada courier
-                if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja'], true)) {
+                if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt'], true)) {
                     $kurir = 'lazada';
                 }
                 $id_kurir = $kurir_map[$kurir] ?? 99;
@@ -1313,12 +1322,13 @@ class Receipt_fcd extends CI_Model
 
                 // Header: one per noresi
                 if (!isset($batch_header_map[$noresi])) {
+                    $now = date('Y-m-d H:i:s');
                     $batch_header_map[$noresi] = [
                         'noresi'              => $noresi,
                         'id_marketplace'      => $id_marketplace,
                         'id_kurir'            => $id_kurir,
                         'admin_pegawai'       => $user_id,
-                        'tanggal_printresi'   => $combineDateTime($excelDateToPhpDate($row['F'] ?? ''), $excelTimeToPhpTime($row['G'] ?? '')),
+                        'tanggal_printresi'   => $now,
                         'tanggal_pesan'       => $combineDateTime($excelDateToPhpDate($row['D'] ?? null), $excelTimeToPhpTime($row['E'] ?? null)),
                         'tanggal_bataskirim'  => $combineDateTime($excelDateToPhpDate($row['H'] ?? null), $excelTimeToPhpTime($row['I'] ?? null)),
                         'tanggal_pengiriman'  => $combineDateTime($excelDateToPhpDate($row['J'] ?? null), $excelTimeToPhpTime($row['K'] ?? null)),
@@ -1328,7 +1338,7 @@ class Receipt_fcd extends CI_Model
                         'batal'               => '',
                         'keterangan'          => '',
                         'nomorpicklist'       => $row['C'] ?? '',
-                        'created_at'          => date('Y-m-d H:i:s'),
+                        'created_at'          => $now,
                         'created_by'          => $user_id
                     ];
                 }
@@ -1949,6 +1959,72 @@ class Receipt_fcd extends CI_Model
         $this->db->order_by('total_scan DESC');
         
         return $this->db->get();
+    }
+
+    function get_today_courier_totals()
+    {
+        $start_date = date('Y-m-d 00:00:00');
+        $end_date = date('Y-m-d 23:59:59');
+
+        $this->db->select('
+            coalesce(t3.nama_kurir, \'- Tidak diketahui -\') nama_kurir
+            , count(1) total
+        ');
+        $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi');
+        $this->db->join('tblkurir t3', 't3.id_kurir = t2.id_kurir', 'left');
+        $this->db->where('t.tanggal_resikeluar >=', $start_date);
+        $this->db->where('t.tanggal_resikeluar <=', $end_date);
+        $this->db->group_by('t3.nama_kurir');
+        $this->db->order_by('total', 'DESC');
+        return $this->db->get('tblresikeluar t')->result_array();
+    }
+
+    function get_upcoming_deadlines_breakdown($days = 5)
+    {
+        $start_date = date('Y-m-d');
+        $end_date = date('Y-m-d', strtotime("+$days days"));
+
+        $this->db->select('DATE(tanggal_bataskirim) as date, count(1) as total');
+        $this->db->from('tblprintresi');
+        $this->db->where('DATE(tanggal_bataskirim) >=', $start_date);
+        $this->db->where('DATE(tanggal_bataskirim) <=', $end_date);
+        $this->db->where("id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)", NULL, FALSE);
+        $this->db->group_by('DATE(tanggal_bataskirim)');
+        $query_results = $this->db->get()->result_array();
+
+        // Fill in missing dates with 0
+        $results = [];
+        $indexed_results = [];
+        foreach($query_results as $row) {
+            $indexed_results[$row['date']] = (int)$row['total'];
+        }
+
+        for ($i = 0; $i <= $days; $i++) {
+            $date = date('Y-m-d', strtotime("+$i days"));
+            $results[] = [
+                'date' => $date,
+                'total' => $indexed_results[$date] ?? 0
+            ];
+        }
+        return $results;
+    }
+
+    function get_today_production_target()
+    {
+        $today = date('Y-m-d');
+        $this->db->select('
+            COUNT(pr.id_printresi) as total,
+            COUNT(rab.id_resiambilbarang) as picked,
+            COUNT(p.id_packing) as packed,
+            COUNT(rk.id_resikeluar) as ho
+        ');
+        $this->db->from('tblprintresi pr');
+        $this->db->join('tblresiambilbarang rab', 'pr.id_printresi = rab.id_resi', 'left');
+        $this->db->join('tblpacking p', 'pr.id_printresi = p.id_resi', 'left');
+        $this->db->join('tblresikeluar rk', 'pr.id_printresi = rk.id_resi', 'left');
+        $this->db->where('DATE(pr.tanggal_bataskirim)', $today);
+        
+        return $this->db->get()->row_array();
     }
 }
 

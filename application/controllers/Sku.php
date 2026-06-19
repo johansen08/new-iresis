@@ -1,6 +1,8 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
 class Sku extends MY_Controller
 {
 
@@ -11,6 +13,86 @@ class Sku extends MY_Controller
     $this->load->model('sku_fcd');
     $this->load->model('param_fcd');
   }
+
+  public function upload_sku()
+  {
+      $this->show();
+  }
+
+  public function upload_sku_action()
+  {
+      // Buffer output to catch any unwanted echoes or warnings
+      ob_start();
+
+      try {
+          if ($this->input->method() !== 'post') {
+              throw new Exception(INVALID_REQUEST_METHOD);
+          }
+
+          if (!isset($_FILES['skuFile']) || $_FILES['skuFile']['error'] != 0) {
+              throw new Exception(FAILED_SAVE_DATA);
+          }
+
+          // Set proper limits for large file processing
+          ini_set('memory_limit', '3072M');
+          ini_set('max_execution_time', 0);
+          set_time_limit(0);
+
+          $user_id = $this->data['user']['id_user'] ?? null;
+          $upload_id = $this->input->post('upload_id') ?? '';
+          $file = $_FILES['skuFile']['tmp_name'];
+
+          // Assuming PhpSpreadsheet is autoloaded by CI configuration or index.php
+          
+          $reader = IOFactory::createReader(IOFactory::identify($file));
+          $reader->setReadDataOnly(true);
+          $spreadsheet = $reader->load($file);
+          $sheet = $spreadsheet->getActiveSheet();
+
+          // Get all rows
+          $dataRaw = $sheet->toArray(null, true, true, true);
+          
+          // Process insert/update
+          $result = $this->sku_fcd->insert_sku_upload($dataRaw, $user_id, $upload_id);
+
+          // Cleaning buffer before sending response
+          if (ob_get_length()) ob_clean(); 
+          
+          $this->make_ajax_response(200, $result);
+
+      } catch (Throwable $e) {
+          // Cleaning buffer before sending error response
+          if (ob_get_length()) ob_clean();
+
+          $error_message = "Error: " . $e->getMessage();
+          log_message('error', $error_message);
+          
+          $this->make_ajax_response(500, $error_message);
+      }
+      
+      // Flush just in case, though make_ajax_response exits
+      ob_end_flush();
+  }
+
+  public function get_progress_file($upload_id)
+  {
+      // Clean output just in case
+      if (ob_get_length()) ob_clean();
+      
+      header('Content-Type: application/json');
+      $file = sys_get_temp_dir() . '/sku_progress_' . preg_replace('/[^a-z0-9]/i', '', $upload_id);
+      
+      if (file_exists($file)) {
+          $content = file_get_contents($file);
+          echo $content; // This is now JSON
+      } else {
+          echo json_encode(['processed' => 0, 'total' => 0, 'remaining' => 0, 'percentage' => 0]);
+      }
+      exit();
+  }
+
+
+
 
   public function index()
   {

@@ -10,10 +10,11 @@
 
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-default.css" />
-	
-	<!-- CSS INCLUDE -->
+
+    <!-- CSS INCLUDE -->
     <link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-default.css" />
     <!-- EOF CSS INCLUDE -->
+
     <!-- STYLE OVERRIDE -->
     <style>
         html,
@@ -137,6 +138,12 @@
     <div class="login-container">
 
         <div class="login-box animated fadeInDown">
+            
+            <!-- Tambahan: Logo dan Subjudul -->
+            <div class="login-logo">IRESIS</div>
+            <div class="login-subtitle-text">Sistem Informasi Resi dan Stock</div>
+            <!-- End tambahan -->
+
             <div class="login-body">
                 <div class="login-title"><strong>Welcome</strong>, Please login</div>
 
@@ -176,14 +183,12 @@
                             <select name="status_performa" id="status_performa" class="form-control select" data-live-search="true" style="font-weight: bold;">
                                 <option value="" style="font-weight: bold;" selected disabled>-- Select Status Performa --</option>
                                 <?php foreach ($list_status_performa as $role => $statuses) : ?>
-                                    <!-- <optgroup label="<?= $role ?>"> -->
-                                        <?php foreach ($statuses as $status) : ?>
-                                            <option value="<?= $status['status_name'] ?>"><?= $status['status_name'] ?></option>
-                                        <?php endforeach; ?>
-                                    <!-- </optgroup> -->
+                                    <?php foreach ($statuses as $status) : ?>
+                                        <option value="<?= $status['status_name'] ?>"><?= $status['status_name'] ?></option>
+                                    <?php endforeach; ?>
                                 <?php endforeach; ?>
                             </select>
-                            <span class="help-block" style="color: #d9534f; margin-top: 5px; font-size: 12px;"><strong>* Status Performa wajib dipilih untuk menghindari kesalahan data</strong></span>
+                            <span class="help-block"><strong>* Status Performa wajib dipilih untuk menghindari kesalahan data</strong></span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -193,6 +198,7 @@
                     </div>
                 </form>
             </div>
+
             <div class="login-footer">
                 <div class="pull-left">
                     &copy; 2025 BEVERRA

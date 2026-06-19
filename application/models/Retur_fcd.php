@@ -670,6 +670,9 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = pr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresiretur tr', 'tr.noresi = br.resi_buka', 'left');
+        $this->db->join('tblkurir kr2', 'kr2.id_kurir = tr.id_kurir', 'left');
+        $this->db->join('tblmarketplace mp2', 'mp2.id_marketplace = tr.id_marketplace', 'left');
 
         // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
@@ -705,6 +708,9 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = pr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresiretur tr', 'tr.noresi = br.resi_buka', 'left');
+        $this->db->join('tblkurir kr2', 'kr2.id_kurir = tr.id_kurir', 'left');
+        $this->db->join('tblmarketplace mp2', 'mp2.id_marketplace = tr.id_marketplace', 'left');
 
         // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
@@ -718,7 +724,7 @@ class Retur_fcd extends CI_Model
     /**
      * Get Laporan Terima Retur (with pagination)
      */
-    function get_laporan_terima_retur($data, $start_date, $end_date, $id_kurir = null)
+    function get_laporan_terima_retur($data, $start_date, $end_date, $id_kurir = null, $status = 'Terima Retur')
     {
         // Build order clause
         if (!empty($data['order'])) {
@@ -737,7 +743,6 @@ class Retur_fcd extends CI_Model
             $this->db->group_end();
         }
 
-        // Select with joins
         $this->db->select('
             tr.id_resiretur,
             tr.noresi,
@@ -749,7 +754,8 @@ class Retur_fcd extends CI_Model
             dp.no_pesanan,
             pr.toko as nama_toko,
             dp.sku,
-            dp.jumlah
+            dp.jumlah,
+            dp.no_rak
         ');
 
         $this->db->from('tblresiretur tr');
@@ -758,8 +764,8 @@ class Retur_fcd extends CI_Model
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = tr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = tr.id_kurir', 'left');
 
-        // Filter by Terima Retur only - Use WHERE for better performance (can use index)
-        $this->db->where('tr.status_retur', 'Terima Retur');
+        // Filter by status
+        $this->db->where('tr.status_retur', $status);
 
         // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
@@ -783,9 +789,8 @@ class Retur_fcd extends CI_Model
     /**
      * Get total count Laporan Terima Retur
      */
-    function get_total_laporan_terima_retur($data, $start_date, $end_date, $id_kurir = null)
+    function get_total_laporan_terima_retur($data, $start_date, $end_date, $id_kurir = null, $status = 'Terima Retur')
     {
-        // Build search clause
         if (!empty($data['search'])) {
             $this->db->group_start();
             foreach ($data['valid_columns'] as $sterm) {
@@ -800,21 +805,14 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = tr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = tr.id_kurir', 'left');
-
-        // Filter by Terima Retur only - Use WHERE for better performance (can use index)
-        $this->db->where('tr.status_retur', 'Terima Retur');
-
-        // Filter by date range
+        $this->db->where('tr.status_retur', $status);
         if (!empty($start_date) && !empty($end_date)) {
             $this->db->where('tr.tanggal_resiretur >=', $start_date);
             $this->db->where('tr.tanggal_resiretur <=', $end_date);
         }
-
-        // Filter by kurir
         if (!empty($id_kurir)) {
             $this->db->where('tr.id_kurir', $id_kurir);
         }
-
         return $this->db->count_all_results();
     }
 
@@ -847,12 +845,13 @@ class Retur_fcd extends CI_Model
             br.tanggal_buka_retur as tanggal_resiretur,
             br.status_buka as status_retur,
             br.status_detail_buka as status_detail,
-            mp.nama_marketplace,
-            kr.nama_kurir,
-            dp.no_pesanan,
-            pr.toko as nama_toko,
+            COALESCE(mp.nama_marketplace, mp2.nama_marketplace) as nama_marketplace,
+            COALESCE(kr.nama_kurir, kr2.nama_kurir) as nama_kurir,
+            COALESCE(dp.no_pesanan, br.no_pesanan) as no_pesanan,
+            COALESCE(pr.toko, br.toko) as nama_toko,
             br.sku as sku,
-            br.qty as jumlah
+            br.qty as jumlah,
+            br.harga as harga
         ');
 
         $this->db->from('tblbukaretur br');
@@ -860,6 +859,9 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi AND dp.sku = br.sku', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = pr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresiretur tr', 'tr.noresi = br.resi_buka', 'left');
+        $this->db->join('tblkurir kr2', 'kr2.id_kurir = tr.id_kurir', 'left');
+        $this->db->join('tblmarketplace mp2', 'mp2.id_marketplace = tr.id_marketplace', 'left');
 
         // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
@@ -867,9 +869,12 @@ class Retur_fcd extends CI_Model
             $this->db->where('br.tanggal_buka_retur <=', $end_date);
         }
 
-        // Filter by kurir
+        // Filter by kurir (cek dari receipt atau dari data retur hasil import)
         if (!empty($id_kurir)) {
+            $this->db->group_start();
             $this->db->where('pr.id_kurir', $id_kurir);
+            $this->db->or_where('tr.id_kurir', $id_kurir);
+            $this->db->group_end();
         }
 
         // Pagination
@@ -885,7 +890,6 @@ class Retur_fcd extends CI_Model
      */
     function get_total_laporan_buka_retur($data, $start_date, $end_date, $id_kurir = null)
     {
-        // Build search clause
         if (!empty($data['search'])) {
             $this->db->group_start();
             foreach ($data['valid_columns'] as $sterm) {
@@ -900,18 +904,20 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi AND dp.sku = br.sku', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = pr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresiretur tr', 'tr.noresi = br.resi_buka', 'left');
+        $this->db->join('tblkurir kr2', 'kr2.id_kurir = tr.id_kurir', 'left');
+        $this->db->join('tblmarketplace mp2', 'mp2.id_marketplace = tr.id_marketplace', 'left');
 
-        // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
             $this->db->where('br.tanggal_buka_retur >=', $start_date);
             $this->db->where('br.tanggal_buka_retur <=', $end_date);
         }
-
-        // Filter by kurir
         if (!empty($id_kurir)) {
+            $this->db->group_start();
             $this->db->where('pr.id_kurir', $id_kurir);
+            $this->db->or_where('tr.id_kurir', $id_kurir);
+            $this->db->group_end();
         }
-
         return $this->db->count_all_results();
     }
 
@@ -970,12 +976,13 @@ class Retur_fcd extends CI_Model
             br.tanggal_buka_retur as tanggal_resiretur,
             br.status_buka as status_retur,
             br.status_detail_buka as status_detail,
-            mp.nama_marketplace,
-            kr.nama_kurir,
-            dp.no_pesanan,
-            pr.toko as nama_toko,
+            COALESCE(mp.nama_marketplace, mp2.nama_marketplace) as nama_marketplace,
+            COALESCE(kr.nama_kurir, kr2.nama_kurir) as nama_kurir,
+            COALESCE(dp.no_pesanan, br.no_pesanan) as no_pesanan,
+            COALESCE(pr.toko, br.toko) as nama_toko,
             br.sku as sku,
-            br.qty as jumlah
+            br.qty as jumlah,
+            br.harga as harga
         ');
 
         $this->db->from('tblbukaretur br');
@@ -983,6 +990,9 @@ class Retur_fcd extends CI_Model
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi AND dp.sku = br.sku', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = pr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresiretur tr', 'tr.noresi = br.resi_buka', 'left');
+        $this->db->join('tblkurir kr2', 'kr2.id_kurir = tr.id_kurir', 'left');
+        $this->db->join('tblmarketplace mp2', 'mp2.id_marketplace = tr.id_marketplace', 'left');
 
         // Filter by date range
         if (!empty($start_date) && !empty($end_date)) {
@@ -990,9 +1000,12 @@ class Retur_fcd extends CI_Model
             $this->db->where('br.tanggal_buka_retur <=', $end_date);
         }
 
-        // Filter by kurir
+        // Filter by kurir (cek dari receipt atau dari data retur hasil import)
         if (!empty($id_kurir)) {
+            $this->db->group_start();
             $this->db->where('pr.id_kurir', $id_kurir);
+            $this->db->or_where('tr.id_kurir', $id_kurir);
+            $this->db->group_end();
         }
 
         $this->db->order_by('br.tanggal_buka_retur', 'DESC');
@@ -1040,6 +1053,411 @@ class Retur_fcd extends CI_Model
         return $query->result();
     }
 
+    // ==================== DASHBOARD TIM RETUR ====================
+
+    function dashboard_summary($start, $end)
+    {
+        $r = [];
+
+        // Retur Tadro = belum diterima (perlu DITERIMA)
+        $this->db->where('status_retur', 'Retur Tadro')
+            ->where('tanggal_resiretur >=', $start)->where('tanggal_resiretur <=', $end);
+        $r['tadro'] = $this->db->count_all_results('tblresiretur');
+
+        // Terima Retur = sudah diterima, belum dibuka (perlu DIBUKA)
+        $this->db->where('status_retur', 'Terima Retur')
+            ->where('tanggal_resiretur >=', $start)->where('tanggal_resiretur <=', $end);
+        $r['belum_dibuka'] = $this->db->count_all_results('tblresiretur');
+
+        // Buka Retur = sudah dibuka (selesai)
+        $this->db->where('tanggal_buka_retur >=', $start)->where('tanggal_buka_retur <=', $end);
+        $r['buka'] = $this->db->count_all_results('tblbukaretur');
+
+        // Total semua retur (gabungan) dalam rentang
+        $this->db->where('tanggal_resiretur >=', $start)->where('tanggal_resiretur <=', $end);
+        $r['total_retur'] = $this->db->count_all_results('tblresiretur');
+
+        $this->db->where('created_at >=', $start)->where('created_at <=', $end);
+        $r['complain'] = $this->db->count_all_results('tblreturcomplain');
+
+        $row = $this->db->select('COALESCE(SUM(harga*qty),0) as total', false)
+            ->where('tanggal_buka_retur >=', $start)->where('tanggal_buka_retur <=', $end)
+            ->get('tblbukaretur')->row();
+        $r['tagihan'] = $row ? (float) $row->total : 0;
+
+        return $r;
+    }
+
+    function dashboard_trend($start, $end)
+    {
+        $terima = $this->db->select('DATE(tanggal_resiretur) as tgl, COUNT(*) as n', false)
+            ->where('tanggal_resiretur >=', $start)->where('tanggal_resiretur <=', $end)
+            ->group_by('DATE(tanggal_resiretur)', false)->order_by('tgl', 'ASC')
+            ->get('tblresiretur')->result();
+
+        $buka = $this->db->select('DATE(tanggal_buka_retur) as tgl, COUNT(*) as n', false)
+            ->where('tanggal_buka_retur >=', $start)->where('tanggal_buka_retur <=', $end)
+            ->group_by('DATE(tanggal_buka_retur)', false)->order_by('tgl', 'ASC')
+            ->get('tblbukaretur')->result();
+
+        return ['terima' => $terima, 'buka' => $buka];
+    }
+
+    function dashboard_by_kurir($start, $end)
+    {
+        return $this->db->select("COALESCE(kr.nama_kurir, 'Lainnya') as label, COUNT(*) as n", false)
+            ->from('tblresiretur tr')
+            ->join('tblkurir kr', 'kr.id_kurir = tr.id_kurir', 'left')
+            ->where('tr.tanggal_resiretur >=', $start)->where('tr.tanggal_resiretur <=', $end)
+            ->group_by('tr.id_kurir')->order_by('n', 'DESC')->limit(8)
+            ->get()->result();
+    }
+
+    function dashboard_by_marketplace($start, $end)
+    {
+        return $this->db->select("COALESCE(mp.nama_marketplace, 'Lainnya') as label, COUNT(*) as n", false)
+            ->from('tblresiretur tr')
+            ->join('tblmarketplace mp', 'mp.id_marketplace = tr.id_marketplace', 'left')
+            ->where('tr.tanggal_resiretur >=', $start)->where('tr.tanggal_resiretur <=', $end)
+            ->group_by('tr.id_marketplace')->order_by('n', 'DESC')->limit(8)
+            ->get()->result();
+    }
+
+    function dashboard_status_buka($start, $end)
+    {
+        return $this->db->select("COALESCE(NULLIF(status_detail_buka,''),'-') as label, COUNT(*) as n", false)
+            ->where('tanggal_buka_retur >=', $start)->where('tanggal_buka_retur <=', $end)
+            ->group_by('status_detail_buka')->order_by('n', 'DESC')
+            ->get('tblbukaretur')->result();
+    }
+
+    function dashboard_top_sku($start, $end)
+    {
+        return $this->db->select('sku as label, SUM(qty) as n', false)
+            ->where('tanggal_buka_retur >=', $start)->where('tanggal_buka_retur <=', $end)
+            ->where('sku IS NOT NULL', null, false)->where("sku !=", '')
+            ->group_by('sku')->order_by('n', 'DESC')->limit(10)
+            ->get('tblbukaretur')->result();
+    }
+
+    // ==================== AKSI INLINE DI LAPORAN (progres status) ====================
+
+    /**
+     * Naikkan status retur dari laporan: 'terima' (Tadro->Terima) atau 'buka' (Terima->Buka).
+     * Untuk 'buka', sekaligus buat baris detail buka dari SKU resi (status DEFAULT) bila belum ada.
+     */
+    function progress_retur_status($noresi, $action, $user_id)
+    {
+        $noresi = strtoupper(trim($noresi));
+        if ($noresi === '') return ['error' => 'Nomor resi kosong'];
+
+        $row = $this->db->select('id_resiretur, status_retur')
+            ->get_where('tblresiretur', ['noresi' => $noresi])->row_array();
+        if (empty($row)) return ['error' => 'Resi tidak ditemukan di data retur'];
+
+        $now = date('Y-m-d H:i:s');
+
+        if ($action === 'terima') {
+            $this->db->where('id_resiretur', $row['id_resiretur'])->update('tblresiretur', [
+                'status_retur'      => 'Terima Retur',
+                'tanggal_resiretur' => $now,
+                'id_pegawai'        => $user_id,
+            ]);
+            return ['ok' => "Resi $noresi ditandai Terima Retur"];
+        }
+
+        if ($action === 'buka') {
+            $this->db->where('id_resiretur', $row['id_resiretur'])->update('tblresiretur', [
+                'status_retur'      => 'Buka Retur',
+                'tanggal_resiretur' => $now,
+                'id_pegawai'        => $user_id,
+            ]);
+
+            // Buat detail buka bila belum ada
+            $exists = $this->db->where('resi_buka', $noresi)->count_all_results('tblbukaretur');
+            if ($exists == 0) {
+                $skus = [];
+                $receipt = $this->db->select('id_printresi')
+                    ->get_where('tblprintresi', ['noresi' => $noresi])->row_array();
+                if (!empty($receipt)) {
+                    $skus = $this->db->select('sku, jumlah')
+                        ->get_where('tbldetailprintresi', ['id_resi' => $receipt['id_printresi']])->result();
+                }
+                if (!empty($skus)) {
+                    foreach ($skus as $s) {
+                        $this->db->insert('tblbukaretur', [
+                            'status_buka' => 'Buka Retur', 'status_detail_buka' => 'DEFAULT',
+                            'resi_buka' => $noresi, 'sku' => $s->sku, 'qty' => $s->jumlah,
+                            'sumber_input' => 'laporan', 'hasil_scan_buka' => $noresi,
+                            'tanggal_buka_retur' => $now, 'id_pegawai' => $user_id, 'created_at' => $now,
+                        ]);
+                    }
+                } else {
+                    $this->db->insert('tblbukaretur', [
+                        'status_buka' => 'Buka Retur', 'status_detail_buka' => 'DEFAULT',
+                        'resi_buka' => $noresi, 'sku' => null, 'qty' => null,
+                        'sumber_input' => 'laporan', 'hasil_scan_buka' => $noresi,
+                        'tanggal_buka_retur' => $now, 'id_pegawai' => $user_id, 'created_at' => $now,
+                    ]);
+                }
+            }
+            return ['ok' => "Resi $noresi ditandai Buka Retur"];
+        }
+
+        return ['error' => 'Aksi tidak valid'];
+    }
+
+    // ==================== IMPORT / SUNTIK RETUR DARI EXCEL ====================
+
+    /**
+     * Normalisasi nama kurir dari Excel ke id_kurir di tblkurir.
+     * jnt-<nama> => JNT, shopee => SHOPEE, sisanya dicocokkan by nama.
+     * @return array [id_kurir, found(bool)]
+     */
+    private function _normalize_kurir($raw, $kurir_map)
+    {
+        $name = strtoupper(trim((string) $raw));
+        if ($name === '' || $name === 'N/A' || $name === '-') return [0, false]; // blank -> N/A
+
+        // Semua "LEX" / "LEX - XXX" = LAZADA (Lazada Express)
+        if (strpos($name, 'LEX') !== false) {
+            return [$kurir_map['LAZADA'] ?? 0, isset($kurir_map['LAZADA'])];
+        }
+
+        $hit = function ($key) use ($kurir_map) {
+            return [$kurir_map[$key] ?? 0, isset($kurir_map[$key])];
+        };
+
+        if (strpos($name, 'JNT') !== false || strpos($name, 'J&T') !== false) return $hit('JNT');
+        if (strpos($name, 'SPX') !== false || strpos($name, 'SHOPEE') !== false) return $hit('SHOPEE');
+        if (strpos($name, 'JNE') !== false) return $hit('JNE');
+        if (strpos($name, 'NINJA') !== false) return $hit('NINJA');
+        if (strpos($name, 'GOTO') !== false || strpos($name, 'GO-TO') !== false || strpos($name, 'GO TO') !== false) return $hit('GOTO');
+        if (strpos($name, 'SICEPAT') !== false) return $hit('SICEPAT');
+        if (strpos($name, 'ANTERAJA') !== false) return $hit('ANTERAJA');
+        if (strpos($name, 'IDEXPRESS') !== false || strpos($name, 'ID EXPRESS') !== false) return $hit('ID EXPRESS');
+        if (strpos($name, 'LAZADA') !== false) return $hit('LAZADA');
+        if (strpos($name, 'WAHANA') !== false) return $hit('WAHANA');
+        if (strpos($name, 'SAPX') !== false) return $hit('SAPX');
+        if (strpos($name, 'REX') !== false) return $hit('REX');
+
+        // exact match nama kurir
+        if (isset($kurir_map[$name])) return [$kurir_map[$name], true];
+
+        // partial match
+        foreach ($kurir_map as $kname => $kid) {
+            if ($kname !== '' && (strpos($name, $kname) !== false || strpos($kname, $name) !== false)) {
+                return [$kid, true];
+            }
+        }
+        return [0, false];
+    }
+
+    /**
+     * Parse kolom TOKO dari Excel menjadi [id_marketplace|null, nama_toko].
+     * Contoh: "Shop | Tokopedia - TT YARRA STORE" => [Tiktok, "TT YARRA STORE"]
+     *         "Shopee - Yarra Store"             => [Shopee, "Yarra Store"]
+     * Prefix "Shop |" dianggap TikTok Shop. Toko = teks setelah " - " terakhir.
+     */
+    private function _parse_toko_marketplace($raw, $mp_map)
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') return [null, null];
+
+        $low = strtolower($raw);
+
+        // Deteksi marketplace
+        $mpname = null;
+        if (preg_match('/^shop\s*\|/', $low) || strpos($low, 'tiktok') !== false || strpos($low, 'tt shop') !== false) {
+            $mpname = 'tiktok';
+        } elseif (strpos($low, 'shopee') !== false) {
+            $mpname = 'shopee';
+        } elseif (strpos($low, 'tokopedia') !== false || strpos($low, 'tokped') !== false) {
+            $mpname = 'tokopedia';
+        } elseif (strpos($low, 'lazada') !== false) {
+            $mpname = 'lazada';
+        } elseif (strpos($low, 'akulaku') !== false) {
+            $mpname = 'akulaku';
+        } elseif (strpos($low, 'reseller') !== false) {
+            $mpname = 'reseller';
+        } elseif (strpos($low, 'shop') !== false) {
+            $mpname = 'tiktok'; // "Shop" tanpa shopee dianggap TikTok Shop
+        }
+        $mp_id = ($mpname !== null && isset($mp_map[$mpname])) ? $mp_map[$mpname] : null;
+
+        // Ambil nama toko: teks setelah " - " terakhir
+        $toko = $raw;
+        if (strpos($raw, ' - ') !== false) {
+            $parts = explode(' - ', $raw);
+            $toko = trim(end($parts));
+        }
+        // Bersihkan sisa prefix "X | "
+        if (strpos($toko, '|') !== false) {
+            $p = explode('|', $toko);
+            $toko = trim(end($p));
+        }
+        if ($toko === '') $toko = null;
+
+        return [$mp_id, $toko];
+    }
+
+    /**
+     * Suntik data retur dari Excel (sudah dimapping di controller).
+     * - Tanggal terima  -> buat/upsert tblresiretur (Terima Retur)
+     * - Tanggal buka     -> insert tblbukaretur (Buka Retur, harga) + status jadi Buka Retur
+     * - Kurir dinormalkan; resi dicari di tblprintresi (kalau ada id_resi/marketplace terisi)
+     *
+     * @return array ringkasan hasil import
+     */
+    function import_retur_excel($rows, $user_id)
+    {
+        $now = date('Y-m-d H:i:s');
+        $summary = [
+            'total'           => 0,
+            'tadro'           => 0,  // baris status Retur Tadro (belum terima & belum buka)
+            'terima'          => 0,  // baris status Terima Retur (sudah terima, belum buka)
+            'buka'            => 0,  // baris Buka Retur (sudah dibuka)
+            'resi_baru'       => 0,
+            'resi_update'     => 0,
+            'resi_not_found'  => 0,
+            'kurir_not_found' => 0,
+            'skipped'         => 0,
+        ];
+
+        // Cache map kurir (nama uppercase => id)
+        $kurir_map = [];
+        foreach ($this->db->select('id_kurir, nama_kurir')->get('tblkurir')->result() as $k) {
+            $kurir_map[strtoupper(trim($k->nama_kurir))] = $k->id_kurir;
+        }
+
+        // Cache map marketplace (nama lowercase => id)
+        $mp_map = [];
+        foreach ($this->db->select('id_marketplace, nama_marketplace')->get('tblmarketplace')->result() as $m) {
+            $mp_map[strtolower(trim($m->nama_marketplace))] = $m->id_marketplace;
+        }
+
+        // Bungkus semua insert/update dalam 1 transaksi -> commit sekali (jauh lebih cepat)
+        $this->db->trans_start();
+
+        foreach ($rows as $r) {
+            $noresi = strtoupper(trim($r['noresi'] ?? ''));
+            if ($noresi === '') { $summary['skipped']++; continue; }
+
+            $tgl_terima = !empty($r['tgl_terima'])  ? $r['tgl_terima']  : null;
+            $tgl_buka   = !empty($r['tgl_buka'])    ? $r['tgl_buka']    : null;
+            $tgl_pesan  = !empty($r['tgl_pesanan']) ? $r['tgl_pesanan'] : null;
+
+            $summary['total']++;
+
+            $sku        = trim((string) ($r['sku'] ?? ''));
+            $qty        = is_numeric($r['qty'] ?? null) ? (int) $r['qty'] : null;
+            $no_pesanan = trim((string) ($r['no_pesanan'] ?? ''));
+            $harga      = is_numeric($r['harga'] ?? null) ? $r['harga'] : null;
+
+            // Parse kolom TOKO -> marketplace + nama toko bersih
+            list($mp_id, $toko) = $this->_parse_toko_marketplace($r['toko'] ?? '', $mp_map);
+
+            list($id_kurir, $kurir_found) = $this->_normalize_kurir($r['kurir'] ?? '', $kurir_map);
+            if (!$kurir_found) $summary['kurir_not_found']++;
+
+            // Cari resi di tblprintresi
+            $receipt = $this->db->select('id_printresi, id_marketplace')
+                ->get_where('tblprintresi', ['noresi' => $noresi])->row_array();
+            if (empty($receipt)) {
+                $summary['resi_not_found']++;
+                $id_resi = 0;
+                $id_marketplace = $mp_id; // pakai hasil parse Excel karena resi tak ada di sistem
+            } else {
+                $id_resi = $receipt['id_printresi'];
+                $id_marketplace = !empty($receipt['id_marketplace']) ? $receipt['id_marketplace'] : $mp_id;
+            }
+
+            // Tentukan status pipeline: Retur Tadro -> Terima Retur -> Buka Retur
+            $has_buka   = !empty($tgl_buka);
+            $has_terima = !empty($tgl_terima);
+            if ($has_buka) {
+                $status_retur = 'Buka Retur';
+                $tanggal_resiretur = $tgl_terima ?: $tgl_buka;
+            } elseif ($has_terima) {
+                $status_retur = 'Terima Retur';
+                $tanggal_resiretur = $tgl_terima;
+            } else {
+                // Belum terima & belum buka = RETUR TADRO (acuan tanggal: tgl pesanan / waktu upload)
+                $status_retur = 'Retur Tadro';
+                $tanggal_resiretur = $tgl_pesan ?: $now;
+            }
+
+            // Hitung per status baris
+            if ($status_retur === 'Retur Tadro')      $summary['tadro']++;
+            elseif ($status_retur === 'Terima Retur') $summary['terima']++;
+
+            // Upsert tblresiretur per noresi (1 baris per resi), tanpa downgrade status
+            $rank = ['Retur Tadro' => 1, 'Terima Retur' => 2, 'Buka Retur' => 3];
+            $existing = $this->db->select('id_resiretur, status_retur')
+                ->get_where('tblresiretur', ['noresi' => $noresi])->row_array();
+            if (empty($existing)) {
+                $this->db->insert('tblresiretur', [
+                    'tanggal_resiretur' => $tanggal_resiretur,
+                    'sudah_cetak'       => '',
+                    'id_resi'           => $id_resi,
+                    'id_kurir'          => $id_kurir,
+                    'id_pegawai'        => $user_id,
+                    'id_marketplace'    => $id_marketplace,
+                    'noresi'            => $noresi,
+                    'status_detail'     => null,
+                    'status_retur'      => $status_retur,
+                ]);
+                $summary['resi_baru']++;
+            } else {
+                $upd = ['id_kurir' => $id_kurir];
+                if (!empty($id_resi)) $upd['id_resi'] = $id_resi;
+                if (!empty($id_marketplace)) $upd['id_marketplace'] = $id_marketplace;
+                // hanya naikkan status (jangan turunkan)
+                $cur = $existing['status_retur'] ?: 'Retur Tadro';
+                if (($rank[$status_retur] ?? 0) > ($rank[$cur] ?? 0)) {
+                    $upd['status_retur'] = $status_retur;
+                    $upd['tanggal_resiretur'] = $tanggal_resiretur;
+                }
+                $this->db->where('id_resiretur', $existing['id_resiretur'])->update('tblresiretur', $upd);
+                $summary['resi_update']++;
+            }
+
+            // Detail buka retur (per resi + sku)
+            if ($has_buka) {
+                $exists_buka = $this->db
+                    ->get_where('tblbukaretur', ['resi_buka' => $noresi, 'sku' => $sku])->row_array();
+                $buka_data = [
+                    'status_buka'        => 'Buka Retur',
+                    'status_detail_buka' => 'DEFAULT',
+                    'resi_buka'          => $noresi,
+                    'sku'                => $sku,
+                    'qty'                => $qty,
+                    'harga'              => $harga,
+                    'no_pesanan'         => $no_pesanan ?: null,
+                    'toko'               => $toko ?: null,
+                    'sumber_input'       => 'import',
+                    'hasil_scan_buka'    => $noresi,
+                    'tanggal_buka_retur' => $tgl_buka,
+                    'id_pegawai'         => $user_id,
+                ];
+                if (empty($exists_buka)) {
+                    $buka_data['created_at'] = $now;
+                    $this->db->insert('tblbukaretur', $buka_data);
+                } else {
+                    $buka_data['updated_at'] = $now;
+                    $this->db->where('id_bukaretur', $exists_buka['id_bukaretur'])
+                        ->update('tblbukaretur', $buka_data);
+                }
+                $summary['buka']++;
+            }
+        }
+
+        $this->db->trans_complete();
+        $summary['db_success'] = $this->db->trans_status();
+
+        return $summary;
+    }
+
     // ==================== VALIDASI / REKONSILIASI JUBELIO ====================
 
     /**
@@ -1057,6 +1475,8 @@ class Retur_fcd extends CI_Model
         $inserted = 0;
         $matched = 0;
         $insert_data = array();
+
+        $this->db->trans_start();
 
         foreach ($rows as $r) {
             $no_resi = strtoupper(trim($r['no_resi'] ?? ''));
@@ -1122,6 +1542,8 @@ class Retur_fcd extends CI_Model
         if (!empty($insert_data)) {
             $this->db->insert_batch('tblreturjubelio', $insert_data);
         }
+
+        $this->db->trans_complete();
 
         return array('inserted' => $inserted, 'matched' => $matched);
     }
@@ -1223,6 +1645,42 @@ class Retur_fcd extends CI_Model
         $this->db->group_by('tr.noresi');
 
         return $this->db->get()->result();
+    }
+
+    /**
+     * Set / batalkan verifikasi sebuah resi (Step 3 Accounting).
+     */
+    function set_verifikasi($no_resi, $verified, $user_id, $catatan = null)
+    {
+        $no_resi = strtoupper(trim($no_resi));
+        if ($no_resi === '') return false;
+
+        $existing = $this->db->get_where('tblreturverifikasi', ['no_resi' => $no_resi])->row_array();
+        $data = [
+            'verified'    => $verified ? 1 : 0,
+            'catatan'     => $catatan,
+            'verified_by' => $user_id,
+            'verified_at' => date('Y-m-d H:i:s'),
+        ];
+        if (!empty($existing)) {
+            $this->db->where('id', $existing['id'])->update('tblreturverifikasi', $data);
+        } else {
+            $data['no_resi'] = $no_resi;
+            $this->db->insert('tblreturverifikasi', $data);
+        }
+        return true;
+    }
+
+    /**
+     * Ambil semua resi yang sudah diverifikasi (untuk merge ke rekonsiliasi).
+     */
+    function get_verifikasi_list()
+    {
+        return $this->db->select('v.no_resi, v.verified, v.catatan, v.verified_at, u.username', false)
+            ->from('tblreturverifikasi v')
+            ->join('tbluser u', 'u.id_user = v.verified_by', 'left')
+            ->where('v.verified', 1)
+            ->get()->result();
     }
 
     /**

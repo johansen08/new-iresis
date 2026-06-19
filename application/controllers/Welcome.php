@@ -16,6 +16,9 @@ class Welcome extends MY_Controller
 		$this->load->helper('menu_helper');
 
 		$data['header_daily_report'] = $this->receipt_fcd->get_header_daily_report(date('Y-m-d 00:00:00'), date('Y-m-d H:i:s'))->row_array();
+		$data['courier_totals'] = $this->receipt_fcd->get_today_courier_totals();
+		$data['deadlines_breakdown'] = $this->receipt_fcd->get_upcoming_deadlines_breakdown(5);
+		$data['production_today'] = $this->receipt_fcd->get_today_production_target();
 
 		$this->data['user'] = $this->session->userdata('user');
 		$this->data['nama_pk'] = $this->session->userdata('nama_pk');

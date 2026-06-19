@@ -25,11 +25,22 @@ class Packer extends MY_Controller
         $data['komputer_packer'] = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : (isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : '-');
 
         if ($this->input->method() == 'post') {
-            $noresi = $this->input->post('noresi');
+            $noresi = trim($this->input->post('noresi'));
 
             $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
             $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
             $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
+
+            // Handle double scan requirement (scan twice to auto save)
+            $scan_feedback = $this->handle_double_scan_state($noresi);
+            if ($scan_feedback) {
+                $data['scan_feedback'] = $scan_feedback;
+            }
+
+            // Refresh total scan count if auto save happened
+            if (!empty($scan_feedback['auto_saved'])) {
+                $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+            }
 
             // Always update total_scan from current user
             if($packer_scan) {
@@ -190,36 +201,9 @@ class Packer extends MY_Controller
 			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
 		}
 
-		$packer['noresi'] = $this->input->post('noresi');
-		
-		// Prioritas: 1) Status dari POST, 2) Status dari session user, 3) Default NORMAL
-		$status_performa_code = $this->input->post('status_performa');
-		
-		if (!empty($status_performa_code)) {
-			// Jika user memilih status dari dropdown
-			$this->load->model('kpi_fcd');
-			$status_id = $this->kpi_fcd->get_status_id_by_name($status_performa_code);
-			if ($status_id) {
-				$packer['status_performa_id'] = $status_id;
-			}
-		} else {
-			// Cek status dari session user (yang di-set saat login)
-			$user_status_performa = $this->session->userdata('user_status_performa');
-			
-			if ($user_status_performa && isset($user_status_performa->id_statusperforma)) {
-				// Gunakan status dari session
-				$packer['status_performa_id'] = $user_status_performa->id_statusperforma;
-			} else {
-				// Fallback ke NORMAL jika tidak ada status sama sekali
-				$this->load->model('kpi_fcd');
-				$normal_status_id = $this->kpi_fcd->get_status_id_by_name('NORMAL_PACKER');
-				if ($normal_status_id) {
-					$packer['status_performa_id'] = $normal_status_id;
-				}
-			}
-		}
-
-		$save = $this->packer_fcd->save($packer, $this->data['user']);
+        $noresi = $this->input->post('noresi');
+        $status_performa_code = $this->input->post('status_performa');
+        $save = $this->process_packer_save($noresi, $status_performa_code);
 
 		if (isset($save['error'])) {
 			$this->make_ajax_response($save['code'], $save['message']);
@@ -307,4 +291,119 @@ class Packer extends MY_Controller
 			echo json_encode(['status' => 'expired']);
 		}
 	}
+
+    /**
+     * Determine double scan flow (requires identical resi to be submitted twice)
+     */
+    private function handle_double_scan_state($noresi)
+    {
+        if (empty($noresi)) {
+            return null;
+        }
+
+        $current_state = $this->session->userdata('packer_double_scan');
+        if (!is_array($current_state)) {
+            $current_state = ['resi' => null, 'count' => 0];
+        }
+        $previous_state = $current_state;
+
+        if ($current_state['resi'] === $noresi) {
+            $current_state['count'] = isset($current_state['count']) ? $current_state['count'] + 1 : 1;
+        } else {
+            $current_state = ['resi' => $noresi, 'count' => 1];
+        }
+
+        $feedback = null;
+
+        if ($current_state['count'] >= 2) {
+            $save = $this->process_packer_save($noresi);
+
+            if (isset($save['error'])) {
+                $feedback = [
+                    'status' => 'auto_save_failed',
+                    'type' => 'error',
+                    'message' => $save['message'],
+                    'auto_saved' => false
+                ];
+            } else {
+                $feedback = [
+                    'status' => 'auto_save_success',
+                    'type' => 'success',
+                    'message' => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
+                    'auto_saved' => true
+                ];
+            }
+
+            $current_state = ['resi' => null, 'count' => 0];
+        } else {
+            $status = 'need_second_scan';
+            $type = 'warning';
+            $message = 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.';
+
+            if (!empty($previous_state['resi']) && $previous_state['resi'] !== $noresi && (isset($previous_state['count']) && $previous_state['count'] === 1)) {
+                $status = 'scan_restarted';
+                $type = 'information';
+                $message = 'Nomor resi berubah dari ' . $previous_state['resi'] . ' ke ' . $noresi . '. Scan resi baru ini sekali lagi untuk menyimpan.';
+            }
+
+            $feedback = [
+                'status' => $status,
+                'type' => $type,
+                'message' => $message,
+                'auto_saved' => false
+            ];
+        }
+
+        $this->session->set_userdata('packer_double_scan', $current_state);
+
+        return $feedback;
+    }
+
+    /**
+     * Wrapper to reuse save logic both for ajax endpoint and double scan auto save
+     */
+    private function process_packer_save($noresi, $status_performa_code = null)
+    {
+        if (empty($noresi)) {
+            return ['error' => true, 'code' => 400, 'message' => 'Nomor resi tidak boleh kosong'];
+        }
+
+        $packer = ['noresi' => $noresi];
+        $status_id = $this->determine_status_performa_id($status_performa_code);
+        if ($status_id) {
+            $packer['status_performa_id'] = $status_id;
+        }
+
+        return $this->packer_fcd->save($packer, $this->data['user']);
+    }
+
+    /**
+     * Resolve status performa id by priority
+     */
+    private function determine_status_performa_id($status_performa_code = null)
+    {
+        // Prioritas: 1) Status dari parameter, 2) Status session user, 3) Default NORMAL_PACKER
+        if (!empty($status_performa_code)) {
+            $this->load_kpi_model_if_needed();
+            $status_id = $this->kpi_fcd->get_status_id_by_name($status_performa_code);
+            if ($status_id) {
+                return $status_id;
+            }
+        }
+
+        $user_status_performa = $this->session->userdata('user_status_performa');
+        if ($user_status_performa && isset($user_status_performa->id_statusperforma)) {
+            return $user_status_performa->id_statusperforma;
+        }
+
+        $this->load_kpi_model_if_needed();
+        return $this->kpi_fcd->get_status_id_by_name('NORMAL_PACKER');
+    }
+
+    private function load_kpi_model_if_needed()
+    {
+        if (!isset($this->kpi_fcd)) {
+            $this->load->model('kpi_fcd');
+        }
+    }
 }

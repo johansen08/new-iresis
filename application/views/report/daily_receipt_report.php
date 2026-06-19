@@ -101,6 +101,11 @@
 
         <table class="table table-striped table-bordered" id="datatable-report-receipt-daily">
           <thead>
+            <?php $grand_total_scan = isset($header['total_scan_resi']) ? (int) $header['total_scan_resi'] : 0; ?>
+            <tr>
+              <th class="text-right" colspan="18">Grand Total Resi</th>
+              <th class="text-center"><?= number_format($grand_total_scan) ?></th>
+            </tr>
             <tr>
               <?php
               $not_pick_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_pick_resi']) / $header['total_scan_resi'] * 100;

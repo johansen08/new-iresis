@@ -49,6 +49,7 @@ class Report extends MY_Controller
 			4 => 't.noresi',
 			5 => 't4.nama_kurir',
 			6 => 't.nomorpicklist',
+			7 => 't.status_pesanan',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -68,6 +69,7 @@ class Report extends MY_Controller
 				$row->noresi,
 				$row->nama_kurir,
 				$row->nomorpicklist,
+				$row->status_pesanan,
 			);
 		}
 
@@ -75,7 +77,8 @@ class Report extends MY_Controller
 			"draw" => $draw,
 			"recordsTotal" => $total,
 			"recordsFiltered" => $total,
-			"data" => $data
+			"data" => $data,
+			"grandTotal" => $total
 		);
 		echo json_encode($output);
 		exit();
@@ -112,9 +115,10 @@ class Report extends MY_Controller
 			4 => 't2.noresi',
 			5 => 't4.nama_kurir',
 			6 => 't2.nomorpicklist',
-			7 => 't.tanggal_resiambilbarang',
+			7 => 't2.status_pesanan',
 			8 => 't.tanggal_resiambilbarang',
-			9 => 't5.nama_pegawai',
+			9 => 't.tanggal_resiambilbarang',
+			10 => 't5.nama_pegawai',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -134,6 +138,7 @@ class Report extends MY_Controller
 				$row->noresi,
 				$row->nama_kurir,
 				$row->nomorpicklist,
+				$row->status_pesanan,
 				empty($row->tanggal_resiambilbarang) ? null : date('Y-m-d', strtotime($row->tanggal_resiambilbarang)),
 				empty($row->tanggal_resiambilbarang) ? null : date('H:i:s', strtotime($row->tanggal_resiambilbarang)),
 				$row->picker
@@ -144,7 +149,8 @@ class Report extends MY_Controller
 			"draw" => $draw,
 			"recordsTotal" => $total,
 			"recordsFiltered" => $total,
-			"data" => $data
+			"data" => $data,
+			"grandTotal" => $total
 		);
 		echo json_encode($output);
 		exit();
@@ -179,12 +185,13 @@ class Report extends MY_Controller
 			2 => 't2.tanggal_printresi',
 			3 => 't2.tanggal_printresi',
 			4 => 't2.noresi',
-			5 => 't5.nama_kurir',
-			6 => 't2.nomorpicklist',
-			7 => 't3.tanggal_resiambilbarang',
+			5 => 't2.status_pesanan',
+			6 => 't5.nama_kurir',
+			7 => 't2.nomorpicklist',
 			8 => 't3.tanggal_resiambilbarang',
-			9 => 't6.nama_pegawai',
-			10 => 't7.name',
+			9 => 't3.tanggal_resiambilbarang',
+			10 => 't6.nama_pegawai',
+			11 => 't7.name',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -202,6 +209,7 @@ class Report extends MY_Controller
 				empty($row->tanggal_printresi) ? null : date('Y-m-d', strtotime($row->tanggal_printresi)),
 				empty($row->tanggal_printresi) ? null : date('H:i:s', strtotime($row->tanggal_printresi)),
 				$row->noresi,
+				$row->status_pesanan,
 				$row->nama_kurir,
 				$row->nomorpicklist,
 				empty($row->tanggal_resiambilbarang) ? null : date('Y-m-d', strtotime($row->tanggal_resiambilbarang)),
@@ -215,7 +223,8 @@ class Report extends MY_Controller
 			"draw" => $draw,
 			"recordsTotal" => $total,
 			"recordsFiltered" => $total,
-			"data" => $data
+			"data" => $data,
+			"grandTotal" => $total
 		);
 		echo json_encode($output);
 		exit();
@@ -365,9 +374,9 @@ class Report extends MY_Controller
         $total = $this->receipt_fcd->get_total_data_daily_report($data, $start_date, $end_date);
 
         $i = $data['start'] + 1;
-        $data = array();
+        $json_data = array();
         foreach ($list_resi->result() as $row) {
-            $data[] = array(
+            $json_data[] = array(
                 $i++ . '.',
                 $row->nama_marketplace,
                 $row->nama_kurir,
@@ -394,7 +403,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $json_data,
+            "grandTotal" => $total
         );
         echo json_encode($output);
         exit();
@@ -502,7 +512,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $total
         );
         echo json_encode($output);
         exit();
@@ -600,7 +611,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $total
         );
         echo json_encode($output);
         exit();
@@ -776,7 +788,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $total
         );
         echo json_encode($output);
         exit();
@@ -801,6 +814,8 @@ class Report extends MY_Controller
 
         $this->load->view('template_report/shipped_receipt_report', $data);
     }
+
+
 
     public function shipping_report()
     {
@@ -915,7 +930,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $total
         );
         echo json_encode($output);
         exit();
@@ -973,11 +989,13 @@ class Report extends MY_Controller
         $total = $this->receipt_fcd->get_total_data_production_team_tab0($data, $start_date, $end_date);
 
         $data = array();
+        $grand_total = 0;
         
         // Data DIPISAH per picker per hari PER STATUS
         foreach ($list_resi->result() as $row) {
+            $grand_total += (int) $row->total;
             $data[] = array(
-                $row->pegawai . ' - ' . $row->total,
+                $row->pegawai,
                 $row->waktu_scan_picker ?: $row->tanggal_resiambilbarang,
                 $row->total
             );
@@ -994,7 +1012,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $grand_total
         );
         echo json_encode($output);
         exit();
@@ -1025,11 +1044,13 @@ class Report extends MY_Controller
         $total = $this->receipt_fcd->get_total_data_production_team_tab1($data, $start_date, $end_date);
 
         $data = array();
+        $grand_total = 0;
         
         // Data sudah ter-group by status, tinggal tampilkan langsung
         foreach ($list_resi->result() as $row) {
+            $grand_total += (int) $row->total;
             $data[] = array(
-                $row->pegawai . ' - ' . $row->total,
+                $row->pegawai,
                 $row->waktu_scan_packer ?: $row->tanggal_packing,
                 $row->total
             );
@@ -1048,7 +1069,8 @@ class Report extends MY_Controller
             "draw" => $draw,
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
-            "data" => $data
+            "data" => $data,
+            "grandTotal" => $grand_total
         );
         echo json_encode($output);
         exit();
