@@ -258,6 +258,7 @@
   var table;
   var idPrintResi;
   var noresi;
+  var scanFeedback = <?= json_encode(isset($scan_feedback) ? $scan_feedback : null) ?>;
 
   $().ready(function() {
 
@@ -521,19 +522,64 @@
       });
     });
 
-    const $resultInfo = $('#result-info');
-    const $table = $('#table-scan-packer');
-    const $footer = $('#button-footer');
     $('#btn-reset').on('click', function () {
-        $resultInfo.hide();
-        $table.hide();
-        $footer.hide();
-        $('#noresi').focus();
+        resetScanView();
     });
+
+    triggerScanFeedback(scanFeedback);
   })
 
-</script>
+  function triggerScanFeedback(feedback) {
+    if (!feedback || !feedback.message) {
+      return;
+    }
 
+    var notyType = mapFeedbackType(feedback.type);
+    noty({
+      text: feedback.message,
+      layout: 'topRight',
+      type: notyType,
+      timeout: feedback.status === 'auto_save_success' ? 1500 : 2500
+    });
+
+    playFeedbackAudio(feedback.status);
+
+    if (feedback.status === 'auto_save_success') {
+      resetScanView();
+    }
+  }
+
+  function mapFeedbackType(type) {
+    var allowed = ['success', 'error', 'warning', 'information'];
+    if (allowed.indexOf(type) !== -1) {
+      return type;
+    }
+    return 'information';
+  }
+
+  function playFeedbackAudio(status) {
+    var audioId = 'audio-error';
+    if (status === 'auto_save_success') {
+      audioId = 'audio-alert';
+    } else if (status === 'auto_save_failed') {
+      audioId = 'audio-fail';
+    }
+
+    var el = document.getElementById(audioId);
+    if (el && typeof el.play === 'function') {
+      el.play();
+    }
+  }
+
+  function resetScanView() {
+    $('#result-info').hide();
+    $('#table-scan-packer').hide();
+    $('#button-footer').hide();
+    $('#noresi').val('').focus();
+    $('#noresi-detail').val('');
+  }
+
+</script>
 <style>
   .custom-popup-overlay {
     position: fixed;

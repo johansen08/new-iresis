@@ -10,6 +10,8 @@ class MY_Controller extends CI_Controller
     {
         parent::__construct();
 
+        $this->db->query("SET time_zone = '+07:00'");
+
         if (!$this->session->userdata('user')) {
             redirect('login');
         } else {
@@ -55,6 +57,7 @@ class MY_Controller extends CI_Controller
 
     public function make_ajax_response($status_code, $message, $data = [])
     {
+        header('Content-Type: application/json');
         set_status_header($status_code);
 
         $response = array(

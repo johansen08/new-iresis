@@ -20,6 +20,10 @@
 <table class="table table-striped" id="datatable-receipt-process-tab1">
   <thead>
     <tr>
+      <th colspan="10" class="text-right">Grand Total</th>
+      <th id="grand_total_receipt_process_tab1">-</th>
+    </tr>
+    <tr>
       <th>#</th>
       <th>Market Place</th>
       <th>Tanggal Scan Resi</th>
@@ -27,6 +31,7 @@
       <th>Nomor Resi</th>
       <th>Kurir</th>
       <th>Nomor Pick List</th>
+      <th>Status Pesanan</th>
       <th>Tanggal Pick</th>
       <th>Jam Pick</th>
       <th>Picker</th>
@@ -56,6 +61,9 @@
   var table_receipt_process_tab1 = $('#datatable-receipt-process-tab1').DataTable({
     'dom': '<if<t>lp>',
     'destroy': true,
+    'drawCallback': function() {
+      $('#grand_total_receipt_process_tab1').text('-');
+    }
   });
   $('#btn-search-receipt-process-tab1').on('click', function() {
     table_receipt_process_tab1 = $('#datatable-receipt-process-tab1').DataTable({
@@ -79,6 +87,11 @@
           d.end_date = $('#reportrange-receipt-process-tab1').val().split(" - ")[1];
         }
       },
+      'drawCallback': function() {
+        var json = this.api().ajax.json();
+        var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
+        $('#grand_total_receipt_process_tab1').text(total);
+      }
     });
   });
 </script>

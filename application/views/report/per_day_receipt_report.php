@@ -28,6 +28,10 @@
         <table class="table table-striped table-bordered" id="datatable-report-receipt-per-day">
           <thead>
             <tr>
+              <th colspan="12" class="text-right">Grand Total</th>
+              <th id="grand_total_per_day">-</th>
+            </tr>
+            <tr>
               <th>#</th>
               <th>No. Resi</th>
               <th>Marketplace</th>
@@ -93,6 +97,11 @@
         d.end_date = $('#reportrange').val().split(" - ")[1];
       }
     },
+    'drawCallback': function() {
+      var json = this.api().ajax.json();
+      var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
+      $('#grand_total_per_day').text(total);
+    }
   });
 
   $('#btn-search').on('click', function() {

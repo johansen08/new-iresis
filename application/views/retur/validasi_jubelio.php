@@ -78,6 +78,8 @@
                 <option value="COCOK">Cocok</option>
                 <option value="IRESIS">Hanya di iresis</option>
                 <option value="JUBELIO">Hanya di Jubelio</option>
+                <option value="VERIFIED">Sudah Diverifikasi</option>
+                <option value="BELUM">Belum Diverifikasi</option>
               </select>
             </div>
           </div>
@@ -88,7 +90,10 @@
                 <i class="fa fa-search"></i> Tampilkan
               </button>
               <button type="button" class="btn btn-success" id="btn_export_jubelio">
-                <i class="fa fa-file-excel-o"></i> Export ke Excel
+                <i class="fa fa-file-excel-o"></i> Export Semua
+              </button>
+              <button type="button" class="btn btn-info" id="btn_export_verified">
+                <i class="fa fa-check"></i> Export Terverifikasi
               </button>
             </div>
           </div>
@@ -96,19 +101,24 @@
 
         <!-- Summary -->
         <div class="row" style="margin-bottom:10px;">
-          <div class="col-md-4">
+          <div class="col-md-3">
             <div class="panel panel-success"><div class="panel-body text-center">
               <h4 style="margin:0;"><span id="sum_cocok">0</span></h4><small>Cocok (iresis &amp; Jubelio)</small>
             </div></div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <div class="panel panel-warning"><div class="panel-body text-center">
               <h4 style="margin:0;"><span id="sum_iresis">0</span></h4><small>Hanya di iresis</small>
             </div></div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <div class="panel panel-danger"><div class="panel-body text-center">
               <h4 style="margin:0;"><span id="sum_jubelio">0</span></h4><small>Hanya di Jubelio</small>
+            </div></div>
+          </div>
+          <div class="col-md-3">
+            <div class="panel panel-info"><div class="panel-body text-center">
+              <h4 style="margin:0;"><span id="sum_verified">0</span></h4><small>Sudah Diverifikasi</small>
             </div></div>
           </div>
         </div>
@@ -129,6 +139,7 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
+                <th>Verifikasi</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -241,7 +252,8 @@ $(document).ready(function() {
         'columns': [
             { 'data': 0 }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
             { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
-            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 }
+            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 },
+            { 'data': 12, 'orderable': false }
         ]
     });
 
@@ -275,6 +287,7 @@ $(document).ready(function() {
                 $('#sum_cocok').text((res.summary && res.summary.cocok) || 0);
                 $('#sum_iresis').text((res.summary && res.summary.iresis) || 0);
                 $('#sum_jubelio').text((res.summary && res.summary.jubelio) || 0);
+                $('#sum_verified').text((res.summary && res.summary.verified) || 0);
             },
             error: function () { alert('Gagal memuat data rekonsiliasi.'); },
             complete: function () {
@@ -296,6 +309,48 @@ $(document).ready(function() {
         if (f.id_kurir) url += '&id_kurir=' + encodeURIComponent(f.id_kurir);
         if (f.kondisi) url += '&kondisi=' + encodeURIComponent(f.kondisi);
         window.location.href = url;
+    });
+
+    // ==================== EXPORT TERVERIFIKASI (Step 4) ====================
+    $('#btn_export_verified').on('click', function () {
+        var f = getJubelioFilter();
+        if (!f.start_date || !f.end_date) {
+            alert('Silakan pilih rentang waktu terlebih dahulu!');
+            return;
+        }
+        var url = BASE + 'retur/export-rekonsiliasi?verified=1&start_date=' + encodeURIComponent(f.start_date) +
+                  '&end_date=' + encodeURIComponent(f.end_date);
+        if (f.id_kurir) url += '&id_kurir=' + encodeURIComponent(f.id_kurir);
+        window.location.href = url;
+    });
+
+    // ==================== VERIFIKASI PER RESI (Step 3) ====================
+    $(document).off('change.verif').on('change.verif', '.verif-chk', function () {
+        var $chk = $(this);
+        var resi = $chk.data('resi');
+        var verified = $chk.is(':checked') ? 1 : 0;
+        $chk.prop('disabled', true);
+        $.ajax({
+            url: BASE + 'retur/verifikasi-jubelio',
+            type: 'POST',
+            dataType: 'json',
+            data: { no_resi: resi, verified: verified },
+            success: function (res) {
+                if (res && res.code === 200) {
+                    if (typeof noty === 'function') {
+                        noty({ text: res.message, timeout: 1500, layout: 'topRight', type: 'success' });
+                    }
+                    loadJubelio();
+                } else {
+                    alert((res && res.message) ? res.message : 'Gagal memperbarui verifikasi');
+                    $chk.prop('checked', !verified).prop('disabled', false);
+                }
+            },
+            error: function () {
+                alert('Gagal terhubung ke server.');
+                $chk.prop('checked', !verified).prop('disabled', false);
+            }
+        });
     });
 });
 </script>

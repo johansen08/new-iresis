@@ -6,15 +6,15 @@ class Sku_fcd extends CI_Model
 
   function get_sku($sku_id = null)
   {
-    $criterias['sku.isactive'] = TRUE;
+    $criterias['isactive'] = TRUE;
 
     if (!empty($sku_id)) {
-      $criterias['sku.id'] = $sku_id;
+      $criterias['id'] = $sku_id;
     }
 
     $this->db->where($criterias);
 
-    return $this->db->get('sku');
+    return $this->db->get('tblsku');
   }
 
   function get_sku_location_stock($item_id)
@@ -89,7 +89,7 @@ class Sku_fcd extends CI_Model
 
   function truncate_sku()
   {
-    $this->db->truncate('sku');
+    $this->db->truncate('tblsku');
   }
 
   function truncate_sku_location_stock()
@@ -138,7 +138,7 @@ class Sku_fcd extends CI_Model
 
     $this->db->limit($data['length'], $data['start']);
 
-    return $this->db->get('sku');
+    return $this->db->get('tblsku');
   }
 
   function get_total_data($data)
@@ -163,9 +163,155 @@ class Sku_fcd extends CI_Model
       $this->db->group_end();
     }
 
-    $query = $this->db->select("count(1) as num")->get("sku");
+    $query = $this->db->select("count(1) as num")->get("tblsku");
     $result = $query->row();
 
     return isset($result) ? $result->num : 0;
   }
+
+  function insert_sku_upload($dataRaw, $user_id, $upload_id = null)
+  {
+      $countInsert = 0;
+      $countUpdate = 0;
+
+      // We still use $dataRaw for sorting because it's already in memory from IOFactory load
+      // Filter valid rows (skip header row 1)
+      $rows = [];
+      foreach ($dataRaw as $key => $row) {
+          if ($key <= 1) continue; // Skip header
+          $id_sku = trim($row['A'] ?? '');
+          if (empty($id_sku)) continue;
+          $rows[] = $row;
+      }
+
+      // Sort rows by Total (Column H) descending to prioritize stock items
+      usort($rows, function($a, $b) {
+          $totalA = isset($a['H']) ? (int)$a['H'] : 0;
+          $totalB = isset($b['H']) ? (int)$b['H'] : 0;
+          return $totalB - $totalA; 
+      });
+
+      $totalRows = count($rows);
+      $processed = 0;
+      
+      $progressFile = null;
+      if ($upload_id) {
+          $progressFile = sys_get_temp_dir() . '/sku_progress_' . preg_replace('/[^a-z0-9]/i', '', $upload_id);
+      }
+
+      // Pre-fetch all existing SKU IDs
+      $existing_skus = [];
+      $query = $this->db->select('id_sku')->get('tblsku');
+      foreach ($query->result() as $row_db) {
+          $existing_skus[$row_db->id_sku] = true;
+      }
+
+      $this->db->trans_start(); // START TRANSACTION
+
+      $inserts = [];
+      $updates = [];
+
+      foreach ($rows as $row) {
+          $processed++;
+
+          // Update progress in file every 10 rows
+          if ($progressFile && ($processed % 10 == 0 || $processed == $totalRows)) {
+              $progressData = [
+                  'status' => 'Processing',
+                  'processed' => $processed,
+                  'total' => $totalRows,
+                  'remaining' => $totalRows - $processed,
+                  'percentage' => round(($processed / $totalRows) * 100)
+              ];
+              @file_put_contents($progressFile, json_encode($progressData));
+          }
+
+          $id_sku = trim($row['A'] ?? '');
+          $nama_sku = $row['B'] ?? '';
+          $bundle = $row['C'] ?? '';
+          $variasi = $row['D'] ?? '';
+          
+          $display = $row['E'] ?? '';
+          $gudang = $row['F'] ?? '';
+          $transit = $row['G'] ?? '';
+          $lokasi_parts = [];
+          if ($display) $lokasi_parts[] = "Display: $display";
+          if ($gudang) $lokasi_parts[] = "Gudang: $gudang";
+          if ($transit) $lokasi_parts[] = "Transit: $transit";
+          $lokasi = implode(', ', $lokasi_parts);
+
+          $total_stok = $row['H'] ?? 0;
+          $link_foto = $row['I'] ?? '';
+          $no_rak = $row['J'] ?? '';
+          $berat = $row['K'] ?? 0;
+
+          $data = [
+              'nama_sku' => $nama_sku,
+              'nama_bundle' => $bundle,
+              'bundle' => $bundle,
+              'variasi' => $variasi,
+              'lokasi' => $lokasi,
+              'total_stok' => $total_stok,
+              'link_foto' => $link_foto,
+              'no_rak' => $no_rak,
+              'berat' => $berat,
+              'id_sku' => $id_sku
+          ];
+
+          if (isset($existing_skus[$id_sku])) {
+              $updates[] = $data;
+          } else {
+              $inserts[] = $data;
+              $existing_skus[$id_sku] = true;
+          }
+
+          // Batch process to avoid huge memory usage for very large files
+          if (count($inserts) >= 500) {
+              $this->db->insert_batch('tblsku', $inserts);
+              $countInsert += count($inserts);
+              $inserts = [];
+          }
+          if (count($updates) >= 500) {
+              $this->db->update_batch('tblsku', $updates, 'id_sku');
+              $countUpdate += count($updates);
+              $updates = [];
+          }
+      }
+
+      // Final batches
+      if (!empty($inserts)) {
+          $this->db->insert_batch('tblsku', $inserts);
+          $countInsert += count($inserts);
+      }
+      if (!empty($updates)) {
+          $this->db->update_batch('tblsku', $updates, 'id_sku');
+          $countUpdate += count($updates);
+      }
+
+      if ($progressFile) {
+          $progressData = [
+              'status' => 'Finalizing',
+              'processed' => $totalRows,
+              'total' => $totalRows,
+              'remaining' => 0,
+              'percentage' => 100
+          ];
+          @file_put_contents($progressFile, json_encode($progressData));
+      }
+
+      $this->db->trans_complete(); // END TRANSACTION
+
+      if ($this->db->trans_status() === FALSE) {
+          log_message('error', 'SKU Upload Transaction Failed.');
+          throw new Exception("Transaction failed. Data might not be saved correctly.");
+      }
+
+      if ($progressFile && @file_exists($progressFile)) {
+          @unlink($progressFile);
+      }
+
+      log_message('debug', "SKU Upload finished. Inserted: $countInsert, Updated: $countUpdate");
+      return "Upload Berhasil. Insert: $countInsert, Update: $countUpdate. Total: $totalRows data.";
+  }
+
 }

@@ -32,6 +32,7 @@
       <th>Nomor Resi</th>
       <th>Kurir</th>
       <th>Nomor Pick List</th>
+      <th>Status Pesanan</th>
     </tr>
   </thead>
   <tbody>
@@ -45,6 +46,7 @@
         <td><?= $data['noresi'] ?></td>
         <td><?= $data['nama_kurir'] ?></td>
         <td><?= $data['nomorpicklist'] ?></td>
+        <td><?= $data['status_pesanan'] ?></td>
       </tr>
     <?php endforeach; ?>
   </tbody>
