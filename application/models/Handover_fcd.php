@@ -3,142 +3,101 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Handover_fcd extends CI_Model
 {
+
     function save($handover, $user)
     {
         /**
-         * FLOW UTAMA:
-         * 1. Cek apakah nomor resi ada di tblprintresi
-         * 2. Jika tidak ada → error 404
-         * 3. Jika status pesanan = COMPLETED/CANCELED → error 400 (baru)
-         * 4. Cek apakah sudah dikirim → error 400
-         * 5. Cek apakah sudah di-picker → error 401
-         * 6. Cek apakah sudah di-packing → error 402
-         * 7. Jika semua validasi lolos → insert ke tblresikeluar
+         * 1. check does noresi exist in tblprintresi
+         * 2. throw if does not exist
+         * 3. check does id_resi exist in tblresikeluar
+         * 4. throw if exist
+         * 5. check does id_resi exist in tblresiambilbarang
+         * 6. throw if not exist
+         * 7. check does id_resi exist in tblpacking
+         * 8. throw if not exist
+         * 9. save into tblresikeluar
          */
-
-        // 🔹 [1] Ambil data resi berdasarkan nomor resi
         $receipt = $this->db
-            ->select('id_printresi, status_pesanan')
+            ->select('id_printresi, status_pesanan, batal')
             ->get_where('tblprintresi', ['noresi' => $handover['noresi']])
-            ->row_array();
-
-        // 🔸 [2] Jika nomor resi tidak ditemukan
+            ->row();
         if (empty($receipt)) {
-            return [
-                'error' => TRUE,
-                'code' => 404,
-                'message' => 'Nomor resi tidak ditemukan',
-                'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']
-            ];
+            return ['error' => TRUE, 'code' => 404, 'message' => 'Nomor resi tidak ditemukan', 'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']];
         }
 
-        // 🔹 [3] Validasi status pesanan (tambahan dari versi baru)
-        // Jika status pesanan sudah "COMPLETED" atau "CANCELED" → tidak boleh lanjut
-        if (in_array($receipt['status_pesanan'], ['COMPLETED', 'CANCELED'])) {
-            return [
-                'error' => TRUE,
-                'code' => 400,
-                'message' => 'Nomor resi tidak dapat diproses karena status pesanan sudah ' . $receipt['status_pesanan'],
-                'data' => ['EXCEPTION_CODE' => 'INVALID_STATUS']
-            ];
+        // Check if status_pesanan is COMPLETED or CANCELED
+        if ($receipt->status_pesanan == 'COMPLETED') {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
+        }
+        if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
         }
 
-        // 🔹 [4] Cek apakah resi sudah dikirim sebelumnya (tblresikeluar)
-        $handover_exist = $this->db
-            ->get_where('tblresikeluar', ['id_resi' => $receipt['id_printresi']])
-            ->num_rows();
+        unset($handover['noresi']);
 
-        // 🔸 Jika sudah ada → tampilkan pesan sama seperti versi lama
-        if ($handover_exist > 0) {
-            return [
-                'error' => TRUE,
-                'code' => 400,
-                'message' => 'Nomor resi sudah dikirim. Silakan cek data',
-                'data' => ['EXCEPTION_CODE' => 'ALREADY_HANDOVER']
-            ];
+        // Check if this receipt has been picked
+        $picking_exist = $this->db->get_where('tblresiambilbarang', ['id_resi' => $receipt->id_printresi])->row();
+        if (!$picking_exist) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker.', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
         }
 
-        // 🔹 [5] Cek apakah resi sudah diambil oleh picker (tblresiambilbarang)
-        $picking_exist = $this->db
-            ->get_where('tblresiambilbarang', ['id_resi' => $receipt['id_printresi']])
-            ->num_rows();
-
-        // 🔸 Jika belum → notifikasi error 401
-        if ($picking_exist < 1) {
-            return [
-                'error' => TRUE,
-                'code' => 401,
-                'message' => 'Nomor Resi belum di-picker. Silakan Cek data',
-                'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']
-            ];
+        // Check if this receipt has been packed
+        $packer_exist = $this->db->get_where('tblpacking', ['id_resi' => $receipt->id_printresi])->row();
+        if (!$packer_exist) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi belum di-packing.', 'data' => ['EXCEPTION_CODE' => 'NOT_PACKED']];
         }
 
-        // 🔹 [6] Cek apakah resi sudah di-packing (tblpacking)
-        $packer_exist = $this->db
-            ->get_where('tblpacking', ['id_resi' => $receipt['id_printresi']])
-            ->num_rows();
-
-        // 🔸 Jika belum → notifikasi error 402
-        if ($packer_exist < 1) {
-            return [
-                'error' => TRUE,
-                'code' => 402,
-                'message' => 'Nomor Resi belum di-packing. Silakan Cek data',
-                'data' => ['EXCEPTION_CODE' => 'NOT_PACKED']
-            ];
+        // Check if this receipt has already been handed over
+        $handover_exist = $this->db->get_where('tblresikeluar', ['id_resi' => $receipt->id_printresi])->row();
+        if ($handover_exist) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-scan keluar (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_HANDOVER']];
         }
 
-        // 🔹 [7] Semua validasi lolos → lanjut insert ke tblresikeluar
-        unset($handover['noresi']); // hilangkan noresi agar tidak ikut disimpan
-
-        // Siapkan data yang akan disimpan
         $insert_data = [
-            'id_resi' => $receipt['id_printresi'],
+            'id_resi' => $receipt->id_printresi,
             'tanggal_resikeluar' => date('Y-m-d H:i:s'),
             'sudah_cetak' => '-',
             'tanggal_cetak' => '',
-            // Gunakan id_pegawai jika ada, kalau tidak pakai id_user (kompatibilitas versi baru)
-            'id_pegawai' => isset($user['id_pegawai']) ? $user['id_pegawai'] : (isset($user['id_user']) ? $user['id_user'] : null)
+            'id_pegawai' => $user['id_user']
         ];
 
-        // 🔸 [8] Lakukan insert ke database
         $this->db->insert('tblresikeluar', $insert_data);
 
-        // Tambahkan informasi hasil insert untuk keperluan feedback frontend
-        $handover['id_resikeluar'] = $this->db->insert_id();
+        // Set trip berdasarkan jam handover
+        $hour = (int) date('H');
+        $trip = ($hour < 15) ? 1 : 2;
+        $this->db->where('id_printresi', $receipt->id_printresi)
+            ->update('tblprintresi', ['trip' => $trip]);
+
         $handover['affected_rows'] = $this->db->affected_rows();
 
-        // 🔹 [9] Kembalikan hasil untuk dikonsumsi frontend (JSON response)
         return $handover;
     }
 
-    /**
-     * Ambil data untuk tampilan tabel handover (DataTables)
-     */
     function get_data($data)
     {
-        // Urutan data (sorting)
         if ($data['order'] != null) {
             $this->db->order_by($data['order'], $data['dir'], FALSE);
         }
 
-        // Pencarian global (search)
         if (!empty($data['search'])) {
             $x = 0;
             $this->db->group_start();
             foreach ($data['valid_columns'] as $sterm) {
                 if (empty($sterm)) continue;
+
                 if ($x == 0) {
                     $this->db->like($sterm, $data['search']);
                 } else {
                     $this->db->or_like($sterm, $data['search']);
                 }
+
                 $x++;
             }
+
             $this->db->group_end();
         }
 
-        // Pilih kolom yang akan ditampilkan
         $this->db->select('
             t.id_resikeluar id,
             t2.noresi,
@@ -148,48 +107,45 @@ class Handover_fcd extends CI_Model
             t.tanggal_cetak
         ');
 
-        // Join antar tabel untuk ambil data lengkap
         $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi');
         $this->db->join('tblpegawai t3', 't3.kode_pegawai = t.id_pegawai', 'left');
-
-        // Limit dan offset untuk pagination
+        //$this->db->group_by('t2.noresi');
         $this->db->limit($data['length'], $data['start']);
 
         return $this->db->get('tblresikeluar t');
     }
 
-    /**
-     * Hitung total data (untuk DataTables pagination)
-     */
     function get_total_data($data)
     {
         if (!empty($data['search'])) {
             $x = 0;
             $this->db->group_start();
+
             foreach ($data['valid_columns'] as $sterm) {
                 if (empty($sterm)) continue;
+
                 if ($x == 0) {
                     $this->db->like($sterm, $data['search']);
                 } else {
                     $this->db->or_like($sterm, $data['search']);
                 }
+
                 $x++;
             }
+
             $this->db->group_end();
+            
+            // Only join when searching
+            $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi');
+            $this->db->join('tblpegawai t3', 't3.kode_pegawai = t.id_pegawai', 'left');
+            
+            return $this->db->count_all_results("tblresikeluar t");
+        } else {
+            // No search, return total count directly from table (very fast)
+            return $this->db->count_all('tblresikeluar');
         }
-
-        $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi');
-        $this->db->join('tblpegawai t3', 't3.kode_pegawai = t.id_pegawai', 'left');
-
-        $query = $this->db->select("count(1) as num")->get("tblresikeluar t");
-        $result = $query->row();
-
-        return isset($result) ? $result->num : 0;
     }
 
-    /**
-     * Ambil data resi untuk keperluan cetak / laporan
-     */
     function get_data_print($id_kurir, $start_date, $end_date)
     {
         $this->db->select('t2.noresi');
@@ -201,14 +157,12 @@ class Handover_fcd extends CI_Model
         ]);
 
         $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi');
+
         $this->db->order_by('t2.noresi');
 
         return $this->db->get('tblresikeluar t');
     }
 
-    /**
-     * Hitung total scan yang dilakukan oleh pegawai tertentu pada hari ini
-     */
     function get_total_scan_user($id_pegawai)
     {
         $this->db->select('count(1) as total_scan');
