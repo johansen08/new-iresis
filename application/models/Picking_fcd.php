@@ -8,7 +8,7 @@ class Picking_fcd extends CI_Model
     {
         // Optimized query dengan prepared statement dan index
         $sql = "
-            SELECT t.*, t1.nama_pegawai 
+            SELECT t.*, t1.nama_pegawai, t1.kode_pegawai 
             FROM tblnamaambilbarang t 
             INNER JOIN tblpegawai t1 ON t1.kode_pegawai = t.id_pegawai 
             WHERE t1.status_aktif = 'AKTIF'
@@ -26,6 +26,43 @@ class Picking_fcd extends CI_Model
         return $this->db->query($sql, $params);
     }
 
+    /**
+     * Get next picker using round-robin logic
+     * @return string|null kode_pegawai
+     */
+    function get_next_picker_rr()
+    {
+        // 1. Get all active pickers
+        $pickers = $this->get_picker('AKTIF')->result_array();
+        if (empty($pickers)) return null;
+
+        // 2. Get last assigned picker from tblprintresi
+        $last_assigned = $this->db
+            ->select('assigned_picker')
+            ->where('assigned_picker IS NOT NULL')
+            ->order_by('id_printresi', 'DESC')
+            ->limit(1)
+            ->get('tblprintresi')
+            ->row();
+
+        if (!$last_assigned) {
+            return $pickers[0]['kode_pegawai'];
+        }
+
+        // 3. Find index of last assigned picker
+        $last_index = -1;
+        foreach ($pickers as $index => $p) {
+            if ($p['kode_pegawai'] == $last_assigned->assigned_picker) {
+                $last_index = $index;
+                break;
+            }
+        }
+
+        // 4. Return next picker in cycle
+        $next_index = ($last_index + 1) % count($pickers);
+        return $pickers[$next_index]['kode_pegawai'];
+    }
+
     function save($picking, $user, $mode = PICKING_INSERT_PACKER)
     {
         // Start transaction untuk memastikan data konsisten
@@ -34,19 +71,23 @@ class Picking_fcd extends CI_Model
         try {
             // 1. Check if noresi exists and get status (optimized query)
             $receipt = $this->db
-                ->select('id_printresi, status_pesanan')
+                ->select('id_printresi, status_pesanan, batal')
                 ->get_where('tblprintresi', ['noresi' => $picking['noresi']])
                 ->row();
 
             if (empty($receipt)) {
                 $this->db->trans_rollback();
-                return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan'];
+                return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan', 'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']];
             }
 
             // 2. Check if status_pesanan is COMPLETED or CANCELED
-            if (in_array($receipt->status_pesanan, ['COMPLETED', 'CANCELED'])) {
+            if ($receipt->status_pesanan == 'COMPLETED') {
                 $this->db->trans_rollback();
-                return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak dapat diproses karena status pesanan sudah ' . $receipt->status_pesanan];
+                return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
+            }
+            if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+                $this->db->trans_rollback();
+                return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
             }
 
             unset($picking['noresi']);
@@ -61,7 +102,7 @@ class Picking_fcd extends CI_Model
             if ($mode == PICKING_INSERT_PACKER) {
                 if (!empty($picking_exist)) {
                     $this->db->trans_rollback();
-                    return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah diambil. Silakan Cek data'];
+                    return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-picker (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_PICKED']];
                 }
 
                 // Insert single record
@@ -74,11 +115,22 @@ class Picking_fcd extends CI_Model
                     'nama_komputer' => $user['nama_komputer'], // Synced with database from login
                     'pending' => $picking['pending'],
                     'status_performa_id' => $picking['status_performa_id'] ?? null,
+                    'is_preorder' => $picking['is_preorder'] ?? 0,
                 ];
 
                 $this->db->insert('tblresiambilbarang', $insert_data);
                 $picking['affected_rows'] = $this->db->affected_rows();
-                
+
+                // Set tipe_resi (satuan/campuran) berdasarkan jumlah detail item
+                $detail_sum = $this->db->select_sum('jumlah')
+                    ->where('id_printresi', $id_resi)
+                    ->get('tbldetailprintresi')
+                    ->row();
+                $total_qty = $detail_sum ? intval($detail_sum->jumlah) : 1;
+                $tipe_resi = ($total_qty > 1) ? 'campuran' : 'satuan';
+                $this->db->where('id_printresi', $id_resi)
+                    ->update('tblprintresi', ['tipe_resi' => $tipe_resi]);
+
                 // Log KPI secara asynchronous (non-blocking) - gunakan admin_pegawai sebagai id_user
                 $this->log_kpi_transaksi_async($user['id_user'], $picking['status_performa_id'] ?? null, $id_resi);
 
@@ -94,7 +146,8 @@ class Picking_fcd extends CI_Model
                     'tanggal_resiambilbarang' => date('Y-m-d H:i:s'),
                     'admin_pegawai' => $user['id_user'],
                     'yangambil_pegawai' => $picking['yangambil_pegawai'],
-                    'nama_komputer' => $user['nama_komputer'] // Synced with database from login
+                    'nama_komputer' => $user['nama_komputer'], // Synced with database from login
+                    'is_preorder' => $picking['is_preorder'] ?? 0,
                 ];
 
                 $this->db->where('id_resiambilbarang', $picking_exist->id_resiambilbarang);
@@ -227,6 +280,20 @@ class Picking_fcd extends CI_Model
             FROM tblresiambilbarang 
             WHERE DATE(tanggal_resiambilbarang) = CURDATE()
             AND admin_pegawai = ?
+        ", [$id_user]);
+        
+        return $query;
+    }
+
+    function get_total_scan_preorder_user($id_user)
+    {
+        // Optimized query dengan prepared statement dan index
+        $query = $this->db->query("
+            SELECT COUNT(1) as total_scan 
+            FROM tblresiambilbarang 
+            WHERE DATE(tanggal_resiambilbarang) = CURDATE()
+            AND admin_pegawai = ?
+            AND is_preorder = 1
         ", [$id_user]);
         
         return $query;
