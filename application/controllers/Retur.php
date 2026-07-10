@@ -21,6 +21,313 @@ class Retur extends MY_Controller
 		$this->load->model('retur_fcd');
 		$this->load->model('marketplace_fcd');
 		$this->load->model('courrier_fcd');
+
+		// Automatically add is_update column to tblresiretur if not present
+		if (!$this->db->field_exists('is_update', 'tblresiretur')) {
+			$this->load->dbforge();
+			$this->dbforge->add_column('tblresiretur', [
+				'is_update' => [
+					'type'       => 'TINYINT',
+					'constraint' => 1,
+					'default'    => 0
+				]
+			]);
+		}
+
+		// Automatically add is_komplain column to tblresiretur if not present
+		if (!$this->db->field_exists('is_komplain', 'tblresiretur')) {
+			$this->load->dbforge();
+			$this->dbforge->add_column('tblresiretur', [
+				'is_komplain' => [
+					'type'       => 'TINYINT',
+					'constraint' => 1,
+					'default'    => 0
+				]
+			]);
+		}
+
+		// Automatically add is_shipped_retur column to tblresiretur if not present
+		if (!$this->db->field_exists('is_shipped_retur', 'tblresiretur')) {
+			$this->load->dbforge();
+			$this->dbforge->add_column('tblresiretur', [
+				'is_shipped_retur' => [
+					'type'       => 'TINYINT',
+					'constraint' => 1,
+					'default'    => 0
+				]
+			]);
+		}
+
+		// Ensure TIM ACCOUNTING and TIM FINANCE have icons in the database
+		$this->db->where('name', 'TIM ACCOUNTING')->update('menu', ['icon' => 'fa fa-book']);
+		$this->db->where('name', 'TIM FINANCE')->update('menu', ['icon' => 'fa fa-money']);
+
+		// Delete Proses Komplain (ID 58) from TIM RETUR menu
+		$this->db->where('id', 58)->delete('menu');
+		$this->db->where('menuid', 58)->delete('roleaccess');
+
+		// Automatically create menu and role access for Cek SKU if not present
+		$menu = $this->db->get_where('menu', ['uri' => 'retur/cek-sku'])->row();
+		if (!$menu) {
+			$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+			$parent_id = $scan_menu ? $scan_menu->parentid : 30; // fallback to 30
+			
+			$menu_data = [
+				'name'      => 'Cek SKU Retur',
+				'parentid'  => $parent_id,
+				'uri'       => 'retur/cek-sku',
+				'icon'      => 'fa fa-search',
+				'sortorder' => 15,
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_id = $this->db->insert_id();
+		} else {
+			$menu_id = $menu->id;
+			$parent_id = $menu->parentid;
+			if ($parent_id == 0) {
+				$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+				$parent_id = $scan_menu ? $scan_menu->parentid : 30;
+				$this->db->where('id', $menu_id)->update('menu', ['parentid' => $parent_id]);
+			}
+		}
+
+		// Ensure role access is granted for all roles that have access to scan_retur (ID 31)
+		$roles = $this->db->get_where('roleaccess', ['menuid' => 31])->result();
+		foreach ($roles as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Automatically create menu and role access for Update Retur if not present
+		$menu_update = $this->db->get_where('menu', ['uri' => 'retur/update-retur'])->row();
+		if (!$menu_update) {
+			$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+			$parent_id = $scan_menu ? $scan_menu->parentid : 30;
+			
+			$menu_data = [
+				'name'      => 'Update Retur',
+				'parentid'  => $parent_id,
+				'uri'       => 'retur/update-retur',
+				'icon'      => 'fa fa-refresh',
+				'sortorder' => 16,
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_update_id = $this->db->insert_id();
+		} else {
+			$menu_update_id = $menu_update->id;
+			$parent_id = $menu_update->parentid;
+			if ($parent_id == 0) {
+				$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+				$parent_id = $scan_menu ? $scan_menu->parentid : 30;
+				$this->db->where('id', $menu_update_id)->update('menu', ['parentid' => $parent_id]);
+			}
+		}
+
+		foreach ($roles as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_update_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_update_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Automatically create menu and role access for Scan Retur Komplain if not present
+		$menu_komplain = $this->db->get_where('menu', ['uri' => 'retur/scan-retur-komplain'])->row();
+		if (!$menu_komplain) {
+			$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+			$parent_id = $scan_menu ? $scan_menu->parentid : 30;
+			
+			$menu_data = [
+				'name'      => 'Scan Retur Komplain',
+				'parentid'  => $parent_id,
+				'uri'       => 'retur/scan-retur-komplain',
+				'icon'      => 'fa fa-barcode',
+				'sortorder' => 17,
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_komplain_id = $this->db->insert_id();
+		} else {
+			$menu_komplain_id = $menu_komplain->id;
+			$parent_id = $menu_komplain->parentid;
+			if ($parent_id == 0) {
+				$scan_menu = $this->db->get_where('menu', ['uri' => 'retur/scan_retur'])->row();
+				$parent_id = $scan_menu ? $scan_menu->parentid : 30;
+				$this->db->where('id', $menu_komplain_id)->update('menu', ['parentid' => $parent_id]);
+			}
+		}
+
+		foreach ($roles as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_komplain_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_komplain_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Automatically create menu and role access for Verifikasi Retur Komplain if not present
+		$menu_verif_komplain = $this->db->get_where('menu', ['uri' => 'retur/verifikasi-retur-komplain'])->row();
+		if (!$menu_verif_komplain) {
+			$menu_data = [
+				'name'      => 'Verifikasi Retur Komplain',
+				'parentid'  => 92,
+				'uri'       => 'retur/verifikasi-retur-komplain',
+				'icon'      => 'fa fa-book',
+				'sortorder' => 80, // placed below Validasi Jubelio (70)
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_verif_komplain_id = $this->db->insert_id();
+		} else {
+			$menu_verif_komplain_id = $menu_verif_komplain->id;
+			$this->db->where('id', $menu_verif_komplain_id)->update('menu', ['sortorder' => 80]);
+		}
+
+		// Copy role access from Validasi Jubelio (ID 137)
+		$roles_verif = $this->db->get_where('roleaccess', ['menuid' => 137])->result();
+		foreach ($roles_verif as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_verif_komplain_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_verif_komplain_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Automatically create menu and role access for Laporan Retur Shipped if not present
+		$menu_shipped = $this->db->get_where('menu', ['uri' => 'retur/laporan-retur-shipped'])->row();
+		if (!$menu_shipped) {
+			$menu_data = [
+				'name'      => 'Laporan Retur Shipped',
+				'parentid'  => 92, // TIM ACCOUNTING
+				'uri'       => 'retur/laporan-retur-shipped',
+				'icon'      => 'fa fa-file-text-o',
+				'sortorder' => 90, // below Verifikasi Retur Komplain
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_shipped_id = $this->db->insert_id();
+		} else {
+			$menu_shipped_id = $menu_shipped->id;
+			$this->db->where('id', $menu_shipped_id)->update('menu', ['sortorder' => 90]);
+		}
+
+		// Copy role access from Verifikasi Retur (ID 137)
+		$roles_shipped = $this->db->get_where('roleaccess', ['menuid' => 137])->result();
+		foreach ($roles_shipped as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_shipped_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_shipped_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Rename Validasi Jubelio to Verifikasi Retur
+		$this->db->where('uri', 'retur/validasi-jubelio')->update('menu', ['name' => 'Verifikasi Retur']);
+
+		// Automatically create menu and role access for Upload Retur Jubelio if not present
+		$menu_upload_jubelio = $this->db->get_where('menu', ['uri' => 'retur/upload-retur-jubelio'])->row();
+		if (!$menu_upload_jubelio) {
+			$menu_data = [
+				'name'      => 'Upload Retur Jubelio',
+				'parentid'  => 92,
+				'uri'       => 'retur/upload-retur-jubelio',
+				'icon'      => 'fa fa-upload',
+				'sortorder' => 65, // placed above Verifikasi Retur (70)
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_upload_jubelio_id = $this->db->insert_id();
+		} else {
+			$menu_upload_jubelio_id = $menu_upload_jubelio->id;
+			$this->db->where('id', $menu_upload_jubelio_id)->update('menu', ['sortorder' => 65]);
+		}
+
+		// Copy role access from Validasi Jubelio (ID 137)
+		foreach ($roles_verif as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_upload_jubelio_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_upload_jubelio_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Automatically create menu and role access for Laporan Retur Komplain if not present
+		$menu_lap_komplain = $this->db->get_where('menu', ['uri' => 'retur/laporan-retur-komplain'])->row();
+		if (!$menu_lap_komplain) {
+			$menu_data = [
+				'name'      => 'Laporan Retur Komplain',
+				'parentid'  => 30, // TIM RETUR
+				'uri'       => 'retur/laporan-retur-komplain',
+				'icon'      => 'fa fa-list-alt',
+				'sortorder' => 65, // right under Laporan Retur (60)
+				'isactive'  => 1,
+				'createdby' => 1,
+				'created'   => date('Y-m-d H:i:s')
+			];
+			$this->db->insert('menu', $menu_data);
+			$menu_lap_komplain_id = $this->db->insert_id();
+		} else {
+			$menu_lap_komplain_id = $menu_lap_komplain->id;
+			$this->db->where('id', $menu_lap_komplain_id)->update('menu', ['sortorder' => 65]);
+		}
+
+		// Copy role access from Laporan Retur (ID 60)
+		$roles_lap = $this->db->get_where('roleaccess', ['menuid' => 60])->result();
+		foreach ($roles_lap as $r) {
+			$access_exist = $this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_lap_komplain_id])->row();
+			if (!$access_exist) {
+				$this->db->insert('roleaccess', [
+					'roleid'    => $r->roleid,
+					'menuid'    => $menu_lap_komplain_id,
+					'created'   => date('Y-m-d H:i:s'),
+					'createdby' => 1
+				]);
+			}
+		}
+
+		// Force reload sidebar cache
+		$this->session->unset_userdata('html_menu_tree');
 	}
 
 	public function scan_retur()
@@ -49,6 +356,62 @@ class Retur extends MY_Controller
 		$this->show($data);
 	}
 
+	public function update_retur()
+	{
+		$data['is_update'] = true;
+		$data['title'] = 'Update Retur';
+		
+		// Get today's scan count for Terima Retur
+		$data['total_scan_terima'] = $this->retur_fcd->get_total_scan_terima_today($this->data['user']['id_user']);
+		
+		// Get today's scan count for Buka Retur  
+		$data['total_scan_buka'] = $this->retur_fcd->get_total_scan_buka_today($this->data['user']['id_user']);
+
+        if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
+            $noresi = trim($this->input->post('noresi_buka'));
+            
+            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
+            if ($exists > 0) {
+                $data['noresi_buka'] = $noresi;
+            } else {
+                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+            }
+            $data['active_tab'] = 'buka-retur';
+        } else {
+            $data['active_tab'] = 'terima-retur';
+        }
+
+		$this->show($data, 'retur/scan_retur');
+	}
+
+	public function scan_retur_komplain()
+	{
+		$data['is_komplain'] = true;
+		$data['title'] = 'Scan Retur Komplain';
+
+		// Get today's scan count for Terima Retur
+		$data['total_scan_terima'] = $this->retur_fcd->get_total_scan_terima_today($this->data['user']['id_user']);
+		
+		// Get today's scan count for Buka Retur  
+		$data['total_scan_buka'] = $this->retur_fcd->get_total_scan_buka_today($this->data['user']['id_user']);
+
+        if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
+            $noresi = trim($this->input->post('noresi_buka'));
+            
+            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
+            if ($exists > 0) {
+                $data['noresi_buka'] = $noresi;
+            } else {
+                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+            }
+            $data['active_tab'] = 'buka-retur';
+        } else {
+            $data['active_tab'] = 'terima-retur';
+        }
+
+		$this->show($data, 'retur/scan_retur');
+	}
+
 	// request by ajax - Terima Retur
 	public function save_retur()
 	{
@@ -57,6 +420,8 @@ class Retur extends MY_Controller
 		}
 
 		$retur['hasil_scan'] = $this->input->post('hasil_scan');
+		$retur['is_update'] = $this->input->post('is_update');
+		$retur['is_complain'] = $this->input->post('is_complain') ? 1 : 0;
 
 		$save = $this->retur_fcd->save_terima_retur($retur, $this->data['user']['id_user']);
 
@@ -84,6 +449,8 @@ class Retur extends MY_Controller
 
 		$retur['status_detail'] = $this->input->post('status_detail_buka');
 		$retur['hasil_scan'] = $this->input->post('hasil_scan_buka');
+		$retur['is_update'] = $this->input->post('is_update');
+		$retur['is_complain'] = $this->input->post('is_complain') ? 1 : 0;
 
 		$save = $this->retur_fcd->save_buka_retur($retur, $this->data['user']['id_user']);
 
@@ -105,8 +472,23 @@ class Retur extends MY_Controller
     public function get_buka_retur_sku_data($noresi)
     {
         $noresi = urldecode($noresi);
+        $is_update = $this->input->get('is_update') ? true : false;
+        $is_complain = $this->input->get('is_complain') ? 1 : 0;
 
         $this->load->model('retur_fcd');
+
+        if ($is_update) {
+            // Reset existing return record for update mode
+            $this->db->delete('tblbukaretur', ['resi_buka' => $noresi]);
+            $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
+            if ($receipt) {
+                $this->db->where('id_resi', $receipt->id_printresi)->where('is_komplain', $is_complain)->update('tblresiretur', [
+                    'status_retur' => 'Terima Retur',
+                    'status_detail' => null
+                ]);
+            }
+        }
+
         $data = array(
             'start' => 0,
             'length' => 0, // 0 = no limit in our model
@@ -132,6 +514,7 @@ class Retur extends MY_Controller
                     'id_printresi' => $id,
                     'noresi'       => $nr,
                     'sku'          => $sku,
+                    'no_rak'       => $row->no_rak ?? '-',
                     'jumlah'       => $jumlah,
                     'nama_barang'  => htmlspecialchars($nama, ENT_QUOTES, 'UTF-8'),
                     'link_foto'    => $link_foto,
@@ -164,6 +547,8 @@ class Retur extends MY_Controller
         $sku = $this->input->post('sku');
         $qty = $this->input->post('qty');
         $status_detail = $this->input->post('status_detail');
+        $sku_pergantian = $this->input->post('sku_pergantian');
+        $alasan_ditolak = $this->input->post('alasan_ditolak');
 
         // This should insert into tblbukaretur, and maybe update tblresiretur
         if (empty($noresi) || empty($sku) || empty($status_detail)) {
@@ -178,6 +563,8 @@ class Retur extends MY_Controller
             'hasil_scan_buka' => $noresi,
             'sku' => $sku,
             'qty' => $qty,
+            'sku_pergantian' => ($sku_pergantian !== null && $sku_pergantian !== '') ? $sku_pergantian : null,
+            'alasan_ditolak' => ($alasan_ditolak !== null && $alasan_ditolak !== '') ? $alasan_ditolak : null,
             'tanggal_buka_retur' => date('Y-m-d H:i:s'),
             'id_pegawai' => $this->data['user']['id_user'],
             'created_at' => date('Y-m-d H:i:s')
@@ -187,20 +574,102 @@ class Retur extends MY_Controller
         // Update tblresiretur status_retur = Buka Retur
         $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
         if ($receipt) {
-            $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi])->row();
+            $is_complain = $this->input->post('is_complain') ? 1 : 0;
+            $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi, 'is_komplain' => $is_complain])->row();
             if ($retur_exist) {
                 // We update it so that it reflects "Buka Retur" overall
-                $this->db->where('id_resiretur', $retur_exist->id_resiretur);
-                $this->db->update('tblresiretur', [
+                $this->retur_fcd->guarded_pk_update('tblresiretur', 'id_resiretur', $retur_exist->id_resiretur, [
                     'status_retur' => 'Buka Retur',
                     'status_detail' => $status_detail,
-                    'tanggal_resiretur' => date('Y-m-d H:i:s'),
-                    'id_pegawai' => $this->data['user']['id_user']
+                    // Keep original tanggal_resiretur as receive date
+                    'id_pegawai' => $this->data['user']['id_user'],
+                    'is_update' => $this->input->post('is_update') ? 1 : 0,
+                    'is_komplain' => $is_complain
                 ]);
             }
         }
         
         $this->make_ajax_response(201, "SKU $sku berhasil diproses dengan status $status_detail");
+    }
+
+    /**
+     * Proses Buka Retur untuk multiple SKU sekaligus dengan status yang sama.
+     */
+    public function save_buka_retur_sku_bulk()
+    {
+        if ($this->input->method() == 'get') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $noresi = $this->input->post('noresi');
+        $status_detail = $this->input->post('status_detail');
+        $items_json = $this->input->post('items');
+        $sku_pergantian = $this->input->post('sku_pergantian');
+        $alasan_ditolak = $this->input->post('alasan_ditolak');
+
+        if (empty($noresi) || empty($status_detail) || empty($items_json)) {
+            $this->make_ajax_response(400, 'Data tidak lengkap');
+        }
+
+        $items = json_decode($items_json, true);
+        if (empty($items) || !is_array($items)) {
+            $this->make_ajax_response(400, 'Data item tidak valid');
+        }
+
+        $this->db->trans_start();
+
+        $processed_skus = [];
+        $now = date('Y-m-d H:i:s');
+        $user_id = $this->data['user']['id_user'];
+
+        foreach ($items as $item) {
+            $sku = $item['sku'] ?? null;
+            $qty = $item['qty'] ?? 0;
+
+            if ($qty <= 0) continue;
+
+            $bukaretur = [
+                'status_buka' => 'Buka Retur',
+                'status_detail_buka' => $status_detail,
+                'resi_buka' => $noresi,
+                'hasil_scan_buka' => $noresi,
+                'sku' => ($sku === '') ? null : $sku,
+                'qty' => $qty,
+                'sku_pergantian' => ($sku_pergantian !== null && $sku_pergantian !== '') ? $sku_pergantian : null,
+                'alasan_ditolak' => ($alasan_ditolak !== null && $alasan_ditolak !== '') ? $alasan_ditolak : null,
+                'tanggal_buka_retur' => $now,
+                'id_pegawai' => $user_id,
+                'created_at' => $now
+            ];
+            $this->db->insert('tblbukaretur', $bukaretur);
+            $processed_skus[] = ($sku === '' || $sku === null) ? 'TANPA SKU' : $sku;
+        }
+
+        // Update tblresiretur status_retur = Buka Retur (hanya sekali)
+        $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
+        if ($receipt) {
+            $is_complain = $this->input->post('is_complain') ? 1 : 0;
+            $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi, 'is_komplain' => $is_complain])->row();
+            if ($retur_exist) {
+                $this->retur_fcd->guarded_pk_update('tblresiretur', 'id_resiretur', $retur_exist->id_resiretur, [
+                    'status_retur' => 'Buka Retur',
+                    'status_detail' => $status_detail,
+                    // Keep original tanggal_resiretur as receive date
+                    'id_pegawai' => $user_id,
+                    'is_update' => $this->input->post('is_update') ? 1 : 0,
+                    'is_komplain' => $is_complain
+                ]);
+            }
+        }
+
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->make_ajax_response(500, 'Gagal memproses data retur massal');
+        }
+
+        $sku_list = implode(', ', $processed_skus);
+        $this->make_ajax_response(201, "SKU ($sku_list) berhasil diproses dengan status $status_detail");
     }
 
     public function search_retur()
@@ -217,6 +686,15 @@ class Retur extends MY_Controller
         $data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
         
         $this->show($data);
+    }
+
+    public function laporan_retur_komplain()
+    {
+        // Get list of couriers for filter
+        $data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
+        $data['is_komplain'] = true;
+        
+        $this->show($data, 'retur/laporan_retur');
     }
 
     public function get_data_retur()
@@ -347,7 +825,11 @@ class Retur extends MY_Controller
             if ($status === 'Retur Tadro') {
                 $aksi = '<button class="btn btn-xs btn-warning btn-progress" data-noresi="' . $noresi . '" data-action="terima"><i class="fa fa-check"></i> Tandai Terima</button>';
             } else {
-                $aksi = '<button class="btn btn-xs btn-success btn-progress" data-noresi="' . $noresi . '" data-action="buka"><i class="fa fa-inbox"></i> Tandai Buka</button>';
+                if ($row->status_retur === 'Buka Retur') {
+                    $aksi = '<span class="label label-success"><i class="fa fa-check-circle"></i> Sudah Buka</span>';
+                } else {
+                    $aksi = '<button class="btn btn-xs btn-success btn-progress" data-noresi="' . $noresi . '" data-action="buka"><i class="fa fa-inbox"></i> Tandai Buka</button>';
+                }
             }
             $result_data[] = array(
                 $row->no_pesanan ?: '-',
@@ -510,6 +992,299 @@ class Retur extends MY_Controller
         header("Expires: 0");
 
         $this->load->view('retur/export_buka_retur', $data);
+    }
+
+    // ==================== LAPORAN RETUR LENGKAP (CONSOLIDATED) ====================
+    public function get_data_laporan_retur_lengkap()
+    {
+        $draw = intval($this->input->post('draw'));
+        $order = $this->input->post('order');
+
+        $data['start'] = intval($this->input->post('start'));
+        $data['length'] = intval($this->input->post('length'));
+        $data['search'] = $this->input->post('search')['value'];
+
+        $start_date = $this->input->post('start_date');
+        $end_date = $this->input->post('end_date');
+        $id_kurir = $this->input->post('id_kurir');
+        $status_retur = $this->input->post('status_retur');
+        $date_type = $this->input->post('date_type') ?: 'terima';
+        $is_komplain = $this->input->post('is_komplain') ? 1 : 0;
+
+        $col = 0;
+        $dir = '';
+        if (!empty($order)) {
+            foreach ($order as $o) {
+                $col = $o['column'];
+                $dir = $o['dir'];
+            }
+        }
+
+        $data['dir'] = $dir;
+
+        $data['valid_columns'] = array(
+            0 => 'dp.no_pesanan',
+            1 => 'tr.noresi',
+            2 => 'dp.sku',
+            3 => 'dp.jumlah',
+            4 => 'dp.no_rak',
+            5 => 'mp.nama_marketplace',
+            6 => 'pr.toko',
+            7 => 'br.harga',
+            8 => 'br.harga',
+            9 => 'br.status_detail_buka',
+            10 => 'tr.status_retur',
+            11 => 'tr.tanggal_resiretur',
+            12 => 'tr.tanggal_resiretur',
+            13 => 'br.tanggal_buka_retur',
+            14 => 'br.tanggal_buka_retur',
+            15 => 'rv.verified_at',
+            16 => 'rv.verified_at'
+        );
+
+        $data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
+
+        $list_retur = $this->retur_fcd->get_laporan_retur_lengkap($data, $start_date, $end_date, $id_kurir, $status_retur, $date_type, $is_komplain);
+        $total = $this->retur_fcd->get_total_laporan_retur_lengkap($data, $start_date, $end_date, $id_kurir, $status_retur, $date_type, $is_komplain);
+
+        $result_data = array();
+        foreach ($list_retur->result() as $row) {
+            $noresi = htmlspecialchars($row->noresi, ENT_QUOTES);
+            
+            // Aksi logic
+            $aksi = '';
+            if ($row->status_retur === 'Retur Online') {
+                $aksi = '<button class="btn btn-xs btn-warning btn-progress" data-noresi="' . $noresi . '" data-action="terima"><i class="fa fa-check"></i> Tandai Terima</button>';
+            } elseif ($row->status_retur === 'Terima Retur') {
+                $aksi = '<button class="btn btn-xs btn-success btn-progress" data-noresi="' . $noresi . '" data-action="buka"><i class="fa fa-inbox"></i> Tandai Buka</button>';
+            } else {
+                $aksi = '<span class="label label-success"><i class="fa fa-check-circle"></i> Selesai</span>';
+            }
+
+            $harga = isset($row->harga) && $row->harga !== null ? (float) $row->harga : null;
+            $qty   = (int) ($row->jumlah ?: 0);
+            $total_harga = $harga !== null ? $harga * $qty : null;
+
+            $result_data[] = array(
+                $row->no_pesanan ?: '-',
+                $row->noresi,
+                $row->sku ?: '-',
+                $row->jumlah ?: '0',
+                $row->no_rak ?: '-',
+                $row->nama_marketplace ?: '-',
+                $row->nama_toko ?: '-',
+                $harga !== null ? number_format($harga, 0, ',', '.') : '-',
+                $total_harga !== null ? number_format($total_harga, 0, ',', '.') : '-',
+                $row->status_detail_buka ?: '-',
+                $row->status_retur ?: '-',
+                !empty($row->tanggal_terima) ? date('Y-m-d', strtotime($row->tanggal_terima)) : '-',
+                !empty($row->tanggal_terima) ? date('H:i:s', strtotime($row->tanggal_terima)) : '-',
+                !empty($row->tanggal_buka) ? date('Y-m-d', strtotime($row->tanggal_buka)) : '-',
+                !empty($row->tanggal_buka) ? date('H:i:s', strtotime($row->tanggal_buka)) : '-',
+                !empty($row->tanggal_acc) ? date('Y-m-d', strtotime($row->tanggal_acc)) : '-',
+                !empty($row->tanggal_acc) ? date('H:i:s', strtotime($row->tanggal_acc)) : '-',
+                $aksi
+            );
+        }
+
+        $output = array(
+            "draw" => $draw,
+            "recordsTotal" => $total,
+            "recordsFiltered" => $total,
+            "data" => $result_data
+        );
+        echo json_encode($output);
+        exit();
+    }
+
+    public function export_excel_laporan_retur_lengkap()
+    {
+        $start_date = $this->input->get('start_date');
+        $end_date = $this->input->get('end_date');
+        $id_kurir = $this->input->get('id_kurir');
+        $status_retur = $this->input->get('status_retur');
+        $date_type = $this->input->get('date_type') ?: 'terima';
+        $is_komplain = $this->input->get('is_komplain') ? 1 : 0;
+
+        $data['list_retur'] = $this->retur_fcd->get_laporan_retur_lengkap_all($start_date, $end_date, $id_kurir, $status_retur, $date_type, $is_komplain);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['date_type'] = $date_type;
+        $data['is_komplain'] = $is_komplain;
+
+        $filename = $is_komplain ? "Laporan_Retur_Komplain_" : "Laporan_Retur_Lengkap_";
+
+        header("Content-Type: application/vnd.ms-excel");
+        header("Content-Disposition: attachment; filename=" . $filename . date('YmdHis') . ".xls");
+        header("Pragma: no-cache");
+        header("Expires: 0");
+
+        $this->load->view('retur/export_laporan_retur', $data);
+    }
+
+    // ==================== LAPORAN RETUR SHIPPED ====================
+    public function laporan_retur_shipped()
+    {
+        $this->show($this->data, 'retur/laporan_retur_shipped');
+    }
+
+    public function get_data_laporan_retur_shipped()
+    {
+        $draw = intval($this->input->post('draw'));
+        $order = $this->input->post('order');
+
+        $data['start'] = intval($this->input->post('start'));
+        $data['length'] = intval($this->input->post('length'));
+        $data['search'] = $this->input->post('search')['value'];
+
+        $start_date = $this->input->post('start_date');
+        $end_date = $this->input->post('end_date');
+
+        $col = 0;
+        $dir = '';
+        if (!empty($order)) {
+            foreach ($order as $o) {
+                $col = $o['column'];
+                $dir = $o['dir'];
+            }
+        }
+
+        $data['dir'] = $dir;
+
+        $data['valid_columns'] = array(
+            0 => null, // No
+            1 => 'br.tanggal_buka_retur', // Tanggal
+            2 => 'br.resi_buka', // No. Resi
+            3 => 'COALESCE(dp.no_pesanan, br.no_pesanan)', // No. Pesanan
+            4 => 'COALESCE(pr.toko, br.toko)', // Nama Toko
+            5 => 'br.sku', // SKU
+            6 => 'br.qty', // Qty
+            7 => 'pr.status_pesanan', // Status Paket
+            8 => 'rj.status_jubelio', // Status Jubelio
+            9 => 'rj.id_jubelio' // Status Berubah
+        );
+
+        $data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
+
+        $list_retur = $this->retur_fcd->get_laporan_retur_shipped($data, $start_date, $end_date);
+        $total = $this->retur_fcd->get_total_laporan_retur_shipped($data, $start_date, $end_date);
+
+        $result_data = array();
+        $no = $data['start'] + 1;
+        foreach ($list_retur->result() as $row) {
+            $status_berubah_label = $row->status_berubah === 'Berubah' 
+                ? '<span class="label label-success">Berubah</span>' 
+                : '<span class="label label-danger">Belum</span>';
+
+            $result_data[] = array(
+                $no++ . '.',
+                !empty($row->tanggal_buka) ? date('Y-m-d H:i:s', strtotime($row->tanggal_buka)) : '-',
+                htmlspecialchars($row->noresi, ENT_QUOTES),
+                htmlspecialchars($row->no_pesanan ?? '-', ENT_QUOTES),
+                htmlspecialchars($row->nama_toko ?? '-', ENT_QUOTES),
+                htmlspecialchars($row->sku, ENT_QUOTES),
+                $row->jumlah,
+                htmlspecialchars($row->status_pesanan, ENT_QUOTES),
+                !empty($row->status_jubelio) ? htmlspecialchars($row->status_jubelio, ENT_QUOTES) : '-',
+                $status_berubah_label
+            );
+        }
+
+        $output = array(
+            "draw" => $draw,
+            "recordsTotal" => $total,
+            "recordsFiltered" => $total,
+            "data" => $result_data
+        );
+        echo json_encode($output);
+        exit();
+    }
+
+    public function export_excel_laporan_retur_shipped()
+    {
+        $start_date = $this->input->get('start_date');
+        $end_date = $this->input->get('end_date');
+
+        $data['list_data'] = $this->retur_fcd->get_laporan_retur_shipped_all($start_date, $end_date)->result_array();
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+
+        header("Content-Type: application/vnd.ms-excel");
+        header("Content-Disposition: attachment; filename=Laporan_Retur_Shipped_" . date('YmdHis') . ".xls");
+        header("Pragma: no-cache");
+        header("Expires: 0");
+
+        $this->load->view('retur/export_laporan_retur_shipped', $data);
+    }
+    public function cek_sku()
+    {
+        $this->data['title'] = 'Cek SKU Retur';
+        $this->show($this->data);
+    }
+
+    public function get_sku_suggestions()
+    {
+        header('Content-Type: application/json');
+        $term = trim($this->input->get('term'));
+        if (strlen($term) < 2) {
+            echo json_encode([]);
+            exit();
+        }
+
+        $this->db->select('id_sku as id, id_sku as label, nama_sku as value');
+        $this->db->like('id_sku', $term);
+        $this->db->or_like('nama_sku', $term);
+        $this->db->limit(10);
+        $query = $this->db->get('tblsku');
+
+        echo json_encode($query->result_array());
+        exit();
+    }
+
+    public function get_retur_details_by_sku_api()
+    {
+        header('Content-Type: application/json');
+
+        if ($this->input->method() !== 'post') {
+            echo json_encode(['success' => false, 'message' => 'Request method must be POST']);
+            exit();
+        }
+
+        $sku = trim($this->input->post('sku'));
+        if (empty($sku)) {
+            echo json_encode(['success' => false, 'message' => 'SKU tidak boleh kosong']);
+            exit();
+        }
+
+        $results = $this->retur_fcd->get_retur_details_by_sku($sku);
+
+        $formatted = [];
+        foreach ($results as $row) {
+            $harga = isset($row['harga']) && $row['harga'] !== null ? (float) $row['harga'] : null;
+            $qty   = (int) ($row['jumlah'] ?: 0);
+            $total_harga = $harga !== null ? $harga * $qty : null;
+
+            $formatted[] = [
+                'no_pesanan' => $row['no_pesanan'] ?: '-',
+                'noresi' => $row['noresi'],
+                'nama_marketplace' => $row['nama_marketplace'] ?: '-',
+                'nama_toko' => $row['nama_toko'] ?: '-',
+                'nama_kurir' => $row['nama_kurir'] ?: '-',
+                'status_retur' => $row['status_retur'] ?: '-',
+                'tanggal_terima' => !empty($row['tanggal_terima']) ? date('Y-m-d H:i:s', strtotime($row['tanggal_terima'])) : '-',
+                'tanggal_buka' => !empty($row['tanggal_buka']) ? date('Y-m-d H:i:s', strtotime($row['tanggal_buka'])) : '-',
+                'status_detail_buka' => $row['status_detail_buka'] ?: '-',
+                'tanggal_acc' => !empty($row['tanggal_acc']) ? date('Y-m-d H:i:s', strtotime($row['tanggal_acc'])) : '-',
+                'sku' => $row['sku'] ?: '-',
+                'jumlah' => $qty,
+                'harga' => $harga !== null ? number_format($harga, 0, ',', '.') : '-',
+                'total' => $total_harga !== null ? number_format($total_harga, 0, ',', '.') : '-',
+                'no_rak' => $row['no_rak'] ?: '-'
+            ];
+        }
+
+        echo json_encode(['success' => true, 'data' => $formatted]);
+        exit();
     }
 
 	// ==================== PROSES COMPLAIN CUSTOMER ====================
@@ -978,12 +1753,15 @@ class Retur extends MY_Controller
 			$end   = date('Y-m-t 23:59:59');
 		}
 
-		$summary    = $this->retur_fcd->dashboard_summary($start, $end);
-		$trend      = $this->retur_fcd->dashboard_trend($start, $end);
-		$by_kurir   = $this->retur_fcd->dashboard_by_kurir($start, $end);
-		$by_mp      = $this->retur_fcd->dashboard_by_marketplace($start, $end);
-		$status     = $this->retur_fcd->dashboard_status_buka($start, $end);
-		$top_sku    = $this->retur_fcd->dashboard_top_sku($start, $end);
+		$summary        = $this->retur_fcd->dashboard_summary($start, $end);
+		$trend          = $this->retur_fcd->dashboard_trend($start, $end);
+		$by_kurir       = $this->retur_fcd->dashboard_by_kurir($start, $end);
+		$by_mp          = $this->retur_fcd->dashboard_by_marketplace($start, $end);
+		$status         = $this->retur_fcd->dashboard_status_buka($start, $end);
+		$top_sku        = $this->retur_fcd->dashboard_top_sku($start, $end);
+		$oldest_pending = $this->retur_fcd->dashboard_oldest_pending(10);
+		$hourly         = $this->retur_fcd->dashboard_hourly($start, $end);
+		$complain_type  = $this->retur_fcd->dashboard_complain_by_type($start, $end);
 
 		// Susun tren harian (gabung terima & buka per tanggal)
 		$map = array();
@@ -1011,13 +1789,33 @@ class Retur extends MY_Controller
 			return $out;
 		};
 
+		// Format oldest pending
+		$pending_out = array();
+		foreach ($oldest_pending as $p) {
+			$pending_out[] = array(
+				'noresi'        => $p->noresi,
+				'tgl'           => $p->tanggal_resiretur,
+				'kurir'         => $p->nama_kurir ?: '-',
+				'jam_tunggu'    => (int) $p->jam_tunggu,
+			);
+		}
+
+		// Format hourly
+		$hourly_map = array_fill(0, 24, 0);
+		foreach ($hourly as $h) {
+			$hourly_map[(int)$h->jam] = (int)$h->n;
+		}
+
 		echo json_encode(array(
-			'summary'     => $summary,
-			'trend'       => $trend_out,
-			'by_kurir'    => $fmt($by_kurir),
-			'by_mp'       => $fmt($by_mp),
-			'status_buka' => $fmt($status),
-			'top_sku'     => $fmt($top_sku),
+			'summary'        => $summary,
+			'trend'          => $trend_out,
+			'by_kurir'       => $fmt($by_kurir),
+			'by_mp'          => $fmt($by_mp),
+			'status_buka'    => $fmt($status),
+			'top_sku'        => $fmt($top_sku),
+			'oldest_pending' => $pending_out,
+			'hourly'         => $hourly_map,
+			'complain_type'  => $fmt($complain_type),
 		));
 		exit();
 	}
@@ -1121,7 +1919,7 @@ class Retur extends MY_Controller
 			log_message('error', 'Upload Retur: hasil ' . json_encode($result));
 
 			$msg = "Import selesai: {$result['total']} baris — "
-				. "Retur Tadro {$result['tadro']}, Terima {$result['terima']}, Buka {$result['buka']}. "
+				. "Retur Online {$result['tadro']}, Terima {$result['terima']}, Buka {$result['buka']}. "
 				. "Resi baru {$result['resi_baru']}, diperbarui {$result['resi_update']}, "
 				. "resi tdk ditemukan {$result['resi_not_found']}, kurir tdk dikenal {$result['kurir_not_found']}.";
 
@@ -1142,8 +1940,24 @@ class Retur extends MY_Controller
 	public function validasi_jubelio()
 	{
 		$data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
+		$data['title'] = 'Verifikasi Retur';
 
 		$this->show($data);
+	}
+
+	public function verifikasi_retur_komplain()
+	{
+		$data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
+		$data['is_komplain'] = true;
+		$data['title'] = 'Verifikasi Retur Komplain';
+
+		$this->show($data, 'retur/validasi_jubelio');
+	}
+
+	public function upload_retur_jubelio()
+	{
+		$data['title'] = 'Upload Retur Jubelio';
+		$this->show($data, 'retur/upload_retur_jubelio');
 	}
 
 	/**
@@ -1176,60 +1990,8 @@ class Retur extends MY_Controller
 			ini_set('memory_limit', '3072M');
 			set_time_limit(0);
 
-			$file        = $_FILES['jubelioFile']['tmp_name'];
-			$reader      = IOFactory::createReader(IOFactory::identify($file));
-			$reader->setReadDataOnly(true);
-			$spreadsheet = $reader->load($file);
-			$sheet       = $spreadsheet->getActiveSheet();
-			$raw         = $sheet->toArray(null, true, true, true);
-
-			if (count($raw) < 2) {
-				throw new Exception('File tidak berisi data.');
-			}
-
-			// Petakan nama header -> huruf kolom dari baris pertama
-			$header_row = array_shift($raw);
-			$wanted = [
-				'tracking_number' => 'no_resi',
-				'salesorder_no'   => 'no_pesanan',
-				'QTY'             => 'qty',
-				'SKU'             => 'sku',
-				'Nama Barang'     => 'nama_barang',
-				'amount'          => 'amount',
-				'Tanggal'         => 'tanggal_retur',
-				'Sumber'          => 'marketplace',
-				'store'           => 'nama_toko',
-				'Status'          => 'status_jubelio',
-				'Kurir'           => 'kurir',
-			];
-			$colmap = [];
-			foreach ($header_row as $letter => $title) {
-				$title = trim((string) $title);
-				if ($title !== '' && isset($wanted[$title])) {
-					$colmap[$wanted[$title]] = $letter;
-				}
-			}
-
-			if (!isset($colmap['no_resi']) || !isset($colmap['no_pesanan'])) {
-				throw new Exception('Kolom wajib (tracking_number / salesorder_no) tidak ditemukan. Pastikan ini file "daftar retur penjualan" dari Jubelio.');
-			}
-
-			$rows = [];
-			foreach ($raw as $r) {
-				$row = [];
-				foreach ($colmap as $field => $letter) {
-					$val = $r[$letter] ?? null;
-					if ($field === 'tanggal_retur') {
-						$val = $this->_parse_excel_date($val);
-					}
-					$row[$field] = is_string($val) ? trim($val) : $val;
-				}
-				// Lewati baris kosong (file Jubelio sering punya ribuan baris hantu)
-				if (empty($row['no_resi']) && empty($row['no_pesanan'])) {
-					continue;
-				}
-				$rows[] = $row;
-			}
+			$file = $_FILES['jubelioFile']['tmp_name'];
+			$rows = $this->retur_fcd->parse_jubelio_spreadsheet($file);
 
 			if (empty($rows)) {
 				throw new Exception('Tidak ada baris data valid di file (semua baris kosong).');
@@ -1238,13 +2000,13 @@ class Retur extends MY_Controller
 			$batch_id = date('YmdHis') . '_' . substr(md5(uniqid('', true)), 0, 6);
 			$result   = $this->retur_fcd->insert_jubelio_batch($rows, $batch_id, $this->data['user']['id_user']);
 
-			log_message('error', "Upload Jubelio: batch $batch_id, inserted={$result['inserted']}, matched={$result['matched']}");
+			log_message('error', "Upload Jubelio: batch $batch_id, inserted={$result['inserted']}, updated={$result['updated']}, matched={$result['matched']}");
 
 			if (ob_get_length()) ob_clean();
 			$this->make_ajax_response(
 				201,
-				"Upload Jubelio selesai: {$result['inserted']} baris tersimpan, {$result['matched']} resi cocok dengan data scan iresis.",
-				['batch_id' => $batch_id, 'inserted' => $result['inserted'], 'matched' => $result['matched']]
+				"Upload Jubelio selesai: {$result['inserted']} baris baru, {$result['updated']} baris diperbarui statusnya, {$result['matched']} resi cocok dengan data scan iresis.",
+				['batch_id' => $batch_id, 'inserted' => $result['inserted'], 'updated' => $result['updated'], 'matched' => $result['matched']]
 			);
 		} catch (Throwable $e) {
 			if (ob_get_length()) ob_clean();
@@ -1301,58 +2063,150 @@ class Retur extends MY_Controller
 	 * Gabungkan data retur iresis dan Jubelio per no_resi, tentukan kondisi:
 	 * Cocok / Hanya di iresis / Hanya di Jubelio.
 	 */
-	private function _reconcile($start_date, $end_date, $id_kurir = null)
+	private function _reconcile($start_date, $end_date, $id_kurir = null, $is_update = 0, $is_komplain = 0, $use_old = 0)
 	{
-		$iresis  = $this->retur_fcd->get_iresis_recon($start_date, $end_date, $id_kurir);
-		$jubelio = $this->retur_fcd->get_jubelio_recon($start_date, $end_date);
+		$iresis  = $this->retur_fcd->get_iresis_recon($start_date, $end_date, $id_kurir, $is_update, $is_komplain, $use_old);
+
+		// Consolidate iresis records per noresi
+		$iresis_grouped = [];
+		$consolidated_iresis = [];
+		foreach ($iresis as $r) {
+			$resi = strtoupper(trim($r->noresi));
+			if ($resi !== '') {
+				$iresis_grouped[$resi][] = $r;
+			} else {
+				$consolidated_iresis[] = $r;
+			}
+		}
+
+		foreach ($iresis_grouped as $resi => $group) {
+			if ($is_komplain) {
+				foreach ($group as $r) {
+					$consolidated_iresis[] = $r;
+				}
+				continue;
+			}
+
+			// Check if there is at least one row whose status is NOT KE_DISPLAY
+			$has_non_display = false;
+			foreach ($group as $r) {
+				if (strtoupper(trim($r->status_detail_buka)) !== 'KE_DISPLAY') {
+					$has_non_display = true;
+					break;
+				}
+			}
+
+			if ($has_non_display) {
+				// Filter out any row with KE_DISPLAY
+				$filtered_group = [];
+				foreach ($group as $r) {
+					if (strtoupper(trim($r->status_detail_buka)) !== 'KE_DISPLAY') {
+						$filtered_group[] = $r;
+					}
+				}
+				$group = $filtered_group;
+			} else {
+				// All rows are KE_DISPLAY. Merge them into a single row.
+				if (count($group) > 1) {
+					$base = $group[0];
+					$skus = [];
+					$total_qty = 0;
+					foreach ($group as $r) {
+						if (!empty($r->sku_list)) {
+							$parts = explode(',', $r->sku_list);
+							foreach ($parts as $p) {
+								$p_trimmed = trim($p);
+								if ($p_trimmed !== '') {
+									$skus[$p_trimmed] = true;
+								}
+							}
+						}
+						$total_qty += (int) $r->total_qty;
+					}
+					$base->sku_list = implode(', ', array_keys($skus));
+					$base->total_qty = $total_qty;
+					$group = [$base];
+				}
+			}
+
+			foreach ($group as $r) {
+				$consolidated_iresis[] = $r;
+			}
+		}
+		$iresis = $consolidated_iresis;
+		
+		$resi_list = [];
+		foreach ($iresis as $r) {
+			$resi = strtoupper(trim($r->noresi));
+			if ($resi !== '') {
+				$resi_list[] = $resi;
+			}
+		}
+		$jubelio = $this->retur_fcd->get_jubelio_recon($start_date, $end_date, $resi_list);
 
 		$map = [];
 
 		foreach ($iresis as $r) {
-			$key = strtoupper(trim($r->noresi));
-			if ($key === '') continue;
+			$key = strtoupper(trim($r->noresi)) . '_' . ($r->id_bukaretur ?: 0);
 			$map[$key] = [
-				'no_resi'         => $r->noresi,
-				'no_pesanan'      => $r->no_pesanan ?: '-',
-				'marketplace'     => $r->nama_marketplace ?: '-',
-				'nama_toko'       => $r->nama_toko ?: '-',
-				'kurir'           => $r->nama_kurir ?: '-',
-				'kategori_iresis' => $r->status_retur ?: '-',
-				'status_jubelio'  => '-',
-				'qty_iresis'      => (int) $r->total_qty,
-				'qty_jubelio'     => 0,
-				'tanggal'         => $r->tanggal_resiretur ? date('Y-m-d H:i', strtotime($r->tanggal_resiretur)) : '-',
-				'in_iresis'       => true,
-				'in_jubelio'      => false,
+				'no_resi'            => $r->noresi,
+				'no_pesanan'         => $r->no_pesanan ?: '-',
+				'marketplace'        => $r->nama_marketplace ?: '-',
+				'nama_toko'          => $r->nama_toko ?: '-',
+				'kurir'              => $r->nama_kurir ?: '-',
+				'kategori_iresis'    => $r->status_retur ?: '-',
+				'status_detail_buka' => $r->status_detail_buka ?: '-',
+				'status_jubelio'     => '-',
+				'status_pesanan'     => $r->status_pesanan ?: '-',
+				'qty_iresis'         => (int) $r->total_qty,
+				'qty_jubelio'        => 0,
+				'tanggal'            => $r->tanggal_resiretur ? date('Y-m-d H:i', strtotime($r->tanggal_resiretur)) : '-',
+				'in_iresis'          => true,
+				'in_jubelio'         => false,
+				'alasan_ditolak'     => $r->alasan_ditolak ?: '-',
+				'detail_ditolak'     => in_array(strtoupper(trim($r->status_detail_buka)), [
+					'REJECT', 'REFUND', 'PENUKARAN_BERES', 'PENDINGAN BERES (PB)', 
+					'REQUEST_DARI_PEMBELI', 'REQUEST DARI PEMBELI', 'KURANG', 'KURANG DARI PENJUAL', 'KURANG_DARI_PENJUAL', 
+					'KURANG_DARI_PEMBELI', 'KURANG DARI PEMBELI', 'BUKAN_BARANG_KITA', 'BUKAN BARANG KITA', 
+					'PAKET_HILANG', 'PAKET HILANG', 'DIPAKAI_ADMIN', 'DIPAKAI ADMIN',
+					'BARANG_TIDAK_ADA', 'BARANG TIDAK ADA', 'BUKAN_RETUR', 'BUKAN RETUR'
+				]) ? ($r->sku_list . ' (' . $r->total_qty . ' pcs)') : '-',
+				'sku_pergantian'     => in_array(strtoupper(trim($r->status_detail_buka)), [
+					'PENUKARAN_BERES', 'PENDINGAN BERES (PB)', 'REQUEST_DARI_PEMBELI', 'REQUEST DARI PEMBELI'
+				]) && !empty($r->sku_pergantian) ? ($r->sku_list . ' -> ' . $r->sku_pergantian) : '-',
 			];
 		}
 
 		foreach ($jubelio as $j) {
-			$key = strtoupper(trim($j->noresi));
-			if ($key === '') continue;
-			if (isset($map[$key])) {
-				$map[$key]['in_jubelio']     = true;
-				$map[$key]['status_jubelio'] = $j->status_jubelio ?: '-';
-				$map[$key]['qty_jubelio']    = (int) $j->total_qty;
-				if ($map[$key]['no_pesanan'] === '-' && !empty($j->no_pesanan)) {
-					$map[$key]['no_pesanan'] = $j->no_pesanan;
+			$resi_key = strtoupper(trim($j->noresi));
+			if ($resi_key === '') continue;
+			
+			$matched = false;
+			foreach ($map as $k => &$row) {
+				if (strpos($k, $resi_key . '_') === 0) {
+					$row['in_jubelio']     = true;
+					// status_jubelio = kolom A (status_retur dari file Jubelio)
+					$row['status_jubelio'] = $j->status_retur ?: '-';
+					// status_pesanan = kolom Status (cancel/shipped/completed dari file Jubelio)
+					$row['status_pesanan'] = $j->status_jubelio ?: '-';
+					$row['qty_jubelio']    = (int) $j->total_qty;
+					if ($row['no_pesanan'] === '-' && !empty($j->no_pesanan)) {
+						$row['no_pesanan'] = $j->no_pesanan;
+					}
+					if (!empty($j->nama_toko) && $j->nama_toko !== '-') {
+						$row['nama_toko'] = $j->nama_toko;
+					}
+					$matched = true;
 				}
-			} else {
-				$map[$key] = [
-					'no_resi'         => $j->noresi,
-					'no_pesanan'      => $j->no_pesanan ?: '-',
-					'marketplace'     => $j->nama_marketplace ?: '-',
-					'nama_toko'       => $j->nama_toko ?: '-',
-					'kurir'           => $j->nama_kurir ?: '-',
-					'kategori_iresis' => '-',
-					'status_jubelio'  => $j->status_jubelio ?: '-',
-					'qty_iresis'      => 0,
-					'qty_jubelio'     => (int) $j->total_qty,
-					'tanggal'         => $j->tanggal_retur ? date('Y-m-d H:i', strtotime($j->tanggal_retur)) : '-',
-					'in_iresis'       => false,
-					'in_jubelio'      => true,
-				];
 			}
+			unset($row);
+
+			// Resi yang HANYA ada di Jubelio (tanpa pasangan di iresis) SENGAJA tidak
+			// ditambahkan sebagai baris. Laporan Verifikasi Retur / Verifikasi Retur
+			// Komplain hanya menampilkan retur yang benar-benar ada di iresis (hasil scan
+			// terima/buka + data suntikan). Data Jubelio dipakai murni sebagai pembanding
+			// untuk menandai kondisi "Cocok". Resi Jubelio-only tetap tersimpan di
+			// tblreturjubelio (lihat menu Upload Retur Jubelio / list tersendiri).
 		}
 
 		foreach ($map as &$row) {
@@ -1372,10 +2226,11 @@ class Retur extends MY_Controller
 			$verif[strtoupper(trim($v->no_resi))] = $v;
 		}
 		foreach ($map as $k => &$row) {
-			if (isset($verif[$k])) {
+			$resi_key = strtoupper(trim($row['no_resi']));
+			if (isset($verif[$resi_key])) {
 				$row['verified']     = true;
-				$row['verified_at']  = $verif[$k]->verified_at;
-				$row['verified_by']  = $verif[$k]->username;
+				$row['verified_at']  = $verif[$resi_key]->verified_at;
+				$row['verified_by']  = $verif[$resi_key]->username;
 			} else {
 				$row['verified']     = false;
 				$row['verified_at']  = null;
@@ -1399,11 +2254,13 @@ class Retur extends MY_Controller
 		$end_date   = $this->input->post('end_date');
 		$id_kurir   = $this->input->post('id_kurir');
 		$kondisi    = $this->input->post('kondisi'); // '', COCOK, IRESIS, JUBELIO
+		$is_komplain = $this->input->post('is_komplain') ? 1 : 0;
+		$use_old     = $this->input->post('use_old') ? 1 : 0; // toggle "Data Lama" (snapshot 2026-07-07)
 
-		$merged = $this->_reconcile($start_date, $end_date, $id_kurir);
+		$merged = $this->_reconcile($start_date, $end_date, $id_kurir, 0, $is_komplain, $use_old);
 
 		$data = [];
-		$summary = ['cocok' => 0, 'iresis' => 0, 'jubelio' => 0, 'verified' => 0];
+		$summary = ['cocok' => 0, 'iresis' => 0, 'jubelio' => 0, 'verified' => 0, 'ditolak' => 0];
 		$no = 1;
 
 		foreach ($merged as $row) {
@@ -1416,6 +2273,10 @@ class Retur extends MY_Controller
 			}
 			if (!empty($row['verified'])) {
 				$summary['verified']++;
+			}
+			$status_detail = strtoupper(trim($row['status_detail_buka'] ?? ''));
+			if ($status_detail !== '' && $status_detail !== '-' && $status_detail !== 'KE_DISPLAY') {
+				$summary['ditolak']++;
 			}
 
 			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
@@ -1458,15 +2319,95 @@ class Retur extends MY_Controller
 				htmlspecialchars($row['kurir'], ENT_QUOTES, 'UTF-8'),
 				htmlspecialchars($row['kategori_iresis'], ENT_QUOTES, 'UTF-8'),
 				htmlspecialchars($row['status_jubelio'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['status_pesanan'] ?? '-', ENT_QUOTES, 'UTF-8'),
 				$row['qty_iresis'],
 				$row['qty_jubelio'],
 				$row['tanggal'],
 				$badge,
+				htmlspecialchars($row['status_detail_buka'] ?? '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['alasan_ditolak'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['detail_ditolak'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['sku_pergantian'], ENT_QUOTES, 'UTF-8'),
 				$verif_cell,
 			];
 		}
 
-		echo json_encode(['data' => $data, 'summary' => $summary]);
+		// Get updated reconciliation data (is_update = 1).
+		// Tab "Update Retur" hanya untuk retur yang benar-benar discan ulang (is_update=1).
+		// Baris "Hanya di Jubelio" (tanpa sisi iresis) BUKAN update retur — get_jubelio_recon
+		// menarik semua Jubelio pada rentang tanggal, jadi tanpa filter ini laporan penuh
+		// resi Jubelio yang belum discan. Baris tsb tetap tampil normal di tab utama.
+		$merged_update = array_values(array_filter(
+			$this->_reconcile($start_date, $end_date, $id_kurir, 1, $is_komplain),
+			function ($r) { return !empty($r['in_iresis']); }
+		));
+		$summary['update_retur'] = count($merged_update);
+		$data_update = [];
+		$no_update = 1;
+
+		foreach ($merged_update as $row) {
+			if (!empty($row['verified'])) {
+				$summary['verified']++;
+			}
+
+			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
+			if ($kondisi === 'IRESIS'   && $row['kondisi'] !== 'Hanya di iresis') continue;
+			if ($kondisi === 'JUBELIO'  && $row['kondisi'] !== 'Hanya di Jubelio') continue;
+			if ($kondisi === 'VERIFIED' && empty($row['verified'])) continue;
+			if ($kondisi === 'BELUM'    && (!empty($row['verified']) || $row['kondisi'] === 'Hanya di Jubelio')) continue;
+
+			switch ($row['kondisi']) {
+				case 'Cocok':
+					$badge = '<span class="label label-success">Cocok</span>';
+					break;
+				case 'Hanya di iresis':
+					$badge = '<span class="label label-warning">Hanya di iresis</span>';
+					break;
+				default:
+					$badge = '<span class="label label-danger">Hanya di Jubelio</span>';
+			}
+
+			if ($row['kondisi'] === 'Hanya di Jubelio') {
+				$verif_cell = '<span class="text-muted" title="Belum diterima Retur">-</span>';
+			} else {
+				$checked = !empty($row['verified']) ? 'checked' : '';
+				$info = '';
+				if (!empty($row['verified'])) {
+					$info = '<br><small class="text-success">' . htmlspecialchars($row['verified_by'] ?: '', ENT_QUOTES, 'UTF-8')
+						. ($row['verified_at'] ? ' · ' . date('d/m H:i', strtotime($row['verified_at'])) : '') . '</small>';
+				}
+				$verif_cell = '<label style="font-weight:normal;margin:0;cursor:pointer;">'
+					. '<input type="checkbox" class="verif-chk" data-resi="' . htmlspecialchars($row['no_resi'], ENT_QUOTES, 'UTF-8') . '" ' . $checked . '> Verif</label>' . $info;
+			}
+
+			$data_update[] = [
+				$no_update++ . '.',
+				htmlspecialchars($row['no_resi'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['no_pesanan'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['marketplace'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['nama_toko'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['kurir'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['kategori_iresis'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['status_jubelio'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['status_pesanan'] ?? '-', ENT_QUOTES, 'UTF-8'),
+				$row['qty_iresis'],
+				$row['qty_jubelio'],
+				$row['tanggal'],
+				$badge,
+				htmlspecialchars($row['status_detail_buka'] ?? '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['alasan_ditolak'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['detail_ditolak'], ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($row['sku_pergantian'], ENT_QUOTES, 'UTF-8'),
+				$verif_cell,
+			];
+		}
+
+		// Setujui Jubelio = TOTAL - Hanya di iresis - Hanya di Jubelio - Update Retur - Ditolak
+		// (TOTAL = Cocok + Hanya di iresis + Hanya di Jubelio + Update Retur, sama seperti kartu TOTAL)
+		$summary_total = $summary['cocok'] + $summary['iresis'] + $summary['jubelio'] + $summary['update_retur'];
+		$summary['selisih'] = $summary_total - $summary['iresis'] - $summary['jubelio'] - $summary['update_retur'] - $summary['ditolak'];
+
+		echo json_encode(['data' => $data, 'data_update' => $data_update, 'summary' => $summary]);
 		exit();
 	}
 
@@ -1492,6 +2433,45 @@ class Retur extends MY_Controller
 
 		$this->retur_fcd->set_verifikasi($no_resi, $verified, $this->data['user']['id_user'], $catatan);
 		$this->make_ajax_response(200, $verified ? 'Resi diverifikasi' : 'Verifikasi dibatalkan');
+	}
+
+	/**
+	 * Bulk verifikasi resi (Step 3 — Accounting).
+	 */
+	public function bulk_verifikasi_jubelio()
+	{
+		while (ob_get_level()) ob_end_clean();
+		header('Content-Type: application/json');
+
+		if ($this->input->method() !== 'post') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+		$resi_list = $this->input->post('resi_list');
+
+		if (empty($resi_list) || !is_array($resi_list)) {
+			$this->make_ajax_response(400, 'Daftar resi kosong');
+		}
+
+		$this->db->trans_start();
+		$user_id = $this->data['user']['id_user'];
+		$count = 0;
+
+		foreach ($resi_list as $no_resi) {
+			$no_resi = strtoupper(trim($no_resi));
+			if ($no_resi === '') continue;
+
+			$this->retur_fcd->set_verifikasi($no_resi, 1, $user_id);
+			$count++;
+		}
+
+		$this->db->trans_complete();
+
+		if ($this->db->trans_status() === FALSE) {
+			$this->make_ajax_response(500, 'Gagal memproses verifikasi masal');
+		}
+
+		$this->make_ajax_response(200, $count . ' resi berhasil diverifikasi');
 	}
 
 	/**
@@ -1522,18 +2502,19 @@ class Retur extends MY_Controller
 		}
 		$params['dir'] = $dir;
 		$params['valid_columns'] = array(
-			0 => null,
-			1 => 'j.no_resi',
-			2 => 'j.no_pesanan',
-			3 => 'j.sku',
-			4 => 'j.nama_barang',
-			5 => 'j.qty',
-			6 => 'j.marketplace',
-			7 => 'j.nama_toko',
-			8 => 'j.kurir',
-			9 => 'j.status_jubelio',
-			10 => 'j.tanggal_retur',
-			11 => 'j.found_in_iresis',
+			0  => null,
+			1  => 'j.no_resi',
+			2  => 'j.no_pesanan',
+			3  => 'j.sku',
+			4  => 'j.nama_barang',
+			5  => 'j.qty',
+			6  => 'j.marketplace',
+			7  => 'j.nama_toko',
+			8  => 'j.kurir',
+			9  => 'j.status_retur',
+			10 => 'j.status_jubelio',
+			11 => 'j.tanggal_retur',
+			12 => 'j.found_in_iresis',
 		);
 		$params['order'] = isset($params['valid_columns'][$col]) ? $params['valid_columns'][$col] : 'j.id_jubelio';
 
@@ -1556,6 +2537,7 @@ class Retur extends MY_Controller
 				htmlspecialchars($r->marketplace ?: '-', ENT_QUOTES, 'UTF-8'),
 				htmlspecialchars($r->nama_toko ?: '-', ENT_QUOTES, 'UTF-8'),
 				htmlspecialchars($r->kurir ?: '-', ENT_QUOTES, 'UTF-8'),
+				htmlspecialchars($r->status_retur ?: '-', ENT_QUOTES, 'UTF-8'),
 				htmlspecialchars($r->status_jubelio ?: '-', ENT_QUOTES, 'UTF-8'),
 				$r->tanggal_retur ? date('Y-m-d H:i', strtotime($r->tanggal_retur)) : '-',
 				$cocok,
@@ -1581,8 +2563,10 @@ class Retur extends MY_Controller
 		$id_kurir   = $this->input->get('id_kurir');
 		$kondisi    = $this->input->get('kondisi');
 		$verified   = $this->input->get('verified'); // 1 = hanya yang sudah diverifikasi
+		$is_update  = $this->input->get('is_update') ? 1 : 0;
+		$is_komplain = $this->input->get('is_komplain') ? 1 : 0;
 
-		$merged = $this->_reconcile($start_date, $end_date, $id_kurir);
+		$merged = $this->_reconcile($start_date, $end_date, $id_kurir, $is_update, $is_komplain);
 
 		$filter = ['COCOK' => 'Cocok', 'IRESIS' => 'Hanya di iresis', 'JUBELIO' => 'Hanya di Jubelio'];
 		if (!empty($kondisi) && isset($filter[$kondisi])) {
@@ -1614,4 +2598,115 @@ class Retur extends MY_Controller
 
 		$this->load->view('retur/export_rekonsiliasi', $data);
 	}
+
+    public function kirim_display()
+    {
+        $this->data['title'] = 'Kirim ke Display';
+        $this->show($this->data);
+    }
+
+    public function get_unbatched_returns()
+    {
+        $draw = intval($this->input->post('draw'));
+        $order = $this->input->post('order');
+
+        $data['start'] = intval($this->input->post('start'));
+        $data['length'] = intval($this->input->post('length'));
+        $data['search'] = $this->input->post('search')['value'];
+
+        $reportrange = $this->input->post('reportrange');
+        $start_date = null;
+        $end_date = null;
+
+        if (!empty($reportrange)) {
+            $dates = explode(' s/d ', $reportrange);
+            if (count($dates) == 2) {
+                $start_date = $dates[0];
+                $end_date = $dates[1];
+            }
+        }
+
+        $col = 0;
+        $dir = 'desc';
+        if (!empty($order)) {
+            $col = $order[0]['column'];
+            $dir = $order[0]['dir'];
+        }
+
+        $valid_columns = array(
+            0 => null, // Checkbox
+            1 => 'br.resi_buka',
+            2 => 'br.sku',
+            3 => 's.nama_sku',
+            4 => 'br.qty',
+            5 => 'dp.no_rak',
+            6 => 'mp.nama_marketplace',
+            7 => 'br.toko',
+            8 => 'br.tanggal_buka_retur'
+        );
+
+        $params = array(
+            'start_date' => $start_date,
+            'end_date'   => $end_date,
+            'start'      => $data['start'],
+            'length'     => $data['length'],
+            'search'     => $data['search'],
+            'order'      => $valid_columns[$col] ?? 'br.tanggal_buka_retur',
+            'dir'        => $dir
+        );
+
+        $list = $this->retur_fcd->get_unbatched_returns_data($params);
+        $total = $this->retur_fcd->get_unbatched_returns_count($params);
+
+        $result_data = array();
+        foreach ($list->result_array() as $row) {
+            $id = $row['id_bukaretur'];
+            $chk = '<input type="checkbox" class="chk-item" value="' . $id . '" />';
+
+            $result_data[] = array(
+                $chk,
+                $row['noresi'],
+                $row['sku'],
+                $row['nama_barang'],
+                $row['qty'] ?? 1,
+                $row['no_rak'] ?: '-',
+                $row['nama_marketplace'] ?: '-',
+                $row['nama_toko'] ?: '-',
+                !empty($row['tanggal_buka']) ? date('d/m/Y H:i:s', strtotime($row['tanggal_buka'])) : '-'
+            );
+        }
+
+        $output = array(
+            "draw"            => $draw,
+            "recordsTotal"    => $total,
+            "recordsFiltered" => $total,
+            "data"            => $result_data
+        );
+        echo json_encode($output);
+        exit();
+    }
+
+    public function create_display_batch()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(405, 'Request method must be POST');
+        }
+
+        $ids = $this->input->post('ids');
+        if (empty($ids) || !is_array($ids)) {
+            $this->make_ajax_response(400, 'Silakan pilih barang retur terlebih dahulu!');
+        }
+
+        $user_id = $this->data['user']['id_user'];
+        $res = $this->retur_fcd->create_display_batch_tx($ids, $user_id);
+
+        if (!$res['success']) {
+            $this->make_ajax_response(500, $res['message']);
+        }
+
+        $this->make_ajax_response(201, 'Batch display berhasil dibuat dengan kode: ' . $res['kode_batch'], [
+            'kode_batch' => $res['kode_batch'],
+            'id_batch'   => $res['id_batch']
+        ]);
+    }
 }
