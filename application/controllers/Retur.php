@@ -2152,7 +2152,9 @@ class Retur extends MY_Controller
 				'no_resi'            => $r->noresi,
 				'no_pesanan'         => $r->no_pesanan ?: '-',
 				'marketplace'        => $r->nama_marketplace ?: '-',
-				'nama_toko'          => $r->nama_toko ?: '-',
+				// Nama Toko sisi iresis: marketplace + toko (mis. "Tokopedia TT CARAMEL").
+				// Untuk baris "Cocok" nilai ini akan ditimpa oleh data Jubelio di bawah.
+				'nama_toko'          => (trim(($r->nama_marketplace ?? '') . ' ' . ($r->nama_toko ?? '')) ?: '-'),
 				'kurir'              => $r->nama_kurir ?: '-',
 				'kategori_iresis'    => $r->status_retur ?: '-',
 				'status_detail_buka' => $r->status_detail_buka ?: '-',
