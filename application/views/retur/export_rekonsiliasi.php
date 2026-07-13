@@ -37,10 +37,15 @@
                 <th>Kurir</th>
                 <th>Kategori iresis</th>
                 <th>Status Jubelio</th>
+                <th>Keterangan (Status Paket)</th>
                 <th>Qty iresis</th>
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
+                <th>Status Buka</th>
+                <th>Ditolak Karena Apa</th>
+                <th>Detail SKU</th>
+                <th>SKU Pergantian</th>
                 <th>Terverifikasi</th>
                 <th>Diverifikasi Oleh</th>
                 <th>Waktu Verifikasi</th>
@@ -59,17 +64,22 @@
                         <td><?= htmlspecialchars($row['kurir']) ?></td>
                         <td><?= htmlspecialchars($row['kategori_iresis']) ?></td>
                         <td><?= htmlspecialchars($row['status_jubelio']) ?></td>
+                        <td><?= htmlspecialchars($row['status_pesanan'] ?? '-') ?></td>
                         <td><?= (int) $row['qty_iresis'] ?></td>
                         <td><?= (int) $row['qty_jubelio'] ?></td>
                         <td><?= htmlspecialchars($row['tanggal']) ?></td>
                         <td><?= htmlspecialchars($row['kondisi']) ?></td>
+                        <td><?= htmlspecialchars($row['status_detail_buka'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($row['alasan_ditolak'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($row['detail_ditolak'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($row['sku_pergantian'] ?? '-') ?></td>
                         <td><?= !empty($row['verified']) ? 'Ya' : 'Belum' ?></td>
                         <td><?= htmlspecialchars($row['verified_by'] ?? '') ?></td>
                         <td><?= !empty($row['verified_at']) ? date('Y-m-d H:i', strtotime($row['verified_at'])) : '' ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php else: ?>
-                <tr><td colspan="15" style="text-align:center;">Tidak ada data</td></tr>
+                <tr><td colspan="19" style="text-align:center;">Tidak ada data</td></tr>
             <?php endif; ?>
         </tbody>
     </table>
