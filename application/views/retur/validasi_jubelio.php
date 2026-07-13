@@ -1,57 +1,62 @@
+<style>
+  .panel-total-card {
+    background: linear-gradient(to bottom, #0088ff 0%, #ff9800 100%) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 15px rgba(0, 136, 255, 0.25) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  }
+  .panel-total-card:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(0, 136, 255, 0.45) !important;
+  }
+  .panel-total-card .panel-body {
+    padding: 15px !important;
+  }
+  .panel-total-value {
+    margin: 0 !important;
+    font-weight: 800 !important;
+    font-size: 26px !important;
+    color: #fff !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+  }
+  .panel-total-label {
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 11px !important;
+    margin-top: 5px !important;
+    display: inline-block !important;
+  }
+  .summary-clickable {
+    cursor: pointer !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  .summary-clickable:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15) !important;
+  }
+  .summary-clickable.active-filter {
+    border: 3px solid #337ab7 !important;
+    box-shadow: 0 0 15px rgba(51, 122, 183, 0.6) !important;
+  }
+  .panel-total-card.active-filter {
+    border: 3px solid #fff !important;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.9) !important;
+  }
+</style>
+
 <div class="row">
   <div class="col-md-12">
 
-    <!-- ============ PANEL 1: UPLOAD + LIST RETUR JUBELIO ============ -->
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title"><i class="fa fa-upload"></i> Upload &amp; List Retur Jubelio</h4>
-      </div>
-      <div class="panel-body">
 
-        <div class="alert alert-info" style="margin-bottom:15px;">
-          <i class="fa fa-info-circle"></i>
-          Upload file Excel <strong>"daftar retur penjualan"</strong> dari Jubelio (.xlsx / .xls).
-          Data yang berhasil masuk akan tampil di tabel <strong>List Retur Jubelio</strong> di bawah.
-        </div>
-
-        <div class="form-inline" style="margin-bottom:20px;">
-          <input type="file" id="file_jubelio" accept=".xlsx,.xls" class="form-control" style="display:inline-block;width:auto;" />
-          <button type="button" class="btn btn-primary" id="btn_upload_jubelio">
-            <i class="fa fa-upload"></i> Upload &amp; Validasi
-          </button>
-          <span id="upload_jubelio_status" style="margin-left:10px;font-weight:bold;"></span>
-        </div>
-
-        <h5 style="font-weight:bold;margin-top:10px;"><i class="fa fa-list"></i> List Retur Jubelio</h5>
-        <div class="table-responsive">
-          <table class="table table-striped table-bordered" id="datatable_jubelio_list" style="width:100%;">
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>No. Resi</th>
-                <th>No. Pesanan</th>
-                <th>SKU</th>
-                <th>Nama Barang</th>
-                <th>Qty</th>
-                <th>Marketplace</th>
-                <th>Nama Toko</th>
-                <th>Kurir</th>
-                <th>Status Jubelio</th>
-                <th>Tanggal</th>
-                <th>Cocok di iresis?</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-      </div>
-    </div>
 
     <!-- ============ PANEL 2: LAPORAN REKONSILIASI ============ -->
     <div class="panel panel-default">
       <div class="panel-heading">
-        <h4 class="panel-title"><i class="fa fa-check-square-o"></i> Laporan Rekonsiliasi (iresis vs Jubelio)</h4>
+        <h4 class="panel-title"><i class="fa fa-check-square-o"></i> <?= isset($is_komplain) && $is_komplain ? 'Laporan Verifikasi Retur Komplain' : 'Laporan Verifikasi Retur' ?></h4>
       </div>
       <div class="panel-body">
 
@@ -85,7 +90,7 @@
           </div>
           <div class="form-group">
             <label class="col-md-2 control-label"></label>
-            <div class="col-md-8">
+            <div class="col-md-10">
               <button type="button" class="btn btn-primary" id="btn_tampilkan_jubelio">
                 <i class="fa fa-search"></i> Tampilkan
               </button>
@@ -95,6 +100,18 @@
               <button type="button" class="btn btn-info" id="btn_export_verified">
                 <i class="fa fa-check"></i> Export Terverifikasi
               </button>
+              <button type="button" class="btn btn-warning" id="btn_export_update" style="margin-left:5px;">
+                <i class="fa fa-file-excel-o"></i> Export Update
+              </button>
+              <button type="button" class="btn btn-default" id="btn_pilih_semua" style="margin-left:10px;" disabled>
+                <i class="fa fa-check-square-o"></i> Pilih Semua
+              </button>
+              <button type="button" class="btn btn-warning" id="btn_verifikasi_terpilih" style="margin-left:5px;" disabled>
+                <i class="fa fa-bolt"></i> Verifikasi Terpilih (<span id="verif-selected-count">0</span>)
+              </button>
+              <label style="font-weight:normal;margin-left:15px;cursor:pointer;" title="Baca snapshot iresis sebelum restore 2026-07-07 (tblresiretur/tblbukaretur_corrupt_20260707)">
+                <input type="checkbox" id="use_old_jubelio"> Data Lama (07-07)
+              </label>
             </div>
           </div>
         </div>
@@ -102,23 +119,47 @@
         <!-- Summary -->
         <div class="row" style="margin-bottom:10px;">
           <div class="col-md-3">
-            <div class="panel panel-success"><div class="panel-body text-center">
-              <h4 style="margin:0;"><span id="sum_cocok">0</span></h4><small>Cocok (iresis &amp; Jubelio)</small>
+            <div class="panel panel-total-card summary-clickable" data-filter="TOTAL"><div class="panel-body text-center">
+              <h4 class="panel-total-value"><span id="sum_total">0</span></h4>
+              <small class="panel-total-label">TOTAL</small>
             </div></div>
           </div>
           <div class="col-md-3">
-            <div class="panel panel-warning"><div class="panel-body text-center">
-              <h4 style="margin:0;"><span id="sum_iresis">0</span></h4><small>Hanya di iresis</small>
+            <div class="panel panel-info summary-clickable" data-filter="VERIFIED"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_verified">0</span></h4><small style="font-weight:600;">Sudah Diverifikasi</small>
             </div></div>
           </div>
           <div class="col-md-3">
-            <div class="panel panel-danger"><div class="panel-body text-center">
-              <h4 style="margin:0;"><span id="sum_jubelio">0</span></h4><small>Hanya di Jubelio</small>
+            <div class="panel panel-success summary-clickable" data-filter="COCOK"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_cocok">0</span></h4><small style="font-weight:600;">Cocok (iresis &amp; Jubelio)</small>
             </div></div>
           </div>
           <div class="col-md-3">
-            <div class="panel panel-info"><div class="panel-body text-center">
-              <h4 style="margin:0;"><span id="sum_verified">0</span></h4><small>Sudah Diverifikasi</small>
+            <div class="panel panel-warning summary-clickable" data-filter="IRESIS"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_iresis">0</span></h4><small style="font-weight:600;">Hanya di iresis</small>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-bottom:15px;">
+          <div class="col-md-3">
+            <div class="panel panel-danger summary-clickable" data-filter="JUBELIO"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_jubelio">0</span></h4><small style="font-weight:600;">Hanya di Jubelio</small>
+            </div></div>
+          </div>
+          <div class="col-md-3">
+            <div class="panel panel-primary summary-clickable" data-filter="UPDATE"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_update_retur">0</span></h4><small style="font-weight:600;">Update Retur</small>
+            </div></div>
+          </div>
+          <div class="col-md-3">
+            <div class="panel panel-default summary-clickable" data-filter="DITOLAK"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_ditolak">0</span></h4><small style="font-weight:600;">Ditolak</small>
+            </div></div>
+          </div>
+          <div class="col-md-3">
+            <div class="panel panel-default summary-clickable" data-filter="SELISIH"><div class="panel-body text-center">
+              <h4 style="margin:0;font-weight:bold;font-size:22px;"><span id="sum_selisih">0</span></h4><small style="font-weight:600;">Setujui Jubelio</small>
             </div></div>
           </div>
         </div>
@@ -127,6 +168,7 @@
           <table class="table table-striped table-bordered" id="datatable_jubelio" style="width:100%;">
             <thead>
               <tr>
+                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon" title="Pilih/Batal Semua" /></th>
                 <th>No</th>
                 <th>No. Resi</th>
                 <th>No. Pesanan</th>
@@ -135,10 +177,48 @@
                 <th>Kurir</th>
                 <th>Kategori iresis</th>
                 <th>Status Jubelio</th>
+                <th>Keterangan (Status Paket)</th>
                 <th>Qty iresis</th>
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
+                <th>Status Buka</th>
+                <th>Ditolak Karena Apa</th>
+                <th>Detail SKU</th>
+                <th>SKU Pergantian</th>
+                <th>Verifikasi</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="clearfix" style="clear: both;"></div>
+        <hr style="margin-top: 40px; margin-bottom: 20px; border-top: 2px solid #eee; clear: both;">
+        <h4 class="panel-title" style="margin-bottom: 15px; font-weight: bold; clear: both;"><i class="fa fa-refresh"></i> Laporan Update Retur</h4>
+        <div class="clearfix" style="clear: both;"></div>
+        <div class="table-responsive" style="clear: both; width: 100%;">
+          <table class="table table-striped table-bordered" id="datatable_jubelio_update" style="width:100%;">
+            <thead>
+              <tr>
+                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon-update" title="Pilih/Batal Semua" /></th>
+                <th>No</th>
+                <th>No. Resi</th>
+                <th>No. Pesanan</th>
+                <th>Marketplace</th>
+                <th>Nama Toko</th>
+                <th>Kurir</th>
+                <th>Kategori iresis</th>
+                <th>Status Jubelio</th>
+                <th>Keterangan (Status Paket)</th>
+                <th>Qty iresis</th>
+                <th>Qty Jubelio</th>
+                <th>Tanggal</th>
+                <th>Kondisi</th>
+                <th>Status Buka</th>
+                <th>Ditolak Karena Apa</th>
+                <th>Detail SKU</th>
+                <th>SKU Pergantian</th>
                 <th>Verifikasi</th>
               </tr>
             </thead>
@@ -156,66 +236,9 @@
 $(document).ready(function() {
     // URL absolut supaya tidak salah resolve saat halaman dimuat lewat SPA
     var BASE = '<?= rtrim(base_url(), "/") ?>/';
+    var IS_KOMPLAIN = <?= isset($is_komplain) && $is_komplain ? 'true' : 'false' ?>;
 
-    // ==================== UPLOAD JUBELIO (didaftarkan paling awal) ====================
-    $('#btn_upload_jubelio').on('click', function () {
-        var fileInput = $('#file_jubelio')[0];
-        if (!fileInput || !fileInput.files.length) {
-            alert('Pilih file Excel Jubelio terlebih dahulu!');
-            return;
-        }
-        var fd = new FormData();
-        fd.append('jubelioFile', fileInput.files[0]);
 
-        var $btn = $(this);
-        $.ajax({
-            url: BASE + 'retur/upload-jubelio',
-            type: 'POST',
-            data: fd,
-            processData: false,
-            contentType: false,
-            dataType: 'json',
-            beforeSend: function () {
-                $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Mengupload...');
-                $('#upload_jubelio_status').removeClass('text-success text-danger').addClass('text-muted').text('Memproses file...');
-            },
-            success: function (res) {
-                if (res && res.code === 201) {
-                    $('#upload_jubelio_status').removeClass('text-muted text-danger').addClass('text-success').text(res.message);
-                    $('#file_jubelio').val('');
-                    if (typeof jubelioListTable !== 'undefined') jubelioListTable.ajax.reload();
-                } else {
-                    $('#upload_jubelio_status').removeClass('text-muted text-success').addClass('text-danger').text((res && res.message) ? res.message : 'Gagal upload');
-                }
-            },
-            error: function (xhr) {
-                $('#upload_jubelio_status').removeClass('text-muted text-success').addClass('text-danger')
-                    .text('Gagal upload (HTTP ' + xhr.status + '). ' + (xhr.responseText ? xhr.responseText.substring(0,200) : ''));
-            },
-            complete: function () {
-                $btn.prop('disabled', false).html('<i class="fa fa-upload"></i> Upload & Validasi');
-            }
-        });
-    });
-
-    // ==================== LIST RETUR JUBELIO (server-side) ====================
-    var jubelioListTable = $('#datatable_jubelio_list').DataTable({
-        'scrollX': true,
-        'pageLength': 25,
-        'processing': true,
-        'serverSide': true,
-        'order': [[0, 'asc']],
-        'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
-        'ajax': {
-            url: BASE + 'retur/get-jubelio-list-data',
-            type: 'POST'
-        },
-        'columns': [
-            { 'data': 0, 'orderable': false }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
-            { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
-            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 }
-        ]
-    });
 
     // ==================== DATERANGEPICKER (rekonsiliasi) ====================
     $('#rentang_waktu_jubelio').daterangepicker({
@@ -243,6 +266,76 @@ $(document).ready(function() {
         endDate: moment().endOf('day')
     });
 
+    // Global row variables and active filter state
+    var ALL_ROWS = [];
+    var ALL_ROWS_UPDATE = [];
+    var activeFilter = 'TOTAL';
+
+    function filterRow(row, filterType) {
+        if (filterType === 'TOTAL') return true;
+
+        // Sudah Diverifikasi
+        if (filterType === 'VERIFIED') {
+            return row[17] && row[17].indexOf('checked') !== -1;
+        }
+
+        // Cocok
+        if (filterType === 'COCOK') {
+            return row[12] && row[12].indexOf('label-success') !== -1;
+        }
+
+        // Hanya di iresis
+        if (filterType === 'IRESIS') {
+            return row[12] && row[12].indexOf('label-warning') !== -1;
+        }
+
+        // Hanya di Jubelio
+        if (filterType === 'JUBELIO') {
+            return row[12] && row[12].indexOf('label-danger') !== -1;
+        }
+
+        // Ditolak: status detail not empty, not "-", not "KE_DISPLAY"
+        if (filterType === 'DITOLAK') {
+            var statusDetail = (row[13] || '').trim().toUpperCase();
+            return statusDetail !== '' && statusDetail !== '-' && statusDetail !== 'KE_DISPLAY';
+        }
+
+        // Setujui Jubelio (Selisih): Cocok and not Ditolak
+        if (filterType === 'SELISIH') {
+            var isCocok = row[12] && row[12].indexOf('label-success') !== -1;
+            var statusDetail = (row[13] || '').trim().toUpperCase();
+            var isDitolak = statusDetail !== '' && statusDetail !== '-' && statusDetail !== 'KE_DISPLAY';
+            return isCocok && !isDitolak;
+        }
+
+        return true;
+    }
+
+    function applyFilter() {
+        var filteredNormal = [];
+        var filteredUpdate = [];
+
+        if (activeFilter === 'UPDATE') {
+            filteredNormal = [];
+            filteredUpdate = ALL_ROWS_UPDATE;
+        } else {
+            filteredNormal = ALL_ROWS.filter(function(row) {
+                return filterRow(row, activeFilter);
+            });
+            filteredUpdate = ALL_ROWS_UPDATE.filter(function(row) {
+                return filterRow(row, activeFilter);
+            });
+        }
+
+        tableJubelio.clear().rows.add(filteredNormal).draw();
+        tableJubelioUpdate.clear().rows.add(filteredUpdate).draw();
+
+        // Update Pilih Semua button state based on visible checkboxes
+        var visibleCheckboxes = $('.rekon-chk, .rekon-chk-update').length;
+        $('#btn_pilih_semua').prop('disabled', visibleCheckboxes === 0);
+        updateVerifSelectedCount();
+    }
+
     // ==================== DATATABLE REKONSILIASI (client-side) ====================
     var tableJubelio = $('#datatable_jubelio').DataTable({
         'scrollX': true,
@@ -250,12 +343,41 @@ $(document).ready(function() {
         'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
         'data': [],
         'columns': [
+            { 'data': 'cb',  'orderable': false },
             { 'data': 0 }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
             { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
             { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 },
-            { 'data': 12, 'orderable': false }
+            { 'data': 12 }, { 'data': 13 }, { 'data': 14 }, { 'data': 15 },
+            { 'data': 16 }, { 'data': 17, 'orderable': false }
         ]
     });
+
+    var tableJubelioUpdate = $('#datatable_jubelio_update').DataTable({
+        'scrollX': true,
+        'pageLength': 25,
+        'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
+        'data': [],
+        'columns': [
+            { 'data': 'cb',  'orderable': false },
+            { 'data': 0 }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
+            { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
+            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 },
+            { 'data': 12 }, { 'data': 13 }, { 'data': 14 }, { 'data': 15 },
+            { 'data': 16 }, { 'data': 17, 'orderable': false }
+        ]
+    });
+
+    function updateVerifSelectedCount() {
+        var count = $('.rekon-chk:checked').length + $('.rekon-chk-update:checked').length;
+        $('#verif-selected-count').text(count);
+        $('#btn_verifikasi_terpilih').prop('disabled', count === 0);
+        // Update check-all state
+        var all = $('.rekon-chk').not(':disabled');
+        $('#check-all-rekon').prop('checked', all.length > 0 && all.length === $('.rekon-chk:checked').length);
+
+        var allUpdate = $('.rekon-chk-update').not(':disabled');
+        $('#check-all-rekon-update').prop('checked', allUpdate.length > 0 && allUpdate.length === $('.rekon-chk-update:checked').length);
+    }
 
     function getJubelioFilter() {
         var dates = $('#rentang_waktu_jubelio').val().split(' s/d ');
@@ -263,7 +385,8 @@ $(document).ready(function() {
             start_date: dates[0] || '',
             end_date: dates[1] || '',
             id_kurir: $('#kurir_jubelio').val(),
-            kondisi: $('#kondisi_jubelio').val()
+            kondisi: $('#kondisi_jubelio').val(),
+            use_old: $('#use_old_jubelio').is(':checked') ? 1 : 0
         };
     }
 
@@ -274,20 +397,88 @@ $(document).ready(function() {
             return;
         }
         tableJubelio.clear().draw();
+        $('#check-all-rekon').prop('checked', false);
+        $('#verif-selected-count').text(0);
+        $('#btn_verifikasi_terpilih').prop('disabled', true);
+        $('#btn_pilih_semua').prop('disabled', true);
         $.ajax({
             url: BASE + 'retur/get-rekonsiliasi-data',
             type: 'POST',
             dataType: 'json',
-            data: f,
+            data: $.extend(f, { is_komplain: IS_KOMPLAIN ? 1 : 0 }),
             beforeSend: function () {
                 $('#btn_tampilkan_jubelio').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Memuat...');
             },
             success: function (res) {
-                tableJubelio.clear().rows.add(res.data || []).draw();
-                $('#sum_cocok').text((res.summary && res.summary.cocok) || 0);
-                $('#sum_iresis').text((res.summary && res.summary.iresis) || 0);
-                $('#sum_jubelio').text((res.summary && res.summary.jubelio) || 0);
+                // Inject per-row checkbox column
+                var rows = res.data || [];
+                rows.forEach(function(row) {
+                    var resi = row[1] || '';
+                    var kondisiBadge = row[12] || '';
+                    var verifCell = row[17] || '';
+                    var isJubelioOnly = kondisiBadge.indexOf('label-danger') !== -1;
+                    var isVerified = verifCell.indexOf('checked') !== -1;
+                    if (!isJubelioOnly && !isVerified) {
+                        row['cb'] = '<input type="checkbox" class="rekon-chk" data-resi="' + $('<div>').text(resi).html() + '" />';
+                    } else {
+                        row['cb'] = '<span class="text-muted">-</span>';
+                    }
+                });
+                ALL_ROWS = rows;
+
+                // Inject per-row checkbox column for Update Table
+                var rowsUpdate = res.data_update || [];
+                rowsUpdate.forEach(function(row) {
+                    var resi = row[1] || '';
+                    var kondisiBadge = row[12] || '';
+                    var verifCell = row[17] || '';
+                    var isJubelioOnly = kondisiBadge.indexOf('label-danger') !== -1;
+                    var isVerified = verifCell.indexOf('checked') !== -1;
+                    if (!isJubelioOnly && !isVerified) {
+                        row['cb'] = '<input type="checkbox" class="rekon-chk-update" data-resi="' + $('<div>').text(resi).html() + '" />';
+                    } else {
+                        row['cb'] = '<span class="text-muted">-</span>';
+                    }
+                });
+                ALL_ROWS_UPDATE = rowsUpdate;
+
+                // Reset active filter to TOTAL on fresh load
+                activeFilter = 'TOTAL';
+                $('.summary-clickable').removeClass('active-filter');
+                $('[data-filter="TOTAL"]').addClass('active-filter');
+
+                // Render tables
+                tableJubelio.clear().rows.add(ALL_ROWS).draw();
+                tableJubelioUpdate.clear().rows.add(ALL_ROWS_UPDATE).draw();
+
+                var cocok = (res.summary && res.summary.cocok) || 0;
+                var iresis = (res.summary && res.summary.iresis) || 0;
+                var jubelio = (res.summary && res.summary.jubelio) || 0;
+                var update = (res.summary && res.summary.update_retur) || 0;
+                var total = cocok + iresis + jubelio + update;
+                var ditolak = (res.summary && res.summary.ditolak) || 0;
+                var selisih = (res.summary && res.summary.selisih) || 0;
+
+                $('#sum_total').text(total);
+                $('#sum_cocok').text(cocok);
+                $('#sum_iresis').text(iresis);
+                $('#sum_jubelio').text(jubelio);
+                $('#sum_update_retur').text(update);
                 $('#sum_verified').text((res.summary && res.summary.verified) || 0);
+                $('#sum_ditolak').text(ditolak);
+                $('#sum_selisih').text(selisih);
+
+                // Enable Pilih Semua if there are selectable rows
+                var selectableCount = ALL_ROWS.filter(function(r){ return (r['cb'] || '').indexOf('rekon-chk') !== -1; }).length +
+                                       ALL_ROWS_UPDATE.filter(function(r){ return (r['cb'] || '').indexOf('rekon-chk-update') !== -1; }).length;
+                $('#btn_pilih_semua').prop('disabled', selectableCount === 0);
+                updateVerifSelectedCount();
+
+                // Recalculate column widths after drawing to ensure 100% width alignment
+                setTimeout(function() {
+                    tableJubelio.columns.adjust();
+                    tableJubelioUpdate.columns.adjust();
+                }, 100);
             },
             error: function () { alert('Gagal memuat data rekonsiliasi.'); },
             complete: function () {
@@ -298,6 +489,15 @@ $(document).ready(function() {
 
     $('#btn_tampilkan_jubelio').on('click', loadJubelio);
 
+    // ==================== SUMMARY CARD CLICK FILTERS ====================
+    $(document).on('click', '.summary-clickable', function() {
+        var filter = $(this).data('filter');
+        $('.summary-clickable').removeClass('active-filter');
+        $(this).addClass('active-filter');
+        activeFilter = filter;
+        applyFilter();
+    });
+
     $('#btn_export_jubelio').on('click', function () {
         var f = getJubelioFilter();
         if (!f.start_date || !f.end_date) {
@@ -305,7 +505,7 @@ $(document).ready(function() {
             return;
         }
         var url = BASE + 'retur/export-rekonsiliasi?start_date=' + encodeURIComponent(f.start_date) +
-                  '&end_date=' + encodeURIComponent(f.end_date);
+                  '&end_date=' + encodeURIComponent(f.end_date) + '&is_komplain=' + (IS_KOMPLAIN ? 1 : 0);
         if (f.id_kurir) url += '&id_kurir=' + encodeURIComponent(f.id_kurir);
         if (f.kondisi) url += '&kondisi=' + encodeURIComponent(f.kondisi);
         window.location.href = url;
@@ -319,9 +519,97 @@ $(document).ready(function() {
             return;
         }
         var url = BASE + 'retur/export-rekonsiliasi?verified=1&start_date=' + encodeURIComponent(f.start_date) +
-                  '&end_date=' + encodeURIComponent(f.end_date);
+                  '&end_date=' + encodeURIComponent(f.end_date) + '&is_komplain=' + (IS_KOMPLAIN ? 1 : 0);
         if (f.id_kurir) url += '&id_kurir=' + encodeURIComponent(f.id_kurir);
         window.location.href = url;
+    });
+
+    // ==================== EXPORT UPDATE ====================
+    $('#btn_export_update').on('click', function () {
+        var f = getJubelioFilter();
+        if (!f.start_date || !f.end_date) {
+            alert('Silakan pilih rentang waktu terlebih dahulu!');
+            return;
+        }
+        var url = BASE + 'retur/export-rekonsiliasi?is_update=1&start_date=' + encodeURIComponent(f.start_date) +
+                  '&end_date=' + encodeURIComponent(f.end_date) + '&is_komplain=' + (IS_KOMPLAIN ? 1 : 0);
+        if (f.id_kurir) url += '&id_kurir=' + encodeURIComponent(f.id_kurir);
+        if (f.kondisi) url += '&kondisi=' + encodeURIComponent(f.kondisi);
+        window.location.href = url;
+    });
+
+    // ==================== SELECT ALL CHECKBOX ====================
+    $('#check-all-rekon').on('change', function() {
+        var isChecked = $(this).prop('checked');
+        $('.rekon-chk').prop('checked', isChecked);
+        updateVerifSelectedCount();
+    });
+
+    $(document).on('change', '.rekon-chk', function() {
+        updateVerifSelectedCount();
+    });
+
+    $('#check-all-rekon-update').on('change', function() {
+        var isChecked = $(this).prop('checked');
+        $('.rekon-chk-update').prop('checked', isChecked);
+        updateVerifSelectedCount();
+    });
+
+    $(document).on('change', '.rekon-chk-update', function() {
+        updateVerifSelectedCount();
+    });
+
+    // ==================== PILIH SEMUA BUTTON ====================
+    $('#btn_pilih_semua').on('click', function() {
+        var allChecked = $('.rekon-chk').not(':disabled').length === $('.rekon-chk:checked').length &&
+                         $('.rekon-chk-update').not(':disabled').length === $('.rekon-chk-update:checked').length;
+        $('.rekon-chk, .rekon-chk-update').prop('checked', !allChecked);
+        updateVerifSelectedCount();
+    });
+
+    // ==================== VERIFIKASI TERPILIH ====================
+    $('#btn_verifikasi_terpilih').on('click', function () {
+        var resiList = [];
+        $('.rekon-chk:checked, .rekon-chk-update:checked').each(function () {
+            var resi = $(this).data('resi');
+            if (resi) resiList.push(resi);
+        });
+
+        if (resiList.length === 0) {
+            alert('Belum ada resi yang dipilih. Centang baris yang ingin diverifikasi terlebih dahulu.');
+            return;
+        }
+
+        if (confirm('Verifikasi ' + resiList.length + ' resi yang dipilih?')) {
+            var $btn = $(this);
+            var originalHtml = $btn.html();
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Memproses...');
+
+            $.ajax({
+                url: BASE + 'retur/bulk-verifikasi-jubelio',
+                type: 'POST',
+                dataType: 'json',
+                data: { resi_list: resiList },
+                success: function (res) {
+                    if (res && res.code === 200) {
+                        if (typeof noty === 'function') {
+                            noty({ text: res.message, timeout: 2000, layout: 'topRight', type: 'success' });
+                        } else {
+                            alert(res.message);
+                        }
+                        loadJubelio();
+                    } else {
+                        alert((res && res.message) ? res.message : 'Gagal melakukan verifikasi masal');
+                    }
+                },
+                error: function (xhr) {
+                    alert('Gagal terhubung ke server (HTTP ' + xhr.status + ').');
+                },
+                complete: function () {
+                    $btn.prop('disabled', false).html(originalHtml);
+                }
+            });
+        }
     });
 
     // ==================== VERIFIKASI PER RESI (Step 3) ====================

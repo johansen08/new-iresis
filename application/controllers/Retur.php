@@ -2067,74 +2067,12 @@ class Retur extends MY_Controller
 	{
 		$iresis  = $this->retur_fcd->get_iresis_recon($start_date, $end_date, $id_kurir, $is_update, $is_komplain, $use_old);
 
-		// Consolidate iresis records per noresi
-		$iresis_grouped = [];
-		$consolidated_iresis = [];
-		foreach ($iresis as $r) {
-			$resi = strtoupper(trim($r->noresi));
-			if ($resi !== '') {
-				$iresis_grouped[$resi][] = $r;
-			} else {
-				$consolidated_iresis[] = $r;
-			}
-		}
+		// Tampilkan SEMUA baris hasil scan retur buka apa adanya (satu baris per
+		// SKU / id_bukaretur). Sebelumnya baris KE_DISPLAY disaring saat bercampur
+		// dengan baris lain, atau di-merge jadi satu; sekarang semua ditampilkan
+		// sesuai permintaan laporan Verifikasi Retur. Ringkasan (summary) dihitung
+		// per-resi (dedup) agar 1 resi dengan beberapa SKU tidak terhitung dobel.
 
-		foreach ($iresis_grouped as $resi => $group) {
-			if ($is_komplain) {
-				foreach ($group as $r) {
-					$consolidated_iresis[] = $r;
-				}
-				continue;
-			}
-
-			// Check if there is at least one row whose status is NOT KE_DISPLAY
-			$has_non_display = false;
-			foreach ($group as $r) {
-				if (strtoupper(trim($r->status_detail_buka)) !== 'KE_DISPLAY') {
-					$has_non_display = true;
-					break;
-				}
-			}
-
-			if ($has_non_display) {
-				// Filter out any row with KE_DISPLAY
-				$filtered_group = [];
-				foreach ($group as $r) {
-					if (strtoupper(trim($r->status_detail_buka)) !== 'KE_DISPLAY') {
-						$filtered_group[] = $r;
-					}
-				}
-				$group = $filtered_group;
-			} else {
-				// All rows are KE_DISPLAY. Merge them into a single row.
-				if (count($group) > 1) {
-					$base = $group[0];
-					$skus = [];
-					$total_qty = 0;
-					foreach ($group as $r) {
-						if (!empty($r->sku_list)) {
-							$parts = explode(',', $r->sku_list);
-							foreach ($parts as $p) {
-								$p_trimmed = trim($p);
-								if ($p_trimmed !== '') {
-									$skus[$p_trimmed] = true;
-								}
-							}
-						}
-						$total_qty += (int) $r->total_qty;
-					}
-					$base->sku_list = implode(', ', array_keys($skus));
-					$base->total_qty = $total_qty;
-					$group = [$base];
-				}
-			}
-
-			foreach ($group as $r) {
-				$consolidated_iresis[] = $r;
-			}
-		}
-		$iresis = $consolidated_iresis;
-		
 		$resi_list = [];
 		foreach ($iresis as $r) {
 			$resi = strtoupper(trim($r->noresi));
@@ -2166,13 +2104,9 @@ class Retur extends MY_Controller
 				'in_iresis'          => true,
 				'in_jubelio'         => false,
 				'alasan_ditolak'     => $r->alasan_ditolak ?: '-',
-				'detail_ditolak'     => in_array(strtoupper(trim($r->status_detail_buka)), [
-					'REJECT', 'REFUND', 'PENUKARAN_BERES', 'PENDINGAN BERES (PB)', 
-					'REQUEST_DARI_PEMBELI', 'REQUEST DARI PEMBELI', 'KURANG', 'KURANG DARI PENJUAL', 'KURANG_DARI_PENJUAL', 
-					'KURANG_DARI_PEMBELI', 'KURANG DARI PEMBELI', 'BUKAN_BARANG_KITA', 'BUKAN BARANG KITA', 
-					'PAKET_HILANG', 'PAKET HILANG', 'DIPAKAI_ADMIN', 'DIPAKAI ADMIN',
-					'BARANG_TIDAK_ADA', 'BARANG TIDAK ADA', 'BUKAN_RETUR', 'BUKAN RETUR'
-				]) ? ($r->sku_list . ' (' . $r->total_qty . ' pcs)') : '-',
+				// Detail SKU: selalu tampilkan SKU beserta qty hasil scan buka
+				// (bukan hanya untuk status yang ditolak).
+				'detail_ditolak'     => !empty($r->sku_list) ? ($r->sku_list . ' (' . (int) $r->total_qty . ' pcs)') : '-',
 				'sku_pergantian'     => in_array(strtoupper(trim($r->status_detail_buka)), [
 					'PENUKARAN_BERES', 'PENDINGAN BERES (PB)', 'REQUEST_DARI_PEMBELI', 'REQUEST DARI PEMBELI'
 				]) && !empty($r->sku_pergantian) ? ($r->sku_list . ' -> ' . $r->sku_pergantian) : '-',
@@ -2265,23 +2199,26 @@ class Retur extends MY_Controller
 		$merged = $this->_reconcile($start_date, $end_date, $id_kurir, 0, $is_komplain, $use_old);
 
 		$data = [];
-		$summary = ['cocok' => 0, 'iresis' => 0, 'jubelio' => 0, 'verified' => 0, 'ditolak' => 0];
+		// Ringkasan dihitung per-RESI (dedup). Jika 1 resi punya beberapa SKU
+		// (beberapa baris), tetap dihitung 1 kali per kategori — jangan dobel.
+		$seen = ['cocok' => [], 'iresis' => [], 'jubelio' => [], 'verified' => [], 'ditolak' => []];
 		$no = 1;
 
 		foreach ($merged as $row) {
+			$resi_key = strtoupper(trim($row['no_resi']));
 			if ($row['kondisi'] === 'Cocok') {
-				$summary['cocok']++;
+				$seen['cocok'][$resi_key] = true;
 			} elseif ($row['kondisi'] === 'Hanya di iresis') {
-				$summary['iresis']++;
+				$seen['iresis'][$resi_key] = true;
 			} else {
-				$summary['jubelio']++;
+				$seen['jubelio'][$resi_key] = true;
 			}
 			if (!empty($row['verified'])) {
-				$summary['verified']++;
+				$seen['verified'][$resi_key] = true;
 			}
 			$status_detail = strtoupper(trim($row['status_detail_buka'] ?? ''));
 			if ($status_detail !== '' && $status_detail !== '-' && $status_detail !== 'KE_DISPLAY') {
-				$summary['ditolak']++;
+				$seen['ditolak'][$resi_key] = true;
 			}
 
 			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
@@ -2346,13 +2283,15 @@ class Retur extends MY_Controller
 			$this->_reconcile($start_date, $end_date, $id_kurir, 1, $is_komplain),
 			function ($r) { return !empty($r['in_iresis']); }
 		));
-		$summary['update_retur'] = count($merged_update);
+		$update_resi = [];
 		$data_update = [];
 		$no_update = 1;
 
 		foreach ($merged_update as $row) {
+			$resi_key = strtoupper(trim($row['no_resi']));
+			$update_resi[$resi_key] = true;
 			if (!empty($row['verified'])) {
-				$summary['verified']++;
+				$seen['verified'][$resi_key] = true;
 			}
 
 			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
@@ -2406,6 +2345,16 @@ class Retur extends MY_Controller
 				$verif_cell,
 			];
 		}
+
+		// Rangkum jumlah per-resi (dedup) menjadi angka final untuk kartu ringkasan.
+		$summary = [
+			'cocok'        => count($seen['cocok']),
+			'iresis'       => count($seen['iresis']),
+			'jubelio'      => count($seen['jubelio']),
+			'verified'     => count($seen['verified']),
+			'ditolak'      => count($seen['ditolak']),
+			'update_retur' => count($update_resi),
+		];
 
 		// Setujui Jubelio = TOTAL - Hanya di iresis - Hanya di Jubelio - Update Retur - Ditolak
 		// (TOTAL = Cocok + Hanya di iresis + Hanya di Jubelio + Update Retur, sama seperti kartu TOTAL)
