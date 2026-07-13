@@ -2193,8 +2193,11 @@ class Retur extends MY_Controller
 					if ($row['no_pesanan'] === '-' && !empty($j->no_pesanan)) {
 						$row['no_pesanan'] = $j->no_pesanan;
 					}
-					if (!empty($j->nama_toko) && $j->nama_toko !== '-') {
-						$row['nama_toko'] = $j->nama_toko;
+					// Nama Toko diambil dari Jubelio: marketplace + nama toko
+					// (mis. "SHOPEE ZIOSCARF", "Shop | Tokopedia TT YARRA STORE")
+					$j_toko = trim(($j->nama_marketplace ?? '') . ' ' . ($j->nama_toko ?? ''));
+					if ($j_toko !== '' && $j_toko !== '-') {
+						$row['nama_toko'] = $j_toko;
 					}
 					$matched = true;
 				}
