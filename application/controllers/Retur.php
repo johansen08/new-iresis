@@ -555,6 +555,14 @@ class Retur extends MY_Controller
             $this->make_ajax_response(400, 'Data tidak lengkap');
         }
 
+        // Guard anti-dobel: 1 baris per (resi_buka, sku). Cegah dobel akibat
+        // double-submit / scanner double-Enter. Untuk MENGUBAH status SKU yang
+        // sudah dibuka, gunakan menu Update Retur (yang mereset baris buka resi).
+        $dup = $this->db->get_where('tblbukaretur', ['resi_buka' => $noresi, 'sku' => $sku])->row();
+        if ($dup) {
+            $this->make_ajax_response(409, "SKU $sku sudah dibuka untuk resi ini. Untuk mengubah statusnya, gunakan menu Update Retur.");
+        }
+
         // Simpan ke tblbukaretur (now with sku and qty columns)
         $bukaretur = [
             'status_buka' => 'Buka Retur',
@@ -569,7 +577,17 @@ class Retur extends MY_Controller
             'id_pegawai' => $this->data['user']['id_user'],
             'created_at' => date('Y-m-d H:i:s')
         ];
-        $this->db->insert('tblbukaretur', $bukaretur);
+        // Insert race-safe: matikan db_debug sesaat agar bentrok UNIQUE index
+        // (dua request di detik yang sama) tidak memunculkan halaman error, lalu
+        // deteksi kode 1062 (duplicate entry) dan balas 409 yang rapi.
+        $prev_debug = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        $ok = $this->db->insert('tblbukaretur', $bukaretur);
+        $err = $this->db->error();
+        $this->db->db_debug = $prev_debug;
+        if (!$ok || (isset($err['code']) && (int) $err['code'] === 1062)) {
+            $this->make_ajax_response(409, "SKU $sku sudah dibuka untuk resi ini (terdeteksi ganda). Untuk mengubah statusnya, gunakan menu Update Retur.");
+        }
 
         // Update tblresiretur status_retur = Buka Retur
         $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
@@ -619,6 +637,7 @@ class Retur extends MY_Controller
         $this->db->trans_start();
 
         $processed_skus = [];
+        $skipped_skus = [];   // SKU yang sudah dibuka (guard anti-dobel)
         $now = date('Y-m-d H:i:s');
         $user_id = $this->data['user']['id_user'];
 
@@ -628,12 +647,24 @@ class Retur extends MY_Controller
 
             if ($qty <= 0) continue;
 
+            $sku_val = ($sku === '') ? null : $sku;
+
+            // Guard anti-dobel: lewati SKU yang sudah dibuka untuk resi ini
+            // (mis. double-submit seluruh form). SKU kosong/null tak bisa dedup.
+            if ($sku_val !== null) {
+                $dup = $this->db->get_where('tblbukaretur', ['resi_buka' => $noresi, 'sku' => $sku_val])->row();
+                if ($dup) {
+                    $skipped_skus[] = $sku_val;
+                    continue;
+                }
+            }
+
             $bukaretur = [
                 'status_buka' => 'Buka Retur',
                 'status_detail_buka' => $status_detail,
                 'resi_buka' => $noresi,
                 'hasil_scan_buka' => $noresi,
-                'sku' => ($sku === '') ? null : $sku,
+                'sku' => $sku_val,
                 'qty' => $qty,
                 'sku_pergantian' => ($sku_pergantian !== null && $sku_pergantian !== '') ? $sku_pergantian : null,
                 'alasan_ditolak' => ($alasan_ditolak !== null && $alasan_ditolak !== '') ? $alasan_ditolak : null,
@@ -642,23 +673,25 @@ class Retur extends MY_Controller
                 'created_at' => $now
             ];
             $this->db->insert('tblbukaretur', $bukaretur);
-            $processed_skus[] = ($sku === '' || $sku === null) ? 'TANPA SKU' : $sku;
+            $processed_skus[] = ($sku_val === null) ? 'TANPA SKU' : $sku_val;
         }
 
-        // Update tblresiretur status_retur = Buka Retur (hanya sekali)
-        $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
-        if ($receipt) {
-            $is_complain = $this->input->post('is_complain') ? 1 : 0;
-            $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi, 'is_komplain' => $is_complain])->row();
-            if ($retur_exist) {
-                $this->retur_fcd->guarded_pk_update('tblresiretur', 'id_resiretur', $retur_exist->id_resiretur, [
-                    'status_retur' => 'Buka Retur',
-                    'status_detail' => $status_detail,
-                    // Keep original tanggal_resiretur as receive date
-                    'id_pegawai' => $user_id,
-                    'is_update' => $this->input->post('is_update') ? 1 : 0,
-                    'is_komplain' => $is_complain
-                ]);
+        // Update tblresiretur status_retur = Buka Retur (hanya bila ada SKU baru diproses)
+        if (!empty($processed_skus)) {
+            $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
+            if ($receipt) {
+                $is_complain = $this->input->post('is_complain') ? 1 : 0;
+                $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi, 'is_komplain' => $is_complain])->row();
+                if ($retur_exist) {
+                    $this->retur_fcd->guarded_pk_update('tblresiretur', 'id_resiretur', $retur_exist->id_resiretur, [
+                        'status_retur' => 'Buka Retur',
+                        'status_detail' => $status_detail,
+                        // Keep original tanggal_resiretur as receive date
+                        'id_pegawai' => $user_id,
+                        'is_update' => $this->input->post('is_update') ? 1 : 0,
+                        'is_komplain' => $is_complain
+                    ]);
+                }
             }
         }
 
@@ -668,8 +701,17 @@ class Retur extends MY_Controller
             $this->make_ajax_response(500, 'Gagal memproses data retur massal');
         }
 
+        // Semua SKU ternyata sudah dibuka sebelumnya (mis. form ter-submit dobel)
+        if (empty($processed_skus) && !empty($skipped_skus)) {
+            $this->make_ajax_response(409, 'Semua SKU sudah dibuka sebelumnya: (' . implode(', ', $skipped_skus) . '). Tidak ada yang diproses ulang. Untuk mengubah, gunakan menu Update Retur.');
+        }
+
         $sku_list = implode(', ', $processed_skus);
-        $this->make_ajax_response(201, "SKU ($sku_list) berhasil diproses dengan status $status_detail");
+        $msg = "SKU ($sku_list) berhasil diproses dengan status $status_detail";
+        if (!empty($skipped_skus)) {
+            $msg .= '. Dilewati karena sudah dibuka: (' . implode(', ', $skipped_skus) . ')';
+        }
+        $this->make_ajax_response(201, $msg);
     }
 
     public function search_retur()
