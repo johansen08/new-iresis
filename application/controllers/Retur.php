@@ -2243,24 +2243,28 @@ class Retur extends MY_Controller
 		$data = [];
 		// Ringkasan dihitung per-RESI (dedup). Jika 1 resi punya beberapa SKU
 		// (beberapa baris), tetap dihitung 1 kali per kategori — jangan dobel.
-		$seen = ['cocok' => [], 'iresis' => [], 'jubelio' => [], 'verified' => [], 'ditolak' => []];
+		// Kartu ringkasan dihitung APA ADANYA per BARIS (bukan dedup per resi).
+		$rc = ['total'=>0,'cocok'=>0,'iresis'=>0,'jubelio'=>0,'verified'=>0,'ditolak'=>0,'selisih'=>0,'update_retur'=>0];
 		$no = 1;
 
 		foreach ($merged as $row) {
 			$resi_key = strtoupper(trim($row['no_resi']));
+			$rc['total']++;
 			if ($row['kondisi'] === 'Cocok') {
-				$seen['cocok'][$resi_key] = true;
+				$rc['cocok']++;
 			} elseif ($row['kondisi'] === 'Hanya di iresis') {
-				$seen['iresis'][$resi_key] = true;
+				$rc['iresis']++;
 			} else {
-				$seen['jubelio'][$resi_key] = true;
+				$rc['jubelio']++;
 			}
-			if (!empty($row['verified'])) {
-				$seen['verified'][$resi_key] = true;
-			}
+			if (!empty($row['verified'])) $rc['verified']++;
 			$status_detail = strtoupper(trim($row['status_detail_buka'] ?? ''));
 			if ($status_detail !== '' && $status_detail !== '-' && $status_detail !== 'KE_DISPLAY') {
-				$seen['ditolak'][$resi_key] = true;
+				$rc['ditolak']++;
+			}
+			// Setujui Jubelio = baris status KE_DISPLAY yang BUKAN "Hanya di iresis"
+			if ($status_detail === 'KE_DISPLAY' && $row['kondisi'] !== 'Hanya di iresis') {
+				$rc['selisih']++;
 			}
 
 			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
@@ -2325,15 +2329,19 @@ class Retur extends MY_Controller
 			$this->_reconcile($start_date, $end_date, $id_kurir, 1, $is_komplain),
 			function ($r) { return !empty($r['in_iresis']); }
 		));
-		$update_resi = [];
 		$data_update = [];
 		$no_update = 1;
 
 		foreach ($merged_update as $row) {
 			$resi_key = strtoupper(trim($row['no_resi']));
-			$update_resi[$resi_key] = true;
-			if (!empty($row['verified'])) {
-				$seen['verified'][$resi_key] = true;
+			$rc['total']++;
+			$rc['update_retur']++;
+			if (!empty($row['verified'])) $rc['verified']++;
+			// Setujui Jubelio dari tab Update Retur: baris KE_DISPLAY (bukan "Hanya di iresis")
+			// yang SUDAH diverifikasi TIDAK dihitung — hanya yang belum diverifikasi yang masuk.
+			$status_detail_u = strtoupper(trim($row['status_detail_buka'] ?? ''));
+			if ($status_detail_u === 'KE_DISPLAY' && $row['kondisi'] !== 'Hanya di iresis' && empty($row['verified'])) {
+				$rc['selisih']++;
 			}
 
 			if ($kondisi === 'COCOK'    && $row['kondisi'] !== 'Cocok') continue;
@@ -2388,20 +2396,8 @@ class Retur extends MY_Controller
 			];
 		}
 
-		// Rangkum jumlah per-resi (dedup) menjadi angka final untuk kartu ringkasan.
-		$summary = [
-			'cocok'        => count($seen['cocok']),
-			'iresis'       => count($seen['iresis']),
-			'jubelio'      => count($seen['jubelio']),
-			'verified'     => count($seen['verified']),
-			'ditolak'      => count($seen['ditolak']),
-			'update_retur' => count($update_resi),
-		];
-
-		// Setujui Jubelio = TOTAL - Hanya di iresis - Hanya di Jubelio - Update Retur - Ditolak
-		// (TOTAL = Cocok + Hanya di iresis + Hanya di Jubelio + Update Retur, sama seperti kartu TOTAL)
-		$summary_total = $summary['cocok'] + $summary['iresis'] + $summary['jubelio'] + $summary['update_retur'];
-		$summary['selisih'] = $summary_total - $summary['iresis'] - $summary['jubelio'] - $summary['update_retur'] - $summary['ditolak'];
+		// Kartu ringkasan = jumlah baris apa adanya (dihitung per baris di loop di atas).
+		$summary = $rc;
 
 		echo json_encode(['data' => $data, 'data_update' => $data_update, 'summary' => $summary]);
 		exit();

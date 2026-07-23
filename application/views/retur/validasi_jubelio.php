@@ -300,12 +300,11 @@ $(document).ready(function() {
             return statusDetail !== '' && statusDetail !== '-' && statusDetail !== 'KE_DISPLAY';
         }
 
-        // Setujui Jubelio (Selisih): Cocok and not Ditolak
+        // Setujui Jubelio: status KE_DISPLAY yang BUKAN "Hanya di iresis"
         if (filterType === 'SELISIH') {
-            var isCocok = row[12] && row[12].indexOf('label-success') !== -1;
             var statusDetail = (row[13] || '').trim().toUpperCase();
-            var isDitolak = statusDetail !== '' && statusDetail !== '-' && statusDetail !== 'KE_DISPLAY';
-            return isCocok && !isDitolak;
+            var isIresis = row[12] && row[12].indexOf('label-warning') !== -1;
+            return statusDetail === 'KE_DISPLAY' && !isIresis;
         }
 
         return true;
@@ -323,6 +322,10 @@ $(document).ready(function() {
                 return filterRow(row, activeFilter);
             });
             filteredUpdate = ALL_ROWS_UPDATE.filter(function(row) {
+                // Setujui Jubelio: baris Update Retur yang SUDAH diverifikasi tidak dihitung.
+                if (activeFilter === 'SELISIH' && (row[17] || '').indexOf('checked') !== -1) {
+                    return false;
+                }
                 return filterRow(row, activeFilter);
             });
         }
@@ -455,7 +458,8 @@ $(document).ready(function() {
                 var iresis = (res.summary && res.summary.iresis) || 0;
                 var jubelio = (res.summary && res.summary.jubelio) || 0;
                 var update = (res.summary && res.summary.update_retur) || 0;
-                var total = cocok + iresis + jubelio + update;
+                // Total = jumlah semua baris (dihitung langsung di PHP: baris tab utama + tab update).
+                var total = (res.summary && res.summary.total) || 0;
                 var ditolak = (res.summary && res.summary.ditolak) || 0;
                 var selisih = (res.summary && res.summary.selisih) || 0;
 
