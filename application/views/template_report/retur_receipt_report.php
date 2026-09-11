@@ -11,6 +11,7 @@
       <th>#</th>
       <th>No. Resi</th>
       <th>Marketplace</th>
+      <th>Nama Toko</th>
       <th>Kurir</th>
       <th>Nomor Picklist</th>
       <th>Tanggal Scan Resi</th>
@@ -26,6 +27,7 @@
         <td><?= $i++ ?>.</td>
         <td><?= $data['noresi'] ?></td>
         <td><?= $data['nama_marketplace'] ?></td>
+        <td><?= $data['nama_toko'] ?></td>
         <td><?= $data['nama_kurir'] ?></td>
         <td><?= $data['nomorpicklist'] ?></td>
         <td><?= empty($data['tanggal_printresi']) ? null : date('Y-m-d', strtotime($data['tanggal_printresi'])) ?></td>

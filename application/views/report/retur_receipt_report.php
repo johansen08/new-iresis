@@ -2,113 +2,376 @@
     <div class="col-md-12">
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title"><strong>Laporan Resi Retur</strong></h3>
+                <h3 class="panel-title"><strong>Laporan Retur</strong></h3>
             </div>
 
             <div class="panel-body">
-                <form action="report/retur-receipt-report" class="form-horizontal" method="post" id="form-retur-receipt-report">
-                    <div class="form-group">
-                        <label class="col-md-3 col-xs-12 control-label">Rentang waktu</label>
-                        <div class="col-md-3 col-xs-12">
-                            <input type="text" name="reportrange" id="reportrange" class="form-control" value="<?= !empty($reportrange) ? $reportrange : null ?>" />
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs" id="retur-tabs">
+                    <li class="active"><a href="#tab-terima-retur" data-toggle="tab">Terima Retur</a></li>
+                    <li><a href="#tab-buka-retur" data-toggle="tab">Buka Retur</a></li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" style="margin-top: 20px;">
+                    <!-- TAB 1: Terima Retur -->
+                    <div class="tab-pane fade in active" id="tab-terima-retur">
+                        <form action="report/retur-receipt-report" class="form-horizontal" method="post" id="form-terima-retur-report">
+                            <div class="form-group">
+                                <label class="col-md-2 col-xs-12 control-label">Rentang Waktu</label>
+                                <div class="col-md-4 col-xs-12">
+                                    <input type="text" name="reportrange_terima" id="reportrange-terima" class="form-control" placeholder="Filter Range tanggal" />
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-md-2 col-xs-12 control-label"></label>
+                                <div class="col-md-6 col-xs-12">
+                                    <button type="button" class="btn btn-info" id="btn-tampilkan-terima"><i class="fa fa-search"></i> Tampilkan</button>
+                                    <button type="submit" class="btn btn-success" id="btn-export-terima"><i class="fa fa-file-excel-o"></i> Ekspor ke Excel</button>
+                                    <button type="button" class="btn btn-danger" id="btn-hapus-terpilih-terima"><i class="fa fa-trash"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <hr>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered" id="datatable-terima-retur">
+                                <thead>
+                                    <tr>
+                                        <th>No. Retur</th>
+                                        <th>No. Resi</th>
+                                        <th>Marketplace</th>
+                                        <th>Nama Toko</th>
+                                        <th>Kurir</th>
+                                        <th>Tanggal Terima Retur</th>
+                                        <th>Jam Terima Retur</th>
+                                        <th>SKU</th>
+                                        <th>Quantity</th>
+                                        <th>Status Detail</th>
+                                        <th>Action <input type="checkbox" id="select-all-terima" style="margin-left: 5px;"></th>
+                                    </tr>
+                                </thead>
+                            </table>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="col-md-3 col-xs-12 control-label"></label>
-                        <div class="col-md-2 col-xs-12">
-                            <button type="submit" class="btn btn-info" id="btn-search"><i class="fa fa-search"></i> Cari</button>
-                            <button type="submit" class="btn btn-primary" id="btn-export-excel"><i class="fa fa-download"></i> Ekspor ke Excel</button>
+                    <!-- TAB 2: Buka Retur -->
+                    <div class="tab-pane fade" id="tab-buka-retur">
+                        <form action="report/retur-receipt-report" class="form-horizontal" method="post" id="form-buka-retur-report">
+                            <div class="form-group">
+                                <label class="col-md-2 col-xs-12 control-label">Rentang Waktu</label>
+                                <div class="col-md-4 col-xs-12">
+                                    <input type="text" name="reportrange_buka" id="reportrange-buka" class="form-control" placeholder="Filter Range tanggal" />
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-md-2 col-xs-12 control-label"></label>
+                                <div class="col-md-6 col-xs-12">
+                                    <button type="button" class="btn btn-info" id="btn-tampilkan-buka"><i class="fa fa-search"></i> Tampilkan</button>
+                                    <button type="submit" class="btn btn-success" id="btn-export-buka"><i class="fa fa-file-excel-o"></i> Ekspor ke Excel</button>
+                                    <button type="button" class="btn btn-danger" id="btn-hapus-terpilih-buka"><i class="fa fa-trash"></i> Hapus Terpilih</button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <hr>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered" id="datatable-buka-retur">
+                                <thead>
+                                    <tr>
+                                        <th>No. Retur</th>
+                                        <th>No. Resi</th>
+                                        <th>Marketplace</th>
+                                        <th>Nama Toko</th>
+                                        <th>Kurir</th>
+                                        <th>Tanggal Buka Retur</th>
+                                        <th>Jam Buka Retur</th>
+                                        <th>SKU</th>
+                                        <th>Quantity</th>
+                                        <th>Status Detail</th>
+                                        <th>Action <input type="checkbox" id="select-all-buka" style="margin-left: 5px;"></th>
+                                    </tr>
+                                </thead>
+                            </table>
                         </div>
                     </div>
-                </form>
-
-                <hr>
-
-                <table class="table table-striped table-bordered" id="datatable-retur-receipt-report">
-                    <thead>
-                    <tr>
-                        <th colspan="8" class="text-right">Grand Total</th>
-                        <th id="grand_total_retur">-</th>
-                    </tr>
-                    <tr>
-                        <th>#</th>
-                        <th>No. Resi</th>
-                        <th>Marketplace</th>
-                        <th>Kurir</th>
-                        <th>Nomor Picklist</th>
-                        <th>Tanggal Scan Resi</th>
-                        <th>Jam Scan Resi</th>
-                        <th>Tanggal Retur</th>
-                        <th>Jam Retur</th>
-                    </tr>
-                    </thead>
-                </table>
-
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    var report_range = <?= !empty($reportrange) ? '"' . $reportrange . '"' : "null" ?>;
+$(document).ready(function() {
+    // ==================== DATE RANGE PICKERS ====================
+    var defaultStart = moment().startOf('day');
+    var defaultEnd = moment();
 
-    var start = report_range !== null ? moment(report_range.split(" - ")[0]) : moment().subtract(1, 'days').startOf('day');
-    var end = report_range !== null ? moment(report_range.split(" - ")[1]) : moment();
-
-    $('#reportrange').daterangepicker({
+    // Date Range for Terima Retur
+    $('#reportrange-terima').daterangepicker({
         timePicker: true,
         timePicker24Hour: true,
-        startDate: start,
-        endDate: end,
+        startDate: defaultStart,
+        endDate: defaultEnd,
         ranges: {
-            'Today': [moment().startOf('day'), moment()],
-            'Last 1 Hours': [moment().subtract(1, 'hours'), moment()],
-            'Yesterday': [moment().subtract(1, 'days').startOf('day'), moment().startOf('day')],
-            'Last 7 Days': [moment().subtract(6, 'days').startOf('day'), moment()],
-            'This Month': [moment().startOf('month'), moment().endOf('month')],
+            'Hari Ini': [moment().startOf('day'), moment()],
+            'Kemarin': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
+            '7 Hari Terakhir': [moment().subtract(6, 'days').startOf('day'), moment()],
+            '30 Hari Terakhir': [moment().subtract(29, 'days').startOf('day'), moment()],
+            'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
         },
         locale: {
-            format: 'YYYY-MM-DD HH:mm:ss'
+            format: 'YYYY-MM-DD HH:mm:ss',
+            separator: ' - ',
+            applyLabel: 'Terapkan',
+            cancelLabel: 'Batal',
+            customRangeLabel: 'Custom Range'
         },
     });
 
-    $('#datatable-retur-receipt-report').DataTable({
+    // Date Range for Buka Retur
+    $('#reportrange-buka').daterangepicker({
+        timePicker: true,
+        timePicker24Hour: true,
+        startDate: defaultStart,
+        endDate: defaultEnd,
+        ranges: {
+            'Hari Ini': [moment().startOf('day'), moment()],
+            'Kemarin': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
+            '7 Hari Terakhir': [moment().subtract(6, 'days').startOf('day'), moment()],
+            '30 Hari Terakhir': [moment().subtract(29, 'days').startOf('day'), moment()],
+            'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+        },
+        locale: {
+            format: 'YYYY-MM-DD HH:mm:ss',
+            separator: ' - ',
+            applyLabel: 'Terapkan',
+            cancelLabel: 'Batal',
+            customRangeLabel: 'Custom Range'
+        },
+    });
+
+    // ==================== DATATABLE: TERIMA RETUR ====================
+    var tableTerimaRetur = $('#datatable-terima-retur').DataTable({
         'scrollX': true,
         'pageLength': 10,
         'processing': true,
         'serverSide': true,
-        'order': [
-            [1, 'asc']
-        ],
-        'lengthMenu': [
-            [10, 50, 100, 150, 200],
-            [10, 50, 100, 150, 200]
-        ],
+        'order': [[5, 'desc']], // Sort by Tanggal Terima Retur
+        'lengthMenu': [[10, 25, 50, 100], [10, 25, 50, 100]],
         'ajax': {
-            url: 'report/get-retur-receipt-report-data',
+            url: 'report/get-terima-retur-report-data',
             type: 'POST',
             data: function(d) {
-                d.start_date = $('#reportrange').val().split(" - ")[0];
-                d.end_date = $('#reportrange').val().split(" - ")[1];
+                var dateRange = $('#reportrange-terima').val();
+                if (dateRange) {
+                    d.start_date = dateRange.split(" - ")[0];
+                    d.end_date = dateRange.split(" - ")[1];
+                } else {
+                    d.start_date = moment().startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    d.end_date = moment().format('YYYY-MM-DD HH:mm:ss');
+                }
             }
         },
-        'drawCallback': function() {
-            var json = this.api().ajax.json();
-            var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
-            $('#grand_total_retur').text(total);
+        'columns': [
+            { data: 'no_pesanan' },
+            { data: 'noresi' },
+            { data: 'marketplace' },
+            { data: 'nama_toko' },
+            { data: 'kurir' },
+            { data: 'tanggal_terima' },
+            { data: 'jam_terima' },
+            { data: 'sku' },
+            { data: 'quantity' },
+            { data: 'status_detail' },
+            { data: 'action', orderable: false, searchable: false }
+        ]
+    });
+
+    // ==================== DATATABLE: BUKA RETUR ====================
+    var tableBukaRetur = $('#datatable-buka-retur').DataTable({
+        'scrollX': true,
+        'pageLength': 10,
+        'processing': true,
+        'serverSide': true,
+        'order': [[5, 'desc']], // Sort by Tanggal Buka Retur
+        'lengthMenu': [[10, 25, 50, 100], [10, 25, 50, 100]],
+        'ajax': {
+            url: 'report/get-buka-retur-report-data',
+            type: 'POST',
+            data: function(d) {
+                var dateRange = $('#reportrange-buka').val();
+                if (dateRange) {
+                    d.start_date = dateRange.split(" - ")[0];
+                    d.end_date = dateRange.split(" - ")[1];
+                } else {
+                    d.start_date = moment().startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    d.end_date = moment().format('YYYY-MM-DD HH:mm:ss');
+                }
+            }
+        },
+        'columns': [
+            { data: 'no_pesanan' },
+            { data: 'noresi' },
+            { data: 'marketplace' },
+            { data: 'nama_toko' },
+            { data: 'kurir' },
+            { data: 'tanggal_buka' },
+            { data: 'jam_buka' },
+            { data: 'sku' },
+            { data: 'quantity' },
+            { data: 'status_detail' },
+            { data: 'action', orderable: false, searchable: false }
+        ]
+    });
+
+    // ==================== BUTTON HANDLERS ====================
+    // Tampilkan Terima Retur
+    $('#btn-tampilkan-terima').on('click', function() {
+        tableTerimaRetur.ajax.reload();
+    });
+
+    // Tampilkan Buka Retur
+    $('#btn-tampilkan-buka').on('click', function() {
+        tableBukaRetur.ajax.reload();
+    });
+
+    // Export Excel Terima Retur
+    $('#btn-export-terima').on('click', function(e) {
+        e.preventDefault();
+        var dateRange = $('#reportrange-terima').val() || (moment().startOf('day').format('YYYY-MM-DD HH:mm:ss') + ' - ' + moment().format('YYYY-MM-DD HH:mm:ss'));
+        window.open('report/export-to-excel-terima-retur-report?reportrange=' + encodeURIComponent(dateRange), '_blank');
+    });
+
+    // Export Excel Buka Retur
+    $('#btn-export-buka').on('click', function(e) {
+        e.preventDefault();
+        var dateRange = $('#reportrange-buka').val() || (moment().startOf('day').format('YYYY-MM-DD HH:mm:ss') + ' - ' + moment().format('YYYY-MM-DD HH:mm:ss'));
+        window.open('report/export-to-excel-buka-retur-report?reportrange=' + encodeURIComponent(dateRange), '_blank');
+    });
+
+    // ==================== DELETE HANDLER ====================
+    // Handle delete button (using event delegation)
+    $(document).on('click', '.btn-delete-retur', function(e) {
+        e.preventDefault();
+        var url = $(this).data('url');
+        var type = $(this).data('type'); // 'terima' or 'buka'
+        
+        if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+            $.ajax({
+                url: url,
+                type: 'POST',
+                success: function(response) {
+                    alert('Data berhasil dihapus');
+                    if (type === 'terima') {
+                        tableTerimaRetur.ajax.reload();
+                    } else {
+                        tableBukaRetur.ajax.reload();
+                    }
+                },
+                error: function(xhr) {
+                    var errorMessage = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Gagal menghapus data';
+                    alert(errorMessage);
+                }
+            });
         }
     });
 
-    $('#btn-search').on('click', function() {
-        $('#form-retur-receipt-report').removeAttr("target");
-        $('#form-retur-receipt-report').removeClass('nojs');
-        $('#form-retur-receipt-report').attr('action', 'report/retur-receipt-report');
-    })
-
-    $('#btn-export-excel').on('click', function() {
-        $('#form-retur-receipt-report').attr("target", "_blank");
-        $('#form-retur-receipt-report').addClass('nojs');
-        $('#form-retur-receipt-report').attr('action', 'report/export-to-excel-retur-receipt-report');
+    // ==================== BATCH DELETE HANDLER ====================
+    // Select All Terima Retur
+    $('#select-all-terima').on('click', function() {
+        $('.row-select-terima').prop('checked', this.checked);
     });
+
+    // Select All Buka Retur
+    $('#select-all-buka').on('click', function() {
+        $('.row-select-buka').prop('checked', this.checked);
+    });
+
+    // Hapus Terpilih Terima Retur
+    $('#btn-hapus-terpilih-terima').on('click', function() {
+        var selected = [];
+        $('.row-select-terima:checked').each(function() {
+            selected.push($(this).data('id'));
+        });
+
+        if (selected.length === 0) {
+            alert('Pilih minimal satu data untuk dihapus');
+            return;
+        }
+
+        if (confirm('Apakah Anda yakin ingin menghapus ' + selected.length + ' data terpilih?')) {
+            batchDelete(selected, 'terima', tableTerimaRetur);
+        }
+    });
+
+    // Hapus Terpilih Buka Retur
+    $('#btn-hapus-terpilih-buka').on('click', function() {
+        var selected = [];
+        $('.row-select-buka:checked').each(function() {
+            selected.push($(this).data('id'));
+        });
+
+        if (selected.length === 0) {
+            alert('Pilih minimal satu data untuk dihapus');
+            return;
+        }
+
+        if (confirm('Apakah Anda yakin ingin menghapus ' + selected.length + ' data terpilih?')) {
+            batchDelete(selected, 'buka', tableBukaRetur);
+        }
+    });
+
+    function batchDelete(ids, type, table) {
+        $.ajax({
+            url: 'report/batch-delete-retur',
+            type: 'POST',
+            data: {
+                ids: ids,
+                type: type
+            },
+            success: function(response) {
+                alert(response.message || 'Data berhasil dihapus');
+                table.ajax.reload();
+                // Reset select all checkbox
+                if (type === 'terima') {
+                    $('#select-all-terima').prop('checked', false);
+                } else {
+                    $('#select-all-buka').prop('checked', false);
+                }
+            },
+            error: function(xhr) {
+                var errorMessage = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Gagal menghapus data';
+                alert(errorMessage);
+            }
+        });
+    }
+});
 </script>
+
+<style>
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    #datatable-terima-retur th,
+    #datatable-buka-retur th {
+        white-space: nowrap;
+        background-color: #f5f5f5;
+        font-weight: bold;
+    }
+    
+    .nav-tabs > li > a {
+        font-weight: bold;
+        font-size: 14px;
+    }
+    
+    .btn-delete-retur {
+        padding: 2px 8px;
+        font-size: 12px;
+    }
+</style>

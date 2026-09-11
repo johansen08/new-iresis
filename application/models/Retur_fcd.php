@@ -2146,7 +2146,7 @@ class Retur_fcd extends CI_Model
      */
     function get_jubelio_recon($start_date, $end_date, $resi_list = [])
     {
-        $this->db->select('
+        $select = '
             j.no_resi as noresi,
             GROUP_CONCAT(DISTINCT j.no_pesanan ORDER BY j.no_pesanan SEPARATOR ", ") as no_pesanan,
             GROUP_CONCAT(DISTINCT j.sku ORDER BY j.sku SEPARATOR ", ") as sku_list,
@@ -2158,23 +2158,44 @@ class Retur_fcd extends CI_Model
             MAX(j.status_retur) as status_retur,
             MAX(j.status_jubelio) as status_jubelio,
             MIN(COALESCE(j.tanggal_retur, j.uploaded_at)) as tanggal_retur
-        ');
-        $this->db->from('tblreturjubelio j');
+        ';
+
+        $rows = [];
 
         if (!empty($start_date) && !empty($end_date)) {
-            $this->db->group_start();
+            $this->db->select($select);
+            $this->db->from('tblreturjubelio j');
             $this->db->where('COALESCE(j.tanggal_retur, j.uploaded_at) >=', $start_date);
             $this->db->where('COALESCE(j.tanggal_retur, j.uploaded_at) <=', $end_date);
-            if (!empty($resi_list)) {
-                $this->db->or_where_in('j.no_resi', $resi_list);
+            $this->db->where("j.no_resi !=", '');
+            $this->db->group_by('j.no_resi');
+            foreach ($this->db->get()->result() as $r) {
+                $rows[strtoupper(trim($r->noresi))] = $r;
             }
-            $this->db->group_end();
         }
 
-        $this->db->where("j.no_resi !=", '');
-        $this->db->group_by('j.no_resi');
+        // Tambahan: resi yang cocok by no_resi tapi tanggal Jubelio-nya di luar
+        // rentang (mis. upload terpisah). IN() dipecah per-batch 500 karena kalau
+        // resi_list sampai ribuan item dalam satu IN(), query builder CodeIgniter
+        // gagal compile (preg_match regex-too-large) dan seluruh laporan error
+        // (lihat kasus 14 Agustus 2026: 1901 resi dalam sehari).
+        if (!empty($resi_list)) {
+            foreach (array_chunk(array_unique($resi_list), 500) as $chunk) {
+                $this->db->select($select);
+                $this->db->from('tblreturjubelio j');
+                $this->db->where_in('j.no_resi', $chunk);
+                $this->db->where("j.no_resi !=", '');
+                $this->db->group_by('j.no_resi');
+                foreach ($this->db->get()->result() as $r) {
+                    $key = strtoupper(trim($r->noresi));
+                    if (!isset($rows[$key])) {
+                        $rows[$key] = $r;
+                    }
+                }
+            }
+        }
 
-        return $this->db->get()->result();
+        return array_values($rows);
     }
 
     /**
