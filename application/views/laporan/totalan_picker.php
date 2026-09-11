@@ -28,6 +28,9 @@
               <th width="100" class="text-center">Total Resi</th>
               <th width="100" class="text-center">Satuan</th>
               <th width="100" class="text-center">Campuran</th>
+              <th width="100" class="text-center">Total SKU</th>
+              <th width="120" class="text-center">Total Kesalahan</th>
+              <th width="100" class="text-center">Total Point</th>
             </tr>
           </thead>
           <tbody>
@@ -38,6 +41,9 @@
               <td class="text-center"><strong><?= $row->total_resi ?></strong></td>
               <td class="text-center"><?= $row->satuan ?></td>
               <td class="text-center"><?= $row->campuran ?></td>
+              <td class="text-center"><?= $row->total_sku_qty ?></td>
+              <td class="text-center"><?= $row->total_kesalahan ?></td>
+              <td class="text-center"><span class="badge badge-success"><?= $row->total_point ?></span></td>
             </tr>
             <?php endforeach; endif; ?>
           </tbody>
@@ -64,6 +70,9 @@
               '<td class="text-center"><strong>' + row[2] + '</strong></td>' +
               '<td class="text-center">' + row[3] + '</td>' +
               '<td class="text-center">' + row[4] + '</td>' +
+              '<td class="text-center">' + row[5] + '</td>' +
+              '<td class="text-center">' + row[6] + '</td>' +
+              '<td class="text-center"><span class="badge badge-success">' + row[7] + '</span></td>' +
             '</tr>'
           );
         });

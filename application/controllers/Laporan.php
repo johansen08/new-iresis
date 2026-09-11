@@ -65,6 +65,258 @@ class Laporan extends MY_Controller
         $this->show($data);
     }
 
+    public function ekspedisi_urgent()
+    {
+        $data['rows'] = $this->laporan_fcd->get_ekspedisi_urgent()->result();
+        $this->show($data);
+    }
+
+    public function tracking_picker()
+    {
+        $tanggal = $this->input->get('tanggal') ?: date('Y-m-d');
+        $data['tanggal'] = $tanggal;
+        $data['rows'] = $this->build_tracking_picker_summary($tanggal);
+        $this->show($data);
+    }
+
+    public function get_data_ekspedisi_urgent_detail()
+    {
+        $id_kurir = $this->input->post('id_kurir');
+        $status   = $this->input->post('status');
+        $rows     = $this->laporan_fcd->get_ekspedisi_urgent_detail($id_kurir, $status)->result();
+
+        $data = [];
+        $i = 1;
+        foreach ($rows as $row) {
+            $data[] = [
+                $i++,
+                $row->noresi,
+                $row->nama_kurir,
+                date('d-m-Y H:i', strtotime($row->tanggal_printresi)),
+            ];
+        }
+
+        echo json_encode(['data' => $data]);
+        exit();
+    }
+
+    public function get_data_tracking_picker()
+    {
+        $tanggal = $this->input->post('tanggal') ?: date('Y-m-d');
+        $rows = $this->build_tracking_picker_summary($tanggal);
+
+        $data = [];
+        $i = 1;
+        foreach ($rows as $row) {
+            $data[] = [
+                $i++,
+                $row['id_pegawai'],
+                $row['nama_pegawai'],
+                $row['total_resi'],
+                $row['resi_satuan'],
+                $row['resi_campuran'],
+                $row['lantai_dikunjungi'],
+                $row['jumlah_pindah_lantai'],
+            ];
+        }
+
+        echo json_encode(['data' => $data]);
+        exit();
+    }
+
+    public function get_data_tracking_picker_detail()
+    {
+        $tanggal    = $this->input->post('tanggal') ?: date('Y-m-d');
+        $id_pegawai = $this->input->post('id_pegawai');
+        $resi_list  = $this->laporan_fcd->get_tracking_picker_resi($tanggal, $id_pegawai)->result();
+        $detail     = $this->annotate_tracking_picker_floors($resi_list);
+
+        $data = [];
+        $i = 1;
+        foreach ($detail as $d) {
+            $data[] = [
+                $i++,
+                $d['jam'],
+                $d['noresi'],
+                ucfirst($d['tipe_resi']),
+                $d['jumlah_sku'],
+                $d['sku_list'],
+                $d['lantai_text'],
+                $d['keterangan'],
+            ];
+        }
+
+        echo json_encode(['data' => $data]);
+        exit();
+    }
+
+    /**
+     * Rekap harian per picker: total resi, satuan/campuran, lantai yang disentuh,
+     * dan berapa kali pindah lantai (dihitung dari urutan resi berdasarkan jam ambil).
+     */
+    private function build_tracking_picker_summary($tanggal)
+    {
+        $rows = $this->laporan_fcd->get_tracking_picker_resi($tanggal)->result();
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[$row->id_pegawai][] = $row;
+        }
+
+        $summary = [];
+        foreach ($grouped as $id_pegawai => $resi_list) {
+            $detail = $this->annotate_tracking_picker_floors($resi_list);
+
+            $satuan = 0;
+            $campuran = 0;
+            $pindah = 0;
+            $lantai_set = [];
+
+            foreach ($detail as $d) {
+                if ($d['tipe_resi'] === 'campuran') {
+                    $campuran++;
+                } else {
+                    $satuan++;
+                }
+                foreach ($d['lantai'] as $l) {
+                    $lantai_set[$l] = true;
+                }
+                if ($d['pindah']) {
+                    $pindah++;
+                }
+            }
+
+            ksort($lantai_set);
+
+            $summary[] = [
+                'id_pegawai'           => $id_pegawai,
+                'nama_pegawai'         => $resi_list[0]->nama_pegawai,
+                'total_resi'           => count($resi_list),
+                'resi_satuan'          => $satuan,
+                'resi_campuran'        => $campuran,
+                'lantai_dikunjungi'    => empty($lantai_set) ? '-' : 'L' . implode(', L', array_keys($lantai_set)),
+                'jumlah_pindah_lantai' => $pindah,
+            ];
+        }
+
+        usort($summary, function ($a, $b) {
+            return $b['total_resi'] <=> $a['total_resi'];
+        });
+
+        return $summary;
+    }
+
+    /**
+     * Susun urutan resi picker jadi list beranotasi: tipe resi, lantai yang
+     * dilibatkan, dan apakah dia baru pindah lantai dibanding resi sebelumnya.
+     *
+     * Keterbatasan: dalam SATU resi campuran yang SKU-nya tersebar di beberapa
+     * lantai, sistem tidak mencatat urutan pengambilan per-SKU (hanya ada satu
+     * timestamp per resi) — jadi "pindah lantai" hanya bisa dideteksi ANTAR resi,
+     * bukan di dalam satu resi.
+     */
+    private function annotate_tracking_picker_floors($resi_list)
+    {
+        $result = [];
+        $prev_floors = [];
+
+        foreach ($resi_list as $row) {
+            $floors = $row->lantai_list ? explode(',', $row->lantai_list) : [];
+            $tipe = $row->tipe_resi ?: ($row->jumlah_sku > 1 ? 'campuran' : 'satuan');
+
+            $pindah = false;
+            if (empty($prev_floors)) {
+                $keterangan = 'Resi pertama hari ini';
+            } elseif (empty($floors)) {
+                $keterangan = 'Lokasi rak tidak terdata';
+            } else {
+                $overlap = array_intersect($floors, $prev_floors);
+                $baru = array_diff($floors, $prev_floors);
+                if (empty($baru)) {
+                    $keterangan = 'Tetap di L' . implode(', L', $floors);
+                } elseif (empty($overlap)) {
+                    $pindah = true;
+                    $keterangan = 'Pindah L' . implode(',', $prev_floors) . ' → L' . implode(',', $floors);
+                } else {
+                    $pindah = true;
+                    $keterangan = 'Tetap di L' . implode(',', $overlap) . ', tambah ke L' . implode(',', $baru);
+                }
+            }
+
+            $result[] = [
+                'nama_pegawai' => $row->nama_pegawai,
+                'jam'         => date('H:i', strtotime($row->tanggal_resiambilbarang)),
+                'noresi'      => $row->noresi,
+                'tipe_resi'   => $tipe,
+                'jumlah_sku'  => (int) $row->jumlah_sku,
+                'sku_list'    => $row->sku_list,
+                'lantai'      => $floors,
+                'lantai_text' => empty($floors) ? '-' : 'L' . implode(', L', $floors),
+                'pindah'      => $pindah,
+                'keterangan'  => $keterangan,
+            ];
+
+            if (!empty($floors)) {
+                $prev_floors = $floors;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Gabungkan detail semua picker (urut per picker, lalu per jam) untuk
+     * kebutuhan export — dipakai supaya file Excel berisi baris per resi,
+     * bukan cuma rekap.
+     */
+    private function build_tracking_picker_detail_flat($tanggal)
+    {
+        $rows = $this->laporan_fcd->get_tracking_picker_resi($tanggal)->result();
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[$row->id_pegawai][] = $row;
+        }
+
+        $flat = [];
+        foreach ($grouped as $resi_list) {
+            foreach ($this->annotate_tracking_picker_floors($resi_list) as $d) {
+                $flat[] = $d;
+            }
+        }
+
+        return $flat;
+    }
+
+    public function export_tracking_picker()
+    {
+        $tanggal = $this->input->get('tanggal') ?: date('Y-m-d');
+
+        $data['tanggal'] = $tanggal;
+        $data['summary'] = $this->build_tracking_picker_summary($tanggal);
+        $data['detail']  = $this->build_tracking_picker_detail_flat($tanggal);
+
+        $filename = 'Tracking_Picker_' . $tanggal . '.xls';
+        header("Content-type: application/vnd-ms-excel");
+        header("Content-Disposition: attachment; filename={$filename}");
+
+        $this->load->view('laporan/export_tracking_picker', $data);
+    }
+
+    public function send_wa_ekspedisi_urgent()
+    {
+        $this->load->library('wa_gateway');
+
+        $msg = $this->laporan_fcd->format_wa_ekspedisi_urgent();
+        $result = $this->wa_gateway->send_to_group($msg);
+
+        if (isset($result['error']) && $result['error']) {
+            $this->make_ajax_response(500, 'Gagal kirim WA: ' . ($result['message'] ?? 'Unknown error'));
+        } else {
+            $this->make_ajax_response(200, 'Laporan ekspedisi urgent berhasil dikirim ke WhatsApp.');
+        }
+    }
+
     // ── AJAX DATA ENDPOINTS ──────────────────────────────────
 
     public function get_data_totalan_picker()
@@ -83,6 +335,9 @@ class Laporan extends MY_Controller
                 $row->total_resi,
                 $row->satuan,
                 $row->campuran,
+                $row->total_sku_qty,
+                $row->total_kesalahan,
+                $row->total_point,
             ];
         }
 
@@ -109,6 +364,9 @@ class Laporan extends MY_Controller
                 $row->total_resi,
                 $row->satuan,
                 $row->campuran,
+                $row->total_sku_qty,
+                $row->total_kesalahan,
+                $row->total_point,
             ];
         }
 

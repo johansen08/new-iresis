@@ -13,18 +13,81 @@ class Laporan_fcd extends CI_Model
         $sql = "
             SELECT
                 p.nama_pegawai,
-                COUNT(1) AS total_resi,
-                SUM(CASE WHEN pr.tipe_resi = 'satuan' THEN 1 ELSE 0 END) AS satuan,
-                SUM(CASE WHEN pr.tipe_resi = 'campuran' THEN 1 ELSE 0 END) AS campuran
-            FROM tblresiambilbarang r
-            INNER JOIN tblpegawai p ON p.kode_pegawai = r.yangambil_pegawai
-            LEFT JOIN tblprintresi pr ON pr.id_printresi = r.id_resi
-            WHERE DATE(r.tanggal_resiambilbarang) = ?
-            GROUP BY p.kode_pegawai, p.nama_pegawai
+                work.total_resi,
+                work.satuan,
+                work.campuran,
+                COALESCE(work.total_sku_qty, 0) AS total_sku_qty,
+                COALESCE(err.total_kesalahan, 0) AS total_kesalahan,
+                (COALESCE(work.total_sku_qty, 0) - (COALESCE(err.total_kesalahan, 0) * 50)) AS total_point
+            FROM (
+                SELECT
+                    r.yangambil_pegawai AS peg_id,
+                    COUNT(DISTINCT r.id_resi) AS total_resi,
+                    SUM(CASE WHEN pr.tipe_resi = 'satuan' THEN 1 ELSE 0 END) AS satuan,
+                    SUM(CASE WHEN pr.tipe_resi = 'campuran' THEN 1 ELSE 0 END) AS campuran,
+                    SUM(dpr_sum.total_qty) AS total_sku_qty
+                FROM tblresiambilbarang r
+                LEFT JOIN tblprintresi pr ON pr.id_printresi = r.id_resi
+                LEFT JOIN (
+                    SELECT id_resi, SUM(CAST(jumlah AS UNSIGNED)) as total_qty
+                    FROM tbldetailprintresi
+                    GROUP BY id_resi
+                ) dpr_sum ON dpr_sum.id_resi = r.id_resi
+                WHERE DATE(r.tanggal_resiambilbarang) = ?
+                GROUP BY r.yangambil_pegawai
+            ) work
+            INNER JOIN tblpegawai p ON p.kode_pegawai = work.peg_id
+            LEFT JOIN (
+                SELECT 
+                    r2.yangambil_pegawai AS peg_id,
+                    COUNT(mp.id_masalahpicker) AS total_kesalahan
+                FROM tblmasalahpicker mp
+                JOIN tblresiambilbarang r2 ON r2.id_resi = mp.id_printresi
+                WHERE DATE(r2.tanggal_resiambilbarang) = ?
+                GROUP BY r2.yangambil_pegawai
+            ) err ON err.peg_id = work.peg_id
             ORDER BY total_resi DESC
         ";
 
-        return $this->db->query($sql, [$tanggal]);
+        return $this->db->query($sql, [$tanggal, $tanggal]);
+    }
+
+    // ── TRACKING PICKER ──────────────────────────────────────
+
+    /**
+     * Semua resi yang diambil pada tanggal tsb, urut per picker per jam.
+     * lantai_list = angka pertama no_rak tiap SKU di resi itu (format no_rak: [Lantai][Zona]-[Kolom]-[Level], mis. "3B-J1-5").
+     * SKU dengan no_rak kosong/tidak diawali angka (lokasi belum terdata) diabaikan dari lantai_list.
+     */
+    function get_tracking_picker_resi($tanggal, $id_pegawai = null)
+    {
+        $sql = "
+            SELECT
+                r.yangambil_pegawai AS id_pegawai,
+                p.nama_pegawai,
+                r.id_resi,
+                r.tanggal_resiambilbarang,
+                pr.noresi,
+                pr.tipe_resi,
+                GROUP_CONCAT(DISTINCT dr.sku ORDER BY dr.sku SEPARATOR ', ') AS sku_list,
+                COUNT(DISTINCT dr.sku) AS jumlah_sku,
+                GROUP_CONCAT(DISTINCT LEFT(dr.no_rak, 1) ORDER BY LEFT(dr.no_rak, 1) SEPARATOR ',') AS lantai_list
+            FROM tblresiambilbarang r
+            INNER JOIN tblpegawai p ON p.kode_pegawai = r.yangambil_pegawai
+            LEFT JOIN tblprintresi pr ON pr.id_printresi = r.id_resi
+            LEFT JOIN tbldetailprintresi dr ON dr.id_resi = r.id_resi AND dr.no_rak REGEXP '^[0-9]'
+            WHERE DATE(r.tanggal_resiambilbarang) = ?
+        ";
+        $params = [$tanggal];
+
+        if (!empty($id_pegawai)) {
+            $sql .= " AND r.yangambil_pegawai = ? ";
+            $params[] = $id_pegawai;
+        }
+
+        $sql .= " GROUP BY r.id_resiambilbarang ORDER BY r.yangambil_pegawai, r.tanggal_resiambilbarang ";
+
+        return $this->db->query($sql, $params);
     }
 
     // ── TOTALAN PACKER ───────────────────────────────────────
@@ -36,83 +99,118 @@ class Laporan_fcd extends CI_Model
         $sql = "
             SELECT
                 u.name AS nama_packer,
-                COUNT(1) AS total_resi,
-                SUM(CASE WHEN pr.tipe_resi = 'satuan' THEN 1 ELSE 0 END) AS satuan,
-                SUM(CASE WHEN pr.tipe_resi = 'campuran' THEN 1 ELSE 0 END) AS campuran
-            FROM tblpacking pk
-            INNER JOIN tbluser u ON u.id_user = pk.packer_pegawai
-            LEFT JOIN tblprintresi pr ON pr.id_printresi = pk.id_resi
-            WHERE DATE(pk.tanggal_packing) = ?
-            GROUP BY pk.packer_pegawai, u.name
+                work.total_resi,
+                work.satuan,
+                work.campuran,
+                COALESCE(work.total_sku_qty, 0) AS total_sku_qty,
+                COALESCE(err.total_kesalahan, 0) AS total_kesalahan,
+                (COALESCE(work.total_sku_qty, 0) - (COALESCE(err.total_kesalahan, 0) * 50)) AS total_point
+            FROM (
+                SELECT
+                    pk.packer_pegawai AS user_id,
+                    COUNT(DISTINCT pk.id_resi) AS total_resi,
+                    SUM(CASE WHEN pr.tipe_resi = 'satuan' THEN 1 ELSE 0 END) AS satuan,
+                    SUM(CASE WHEN pr.tipe_resi = 'campuran' THEN 1 ELSE 0 END) AS campuran,
+                    SUM(dpr_sum.total_qty) AS total_sku_qty
+                FROM tblpacking pk
+                LEFT JOIN tblprintresi pr ON pr.id_printresi = pk.id_resi
+                LEFT JOIN (
+                    SELECT id_resi, SUM(CAST(jumlah AS UNSIGNED)) as total_qty
+                    FROM tbldetailprintresi
+                    GROUP BY id_resi
+                ) dpr_sum ON dpr_sum.id_resi = pk.id_resi
+                WHERE DATE(pk.tanggal_packing) = ?
+                GROUP BY pk.packer_pegawai
+            ) work
+            INNER JOIN tbluser u ON u.id_user = work.user_id
+            LEFT JOIN (
+                SELECT 
+                    pk2.packer_pegawai AS user_id,
+                    COUNT(mp.id_masalahpacker) AS total_kesalahan
+                FROM tblmasalahpacker mp
+                JOIN tblpacking pk2 ON pk2.id_resi = mp.id_printresi
+                WHERE DATE(pk2.tanggal_packing) = ?
+                GROUP BY pk2.packer_pegawai
+            ) err ON err.user_id = work.user_id
             ORDER BY total_resi DESC
         ";
 
-        return $this->db->query($sql, [$tanggal]);
+        return $this->db->query($sql, [$tanggal, $tanggal]);
     }
 
     // ── SISA RESI BELUM KIRIM ────────────────────────────────
 
-    function get_sisa_resi($tanggal = null, $jam_cutoff = '15:00')
+    private function _filter_aktif()
+    {
+        return "(pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
+                AND (pr.status_pesanan NOT LIKE '%CANCEL%' OR pr.status_pesanan IS NULL)";
+    }
+
+    // Resi dicetak hari ini, belum HO
+    // $cutoff: jam batas (format 'HH:MM'), hanya hitung resi yang dicetak sebelum jam ini
+    function get_sisa_resi($tanggal = null, $cutoff = null)
     {
         if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
 
-        $batas = $tanggal . ' ' . $jam_cutoff . ':00';
+        $cutoff_filter = $cutoff ? "AND TIME(pr.tanggal_printresi) <= ?" : '';
+        $params = $cutoff ? [$tanggal, $cutoff] : [$tanggal];
 
         $sql = "
-            SELECT
-                k.nama_kurir,
-                COUNT(1) AS jumlah_sisa
+            SELECT k.nama_kurir, COUNT(1) AS jumlah_sisa
             FROM tblprintresi pr
             LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
             WHERE DATE(pr.tanggal_printresi) = ?
-              AND pr.tanggal_printresi <= ?
-              AND (pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
+              {$cutoff_filter}
+              AND {$f}
               AND pr.id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)
             GROUP BY pr.id_kurir, k.nama_kurir
             ORDER BY jumlah_sisa DESC
         ";
 
-        return $this->db->query($sql, [$tanggal, $batas]);
+        return $this->db->query($sql, $params);
     }
 
-    function get_sisa_resi_detail($tanggal = null, $jam_cutoff = '15:00')
+    function get_total_sisa_resi($tanggal = null, $cutoff = null)
     {
         if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
 
-        $batas = $tanggal . ' ' . $jam_cutoff . ':00';
-
-        $sql = "
-            SELECT
-                pr.noresi,
-                k.nama_kurir,
-                pr.tanggal_printresi
-            FROM tblprintresi pr
-            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
-            WHERE DATE(pr.tanggal_printresi) = ?
-              AND pr.tanggal_printresi <= ?
-              AND (pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
-              AND pr.id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)
-            ORDER BY k.nama_kurir, pr.noresi
-        ";
-
-        return $this->db->query($sql, [$tanggal, $batas]);
-    }
-
-    function get_total_sisa_resi($tanggal = null, $jam_cutoff = '15:00')
-    {
-        if (!$tanggal) $tanggal = date('Y-m-d');
-        $batas = $tanggal . ' ' . $jam_cutoff . ':00';
+        $cutoff_filter = $cutoff ? "AND TIME(pr.tanggal_printresi) <= ?" : '';
+        $params = $cutoff ? [$tanggal, $cutoff] : [$tanggal];
 
         $sql = "
             SELECT COUNT(1) AS total
             FROM tblprintresi pr
             WHERE DATE(pr.tanggal_printresi) = ?
-              AND pr.tanggal_printresi <= ?
-              AND (pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
+              {$cutoff_filter}
+              AND {$f}
               AND pr.id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)
         ";
 
-        return $this->db->query($sql, [$tanggal, $batas])->row()->total;
+        return $this->db->query($sql, $params)->row()->total;
+    }
+
+    // Resi dari 5 hari sebelumnya yang belum HO (backlog), per kurir
+    function get_sisa_resi_backlog($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
+
+        $sql = "
+            SELECT k.nama_kurir, COUNT(1) AS jumlah,
+                   DATE(pr.tanggal_bataskirim) AS tgl_deadline
+            FROM tblprintresi pr
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            WHERE DATE(pr.tanggal_printresi) >= DATE_SUB(?, INTERVAL 5 DAY)
+              AND DATE(pr.tanggal_printresi) < ?
+              AND {$f}
+              AND pr.id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)
+            GROUP BY pr.id_kurir, k.nama_kurir, DATE(pr.tanggal_bataskirim)
+            ORDER BY tgl_deadline ASC, jumlah DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal, $tanggal]);
     }
 
     // ── PAKET KELUAR ─────────────────────────────────────────
@@ -349,33 +447,276 @@ class Laporan_fcd extends CI_Model
         return $this->db->query($sql, [$tanggal, $tanggal]);
     }
 
+    // ── EKSPEDISI URGENT ────────────────────────────────────
+
+    private $kurir_urgent = [21, 12, 11, 10, 8, 18, 9]; // GOTO, NINJA, SICEPAT, SICEPAT-REKOM, LAZADA, CENTRAL CARGO, JNE
+
+    function get_ekspedisi_urgent()
+    {
+        $kurir_ids = implode(',', $this->kurir_urgent);
+
+        $sql = "
+            SELECT
+                k.id_kurir,
+                k.nama_kurir,
+                COUNT(pr.id_printresi) AS total_resi,
+                SUM(CASE WHEN rab.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pick,
+                SUM(CASE WHEN rab.id_resi IS NOT NULL AND pk.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pack,
+                SUM(CASE WHEN pk.id_resi IS NOT NULL AND rk.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_ho
+            FROM tblprintresi pr
+            INNER JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblpacking pk ON pk.id_resi = pr.id_printresi
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE (pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
+              AND (pr.status_pesanan NOT LIKE '%CANCEL%' OR pr.status_pesanan IS NULL)
+              AND pr.id_kurir IN ({$kurir_ids})
+              AND (
+                DATE(pr.tanggal_printresi) = CURDATE()
+                OR (
+                  DATE(pr.tanggal_printresi) >= DATE_SUB(CURDATE(), INTERVAL 5 DAY)
+                  AND rk.id_resi IS NULL
+                )
+              )
+            GROUP BY k.id_kurir, k.nama_kurir
+            ORDER BY total_resi DESC
+        ";
+
+        return $this->db->query($sql);
+    }
+
+    function get_ekspedisi_urgent_detail($id_kurir, $status)
+    {
+        $this->db->select('pr.noresi, pr.tanggal_printresi, k.nama_kurir');
+        $this->db->from('tblprintresi pr');
+        $this->db->join('tblkurir k', 'k.id_kurir = pr.id_kurir', 'left');
+        $this->db->join('tblresikeluar rk_check', 'rk_check.id_resi = pr.id_printresi', 'left');
+
+        if ($status === 'belum_pick') {
+            $this->db->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left');
+            $this->db->where('rab.id_resi IS NULL');
+        } elseif ($status === 'belum_pack') {
+            $this->db->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'inner');
+            $this->db->join('tblpacking pk', 'pk.id_resi = pr.id_printresi', 'left');
+            $this->db->where('pk.id_resi IS NULL');
+        } elseif ($status === 'belum_ho') {
+            $this->db->join('tblpacking pk', 'pk.id_resi = pr.id_printresi', 'inner');
+            $this->db->join('tblresikeluar rk', 'rk.id_resi = pr.id_printresi', 'left');
+            $this->db->where('rk.id_resi IS NULL');
+        }
+
+        $this->db->where("(pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')");
+        $this->db->where("(pr.status_pesanan NOT LIKE '%CANCEL%' OR pr.status_pesanan IS NULL)");
+        $this->db->where('pr.id_kurir', $id_kurir);
+        $this->db->where("(DATE(pr.tanggal_printresi) = CURDATE() OR (DATE(pr.tanggal_printresi) >= DATE_SUB(CURDATE(), INTERVAL 5 DAY) AND rk_check.id_resi IS NULL))");
+        $this->db->order_by('pr.tanggal_printresi', 'ASC');
+
+        return $this->db->get();
+    }
+
+    function get_control_pengiriman()
+    {
+        $sql = "
+            SELECT
+                COALESCE(k.nama_kurir, 'Lainnya') AS nama_kurir,
+                COUNT(pr.id_printresi) AS total_resi,
+                SUM(CASE WHEN rab.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pick,
+                SUM(CASE WHEN rab.id_resi IS NOT NULL AND pk.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pack,
+                SUM(CASE WHEN pk.id_resi IS NOT NULL AND rk.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_ho
+            FROM tblprintresi pr
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblpacking pk ON pk.id_resi = pr.id_printresi
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE (pr.batal IS NULL OR pr.batal = '' OR pr.batal = '0')
+              AND (pr.status_pesanan NOT LIKE '%CANCEL%' OR pr.status_pesanan IS NULL)
+              AND (
+                DATE(pr.tanggal_printresi) = CURDATE()
+                OR (
+                  DATE(pr.tanggal_printresi) >= DATE_SUB(CURDATE(), INTERVAL 5 DAY)
+                  AND rk.id_resi IS NULL
+                )
+              )
+            GROUP BY k.nama_kurir
+            ORDER BY total_resi DESC
+        ";
+
+        return $this->db->query($sql);
+    }
+
+    function format_wa_control_pengiriman()
+    {
+        $rows = $this->get_control_pengiriman()->result();
+        $tanggal_label = date('d F Y');
+
+        $msg  = "🚨 *CONTROL PENGIRIMAN HARIAN*\n";
+        $msg .= "📅 {$tanggal_label}\n\n";
+        $msg .= "*Resi Hari Ini — Status Proses:*\n\n";
+
+        $total_resi = 0;
+        $total_pick = 0;
+        $total_pack = 0;
+        $total_ho   = 0;
+
+        foreach ($rows as $row) {
+            $total_resi += $row->total_resi;
+            $total_pick += $row->belum_pick;
+            $total_pack += $row->belum_pack;
+            $total_ho   += $row->belum_ho;
+
+            $tr = number_format($row->total_resi);
+            $msg .= "{$row->nama_kurir} — {$tr} resi\n";
+            $msg .= "  ❌ Belum Pick: {$row->belum_pick}\n";
+            $msg .= "  ❌ Belum Pack: {$row->belum_pack}\n";
+            $msg .= "  ❌ Belum HO: {$row->belum_ho}\n\n";
+        }
+
+        $tr_total = number_format($total_resi);
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $msg .= "📊 *TOTAL: {$tr_total} resi*\n";
+        $msg .= "⚠️ Belum Pick: {$total_pick} | Belum Pack: {$total_pack} | Belum HO: {$total_ho}\n\n";
+        $msg .= "_Laporan otomatis IRESIS_";
+
+        return $msg;
+    }
+
+    function format_wa_ekspedisi_urgent()
+    {
+        $rows = $this->get_ekspedisi_urgent()->result();
+
+        $bulan_id = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        $tanggal_label = date('d') . ' ' . $bulan_id[(int)date('n')] . ' ' . date('Y');
+
+        $msg  = "📦 *LAPORAN EKSPEDISI URGENT*\n";
+        $msg .= "📅 {$tanggal_label}\n\n";
+
+        $total_pick = 0;
+        $total_pack = 0;
+        $total_ho   = 0;
+
+        foreach ($rows as $row) {
+            $nama = $row->nama_kurir;
+            if ($row->id_kurir == 11 || $row->id_kurir == 10) {
+                $nama = 'SICEPAT';
+            }
+            $msg .= "{$nama} — {$row->total_resi} | ❌Pick: {$row->belum_pick} | ❌Pack: {$row->belum_pack} | ❌HO: {$row->belum_ho}\n";
+            $total_pick += $row->belum_pick;
+            $total_pack += $row->belum_pack;
+            $total_ho   += $row->belum_ho;
+        }
+
+        // Include kurir with 0 data
+        $existing_ids = array_map(function($r) { return $r->id_kurir; }, $rows);
+        $kurir_names = [21 => 'GOTO', 12 => 'NINJA', 11 => 'SICEPAT', 8 => 'LAZADA', 18 => 'CENTRAL CARGO', 9 => 'JNE'];
+        foreach ($kurir_names as $kid => $kname) {
+            if (!in_array($kid, $existing_ids) && ($kid != 10)) {
+                $msg .= "{$kname} — 0 | ❌Pick: 0 | ❌Pack: 0 | ❌HO: 0\n";
+            }
+        }
+
+        $msg .= "\n⚠️ *Total belum selesai:*\n";
+        $msg .= "Belum Pick: {$total_pick} | Belum Pack: {$total_pack} | Belum HO: {$total_ho}\n\n";
+        $msg .= "_Laporan otomatis IRESIS_";
+
+        return $msg;
+    }
+
+    // ── AUTO-DETECT LAST ACTIVITY ────────────────────────────
+
+    function get_last_picker_packer_scan()
+    {
+        $sql = "
+            SELECT GREATEST(
+                COALESCE((SELECT MAX(tanggal_resiambilbarang) FROM tblresiambilbarang WHERE DATE(tanggal_resiambilbarang) = CURDATE()), '2000-01-01'),
+                COALESCE((SELECT MAX(tanggal_packing) FROM tblpacking WHERE DATE(tanggal_packing) = CURDATE()), '2000-01-01')
+            ) AS last_scan
+        ";
+        return $this->db->query($sql)->row()->last_scan;
+    }
+
+    function get_last_ho_scan()
+    {
+        $sql = "SELECT MAX(tanggal_resikeluar) AS last_ho FROM tblresikeluar WHERE DATE(tanggal_resikeluar) = CURDATE()";
+        $row = $this->db->query($sql)->row();
+        return $row->last_ho ?: '2000-01-01';
+    }
+
+    // ── RESI CANCEL ─────────────────────────────────────────
+
+    function get_total_resi_cancel($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $sql = "
+            SELECT COUNT(1) AS total
+            FROM tblprintresi
+            WHERE DATE(tanggal_printresi) = ?
+              AND (
+                (batal IS NOT NULL AND batal != '' AND batal != '0')
+                OR status_pesanan LIKE '%CANCEL%'
+              )
+        ";
+
+        return $this->db->query($sql, [$tanggal])->row()->total;
+    }
+
     // ── FORMAT PESAN WA ──────────────────────────────────────
 
     function format_wa_sisa_resi($tanggal = null)
     {
         if (!$tanggal) $tanggal = date('Y-m-d');
 
-        $cutoff = $this->get_config('batas_kirim_aman') ?: '15:00';
-        $data = $this->get_sisa_resi($tanggal, $cutoff)->result();
-        $total = $this->get_total_sisa_resi($tanggal, $cutoff);
+        $cutoff = $this->get_config('batas_kirim_aman') ?: null;
+        $sisa_hari_ini  = $this->get_sisa_resi($tanggal, $cutoff)->result();
+        $total_hari_ini = $this->get_total_sisa_resi($tanggal, $cutoff);
+        $backlog_rows   = $this->get_sisa_resi_backlog($tanggal)->result();
 
-        if ($total == 0) {
-            return "*LAPORAN SISA RESI*\n" .
-                   "Tanggal: " . date('d-m-Y', strtotime($tanggal)) . "\n\n" .
-                   "Semua resi sudah dikirim. ✅";
+        // Kelompokkan backlog per kurir (gabung semua deadline)
+        $backlog_per_kurir = [];
+        $total_backlog = 0;
+        foreach ($backlog_rows as $row) {
+            $nama = $row->nama_kurir ?: 'Lainnya';
+            if (!isset($backlog_per_kurir[$nama])) $backlog_per_kurir[$nama] = 0;
+            $backlog_per_kurir[$nama] += $row->jumlah;
+            $total_backlog += $row->jumlah;
+        }
+        arsort($backlog_per_kurir);
+
+        $bulan_id  = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        $tgl_label = date('d') . ' ' . $bulan_id[(int)date('n', strtotime($tanggal))] . ' ' . date('Y', strtotime($tanggal));
+
+        $msg  = "📦 *LAPORAN SISA RESI BELUM KIRIM*\n";
+        $msg .= "📅 {$tgl_label}\n";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+
+        // Bagian 1: Resi hari ini belum HO
+        $msg .= "\n🗓️ *Resi Hari Ini (belum naik):*\n";
+        if (empty($sisa_hari_ini)) {
+            $msg .= "  ✅ Semua resi hari ini sudah naik\n";
+        } else {
+            foreach ($sisa_hari_ini as $row) {
+                $msg .= "  • " . ($row->nama_kurir ?: 'Lainnya') . ": *{$row->jumlah_sisa}* resi\n";
+            }
+            $msg .= "  *Total: {$total_hari_ini} resi*\n";
         }
 
-        $msg = "*LAPORAN SISA RESI BELUM KIRIM*\n";
-        $msg .= "Tanggal: " . date('d-m-Y', strtotime($tanggal)) . "\n";
-        $msg .= "Cutoff: " . $cutoff . "\n";
-        $msg .= "─────────────────\n";
-
-        foreach ($data as $row) {
-            $msg .= "• " . ($row->nama_kurir ?: 'Lainnya') . ": *" . $row->jumlah_sisa . "* resi\n";
+        // Bagian 2: Backlog 5 hari sebelumnya belum HO
+        if (!empty($backlog_per_kurir)) {
+            $msg .= "\n⚠️ *Menumpuk dari hari sebelumnya (belum naik):*\n";
+            foreach ($backlog_per_kurir as $nama => $jml) {
+                $msg .= "  • {$nama}: *{$jml}* resi\n";
+            }
+            $msg .= "  *Total: {$total_backlog} resi*\n";
         }
 
-        $msg .= "─────────────────\n";
-        $msg .= "*TOTAL: " . $total . " resi*";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $grand_total = $total_hari_ini + $total_backlog;
+        $msg .= "📊 *GRAND TOTAL BELUM NAIK: {$grand_total} resi*";
+
+        $cancel = $this->get_total_resi_cancel($tanggal);
+        if ($cancel > 0) {
+            $msg .= "\n\n🚫 *Resi Cancel hari ini: {$cancel} resi*";
+        }
 
         return $msg;
     }
@@ -397,6 +738,11 @@ class Laporan_fcd extends CI_Model
 
         $msg .= "─────────────────\n";
         $msg .= "*TOTAL: " . $total . " paket*";
+
+        $cancel = $this->get_total_resi_cancel($tanggal);
+        if ($cancel > 0) {
+            $msg .= "\n\n⚠️ *Resi Cancel hari ini: " . $cancel . " resi*";
+        }
 
         return $msg;
     }
@@ -429,6 +775,348 @@ class Laporan_fcd extends CI_Model
             if ($row->target > 0) $msg .= "/{$row->target} ({$pct}%)";
             $msg .= "\n";
         }
+
+        return $msg;
+    }
+
+    // ── LAPORAN PRODUKSI ─────────────────────────────────────
+
+    // Resi masuk (hari ini + 5 hari ke belakang) yang belum selesai, per marketplace
+    function get_backlog_per_marketplace($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
+
+        $sql = "
+            SELECT m.nama_marketplace, COUNT(1) AS total
+            FROM tblprintresi pr
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE DATE(pr.tanggal_printresi) >= DATE_SUB(?, INTERVAL 5 DAY)
+              AND {$f}
+              AND rk.id_resi IS NULL
+            GROUP BY m.id_marketplace, m.nama_marketplace
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal]);
+    }
+
+    // Resi wajib: bataskirim hari ini atau sudah lewat, belum HO, per marketplace
+    function get_resi_wajib_marketplace($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
+
+        $sql = "
+            SELECT m.nama_marketplace,
+                   COUNT(1) AS total,
+                   SUM(CASE WHEN rab.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pick,
+                   SUM(CASE WHEN rab.id_resi IS NOT NULL AND pk.id_resi IS NULL THEN 1 ELSE 0 END) AS belum_pack,
+                   SUM(CASE WHEN pk.id_resi IS NOT NULL THEN 1 ELSE 0 END) AS sudah_pack
+            FROM tblprintresi pr
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblpacking pk ON pk.id_resi = pr.id_printresi
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE DATE(pr.tanggal_bataskirim) <= ?
+              AND rk.id_resi IS NULL
+              AND {$f}
+            GROUP BY m.id_marketplace, m.nama_marketplace
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal]);
+    }
+
+    // Total RTS yang masih aktif (belum HO), per kurir
+    function get_total_rts_aktif()
+    {
+        $f = $this->_filter_aktif();
+
+        $sql = "
+            SELECT k.nama_kurir, COUNT(1) AS total
+            FROM tblprintresi pr
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            WHERE pr.status_rts = 1
+              AND pr.id_printresi NOT IN (SELECT id_resi FROM tblresikeluar)
+              AND {$f}
+            GROUP BY pr.id_kurir, k.nama_kurir
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql);
+    }
+
+    // HO hari ini: total per kurir (paket keluar sudah ada), tapi ini untuk count saja
+    function get_total_ho_hari_ini($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $sql = "SELECT COUNT(1) AS total FROM tblresikeluar WHERE DATE(tanggal_resikeluar) = ?";
+        return $this->db->query($sql, [$tanggal])->row()->total;
+    }
+
+    // Resi yang sudah dikerjakan (HO) hari ini per marketplace
+    function get_selesai_per_marketplace($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $sql = "
+            SELECT m.nama_marketplace, COUNT(1) AS total
+            FROM tblresikeluar rk
+            JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            WHERE DATE(rk.tanggal_resikeluar) = ?
+            GROUP BY m.id_marketplace, m.nama_marketplace
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal]);
+    }
+
+    function get_paket_keluar_hari_ini($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $sql = "
+            SELECT k.nama_kurir, COUNT(1) AS total
+            FROM tblresikeluar rk
+            JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            WHERE DATE(rk.tanggal_resikeluar) = ?
+            GROUP BY pr.id_kurir, k.nama_kurir
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal]);
+    }
+
+    // Sisa packingan wajib: bataskirim hari ini, belum pack
+    function get_sisa_packing_wajib($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+        $f = $this->_filter_aktif();
+
+        $sql = "
+            SELECT m.nama_marketplace, COUNT(1) AS total
+            FROM tblprintresi pr
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            LEFT JOIN tblpacking pk ON pk.id_resi = pr.id_printresi
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE DATE(pr.tanggal_bataskirim) <= ?
+              AND pk.id_resi IS NULL
+              AND rk.id_resi IS NULL
+              AND {$f}
+            GROUP BY m.id_marketplace, m.nama_marketplace
+            ORDER BY total DESC
+        ";
+
+        return $this->db->query($sql, [$tanggal]);
+    }
+
+    // ── FORMAT PESAN WA LAPORAN PRODUKSI ────────────────────
+
+    private function _tgl_label($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+        $bulan = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return date('d', strtotime($tanggal)) . ' ' . $bulan[(int)date('n', strtotime($tanggal))] . ' ' . date('Y', strtotime($tanggal));
+    }
+
+    function format_wa_laporan_pagi($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $backlog = $this->get_backlog_per_marketplace($tanggal)->result();
+        $wajib   = $this->get_resi_wajib_marketplace($tanggal)->result();
+
+        $total_backlog = array_sum(array_column($backlog, 'total'));
+        $total_wajib   = array_sum(array_column($wajib, 'total'));
+
+        $msg  = "🌅 *LAPORAN PRODUKSI PAGI*\n";
+        $msg .= "📅 " . $this->_tgl_label($tanggal) . "\n";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+
+        $msg .= "\n📋 *Resi Belum Selesai (hari ini + 5 hari ke belakang):*\n";
+        if (empty($backlog)) {
+            $msg .= "  ✅ Tidak ada backlog\n";
+        } else {
+            foreach ($backlog as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi\n";
+            }
+            $msg .= "  *Total: {$total_backlog} resi*\n";
+        }
+
+        $msg .= "\n🔴 *Resi Wajib Dikerjakan Hari Ini (per batas kirim):*\n";
+        if (empty($wajib)) {
+            $msg .= "  ✅ Tidak ada resi urgent\n";
+        } else {
+            foreach ($wajib as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi";
+                $parts = [];
+                if ($row->belum_pick > 0) $parts[] = "❌Pick: {$row->belum_pick}";
+                if ($row->belum_pack > 0) $parts[] = "❌Pack: {$row->belum_pack}";
+                if (!empty($parts)) $msg .= " (" . implode(', ', $parts) . ")";
+                $msg .= "\n";
+            }
+            $msg .= "  *Total: {$total_wajib} resi*\n";
+        }
+
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $msg .= "_Laporan otomatis IRESIS_";
+
+        return $msg;
+    }
+
+    function format_wa_laporan_siang($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $wajib = $this->get_resi_wajib_marketplace($tanggal)->result();
+        $total_wajib = array_sum(array_column($wajib, 'total'));
+
+        $selesai = $this->get_selesai_per_marketplace($tanggal)->result();
+        $total_selesai = array_sum(array_column($selesai, 'total'));
+
+        $msg  = "☀️ *LAPORAN PRODUKSI SIANG*\n";
+        $msg .= "📅 " . $this->_tgl_label($tanggal) . "\n";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+
+        $msg .= "\n🔴 *Masih Wajib Dikerjakan (per batas kirim):*\n";
+        if (empty($wajib)) {
+            $msg .= "  ✅ Semua sudah beres!\n";
+        } else {
+            foreach ($wajib as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi";
+                $parts = [];
+                if ($row->belum_pick > 0) $parts[] = "❌Pick: {$row->belum_pick}";
+                if ($row->belum_pack > 0) $parts[] = "❌Pack: {$row->belum_pack}";
+                if (!empty($parts)) $msg .= " (" . implode(', ', $parts) . ")";
+                $msg .= "\n";
+            }
+            $msg .= "  *Total sisa: {$total_wajib} resi*\n";
+        }
+
+        $msg .= "\n✅ *Sudah Selesai (HO) Hari Ini:*\n";
+        if (empty($selesai)) {
+            $msg .= "  (belum ada)\n";
+        } else {
+            foreach ($selesai as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi\n";
+            }
+            $msg .= "  *Total: {$total_selesai} resi*\n";
+        }
+
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $msg .= "_Laporan otomatis IRESIS_";
+
+        return $msg;
+    }
+
+    function format_wa_laporan_sore_rts($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $rows = $this->get_total_rts_aktif()->result();
+        $total = array_sum(array_column($rows, 'total'));
+
+        $msg  = "🔄 *LAPORAN RTS — JAM 15:00*\n";
+        $msg .= "📅 " . $this->_tgl_label($tanggal) . "\n";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+
+        if (empty($rows)) {
+            $msg .= "\n✅ Tidak ada resi RTS aktif\n";
+        } else {
+            $msg .= "\n*Resi RTS Aktif (belum HO):*\n";
+            foreach ($rows as $row) {
+                $nama = $row->nama_kurir ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi\n";
+            }
+            $msg .= "\n  ⚠️ *Total RTS: {$total} resi*\n";
+        }
+
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $msg .= "_Laporan otomatis IRESIS_";
+
+        return $msg;
+    }
+
+    function format_wa_laporan_sore_produksi($tanggal = null)
+    {
+        if (!$tanggal) $tanggal = date('Y-m-d');
+
+        $pickers      = $this->get_totalan_picker($tanggal)->result();
+        $packers      = $this->get_totalan_packer($tanggal)->result();
+        $total_ho     = $this->get_total_ho_hari_ini($tanggal);
+        $per_mp       = $this->get_selesai_per_marketplace($tanggal)->result();
+        $sisa_wajib   = $this->get_sisa_packing_wajib($tanggal)->result();
+
+        $total_mp     = array_sum(array_column($per_mp, 'total'));
+        $total_sisa   = array_sum(array_column($sisa_wajib, 'total'));
+
+        $total_picker = array_sum(array_column($pickers, 'total_resi'));
+        $total_packer = array_sum(array_column($packers, 'total_resi'));
+
+        $msg  = "🌆 *LAPORAN PRODUKSI SORE*\n";
+        $msg .= "📅 " . $this->_tgl_label($tanggal) . "\n";
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+
+        // Picker
+        $msg .= "\n🧺 *PICKER:*\n";
+        if (empty($pickers)) {
+            $msg .= "  (belum ada data)\n";
+        } else {
+            foreach ($pickers as $row) {
+                $msg .= "  • {$row->nama_pegawai}: *{$row->total_resi}* resi\n";
+            }
+            $msg .= "  *Total: {$total_picker} resi*\n";
+        }
+
+        // Packer
+        $msg .= "\n📦 *PACKER:*\n";
+        if (empty($packers)) {
+            $msg .= "  (belum ada data)\n";
+        } else {
+            foreach ($packers as $row) {
+                $msg .= "  • {$row->nama_packer}: *{$row->total_resi}* resi\n";
+            }
+            $msg .= "  *Total: {$total_packer} resi*\n";
+        }
+
+        // HO
+        $msg .= "\n🚚 *HO (Handover):* *{$total_ho}* resi\n";
+
+        // Per marketplace
+        $msg .= "\n🏪 *Selesai per Marketplace:*\n";
+        if (empty($per_mp)) {
+            $msg .= "  (belum ada)\n";
+        } else {
+            foreach ($per_mp as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi\n";
+            }
+            $msg .= "  *Total: {$total_mp} resi*\n";
+        }
+
+        // Sisa wajib
+        $msg .= "\n⚠️ *Sisa Packingan Wajib (belum pack):*\n";
+        if (empty($sisa_wajib)) {
+            $msg .= "  ✅ Semua wajib sudah dipack!\n";
+        } else {
+            foreach ($sisa_wajib as $row) {
+                $nama = $row->nama_marketplace ?: 'Lainnya';
+                $msg .= "  • {$nama}: *{$row->total}* resi\n";
+            }
+            $msg .= "  *Total sisa: {$total_sisa} resi*\n";
+        }
+
+        $msg .= "━━━━━━━━━━━━━━━━━\n";
+        $msg .= "_Laporan otomatis IRESIS_";
 
         return $msg;
     }
