@@ -516,25 +516,105 @@ class Kpi_fcd extends CI_Model
         return $this->db->get();
     }
     
-    function get_performance_distribution($start_date, $end_date)
+    // ========== REPORT AGGREGATION METHODS ==========
+
+    function get_total_receipts_processed($start_date, $end_date)
     {
-        // Query langsung tanpa view untuk menghindari error
-        $this->db->select('
-            sp.kode_status,
-            sp.status_name,
-            COALESCE(SUM(k.jumlah_resi), 0) as total_transaksi,
-            0 as rata_rata_capai
-        ');
-        
-        $this->db->from('tblstatusperforma t');
-        $this->db->join('tblmasterstatusperforma sp', 'sp.id_statusperforma = t.id_statusperforma', 'left');
-        $this->db->join('tblkpi k', 'k.id_user = t.id_user AND k.id_statusperforma = t.id_statusperforma AND k.tanggal = t.tanggal', 'left');
-        $this->db->where('t.tanggal >=', $start_date);
-        $this->db->where('t.tanggal <=', $end_date);
-        $this->db->where('t.isactive', 1);
-        $this->db->group_by('sp.kode_status, sp.status_name');
-        $this->db->order_by('total_transaksi DESC');
-        
-        return $this->db->get();
+        $this->db->where('tanggal_printresi >=', $start_date);
+        $this->db->where('tanggal_printresi <=', $end_date);
+        return $this->db->count_all_results('tblprintresi');
+    }
+
+    function get_total_shipped_receipts($start_date, $end_date)
+    {
+        $this->db->where('tanggal_resikeluar >=', $start_date);
+        $this->db->where('tanggal_resikeluar <=', $end_date);
+        return $this->db->count_all_results('tblresikeluar');
+    }
+
+    function get_total_pending_receipts($start_date, $end_date)
+    {
+        // Pending = Printed but not yet Shipped (Handover)
+        $sql = "
+            SELECT COUNT(*) as total 
+            FROM tblprintresi pr
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE pr.tanggal_printresi BETWEEN ? AND ?
+            AND rk.id_resi IS NULL
+        ";
+        $query = $this->db->query($sql, array($start_date, $end_date));
+        return $query->row()->total;
+    }
+
+    function get_total_retur_receipts($start_date, $end_date)
+    {
+        $this->db->where('tanggal_retur >=', $start_date);
+        $this->db->where('tanggal_retur <=', $end_date);
+        return $this->db->count_all_results('tblresiretur');
+    }
+
+    function get_avg_processing_time($start_date, $end_date)
+    {
+        // Calculate average time from Print to Handover (HO)
+        $sql = "
+            SELECT AVG(TIMESTAMPDIFF(HOUR, pr.tanggal_printresi, rk.tanggal_resikeluar)) as avg_hours
+            FROM tblprintresi pr
+            JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE pr.tanggal_printresi BETWEEN ? AND ?
+        ";
+        $query = $this->db->query($sql, array($start_date, $end_date));
+        return round($query->row()->avg_hours ?? 0, 1);
+    }
+
+    function get_picker_productivity($start_date, $end_date)
+    {
+        // Avg picking receipts per hour per person
+        $sql = "
+            SELECT AVG(total_per_jam) as avg_productivity FROM (
+                SELECT 
+                    COUNT(*) / NULLIF(TIMESTAMPDIFF(HOUR, MIN(tanggal_resiambilbarang), MAX(tanggal_resiambilbarang)), 0) as total_per_jam
+                FROM tblresiambilbarang
+                WHERE tanggal_resiambilbarang BETWEEN ? AND ?
+                GROUP BY yangambil_pegawai, DATE(tanggal_resiambilbarang)
+            ) sub
+        ";
+        $query = $this->db->query($sql, array($start_date, $end_date));
+        return round($query->row()->avg_productivity ?? 0, 1);
+    }
+
+    function get_packer_productivity($start_date, $end_date)
+    {
+        // Avg packing receipts per hour per person
+        $sql = "
+            SELECT AVG(total_per_jam) as avg_productivity FROM (
+                SELECT 
+                    COUNT(*) / NULLIF(TIMESTAMPDIFF(HOUR, MIN(tanggal_packing), MAX(tanggal_packing)), 0) as total_per_jam
+                FROM tblpacking
+                WHERE tanggal_packing BETWEEN ? AND ?
+                GROUP BY packer_pegawai, DATE(tanggal_packing)
+            ) sub
+        ";
+        $query = $this->db->query($sql, array($start_date, $end_date));
+        return round($query->row()->avg_productivity ?? 0, 1);
+    }
+
+    function get_daily_performance($start_date, $end_date)
+    {
+        $sql = "
+            SELECT 
+                DATE(pr.tanggal_printresi) as tanggal,
+                COUNT(pr.id_printresi) as scan_total,
+                COUNT(rab.id_resi) as picking_total,
+                COUNT(p.id_resi) as packing_total,
+                COUNT(rk.id_resi) as ho_total
+            FROM tblprintresi pr
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblpacking p ON p.id_resi = pr.id_printresi
+            LEFT JOIN tblresikeluar rk ON rk.id_resi = pr.id_printresi
+            WHERE pr.tanggal_printresi BETWEEN ? AND ?
+            GROUP BY DATE(pr.tanggal_printresi)
+            ORDER BY tanggal ASC
+        ";
+        return $this->db->query($sql, array($start_date, $end_date))->result_array();
     }
 }
