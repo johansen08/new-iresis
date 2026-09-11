@@ -49,9 +49,29 @@
   $("#noresi").focus();
   var total_scan = document.getElementById('total_scan');
 
-  const __COURRIER_AUDIO = {
-    '': '',
-  };
+  // Semua suara di halaman ini lewat dua fungsi ini, jangan panggil .play()
+  // langsung. suaraScan (main.php) memotong durasi dan mereset posisi: error.mp3
+  // saja ~3,8 detik, dan tanpa reset currentTime scan kedua yang datang sebelum
+  // suara pertama habis tidak berbunyi sama sekali.
+  function playAudio(id, opsi) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id, opsi);
+      return;
+    }
+    var el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; } catch (err) {}
+      el.play();
+    }
+  }
+
+  function playSuaraKurir(noresi) {
+    if (typeof suaraKurir === 'function') {
+      suaraKurir(noresi);
+      return;
+    }
+    playAudio('audio-alert');
+  }
 
   var jvalidate = $("#form_scan_handover").validate({
     ignore: [],
@@ -72,73 +92,83 @@
         success: function(data) {},
         error: function(data) {},
       }).done(function(response) {
-        $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
-        $("#span_latest_receipt").text(form.noresi.value);
-        $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan Packer");
-
-        const courrier_code = form.noresi.value.substring(0, 2);
-        const courrier_code_2 = form.noresi.value.substring(0, 3);
-        switch (courrier_code) {
-          case 'JP':
-          case 'JX':
-          case 'JO':
-          case 'JZ':
-          case 'TJ':
-          case '20':
-            document.getElementById('audio-jnt').play();
-            break;
-
-          case 'SP':
-            document.getElementById('audio-shopee').play();
-            break;
-
-          case 'JN':
-          case 'LX':
-          case 'NL':
-            document.getElementById('audio-lazada').play();
-            break;
-
-          case 'JT':
-          case 'TL':
-            document.getElementById('audio-jne').play();
-            break;
-
-          case '00':
-          case 'TK':
-            if (courrier_code_2 === 'TKP') {
-              document.getElementById('audio-rekomen').play();
-            } else {
-              document.getElementById('audio-sicepat').play();
-            }
-            break;
-
-          case 'NJ':
-            document.getElementById('audio-ninja').play();
-            break;
-
-          case 'IN':
-          case '24':
-          case 'GT':
-            document.getElementById('audio-instant').play();
-            break;
+        // Parse response if it's a string
+        var data = response;
+        if (typeof response === 'string') {
+          try { data = JSON.parse(response); } catch(e) {}
         }
 
-        total_scan.value = Number(total_scan.value) + 1;
+        if (data && (data.code === 200 || data.code === 201)) {
+          // SUCCESS LOGIC
+          $("#div_container_latest_receipt").removeClass("tile-danger tile-default").addClass("tile-success");
+          $("#span_latest_receipt").text(form.noresi.value);
+          $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan");
 
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+          // Nada per kurir ada di suaraKurir() (main.php), sama persis dengan
+          // yang dipakai Scan HO+NDD. Sebelumnya pemetaan prefiks resi disalin
+          // di sini dan delapan cabangnya cuma menghasilkan dua bunyi:
+          // shopee/jne/rekomen satu berkas, jnt/lazada/sicepat/ninja/instant
+          // satu berkas lagi.
+          playSuaraKurir(form.noresi.value);
+
+          total_scan.value = Number(total_scan.value) + 1;
+
+          form.noresi.value = "";
+          form.noresi.disabled = false;
+          form.noresi.focus();
+        } else {
+          // LOGICAL ERROR (e.g. 400 Already Handover / Canceled)
+          var msg = data && data.message ? data.message : "Gagal memproses data";
+          
+          $("#span_latest_receipt").text(form.noresi.value);
+          $("#div_container_latest_receipt").removeClass("tile-default tile-success").addClass("tile-danger");
+          $("#p_latest_receipt_message").text(msg);
+
+          const exceptionCode = (data.data && data.data.EXCEPTION_CODE) ? data.data.EXCEPTION_CODE : '';
+
+          // Distinct Audio based on Exception Code
+          if (exceptionCode === 'ALREADY_HANDOVER' || exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+              playAudio('audio-error');
+          } else if (exceptionCode === 'NOT_PICKED' || exceptionCode === 'NOT_PACKED') {
+              playAudio('audio-fail');
+          } else {
+              playAudio('audio-alert');
+          }
+
+          form.noresi.value = "";
+          form.noresi.disabled = false;
+          form.noresi.focus();
+        }
       }).fail(function(error) {
-        var response = JSON.parse(error.responseText);
+        var response = {};
+        try {
+            response = JSON.parse(error.responseText);
+        } catch(e) {
+            response = { message: "Unknown error" };
+        }
 
         $("#span_latest_receipt").text(form.noresi.value);
         $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
         $("#p_latest_receipt_message").text(response.message);
 
-        if (error.status === 400) { // already handover
-          document.getElementById('audio-error').play();
+        const exceptionCode = (response.data && response.data.EXCEPTION_CODE) ? response.data.EXCEPTION_CODE : '';
+
+        // Distinct Audio based on Exception Code
+        if (exceptionCode === 'ALREADY_HANDOVER') {
+            // Double Scan - User says ERROR
+            playAudio('audio-error');
+        } else if (exceptionCode === 'NOT_PICKED' || exceptionCode === 'NOT_PACKED') {
+            // Lost Scan / Skip Step - User says FAIL
+            playAudio('audio-fail');
+        } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+            // Problematic order status - User says ERROR
+            playAudio('audio-error');
+        } else if (exceptionCode === 'NOT_FOUND') {
+            // Receipt not found
+            playAudio('audio-alert');
         } else {
-          document.getElementById('audio-fail').play();
+            // Other errors
+            playAudio('audio-alert');
         }
 
         form.noresi.value = "";

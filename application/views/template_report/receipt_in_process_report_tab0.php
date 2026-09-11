@@ -26,13 +26,14 @@
   <thead>
     <tr>
       <th>#</th>
-      <th>Market Place</th>
+      <th>Marketplace</th>
       <th>Tanggal Scan Resi</th>
       <th>Jam Scan Resi</th>
       <th>Nomor Resi</th>
+      <th>Status Pesanan</th>
       <th>Kurir</th>
       <th>Nomor Pick List</th>
-      <th>Status Pesanan</th>
+      <th>Batas Kirim</th>
     </tr>
   </thead>
   <tbody>
@@ -44,9 +45,16 @@
         <td><?= empty($data['tanggal_printresi']) ? null : date('Y-m-d', strtotime($data['tanggal_printresi'])) ?></td>
         <td><?= empty($data['tanggal_printresi']) ? null : date('H:i', strtotime($data['tanggal_printresi'])) ?></td>
         <td><?= $data['noresi'] ?></td>
+        <td><?= $data['status_pesanan'] ?></td>
         <td><?= $data['nama_kurir'] ?></td>
         <td><?= $data['nomorpicklist'] ?></td>
-        <td><?= $data['status_pesanan'] ?></td>
+        <td>
+          <?php 
+            $is_today = (!empty($data['tanggal_bataskirim']) && date('Y-m-d', strtotime($data['tanggal_bataskirim'])) == date('Y-m-d'));
+            $val = !empty($data['tanggal_bataskirim']) ? date('Y-m-d H:i:s', strtotime($data['tanggal_bataskirim'])) : '-';
+            echo $is_today ? '<span style="color: red; font-weight: bold;">' . $val . '</span>' : $val;
+          ?>
+        </td>
       </tr>
     <?php endforeach; ?>
   </tbody>

@@ -23,4 +23,30 @@
 </div>
 
 <script type="text/javascript">
+  /**
+   * Menentukan apakah sebuah resi wajib dikirim hari ini (untuk penanda merah).
+   * @param {string} marketplace Nama marketplace (kolom Market Place)
+   * @param {string} scanDate    Tanggal scan resi (YYYY-MM-DD)
+   * @param {string} scanTime    Jam scan resi (HH:mm:ss)
+   * @param {string} batasKirim  Batas kirim (YYYY-MM-DD HH:mm:ss) atau '-'
+   */
+  function isWajibKirimHariIni(marketplace, scanDate, scanTime, batasKirim) {
+    var today = moment().format('YYYY-MM-DD');
+
+    // Aturan umum: batas kirim jatuh pada hari ini.
+    if (batasKirim && batasKirim !== '-') {
+      var deadline = moment(batasKirim, 'YYYY-MM-DD HH:mm:ss');
+      if (deadline.isValid() && deadline.isSame(moment(), 'day')) {
+        return true;
+      }
+    }
+
+    // Aturan Lazada: resi yang diproses s/d jam 15:00 wajib dikirim hari ini.
+    var mp = (marketplace || '').toLowerCase();
+    if (mp.indexOf('lazada') !== -1 && scanDate === today && scanTime <= '15:00:00') {
+      return true;
+    }
+
+    return false;
+  }
 </script>

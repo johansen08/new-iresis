@@ -123,7 +123,7 @@ class Picking_fcd extends CI_Model
 
                 // Set tipe_resi (satuan/campuran) berdasarkan jumlah detail item
                 $detail_sum = $this->db->select_sum('jumlah')
-                    ->where('id_printresi', $id_resi)
+                    ->where('id_resi', $id_resi)
                     ->get('tbldetailprintresi')
                     ->row();
                 $total_qty = $detail_sum ? intval($detail_sum->jumlah) : 1;

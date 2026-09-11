@@ -16,7 +16,7 @@
           </div>
 
           <div class="form-group">
-            <label class="col-md-3 col-xs-12 control-label">Market Place</label>
+            <label class="col-md-3 col-xs-12 control-label">Marketplace</label>
             <div class="col-md-8 col-xs-12">
               <select name="id_marketplace" id="id_marketplace" class="form-control select" data-live-search="true">
                 <?php foreach ($list_marketplace as $marketplace) : ?>
@@ -68,6 +68,20 @@
 </div>
 
 <script type="text/javascript">
+  // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+  // suaraScan (main.php) memotong durasi dan mereset posisi, jadi aksi
+  // berikutnya tidak menunggu suara sebelumnya selesai.
+  function playAudio(id, opsi) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id, opsi);
+      return;
+    }
+    var el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; } catch (err) {}
+      el.play();
+    }
+  }
   $("#noresi").focus();
   var total_scan = document.getElementById('total_scan');
 
@@ -102,9 +116,14 @@
         $("#span_latest_receipt").text(form.noresi.value);
         $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
 
-        document.getElementById('audio-alert').play();
+        playAudio('audio-alexis');
 
         total_scan.value = Number(total_scan.value) + 1;
+
+        // Auto print label
+        if (response.data && response.data.id_printresi) {
+          window.open('receipt/print-label/' + response.data.id_printresi, '_blank', 'width=450,height=650');
+        }
 
         form.noresi.value = "";
         form.noresi.disabled = false;
@@ -113,7 +132,7 @@
         $("#span_latest_receipt").text(form.noresi.value);
         $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
 
-        document.getElementById('audio-fail').play();
+        playAudio('audio-wrong');
 
         form.noresi.value = "";
         form.noresi.disabled = false;

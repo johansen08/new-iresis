@@ -32,6 +32,20 @@
 </div>
 
 <script type="text/javascript">
+  // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+  // suaraScan (main.php) memotong durasi dan mereset posisi, jadi aksi
+  // berikutnya tidak menunggu suara sebelumnya selesai.
+  function playAudio(id, opsi) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id, opsi);
+      return;
+    }
+    var el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; } catch (err) {}
+      el.play();
+    }
+  }
   $("#noresi").focus();
   var jvalidate = $("#form_delete_resi").validate({
     ignore: [],
@@ -56,7 +70,7 @@
         $("#div_container_deleted_receipt").removeClass("tile-danger").addClass("tile-default");
         $("#p_latest_receipt_message").text("Nomor resi yang sudah dihapus");
 
-        document.getElementById('audio-alert').play();
+        playAudio('audio-alexis');
 
         form.noresi.value = "";
         form.noresi.disabled = false;
@@ -68,7 +82,7 @@
         $("#div_container_deleted_receipt").removeClass("tile-default").addClass("tile-danger");
         $("#p_latest_receipt_message").text(response.message);
 
-        document.getElementById('audio-fail').play();
+        playAudio('audio-wrong');
 
         form.noresi.value = "";
         form.noresi.disabled = false;

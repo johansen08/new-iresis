@@ -33,7 +33,7 @@
       <th>#</th>
       <th>Tanggal Scan Resi</th>
       <th>Jam Scan Resi</th>
-      <th>Market Place</th>
+      <th>Marketplace</th>
       <th>Nomor Pick List</th>
       <th>Kurir</th>
       <th>Nomor Resi</th>

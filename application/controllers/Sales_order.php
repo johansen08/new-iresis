@@ -43,7 +43,7 @@ class Sales_order extends MY_Controller
 
     $order['id'] =  $this->input->post('id');
 
-    $save = $this->sales_order_fcd->save($order, $this->data['user']['id']);
+    $save = $this->sales_order_fcd->save($order, $this->data['user']['id_user']);
 
     if ($save['affected_rows'] > 0) {
       $this->set_message('Success', SUCCESS_SAVE_DATA, 'information');

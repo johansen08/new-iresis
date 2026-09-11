@@ -4,6 +4,12 @@
       <!-- title form -->
       <div class="panel-heading">
         <h3 class="panel-title"><strong>Scan Resi Packer</strong></h3>
+        <div class="pull-right" id="packer-session-controls">
+            <button class="btn btn-success btn-session <?= $session_status['masuk'] ? 'hidden' : '' ?>" data-action="masuk" id="btn-session-masuk">Check-in</button>
+            <button class="btn btn-warning btn-session <?= (!$session_status['masuk'] || $session_status['istirahat'] || $session_status['pulang']) ? 'hidden' : '' ?>" data-action="istirahat_mulai" id="btn-session-istirahat">Istirahat</button>
+            <button class="btn btn-info btn-session <?= !$session_status['istirahat'] ? 'hidden' : '' ?>" data-action="istirahat_selesai" id="btn-session-selesai">Selesai Istirahat</button>
+            <button class="btn btn-danger btn-session <?= (!$session_status['masuk'] || $session_status['pulang']) ? 'hidden' : '' ?>" data-action="pulang" id="btn-session-pulang">Check-out</button>
+        </div>
       </div>
 
       <!-- search input by noresi -->
@@ -76,7 +82,7 @@
                              id="noresi-detail"
                              class="form-control text-center mx-auto"
                              readonly
-                             value="<?= $noresi ?>"
+                             value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>"
                              style="
                                 background-color: transparent;
                                 color: black;
@@ -95,6 +101,7 @@
                   <th>#</th>
                   <th>Foto</th>
                   <th>Nama Barang</th>
+                  <th>Jenis Packing</th>
                   <th>SKU</th>
                   <th>Quantity</th>
                   <th>Aksi</th>
@@ -102,7 +109,7 @@
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="6" class="text-center">No details</td>
+                  <td colspan="7" class="text-center">No details</td>
                 </tr>
               </tbody>
             </table>
@@ -154,7 +161,7 @@
                   <label class="col-md-3 col-xs-12 control-label">Action</label>
                   <div class="col-md-8 col-xs-12">
                     <select name="type_masalah" id="type_masalah" class="form-control selectpicker" data-live-search="true">
-                      <?php foreach ($list_type_masalah as $masalah) : ?>
+                      <?php foreach ((isset($list_type_masalah) && is_array($list_type_masalah) ? $list_type_masalah : []) as $masalah) : ?>
                         <option value="<?= $masalah['id_typemasalah'] ?>"><?= $masalah['type_masalah'] ?></option>
                       <?php endforeach; ?>
                     </select>
@@ -180,7 +187,7 @@
                 <div class="hidden form-group">
                   <label class="col-md-3 col-xs-12 control-label">Noresi</label>
                   <div class="col-md-8 col-xs-12">
-                    <input type="text" value="<?= $noresi ?>" name="noresi" id="noresi" class="form-control" />
+                    <input type="text" value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>" name="noresi" id="noresi" class="form-control" />
                   </div>
                 </div>
 
@@ -258,6 +265,8 @@
   var table;
   var idPrintResi;
   var noresi;
+  var sku;
+  var qty;
   var scanFeedback = <?= json_encode(isset($scan_feedback) ? $scan_feedback : null) ?>;
 
   $().ready(function() {
@@ -266,9 +275,53 @@
     $(document).ready(function() {
       $('#noresi').focus();
     });
+    
+    // Packer Monitoring Session JS
+    $(document).on('click', '.btn-session', function() {
+      var action = $(this).data('action');
+      var $btn = $(this);
+      console.log('Session button clicked:', action);
+      
+      $.ajax({
+          url: '<?= base_url("packer_monitoring/update_session") ?>?t=' + new Date().getTime(),
+          method: 'POST',
+          data: { action: action },
+          dataType: 'json',
+          success: function(res) {
+              console.log('Session update response:', res);
+              if (res.code == 200) {
+                  // Show success message using Noty if available, else alert
+                  if (typeof noty === 'function') {
+                      noty({
+                          text: 'Berhasil: ' + action.replace('_', ' ').toUpperCase(),
+                          layout: 'topRight',
+                          type: 'success',
+                          timeout: 2000
+                      });
+                  } else {
+                      alert('Berhasil: ' + action.replace('_', ' ').toUpperCase());
+                  }
+                  
+                  if (action == 'istirahat_mulai') {
+                      $('#btn-session-istirahat').addClass('hidden');
+                      $('#btn-session-selesai').removeClass('hidden');
+                  } else if (action == 'istirahat_selesai') {
+                      $('#btn-session-selesai').addClass('hidden');
+                      $('#btn-session-istirahat').removeClass('hidden');
+                  }
+              } else {
+                  alert('Error: ' + res.message);
+              }
+          },
+          error: function(xhr, status, error) {
+              console.error('Session update failed:', error);
+              alert('Gagal menghubungi server. Periksa koneksi atau console log.');
+          }
+      });
+    });
 
     // menampilkan data list sku by noresi yang di input
-    var table = $(document).ready(function() {
+    $(document).ready(function() {
 
       let noresiTbl = "<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>";
 
@@ -286,12 +339,13 @@
         ],
         'columnDefs': [
           { width: '5%', targets: 0 },
-          { width: '20%', targets: 1 },
-          { width: '35%', targets: 2 },
-          { width: '10%', targets: 3 },
-          { width: '10%', targets: 4 },
-          { width: '20%', targets: 5 },
-          { className: 'text-center', targets: [0, 1, 2, 3, 4, 5] }
+          { width: '15%', targets: 1 },
+          { width: '25%', targets: 2 },
+          { width: '15%', targets: 3 },
+          { width: '15%', targets: 4 },
+          { width: '10%', targets: 5 },
+          { width: '15%', targets: 6 },
+          { className: 'text-center', targets: [0, 1, 2, 3, 4, 5, 6] }
         ],
         'ajax': {
           url: 'packer/get-scan-packer-data/' + noresiTbl,
@@ -319,8 +373,8 @@
 
       // Get values from data attributes
       const namapicker = $(this).data("nama-picker");
-      const sku = $(this).data("sku");
-      const qty = $(this).data("qty");
+      sku = $(this).data("sku");
+      qty = $(this).data("qty");
       const noRak = $(this).data("no-rak");
 
       $('#modal_nama_picker').val(namapicker);
@@ -380,7 +434,7 @@
           formData.append("qty", qty);
           formData.append("id_printresi", idPrintResi);
 
-          form.noresi.disabled = true;
+          // Keep noresi submittable to allow reporting multiple SKUs for the same receipt
 
           $.ajax({
             url: form.action,
@@ -391,18 +445,20 @@
           }).done(function(response) {
             $("#span_latest_receipt").text(sku);
 
-            document.getElementById('audio-alert').play();
+            playAudio('audio-alert');
 
             $('#masalahPickerModal').hide();
             // $('.custom-popup-overlay').fadeOut();
-            // table.ajax.reload(null, false);
+            if (typeof table !== 'undefined') {
+              table.ajax.reload(null, false);
+            }
             // row.fadeOut(500, function() { $(this).remove(); });
 
           }).fail(function(response) {
 
             $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
 
-            document.getElementById('audio-fail').play();
+            playAudio('audio-fail');
           });
           return false; // required to block normal submit since you used ajax
         }
@@ -492,10 +548,7 @@
             $('#successModal').fadeOut();
           }, 1000);
 
-            $resultInfo.hide();
-            $table.hide();
-            $footer.hide();
-            $('#noresi').focus();
+            resetScanView();
         },
         error: function(xhr, status, error) {
           // Show error popup instead of alert
@@ -557,6 +610,23 @@
     return 'information';
   }
 
+  // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+  // suaraScan (main.php) memotong durasi dan mereset posisi: error.mp3 saja
+  // panjangnya ~3,8 detik, dan tanpa reset currentTime scan kedua yang datang
+  // sebelum suara pertama habis tidak berbunyi sama sekali.
+  function playAudio(id) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id);
+      return;
+    }
+
+    var el = document.getElementById(id);
+    if (el && typeof el.play === 'function') {
+      el.currentTime = 0;
+      el.play();
+    }
+  }
+
   function playFeedbackAudio(status) {
     var audioId = 'audio-error';
     if (status === 'auto_save_success') {
@@ -565,10 +635,7 @@
       audioId = 'audio-fail';
     }
 
-    var el = document.getElementById(audioId);
-    if (el && typeof el.play === 'function') {
-      el.play();
-    }
+    playAudio(audioId);
   }
 
   function resetScanView() {

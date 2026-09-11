@@ -52,16 +52,21 @@ class User_fcd extends CI_Model
             // end transactional
             $this->db->trans_complete();
         } else {
+            $id_user_to_update = $user['id_user'];
+            unset($user['id_user']);
             unset($user['password']); // admin can not update user password
 
             $user['updatedby'] = $id_user;
             $user['updated'] = date('Y-m-d H:i:s');
 
-            $this->db->where(array('id_user' => $user['id_user']));
+            $this->db->where(array('id_user' => $id_user_to_update));
 
             $this->db->update('tbluser', $user);
 
             $user['affected_rows'] = $this->db->affected_rows();
+            
+            // Put it back for return
+            $user['id_user'] = $id_user_to_update;
         }
 
         return $user;

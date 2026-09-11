@@ -1,5 +1,3 @@
-<?php $bg_colors = ['#ffb3ba', '#ffffba', '#bae1ff'];  ?>
-
 <div class="row">
   <div class="col-md-12">
     <div class="panel panel-default">
@@ -10,22 +8,12 @@
         <table class="table table-hover datatable-sku">
           <thead>
             <tr>
-              <th rowspan="2">#</th>
-              <th rowspan="2">Kode</th>
-              <th rowspan="2">Name</th>
-              <th rowspan="2">Harga rata<sup>2</sup></th>
-              <?php foreach ($list_location as $key => $value) : ?>
-                <th style="background: <?= $bg_colors[$key] ?>" colspan="4" class="text-center"><?= $value['paramvalue1'] ?></th>
-              <?php endforeach; ?>
-              <th rowspan="2" class="text-center">Action</th>
-            </tr>
-            <tr>
-              <?php foreach ($list_location as $key => $value) : ?>
-                <th style="background: <?= $bg_colors[$key] ?>" width="5%">On hand</th>
-                <th style="background: <?= $bg_colors[$key] ?>" width="5%">On order</th>
-                <th style="background: <?= $bg_colors[$key] ?>" width="5%">Reserved</th>
-                <th style="background: <?= $bg_colors[$key] ?>" width="5%">Available</th>
-              <?php endforeach; ?>
+              <th>#</th>
+              <th>ID SKU</th>
+              <th>Nama SKU</th>
+              <th>Berat</th>
+              <th>Total Stok</th>
+              <th class="text-center">Action</th>
             </tr>
           </thead>
         </table>
@@ -132,23 +120,7 @@
       'ajax': {
         url: 'sku/get_data',
         type: 'POST',
-      },
-      "fnRowCallback": function(nRow, aData, iDisplayIndex, iDisplayIndexFull) {
-        $('td', nRow).eq(4).css({"background": "<?= $bg_colors[0] ?>"}).addClass('text-right');
-        $('td', nRow).eq(5).css({"background": "<?= $bg_colors[0] ?>"}).addClass('text-right');
-        $('td', nRow).eq(6).css({"background": "<?= $bg_colors[0] ?>"}).addClass('text-right');
-        $('td', nRow).eq(7).css({"background": "<?= $bg_colors[0] ?>"}).addClass('text-right');
-
-        $('td', nRow).eq(8).css({"background": "<?= $bg_colors[1] ?>"}).addClass('text-right');
-        $('td', nRow).eq(9).css({"background": "<?= $bg_colors[1] ?>"}).addClass('text-right');
-        $('td', nRow).eq(10).css({"background": "<?= $bg_colors[1] ?>"}).addClass('text-right');
-        $('td', nRow).eq(11).css({"background": "<?= $bg_colors[1] ?>"}).addClass('text-right');
-
-        $('td', nRow).eq(12).css({"background": "<?= $bg_colors[2] ?>"}).addClass('text-right');
-        $('td', nRow).eq(13).css({"background": "<?= $bg_colors[2] ?>"}).addClass('text-right');
-        $('td', nRow).eq(14).css({"background": "<?= $bg_colors[2] ?>"}).addClass('text-right');
-        $('td', nRow).eq(15).css({"background": "<?= $bg_colors[2] ?>"}).addClass('text-right');
-      },
+      }
     });
 
     table.on('draw', function() {
@@ -163,15 +135,12 @@
           var sku = response.data;
 
           $('input[name="id"]').val(sku.id);
-          $('input[name="item_id"]').val(sku.item_id);
-          $('input[name="item_code"]').val(sku.item_code);
-          $('input[name="item_name"]').val(sku.item_name);
+          $('input[name="id_sku"]').val(sku.id_sku);
+          $('input[name="nama_sku"]').val(sku.nama_sku);
+          $('input[name="berat"]').val(sku.berat);
+          $('input[name="total_stok"]').val(sku.total_stok);
 
-          $('#thumbnail').attr("src", sku.thumbnail);
-
-          for (const [key, value] of Object.entries(sku.list_skulocationstock)) {
-            $('input[name="' + key + '"]').val(value);
-          }
+          $('#thumbnail').attr("src", sku.link_foto);
 
           $('#modal_edit_sku').modal('show');
         });
@@ -195,8 +164,6 @@
       table.ajax.reload(null, false);
 
       $('#modal_edit_sku').modal('hide');
-      $('#form-content-edit-sku').trigger("reset");
-
       return false;
     });
   });

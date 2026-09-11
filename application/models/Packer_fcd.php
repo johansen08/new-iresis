@@ -18,30 +18,34 @@ class Packer_fcd extends CI_Model
          * 9. save into tblpacking
          */
         $receipt = $this->db
-            ->select('id_printresi, status_pesanan')
+            ->select('id_printresi, status_pesanan, batal')
             ->get_where('tblprintresi', ['noresi' => $packer['noresi']])
             ->row();
         if (empty($receipt)) {
-            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan'];
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan', 'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']];
         }
 
         // Check if status_pesanan is COMPLETED or CANCELED
-        if (in_array($receipt->status_pesanan, ['COMPLETED', 'CANCELED'])) {
-            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak dapat diproses karena status pesanan sudah ' . $receipt->status_pesanan];
+        if ($receipt->status_pesanan == 'COMPLETED') {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
+        }
+        if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
         }
 
+        $packer['noresi_original'] = $packer['noresi'];
         unset($packer['noresi']);
 
         // Check if this receipt has been picked
         $picking_exist = $this->db->get_where('tblresiambilbarang', ['id_resi' => $receipt->id_printresi])->row();
         if (!$picking_exist) {
-            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker. Silakan Cek data'];
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker. Silakan Cek data', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
         }
 
         // Check if this receipt has already been packed
         $packer_exist = $this->db->get_where('tblpacking', ['id_resi' => $receipt->id_printresi])->row();
         if ($packer_exist) {
-            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-packing. Silakan Cek data'];
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-packing (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_PACKED']];
         }
 
         // Insert packing record
@@ -64,7 +68,13 @@ class Packer_fcd extends CI_Model
         // Log transaksi ke tblkpi untuk KPI tracking
         $this->log_kpi_transaksi($user['id_user'], 'PACKER');
 
+        // Log performance monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $perf = $this->packer_monitoring_fcd->log_performance($user['id_user'], $receipt->id_printresi, $packer['noresi_original']);
+
         $packer['affected_rows'] = $this->db->affected_rows();
+        $packer['performance'] = $perf;
+        $packer['id_resi'] = $receipt->id_printresi;
 
         return $packer;
     }
@@ -125,13 +135,16 @@ class Packer_fcd extends CI_Model
                 $x++;
             }
             $this->db->group_end();
+            
+            // Only join when searching
+            $this->db->join('tblprintresi pr', 'pr.id_printresi = p.id_resi');
+            $this->db->join('tbluser u', 'u.id_user = p.packer_pegawai', 'left');
+            
+            return $this->db->count_all_results('tblpacking p');
+        } else {
+            // No search, return total count directlyfrom table (very fast)
+            return $this->db->count_all('tblpacking');
         }
-
-        $this->db->from('tblpacking p');
-        $this->db->join('tblprintresi pr', 'pr.id_printresi = p.id_resi');
-        $this->db->join('tbluser u', 'u.id_user = p.packer_pegawai', 'left');
-
-        return $this->db->count_all_results();
     }
 
     function get_total_scan_user($id_pegawai)
@@ -217,5 +230,166 @@ class Packer_fcd extends CI_Model
         }
         
         return true;
+    }
+
+    /**
+     * Save masalah picker data to tblmasalahpicker
+     */
+    function save_masalah_picker($masalah_picker, $user)
+    {
+        try {
+            $this->db->trans_start();
+
+            // Validate that receipt exists
+            $receipt = $this->db
+                ->select('id_printresi, noresi')
+                ->get_where('tblprintresi', ['id_printresi' => $masalah_picker['id_printresi'], 'noresi' => $masalah_picker['noresi']])
+                ->row();
+
+            if (empty($receipt)) {
+                return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan'];
+            }
+
+            // Check if masalah picker already exists for this SKU and receipt
+            $existing = $this->db
+                ->get_where('tblmasalahpicker', [
+                    'id_printresi' => $masalah_picker['id_printresi'],
+                    'sku' => $masalah_picker['sku']
+                ])
+                ->row();
+
+            $insert_data = [
+                'id_printresi' => $masalah_picker['id_printresi'],
+                'noresi' => $masalah_picker['noresi'],
+                'sku' => $masalah_picker['sku'],
+                'qty' => $masalah_picker['qty'],
+                'id_typemasalah' => $masalah_picker['id_typemasalah'],
+                'qty_bermasalah' => $masalah_picker['qty_bermasalah'],
+                'sku_salah' => $masalah_picker['sku_salah'],
+                'status' => 0, // Always Pending, must be reviewed in Daftar Masalah Picker
+                'created_by' => $user['id_user'],
+                'created' => date('Y-m-d H:i:s')
+            ];
+
+            if ($existing) {
+                // Update existing record
+                $insert_data['updated_by'] = $user['id_user'];
+                $insert_data['updated'] = date('Y-m-d H:i:s');
+                $this->db->where('id_masalahpicker', $existing->id_masalahpicker);
+                $this->db->update('tblmasalahpicker', $insert_data);
+                // Get affected_rows before trans_complete
+                $affected_rows = $this->db->affected_rows();
+                // Jika affected_rows = 0, berarti data tidak berubah, tapi tetap dianggap sukses
+                // karena update berhasil (hanya tidak ada perubahan data)
+                $masalah_picker['affected_rows'] = $affected_rows > 0 ? $affected_rows : 1;
+            } else {
+                // Insert new record
+                $this->db->insert('tblmasalahpicker', $insert_data);
+                // Get affected_rows before trans_complete
+                $masalah_picker['affected_rows'] = $this->db->affected_rows();
+            }
+
+            $this->db->trans_complete();
+
+            if ($this->db->trans_status() === FALSE) {
+                return ['error' => TRUE, 'code' => 500, 'message' => 'Database transaction failed'];
+            }
+
+            return $masalah_picker;
+
+        } catch (Exception $e) {
+            $this->db->trans_rollback();
+            log_message('error', 'Error in save_masalah_picker: ' . $e->getMessage());
+            return ['error' => TRUE, 'code' => 500, 'message' => 'Internal server error: ' . $e->getMessage()];
+        }
+    }
+
+    function get_total_scan_packer_nonsubmit_user($id_pegawai)
+    {
+        $this->db->select('count(1) as total_scan');
+
+        $criterias = [
+            'tanggal_packing >= ' => date('Y-m-d'),
+            'packer_pegawai' => $id_pegawai,
+        ];
+
+        $this->db->where($criterias);
+
+        return $this->db->get_where('tblpacking');
+    }
+
+    function save_packer_nonsubmit($packer, $user)
+    {
+        /**
+         * 1. check does noresi exist in tblprintresi and get status
+         * 2. throw if does not exist
+         * 3. check if status_pesanan is COMPLETED or CANCELED
+         * 4. throw if status is COMPLETED or CANCELED
+         * 5. check does id_resi exist in tblresiambilbarang
+         * 6. throw if does not exist
+         * 7. check does id_resi exist in tblpacking
+         * 8. throw if exists
+         * 9. save into tblpacking
+         */
+        $receipt = $this->db
+            ->select('id_printresi, status_pesanan, batal')
+            ->get_where('tblprintresi', ['noresi' => $packer['noresi']])
+            ->row();
+        if (empty($receipt)) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan', 'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']];
+        }
+
+        // Check if status_pesanan is COMPLETED or CANCELED
+        if ($receipt->status_pesanan == 'COMPLETED') {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
+        }
+        if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
+        }
+
+        $packer['noresi_original'] = $packer['noresi'];
+        unset($packer['noresi']);
+
+        // Check if this receipt has been picked
+        $picking_exist = $this->db->get_where('tblresiambilbarang', ['id_resi' => $receipt->id_printresi])->row();
+        if (!$picking_exist) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker.', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
+        }
+
+        // Check if this receipt has already been packed
+        $packer_exist = $this->db->get_where('tblpacking', ['id_resi' => $receipt->id_printresi])->row();
+        if ($packer_exist) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-packing (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_PACKED']];
+        }
+
+        // Insert packing record
+        // Priority: use nama_komputer from $user array (should be synced with database since login fix)
+        // This ensures packer computer number is accurately recorded
+        $insert_data = [
+            'id_resi' => $receipt->id_printresi,
+            'tanggal_packing' => date('Y-m-d H:i:s'),
+            'packer_pegawai' => $user['id_user'],
+            'keterangan' => $user['nama_komputer'], // Now synced with database from login
+            'status_performa_id' => $packer['status_performa_id'] ?? null
+        ];
+
+        $this->db->insert('tblpacking', $insert_data);
+
+        // Update tblresiambilbarang to reset pending to ''
+        $this->db->where('id_resiambilbarang', $picking_exist->id_resiambilbarang);
+        $this->db->update('tblresiambilbarang', ['pending' => '']);
+
+        // Log transaksi ke tblkpi untuk KPI tracking
+        $this->log_kpi_transaksi($user['id_user'], 'PACKER');
+
+        // Log performance monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $perf = $this->packer_monitoring_fcd->log_performance($user['id_user'], $receipt->id_printresi, $packer['noresi_original']);
+
+        $packer['affected_rows'] = $this->db->affected_rows();
+        $packer['performance'] = $perf;
+        $packer['id_resi'] = $receipt->id_printresi;
+
+        return $packer;
     }
 }

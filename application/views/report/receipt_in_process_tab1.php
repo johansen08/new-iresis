@@ -20,8 +20,8 @@
 <table class="table table-striped" id="datatable-receipt-process-tab1">
   <thead>
     <tr>
-      <th colspan="10" class="text-right">Grand Total</th>
-      <th id="grand_total_receipt_process_tab1">-</th>
+      <th colspan="11" style="text-align:right">Grand Total</th>
+      <th id="grand-total-tab1">-</th>
     </tr>
     <tr>
       <th>#</th>
@@ -29,12 +29,13 @@
       <th>Tanggal Scan Resi</th>
       <th>Jam Scan Resi</th>
       <th>Nomor Resi</th>
+      <th>Status Pesanan</th>
       <th>Kurir</th>
       <th>Nomor Pick List</th>
-      <th>Status Pesanan</th>
       <th>Tanggal Pick</th>
       <th>Jam Pick</th>
       <th>Picker</th>
+      <th>Batas Kirim</th>
     </tr>
   </thead>
 </table>
@@ -61,9 +62,6 @@
   var table_receipt_process_tab1 = $('#datatable-receipt-process-tab1').DataTable({
     'dom': '<if<t>lp>',
     'destroy': true,
-    'drawCallback': function() {
-      $('#grand_total_receipt_process_tab1').text('-');
-    }
   });
   $('#btn-search-receipt-process-tab1').on('click', function() {
     table_receipt_process_tab1 = $('#datatable-receipt-process-tab1').DataTable({
@@ -73,7 +71,7 @@
       'processing': true,
       'serverSide': true,
       'order': [
-        [2, 'desc']
+        [11, 'asc']
       ],
       'lengthMenu': [
         [10, 50, 100, 150, 200],
@@ -87,11 +85,26 @@
           d.end_date = $('#reportrange-receipt-process-tab1').val().split(" - ")[1];
         }
       },
-      'drawCallback': function() {
+      'initComplete': function() {
+        // Update grand total
         var json = this.api().ajax.json();
-        var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
-        $('#grand_total_receipt_process_tab1').text(total);
-      }
+        if (json && json.grandTotal !== undefined) {
+          $('#grand-total-tab1').text(json.grandTotal);
+        }
+      },
+      'createdRow': function(row, data, dataIndex) {
+        if (isWajibKirimHariIni(data[1], data[2], data[3], data[11])) {
+          $(row).css('background-color', '#ffebee').css('color', '#c62828');
+          $(row).find('td').css('font-weight', 'bold');
+        }
+      },
+      'drawCallback': function() {
+        // Update grand total setiap kali draw
+        var json = this.api().ajax.json();
+        if (json && json.grandTotal !== undefined) {
+          $('#grand-total-tab1').text(json.grandTotal);
+        }
+      },
     });
   });
 </script>

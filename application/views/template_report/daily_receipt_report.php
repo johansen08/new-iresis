@@ -51,7 +51,7 @@
       $not_pack_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_pack_resi']) / $header['total_scan_resi'] * 100;
       $not_ho_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_ho_resi']) / $header['total_scan_resi'] * 100;
       ?>
-      <th class="text-right" colspan="8">Yang belum dikerjakan dari total resi (in paket)</th>
+      <th class="text-right" colspan="10">Yang belum dikerjakan dari total resi (in paket)</th>
       <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi'] - $header['total_pick_resi']) ?></th>
       <th class="text-center picker-col-header"><?= number_format($not_pick_by_receipt_in_percent, 2) ?>%</th>
       <th class="text-center picker-col-header">-</th>
@@ -69,7 +69,7 @@
       $not_pack_by_dept_in_percent = $header['total_pick_resi'] == 0 ? 0 : ($header['total_pick_resi'] - $header['total_pack_resi']) / $header['total_pick_resi'] * 100;
       $not_ho_by_dept_in_percent = $header['total_pack_resi'] == 0 ? 0 : ($header['total_pack_resi'] - $header['total_ho_resi']) / $header['total_pack_resi'] * 100;
       ?>
-      <th class="text-right" colspan="8">Yang belum dikerjakan dari masing<sup>2</sup> dept (in paket)</th>
+      <th class="text-right" colspan="10">Yang belum dikerjakan dari masing<sup>2</sup> dept (in paket)</th>
       <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi'] - $header['total_pick_resi']) ?></th>
       <th class="text-center picker-col-header"><?= number_format($not_pick_by_dept_in_percent, 2) ?>%</th>
       <th class="text-center picker-col-header">-</th>
@@ -87,7 +87,7 @@
       $done_pack_in_percent = $header['total_scan_resi'] == 0 ? 0 : $header['total_pack_resi'] / $header['total_scan_resi'] * 100;
       $done_ho_in_percent = $header['total_scan_resi'] == 0 ? 0 : $header['total_ho_resi'] / $header['total_scan_resi'] * 100;
       ?>
-      <th class="text-right" colspan="7">Total yang sedang / sudah dikerjakan</th>
+      <th class="text-right" colspan="9">Total yang sedang / sudah dikerjakan</th>
       <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi']) ?></th>
       <th class="text-center picker-col-header"><?= number_format($header['total_pick_resi']) ?></th>
       <th class="text-center picker-col-header"><?= number_format($done_pick_in_percent, 2) ?>%</th>
@@ -103,8 +103,10 @@
     <tr>
       <th rowspan="2">#</th>
       <th rowspan="2">MP</th>
+      <th rowspan="2">Nama Toko</th>
       <th rowspan="2">Kurir</th>
       <th rowspan="2"># Resi</th>
+      <th rowspan="2">Status</th>
       <th rowspan="2">Pick list</th>
       <th class="text-center" colspan="3" style="background-color: #bbdefb !important; color: #1565c0 !important;">Resi</th>
       <th class="text-center" colspan="4" style="background-color: #c8e6c9 !important; color: #2e7d32 !important;">Picker</th>
@@ -134,8 +136,10 @@
       <tr>
         <td><?= $i++ ?>.</td>
         <td><?= $data['nama_marketplace'] ?></td>
+        <td><?= $data['nama_toko'] ?></td>
         <td><?= $data['nama_kurir'] ?></td>
         <td><?= $data['noresi'] ?></td>
+        <td><?= $data['status_pesanan'] ?></td>
         <td><?= $data['nomorpicklist'] ?></td>
         <td class="resi-col"><?= empty($data['tanggal_printresi']) ? null : date('Y-m-d', strtotime($data['tanggal_printresi'])) ?></td>
         <td class="resi-col"><?= empty($data['tanggal_printresi']) ? null : date('H:i:s', strtotime($data['tanggal_printresi'])) ?></td>

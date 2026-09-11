@@ -44,7 +44,7 @@ class Location extends MY_Controller
     $location['paramvalue4'] = $this->input->post('paramvalue4'); // address
     $location['paramgroup'] = PARAMGROUP_LOCATION;
 
-    $save = $this->param_fcd->save($location, $this->data['user']['id']);
+    $save = $this->param_fcd->save($location, $this->data['user']['id_user']);
 
     if ($save['affected_rows'] > 0) {
       $this->set_message('Success', SUCCESS_SAVE_DATA, 'information');
@@ -98,7 +98,7 @@ class Location extends MY_Controller
         $location['paramvalue4'] = $value['address'];
         $location['paramgroup'] = PARAMGROUP_LOCATION;
 
-        $this->param_fcd->save($location, $this->data['user']['id']);
+        $this->param_fcd->save($location, $this->data['user']['id_user']);
       endforeach;
     }
 

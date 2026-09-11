@@ -49,6 +49,21 @@
     $("#noresi").focus();
   });
 
+  // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+  // suaraScan (main.php) memotong durasi dan mereset posisi, jadi scan
+  // berikutnya tidak menunggu suara scan sebelumnya selesai.
+  function playAudio(id, opsi) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id, opsi);
+      return;
+    }
+    var el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; } catch (err) {}
+      el.play();
+    }
+  }
+
   var jvalidate = $("#form_scan_picker").validate({
     ignore: [],
     rules: {
@@ -75,7 +90,7 @@
         $("#span_latest_receipt").text(form.noresi.value);
         $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan Picker");
 
-        document.getElementById('audio-alert').play();
+        playAudio('audio-alexis');
 
         form.noresi.value = "";
         form.noresi.disabled = false;
@@ -87,7 +102,7 @@
         $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
         $("#p_latest_receipt_message").text(response.message);
 
-        document.getElementById('audio-fail').play();
+        playAudio('audio-wrong');
 
         form.noresi.value = "";
         form.noresi.disabled = false;
