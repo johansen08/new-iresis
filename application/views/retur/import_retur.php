@@ -14,7 +14,7 @@
           <ul style="margin-top:8px;margin-bottom:0;">
             <li>Ada <strong>TANGGAL TERIMA</strong> &rarr; data masuk sebagai <strong>Terima Retur</strong>.</li>
             <li>Ada <strong>TANGGAL BUKA</strong> &rarr; data masuk sebagai <strong>Buka Retur</strong> (status default) + <strong>TAGIHAN</strong> disimpan sebagai harga per SKU.</li>
-            <li>Kolom <strong>KITA</strong> = kurir: <code>JNT - &lt;nama&gt;</code> &rarr; JNT, <code>SPX</code> &rarr; SHOPEE.</li>
+            <li>Kolom <strong>KITA</strong> = kurir: <code>JNT - &lt;nama&gt;</code> &rarr; JNT / JNT-FIERRA / JNT-KAV-DPR (otomatis sesuai tanggal), <code>SPX</code> &rarr; SHOPEE.</li>
             <li>Kolom <strong>TOKO</strong> dipecah jadi marketplace + nama toko, mis. <code>Shop | Tokopedia - TT YARRA STORE</code> &rarr; marketplace <strong>Tiktok</strong>, toko <strong>TT YARRA STORE</strong>.</li>
             <li>Data yang tidak lengkap akan dibiarkan kosong / N/A dan bisa disesuaikan lagi nanti.</li>
           </ul>
@@ -33,7 +33,7 @@
           <table class="table table-bordered" style="max-width:520px;">
             <tbody>
               <tr><th style="width:60%;">Total baris diproses</th><td id="r_total">0</td></tr>
-              <tr class="active"><th>Retur Tadro (belum terima &amp; belum buka)</th><td id="r_tadro">0</td></tr>
+              <tr class="active"><th>Retur Online (belum terima &amp; belum buka)</th><td id="r_tadro">0</td></tr>
               <tr><th>Terima Retur (belum dibuka)</th><td id="r_terima">0</td></tr>
               <tr class="success"><th>Buka Retur (selesai dibuka)</th><td id="r_buka">0</td></tr>
               <tr><th>Resi baru / diperbarui</th><td><span id="r_resi_baru">0</span> / <span id="r_resi_update">0</span></td></tr>
@@ -42,8 +42,7 @@
             </tbody>
           </table>
           <p class="text-muted">
-            Lihat hasilnya di menu <strong>Laporan Retur</strong> &rarr; tab <strong>Terima Retur</strong> / <strong>Buka Retur</strong>
-            (kolom <strong>Harga</strong> &amp; <strong>Total</strong> kini tampil di Buka Retur).
+            Lihat hasilnya di menu <strong>Laporan Retur</strong>
           </p>
         </div>
 

@@ -62,7 +62,7 @@
                         <td><?= date('H:i:s', strtotime($row->tanggal_resiretur)) ?></td>
                         <td><?= $row->sku ?: '-' ?></td>
                         <td><?= $row->jumlah ?: '0' ?></td>
-                        <td><?= $row->status_detail ?: '-' ?></td>
+                        <td><?= ($row->status_retur === 'Buka Retur') ? 'Buka Retur' : 'Terima Retur' ?><?= !empty($row->status_detail) ? ' (' . $row->status_detail . ')' : '' ?></td>
                     </tr>
                 <?php endforeach; ?>
             <?php else: ?>

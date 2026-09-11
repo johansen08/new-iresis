@@ -328,6 +328,26 @@
 var IS_UPDATE = <?= !empty($is_update) ? 'true' : 'false' ?>;
 var IS_KOMPLAIN = <?= !empty($is_komplain) ? 'true' : 'false' ?>;
 $(document).ready(function() {
+    // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+    // Dua alasan, keduanya bikin scan terasa lambat:
+    //   - suaradouble.mp3 ~6,4 detik. Diputar utuh, satu resi double menahan
+    //     telinga operator berdetik-detik sebelum dia nyaman scan berikutnya.
+    //   - tanpa reset currentTime, play() pada elemen yang masih berbunyi
+    //     tidak melakukan apa-apa, jadi scan berikutnya terdengar senyap.
+    // suaraScan (main.php) menangani dua-duanya, termasuk membatalkan timer
+    // potong milik pemutaran sebelumnya supaya suara tidak saling potong.
+    function playAudio(id, opsi) {
+        if (typeof suaraScan === 'function') {
+            suaraScan(id, opsi);
+            return;
+        }
+        var el = document.getElementById(id);   // cadangan kalau shell belum siap
+        if (el) {
+            try { el.currentTime = 0; } catch (err) {}
+            el.play();
+        }
+    }
+
     // ==================== AUTO FOCUS ON LOAD ====================
     var activeTab = "<?= isset($active_tab) ? $active_tab : 'terima-retur' ?>";
     if(activeTab === 'terima-retur') {
@@ -405,16 +425,12 @@ $(document).ready(function() {
                 }
 
                 // Play failure sounds
-                var audioFail = document.getElementById('audio-wrong');
-                if (audioFail) { audioFail.currentTime=0; audioFail.play(); }
+                playAudio('audio-wrong');
                 
                 if (isDouble) {
-                    var audioDouble = document.getElementById('audio-double');
-                    // Play double sound after a short delay so both can be heard if needed, 
-                    // or just play it immediately if audio-wrong is short.
-                    if (audioDouble) { 
-                        setTimeout(function(){ audioDouble.currentTime=0; audioDouble.play(); }, 500); 
-                    }
+                    // Jeda 500 ms supaya suara salah dan suara double terdengar
+                    // terpisah, bukan menumpuk jadi satu bunyi.
+                    setTimeout(function(){ playAudio('audio-double'); }, 500);
                 }
             }
 
@@ -430,8 +446,7 @@ $(document).ready(function() {
                         $("#span_latest_receipt_terima").text(noresiValue);
                         $("#p_latest_receipt_message_terima").text(data.message || "Nomor resi terakhir yang sudah di-scan");
 
-                        var audio = document.getElementById('audio-alexis');
-                        if (audio) { audio.currentTime=0; audio.play(); }
+                        playAudio('audio-alexis');
                     } else {
                         handleTerimaError(data || {});
                     }
@@ -519,10 +534,12 @@ $(document).ready(function() {
                     });
                 } else if (response.status === 'error') {
                     $tbody.html('<tr><td colspan="7" class="text-center text-danger">Error: ' + (response.message || 'Unknown error') + '</td></tr>');
+                    // Resi ditolak (mis. belum discan Terima Retur): bunyikan
+                    // suara salah supaya operator tidak lanjut scan berikutnya.
+                    playAudio('audio-wrong');
                 } else {
                     $tbody.html('<tr><td colspan="7" class="text-center">Data tidak ditemukan untuk resi ini.</td></tr>');
-                    var audio = document.getElementById('audio-wrong');
-                    if (audio) { audio.currentTime=0; audio.play(); }
+                    playAudio('audio-wrong');
                 }
             },
             error: function(xhr, status, error) {
@@ -666,8 +683,7 @@ $(document).ready(function() {
                 $("#div_container_latest_receipt_modal").removeClass("tile-default tile-success").addClass("tile-danger");
                 $("#p_latest_receipt_message_modal").text(response.message || "Terjadi kesalahan");
 
-                var audio = document.getElementById('audio-wrong');
-                if (audio) { audio.currentTime=0; audio.play(); }
+                playAudio('audio-wrong');
             }
 
             $.ajax({
@@ -689,8 +705,7 @@ $(document).ready(function() {
                         var total_scan = document.getElementById('total_scan_buka');
                         if(total_scan) total_scan.innerText = parseInt(total_scan.innerText) + 1;
 
-                        var audio = document.getElementById('audio-alexis');
-                        if (audio) { audio.currentTime=0; audio.play(); }
+                        playAudio('audio-alexis');
 
                         // Update table row remaining quantity (No. Rak column shifts qty to index 5)
                         if (currentBukaReturBtn) {
@@ -856,8 +871,7 @@ $(document).ready(function() {
                 $("#div_container_latest_receipt_bulk_modal").removeClass("tile-default tile-success").addClass("tile-danger");
                 $("#p_latest_receipt_message_bulk_modal").text(response.message || "Terjadi kesalahan");
 
-                var audio = document.getElementById('audio-wrong');
-                if (audio) { audio.currentTime=0; audio.play(); }
+                playAudio('audio-wrong');
             }
 
             $.ajax({
@@ -878,8 +892,7 @@ $(document).ready(function() {
                         var total_scan = document.getElementById('total_scan_buka');
                         if(total_scan) total_scan.innerText = parseInt(total_scan.innerText) + itemsCount;
 
-                        var audio = document.getElementById('audio-alexis');
-                        if (audio) { audio.currentTime=0; audio.play(); }
+                        playAudio('audio-alexis');
 
                         setTimeout(function() {
                             $('#bukaReturBulkModal').fadeOut();

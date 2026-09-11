@@ -341,12 +341,12 @@ class Retur extends MY_Controller
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
             
-            // Check if resi exists using simple DB query (avoid loading receipt_fcd which has class issues)
-            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
-            if ($exists > 0) {
+            // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
+            $err_buka = $this->_cek_boleh_buka_retur($noresi, 0);
+            if ($err_buka === null) {
                 $data['noresi_buka'] = $noresi;
             } else {
-                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+                $data['error_message_buka'] = $err_buka;
             }
             $data['active_tab'] = 'buka-retur';
         } else {
@@ -370,11 +370,12 @@ class Retur extends MY_Controller
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
             
-            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
-            if ($exists > 0) {
+            // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
+            $err_buka = $this->_cek_boleh_buka_retur($noresi, 0);
+            if ($err_buka === null) {
                 $data['noresi_buka'] = $noresi;
             } else {
-                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+                $data['error_message_buka'] = $err_buka;
             }
             $data['active_tab'] = 'buka-retur';
         } else {
@@ -399,11 +400,12 @@ class Retur extends MY_Controller
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
             
-            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
-            if ($exists > 0) {
+            // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
+            $err_buka = $this->_cek_boleh_buka_retur($noresi, 1);
+            if ($err_buka === null) {
                 $data['noresi_buka'] = $noresi;
             } else {
-                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+                $data['error_message_buka'] = $err_buka;
             }
             $data['active_tab'] = 'buka-retur';
         } else {
@@ -427,11 +429,12 @@ class Retur extends MY_Controller
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
             
-            $exists = $this->db->where('noresi', $noresi)->count_all_results('tblprintresi');
-            if ($exists > 0) {
+            // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
+            $err_buka = $this->_cek_boleh_buka_retur($noresi, 1);
+            if ($err_buka === null) {
                 $data['noresi_buka'] = $noresi;
             } else {
-                $data['error_message_buka'] = "Noresi tidak ditemukan.";
+                $data['error_message_buka'] = $err_buka;
             }
             $data['active_tab'] = 'buka-retur';
         } else {
@@ -467,6 +470,63 @@ class Retur extends MY_Controller
 		}
 
 		$this->make_ajax_response(200, NOTHING_TO_SAVE);
+	}
+
+	/**
+	 * Cari baris tblresiretur milik sebuah resi pada jenis tertentu
+	 * (0 = retur biasa, 1 = retur komplain).
+	 *
+	 * Dicocokkan lewat id_resi ATAU noresi: baris hasil import bisa punya
+	 * noresi tanpa id_resi. is_komplain NULL diperlakukan sebagai retur biasa.
+	 */
+	private function _cari_baris_retur($id_printresi, $noresi, $is_komplain)
+	{
+		$this->db->group_start()
+			->where('id_resi', $id_printresi)
+			->or_where('noresi', $noresi)
+			->group_end();
+
+		if ($is_komplain) {
+			$this->db->where('is_komplain', 1);
+		} else {
+			$this->db->group_start()
+				->where('is_komplain', 0)
+				->or_where('is_komplain IS NULL', null, FALSE)
+				->group_end();
+		}
+
+		return $this->db->get('tblresiretur')->row();
+	}
+
+	/**
+	 * Gerbang Buka Retur: resi wajib sudah punya catatan Terima Retur pada
+	 * jenis yang sama. Tanpa gerbang ini, resi yang lost scan Terima tetap
+	 * bisa discan Buka -- barisnya masuk tblbukaretur tapi yatim, karena
+	 * Laporan Retur Lengkap / Rekap Proses Retur / Rekonsiliasi semuanya
+	 * berpangkal pada tblresiretur. Hasilnya: sudah discan tapi tidak pernah
+	 * muncul di laporan mana pun.
+	 *
+	 * @return string|null pesan error, atau null bila boleh lanjut
+	 */
+	private function _cek_boleh_buka_retur($noresi, $is_complain)
+	{
+		$receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
+		if (!$receipt) {
+			return "Noresi tidak ditemukan.";
+		}
+
+		if ($this->_cari_baris_retur($receipt->id_printresi, $noresi, $is_complain)) {
+			return null;
+		}
+
+		if ($this->_cari_baris_retur($receipt->id_printresi, $noresi, $is_complain ? 0 : 1)) {
+			$asal = $is_complain ? 'Retur Biasa' : 'Retur Komplain';
+			$menu = $is_complain ? 'Scan Retur / Update Retur' : 'Scan Retur Komplain / Update Retur Komplain';
+			return "Resi $noresi tercatat sebagai $asal, bukan di menu ini. Gunakan menu $menu.";
+		}
+
+		$jenis = $is_complain ? ' Komplain' : '';
+		return "Resi $noresi belum discan Terima Retur$jenis. Scan Terima Retur dulu, baru bisa Buka Retur.";
 	}
 
 	// request by ajax - Buka Retur
@@ -505,6 +565,16 @@ class Retur extends MY_Controller
         $is_complain = $this->input->get('is_complain') ? 1 : 0;
 
         $this->load->model('retur_fcd');
+
+        // Gerbang Buka Retur. Dicek SEBELUM reset mode update supaya data lama
+        // tidak ikut terhapus untuk resi yang memang belum berhak dibuka.
+        $err_buka = $this->_cek_boleh_buka_retur($noresi, $is_complain);
+        if ($err_buka !== null) {
+            while (ob_get_level() > 0) ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => $err_buka, 'items' => [], 'total' => 0]);
+            exit();
+        }
 
         if ($is_update) {
             // Reset existing return record for update mode.
@@ -588,19 +658,11 @@ class Retur extends MY_Controller
 
         $is_complain = $this->input->post('is_complain') ? 1 : 0;
 
-        // Guard salah menu: jangan simpan detail buka bila resi tercatat di jenis
-        // sebelah (retur biasa vs komplain) — dulu bikin baris buka yatim yang
-        // tidak muncul di laporan mana pun.
-        $receipt_cek = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
-        if ($receipt_cek) {
-            $ada_jenis_ini = $this->db->get_where('tblresiretur', ['id_resi' => $receipt_cek->id_printresi, 'is_komplain' => $is_complain])->row();
-            if (!$ada_jenis_ini) {
-                $lawan = $this->db->get_where('tblresiretur', ['id_resi' => $receipt_cek->id_printresi, 'is_komplain' => $is_complain ? 0 : 1])->row();
-                if ($lawan) {
-                    $asal = $is_complain ? 'Retur Biasa' : 'Retur Komplain';
-                    $this->make_ajax_response(409, "Resi $noresi tercatat sebagai $asal, bukan di menu ini. Gunakan menu yang sesuai.");
-                }
-            }
+        // Gerbang Buka Retur: wajib sudah ada catatan Terima Retur pada jenis yang
+        // sama. Menangkap sekaligus kasus salah menu (retur biasa vs komplain).
+        $err_buka = $this->_cek_boleh_buka_retur($noresi, $is_complain);
+        if ($err_buka !== null) {
+            $this->make_ajax_response(409, $err_buka);
         }
 
         // Guard anti-dobel berbasis QTY (bukan "sekali submit per SKU"): 1 SKU boleh
@@ -684,20 +746,11 @@ class Retur extends MY_Controller
 
         $is_complain = $this->input->post('is_complain') ? 1 : 0;
 
-        // Guard salah menu (sama seperti versi satuan): tolak bila resi tercatat
-        // di jenis sebelah, agar tidak lahir baris buka yatim.
-        // Dicek SEBELUM transaksi dibuka supaya penolakan tidak meninggalkan
-        // transaksi menggantung.
-        $receipt_cek = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
-        if ($receipt_cek) {
-            $ada_jenis_ini = $this->db->get_where('tblresiretur', ['id_resi' => $receipt_cek->id_printresi, 'is_komplain' => $is_complain])->row();
-            if (!$ada_jenis_ini) {
-                $lawan = $this->db->get_where('tblresiretur', ['id_resi' => $receipt_cek->id_printresi, 'is_komplain' => $is_complain ? 0 : 1])->row();
-                if ($lawan) {
-                    $asal = $is_complain ? 'Retur Biasa' : 'Retur Komplain';
-                    $this->make_ajax_response(409, "Resi $noresi tercatat sebagai $asal, bukan di menu ini. Gunakan menu yang sesuai.");
-                }
-            }
+        // Gerbang Buka Retur (sama seperti versi satuan). Dicek SEBELUM transaksi
+        // dibuka supaya penolakan tidak meninggalkan transaksi menggantung.
+        $err_buka = $this->_cek_boleh_buka_retur($noresi, $is_complain);
+        if ($err_buka !== null) {
+            $this->make_ajax_response(409, $err_buka);
         }
 
         $this->db->trans_start();
