@@ -44,6 +44,9 @@ debug_output.txt
 
 # Hasil upload user saat aplikasi berjalan
 assets/uploads/
+
+# Dump data operasional (Excel rekonsiliasi, dsb)
+SUNTIK DATA RETUR/
 assets/img/users/*
 !assets/img/users/avatar.jpg
 
