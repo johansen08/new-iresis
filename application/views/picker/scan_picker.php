@@ -162,6 +162,22 @@
     }
   }
 
+  // Server di jalur ini tidak mengirim EXCEPTION_CODE, hanya kalimat pesan,
+  // jadi penyebabnya dibaca dari teksnya. Dulu logika ini disalin dua kali --
+  // di cabang respons gagal dan di cabang error ajax -- dan sempat berbeda
+  // isinya. Satu tempat saja supaya nada dan kata kuncinya tidak lagi menyimpang.
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+
+    if (teks.includes('CANCEL') || teks.includes('BATAL')) {
+      playAudio('audio-cancel-order');
+    } else if (teks.includes('SUDAH DI SCAN') || teks.includes('SUDAH DI PICK')) {
+      playAudio('audio-sudah-scan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
   function updateSummaryTable() {
     var $container = $('#summary-content-area');
     $container.empty();
@@ -604,15 +620,8 @@
             $("#div_container_latest_receipt").removeClass("tile-default tile-success").addClass("tile-danger");
             $("#p_latest_receipt_message").text(msg);
 
-            // Play error sound (Wrong / Cancel / Double)
-            var upperMsg = msg.toUpperCase();
-            if (upperMsg.includes('CANCEL') || upperMsg.includes('BATAL')) {
-              playAudio('audio-cancel');
-            } else if (upperMsg.includes('SUDAH DI SCAN') || upperMsg.includes('SUDAH DI PICK')) {
-              playAudio('audio-double');
-            } else {
-              playAudio('audio-wrong');
-            }
+            // Play error sound (Wrong / Cancel / Sudah scan)
+            playScanErrorAudio(msg);
           }
         },
         error: function(xhr, status, error) {
@@ -631,15 +640,8 @@
           $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
           $("#p_latest_receipt_message").text(response.message);
 
-          // Play error sound (Wrong / Cancel / Double)
-          var upperErr = response.message ? response.message.toUpperCase() : "";
-          if (upperErr.includes('CANCEL') || upperErr.includes('BATAL')) {
-            playAudio('audio-cancel');
-          } else if (upperErr.includes('SUDAH DI SCAN') || upperErr.includes('SUDAH DI PICK')) {
-            playAudio('audio-double');
-          } else {
-            playAudio('audio-wrong');
-          }
+          // Play error sound (Wrong / Cancel / Sudah scan)
+          playScanErrorAudio(response.message);
         }
       });
 

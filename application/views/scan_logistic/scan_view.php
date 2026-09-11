@@ -405,6 +405,11 @@ $(document).ready(function() {
         'audio-double':  900,
         'audio-fail':    900,
         'audio-cancel':  800,
+        // Dua suara ucapan ini sengaja TIDAK ikut aturan potong di atas. Isinya
+        // kalimat ("paket double", "cancel"), bukan nada, jadi kalau dipotong
+        // operator cuma dengar suku kata pertama. Lihat BATAS_SUARA di main.php.
+        'audio-paket-double': 1900,
+        'audio-cancel-order': 2100,
         // alert.mp3 sekarang khusus error lain-lain. Sukses kurir tak dikenal
         // dipindah ke nada sintetis supaya sukses dan gagal tidak sebunyi.
         'audio-alert':   500
@@ -443,18 +448,16 @@ $(document).ready(function() {
 
     function playErrorAudio(exceptionCode) {
         if (exceptionCode === 'ALREADY_HANDOVER' || exceptionCode === 'ALREADY_SCANNED') {
-            playTag('audio-double');
+            // Dulu suaradouble.mp3 -- nada, dan pembukaannya mirip nada cancel.
+            // Sekarang suara ucapan "paket double", tidak bisa tertukar.
+            playTag('audio-paket-double');
         } else if (exceptionCode === 'NOT_PICKED' || exceptionCode === 'NOT_PACKED') {
             playTag('audio-fail');
         } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
-            // Nada sintetis, bukan suaracancel.mp3 lagi. Dipotong di ~0,8 detik,
-            // pembukaan berkas cancel dan berkas double terdengar mirip sehingga
-            // operator tidak bisa membedakan pesanan batal dari scan dobel.
-            if (typeof nadaCancel === 'function') {
-                nadaCancel();
-            } else {
-                playTag('audio-cancel');
-            }
+            // Sebelumnya nada sintetis nadaCancel(), dipakai karena pembukaan
+            // suaracancel.mp3 dan suaradouble.mp3 terdengar mirip. Sekarang
+            // pakai suara ucapan "cancel" -- bedanya jelas tanpa perlu nada.
+            playTag('audio-cancel-order');
         } else {
             // alert.mp3 sekarang milik jalur error saja. Dulu suara ini juga
             // dipakai untuk sukses kurir tak dikenal, jadi scan berhasil dan
