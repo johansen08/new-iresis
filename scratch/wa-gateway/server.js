@@ -1,13 +1,16 @@
 const express = require('express');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const puppeteer = require('puppeteer');
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = 3000;
-const SECRET_TOKEN = '***REMOVED***'; // Harus sama dengan wa_api_token di CI config
+// Token dibaca dari secrets.json (tidak ikut di-commit; template: secrets.example.json)
+// Harus sama dengan wa_api_token di application/config/secrets.php
+const SECRET_TOKEN = require('./secrets.json').secret_token;
 
 let clientReady = false;
 
@@ -99,6 +102,66 @@ app.post('/send', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('[WA Gateway] Gagal kirim:', err.message);
         res.status(500).json({ error: 'Gagal mengirim pesan.', detail: err.message });
+    }
+});
+
+app.post('/send-image', authMiddleware, async (req, res) => {
+    if (!clientReady) {
+        return res.status(503).json({ error: 'WhatsApp belum terhubung.' });
+    }
+
+    const { to, image, caption, filename } = req.body;
+    if (!to || !image) {
+        return res.status(400).json({ error: 'Parameter "to" dan "image" (base64) wajib diisi.' });
+    }
+
+    try {
+        let chatId = to.includes('@') ? to : to + '@c.us';
+        const media = new MessageMedia('image/png', image, filename || 'image.png');
+        await client.sendMessage(chatId, media, { caption: caption || '' });
+        console.log(`[WA Gateway] Gambar terkirim ke ${chatId}`);
+        res.json({ success: true, message: 'Gambar berhasil dikirim.' });
+    } catch (err) {
+        console.error('[WA Gateway] Gagal kirim gambar:', err.message);
+        res.status(500).json({ error: 'Gagal mengirim gambar.', detail: err.message });
+    }
+});
+
+app.post('/send-screenshot', authMiddleware, async (req, res) => {
+    if (!clientReady) {
+        return res.status(503).json({ error: 'WhatsApp belum terhubung.' });
+    }
+
+    const { to, url, caption } = req.body;
+    if (!to || !url) {
+        return res.status(400).json({ error: 'Parameter "to" dan "url" wajib diisi.' });
+    }
+
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: 'new',
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 900, height: 600 });
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 1000));
+
+        const screenshotBuffer = await page.screenshot({ fullPage: true, type: 'png' });
+        const base64 = screenshotBuffer.toString('base64');
+
+        let chatId = to.includes('@') ? to : to + '@c.us';
+        const media = new MessageMedia('image/png', base64, 'screenshot.png');
+        await client.sendMessage(chatId, media, { caption: caption || '' });
+
+        console.log(`[WA Gateway] Screenshot ${url} terkirim ke ${chatId}`);
+        res.json({ success: true, message: 'Screenshot berhasil dikirim.' });
+    } catch (err) {
+        console.error('[WA Gateway] Gagal screenshot:', err.message);
+        res.status(500).json({ error: 'Gagal mengirim screenshot.', detail: err.message });
+    } finally {
+        if (browser) await browser.close();
     }
 });
 

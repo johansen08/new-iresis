@@ -70,15 +70,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | The $query_builder variables lets you determine whether or not to load
 | the query builder class.
 */
+require_once(APPPATH.'config/secrets_load.php');
+
 $active_group = 'default';
 $query_builder = TRUE;
 
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => '127.0.0.1',
-	'username' => 'root',
-	'password' => '',
-	'database' => 'iresis-prod',
+	'hostname' => iresis_secret('db_hostname', '127.0.0.1'),
+	'username' => iresis_secret('db_username', 'root'),
+	'password' => iresis_secret('db_password', ''),
+	'database' => iresis_secret('db_database', 'iresis-prod'),
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
@@ -92,5 +94,5 @@ $db['default'] = array(
 	'compress' => FALSE,
 	'stricton' => FALSE,
 	'failover' => array(),
-	'save_queries' => TRUE
+	'save_queries' => FALSE
 );
