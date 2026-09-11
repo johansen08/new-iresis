@@ -1,5 +1,92 @@
+# ============================================================
+#  Editor & dependency
+# ============================================================
 .vscode
 /vendor/
 composer.lock
 composer.json
+
+# ============================================================
+#  KREDENSIAL — jangan pernah di-commit
+# ============================================================
+# Sniffer output (berisi token & cookie login)
+scripts/sniff_out/
+
+# Kredensial Jubelio untuk script otomasi
+scripts/.env
+scripts/jubelio_credentials.py
+
+# Kredensial aplikasi (DB, WA gateway, Pusher)
+# Template yang ikut di-commit: application/config/secrets.php.example
+application/config/secrets.php
+scripts/secrets_local.py
+scratch/wa-gateway/secrets.json
+
+# Bytecode Python: jubelio_credentials.pyc tetap memuat kredensial
+# walau file .py-nya sudah di-ignore
+__pycache__/
+*.py[cod]
+
+# Sesi login WhatsApp Web (setara kredensial akun WA, ~916 MB)
+scratch/wa-gateway/.wwebjs_auth/
+scratch/wa-gateway/.wwebjs_cache/
+
+# ============================================================
+#  Output runtime & file yang dihasilkan aplikasi
+# ============================================================
 application/logs/
+application/cache/
+application/brain/
+logs/
+tmp/
+debug_output.txt
+*.log
+
+# Hasil upload user saat aplikasi berjalan
+assets/uploads/
+assets/img/users/*
+!assets/img/users/avatar.jpg
+
+# ============================================================
+#  Binary pihak ketiga & dependency
+# ============================================================
+ngrok.exe
+node_modules/
+
+# ============================================================
+#  Scratch / dev tooling — script sekali pakai, bukan kode aplikasi
+# ============================================================
+dev_tools/
+
+scratch/*
+!scratch/wa-gateway/
+scratch/wa-gateway/*
+!scratch/wa-gateway/package.json
+!scratch/wa-gateway/package-lock.json
+!scratch/wa-gateway/server.js
+!scratch/wa-gateway/secrets.example.json
+
+# Script debug/investigasi sekali pakai di root
+/test_*.php
+/check_*.php
+/describe_*.php
+/dump_db*.php
+/debug_*.php
+/db_test*.php
+/inspect_menu*.php
+/list_*.php
+/find_*menu*.php
+/find_parent_name.php
+/scratch_*.php
+/tmp_*.php
+/*_menu_placement.php
+/add_menu_script.php
+/direct_menu_add.php
+/grant_menu_access.php
+/run_add_menu.php
+/do_cleanup_2025.php
+/dry_run_cancel.php
+/dev_models.txt
+/dev_uri*.txt
+/prod_models.txt
+/prod_uri*.txt
