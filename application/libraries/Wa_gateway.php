@@ -34,6 +34,18 @@ class Wa_gateway
         return $this->send($this->target_group, $message);
     }
 
+    public function send_screenshot_to_group($url, $caption = '')
+    {
+        if (empty($this->target_group)) {
+            return ['error' => true, 'message' => 'Group ID belum dikonfigurasi.'];
+        }
+        return $this->_curl_post('/send-screenshot', [
+            'to'      => $this->target_group,
+            'url'     => $url,
+            'caption' => $caption,
+        ]);
+    }
+
     public function get_status()
     {
         return $this->_curl_get('/status');
