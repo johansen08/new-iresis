@@ -398,7 +398,7 @@ function panel_collapse(panel, action, callback) {
 
 function panel_refresh(panel, action, callback) {
     if (!panel.hasClass("panel-refreshing")) {
-        panel.append('<div class="panel-refresh-layer"><img src="img/loaders/default.gif"/></div>');
+        panel.append('<div class="panel-refresh-layer" style="display: flex; flex-direction: column; justify-content: center; align-items: center;"><div class="jogger-wrap" style="width: auto; height: auto;"><i class="fa fa-street-view" style="font-size: 40px; color: #007bff; animation: jogging 0.6s infinite ease-in-out;"></i></div><div style="margin-top: 10px; font-weight: 700; color: #444; font-size: 10px; letter-spacing: 1px;">LOADING...</div></div>');
         panel.find(".panel-refresh-layer").width(panel.width()).height(panel.height());
         panel.addClass("panel-refreshing");
 

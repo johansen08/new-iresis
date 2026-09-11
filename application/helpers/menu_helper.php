@@ -63,10 +63,21 @@ if (!function_exists('tree_to_html_menu')) {
                 $uri = empty($menu['uri']) ? '#' : $menu['uri'];
             }
 
+            $menu_name = $menu['name'];
+
+            // Perbaikan Icon agar lebih terlihat
+            $icon = (empty($menu['icon']) || trim($menu['icon']) == '') ? 'fa fa-dot-circle-o' : $menu['icon'];
+            
+            // Icon Spesifik untuk KPI dan Accounting jika kosong
+            if (empty($menu['icon']) || trim($menu['icon']) == '') {
+                if (stripos($menu_name, 'KPI') !== false) $icon = 'fa fa-line-chart';
+                if (stripos($menu_name, 'ACCOUNTING') !== false) $icon = 'fa fa-book';
+            }
+
             if (empty($menu['child'])) {
-                $html .= '<li><a href="'.$uri.'" class="link"><span class="'.$menu['icon'].'"></span> '.$menu['name'].'</a></li>';
+                $html .= '<li><a href="'.$uri.'" class="link"><span class="'.$icon.'"></span> '.$menu_name.'</a></li>';
             } else {
-                $html .= '<li class="xn-openable"><a href="'.$uri.'"><span class="'.$menu['icon'].'"></span> <span class="xn-text">'.$menu['name'].'</span></a><ul>';
+                $html .= '<li class="xn-openable"><a href="'.$uri.'"><span class="'.$icon.'"></span> <span class="xn-text">'.$menu_name.'</span></a><ul>';
                 $html .= tree_to_html_menu($menu['child']);
                 $html .= '</ul></li>';
             }

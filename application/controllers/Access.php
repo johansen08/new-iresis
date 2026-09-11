@@ -45,7 +45,7 @@ class Access extends MY_Controller
 		$access['list'] = $this->input->post('access');
 		$access['roleid'] = $this->input->post('roleid');
 
-		$save = $this->access_fcd->update($access, $this->data['user']['id']);
+		$save = $this->access_fcd->update($access, $this->data['user']['id_user']);
 
 		if ($save['affected_rows'] > 0) {
 			$this->set_message('Success', SUCCESS_SAVE_DATA, 'information');

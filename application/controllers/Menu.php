@@ -50,7 +50,7 @@ class Menu extends MY_Controller {
 		$menu['sortorder'] =  $this->input->post('sortorder');
 		$menu['description'] =  $this->input->post('description');
 
-		$save = $this->menu_fcd->save($menu, $this->data['user']['id']);
+		$save = $this->menu_fcd->save($menu, $this->data['user']['id_user']);
 
 		if ($save['affected_rows'] > 0) {
 			$this->set_message('Success', SUCCESS_SAVE_DATA, 'information');
@@ -66,7 +66,7 @@ class Menu extends MY_Controller {
 		$menu['id'] =  $menu_id;
 		$menu['isactive'] = FALSE;
 
-		$save = $this->menu_fcd->save($menu, $this->data['user']['id']);
+		$save = $this->menu_fcd->save($menu, $this->data['user']['id_user']);
 
 		if ($save['affected_rows'] > 0) {
 			$this->set_message('Success', SUCCESS_SAVE_DATA, 'information');
