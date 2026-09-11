@@ -43,6 +43,20 @@
 </div>
 
 <script type="text/javascript">
+  // Semua suara di halaman ini lewat sini, jangan panggil .play() langsung.
+  // suaraScan (main.php) memotong durasi dan mereset posisi, jadi aksi
+  // berikutnya tidak menunggu suara sebelumnya selesai.
+  function playAudio(id, opsi) {
+    if (typeof suaraScan === 'function') {
+      suaraScan(id, opsi);
+      return;
+    }
+    var el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; } catch (err) {}
+      el.play();
+    }
+  }
 
     let jvalidate = $("#form_upload_resi_jubelio").validate({
         ignore: [],
@@ -61,7 +75,7 @@
             console.log("=============> Input file tidak diisi");
 
             // Mainkan audio jika validasi gagal
-            document.getElementById('audio-fail').play();
+            playAudio('audio-fail');
         },
         submitHandler: function(form) {
 
@@ -94,7 +108,7 @@
 
                     let res = JSON.parse(response);
 
-                    document.getElementById('audio-alert').play();
+                    playAudio('audio-alert');
 
                     $("#span_latest_receipt").text(res.message);
                     $("#div_container_latest_receipt").removeClass("tile-danger tile-default").addClass("tile-success");
@@ -123,7 +137,7 @@
                         }
                     }
 
-                    document.getElementById('audio-fail').play();
+                    playAudio('audio-fail');
 
                     $("#span_latest_receipt").text(errorMessage);
                     $("#div_container_latest_receipt").removeClass("tile-default tile-success").addClass("tile-danger");

@@ -11,7 +11,7 @@
           <div class="form-group">
             <div class="col-md-12">
               <div class="input-group">
-                <input type="text" class="form-control" name="noresi" id="noresi" placeholder="Nomor resi" />
+                <input type="text" class="form-control" name="noresi" id="noresi" placeholder="Scan / ketik nomor resi atau nomor pesanan" />
                 <span class="input-group-btn">
                   <button class="btn btn-default" type="submit"><i class="fa fa-search"></i> Cari</button>
                 </span>
@@ -50,6 +50,10 @@
                       <td><strong><?= $receipt['status_pesanan'] ?></strong></td>
                   </tr>
                   <tr>
+                      <td align="right">Status WMS :</td>
+                      <td><strong><?= !empty($receipt['status_wms']) ? $receipt['status_wms'] : '-' ?></strong></td>
+                  </tr>
+                  <tr>
                       <td align="right">SKU :</td>
                       <td>
                         <?php if (!empty($receipt_items)) : ?>
@@ -57,6 +61,7 @@
                             <thead>
                               <tr>
                                 <th>SKU</th>
+                                <th>No. Rak</th>
                                 <th>Kuantitas</th>
                               </tr>
                             </thead>
@@ -64,6 +69,7 @@
                               <?php foreach ($receipt_items as $item) : ?>
                               <tr>
                                 <td><strong><?= $item['sku'] ?></strong></td>
+                                <td><strong><?= !empty($item['no_rak']) ? $item['no_rak'] : '-' ?></strong></td>
                                 <td><strong><?= $item['jumlah'] ?></strong></td>
                               </tr>
                               <?php endforeach; ?>
@@ -73,6 +79,10 @@
                           <strong>-</strong>
                         <?php endif; ?>
                       </td>
+                  </tr>
+                  <tr>
+                      <td align="right">Nama Toko :</td>
+                      <td><strong><?= $receipt['toko'] ?></strong></td>
                   </tr>
                   <tr>
                       <td align="right">Marketplace :</td>
@@ -88,7 +98,13 @@
                   </tr>
                   <tr>
                       <td align="right">Tanggal Batas Kirim :</td>
-                      <td><strong><?= $receipt['tanggal_bataskirim'] ?></strong></td>
+                      <td>
+                        <?php 
+                          $is_today = (!empty($receipt['tanggal_bataskirim']) && date('Y-m-d', strtotime($receipt['tanggal_bataskirim'])) == date('Y-m-d'));
+                          $display = $receipt['tanggal_bataskirim'] ?: '-';
+                          echo $is_today ? '<strong style="color: red;">' . $display . '</strong>' : '<strong>' . $display . '</strong>';
+                        ?>
+                      </td>
                   </tr>
                 </tbody>
               </table>
@@ -132,12 +148,50 @@
                       <td align="right">Tanggal Scan Jadi :</td>
                       <td><strong><?= $receipt['tanggal_cetak'] ?></strong></td>
                   </tr>
-                  <tr>
-                      <td align="right">Tanggal Retur :</td>
-                      <td><strong><?= $receipt['tanggal_retur'] ?></strong></td>
-                  </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top: 15px; border-top: 1px dashed #ddd; padding-top: 15px;">
+            <div class="col-md-12">
+              <h4 style="margin-top: 0; color: #e04b4a; font-weight: bold; border-left: 3px solid #e04b4a; padding-left: 8px;">
+                <i class="fa fa-undo"></i> Detail Retur Barang
+              </h4>
+              <div class="row">
+                <div class="col-md-6">
+                  <table class="table table-striped" style="margin-bottom: 0;">
+                    <tbody>
+                      <tr>
+                        <td align="right" style="width: 40%;">Tanggal Retur :</td>
+                        <td><strong><?= !empty($receipt['tanggal_retur']) ? $receipt['tanggal_retur'] : '-' ?></strong></td>
+                      </tr>
+                      <tr>
+                        <td align="right">Tanggal Diterima :</td>
+                        <td><strong><?= !empty($receipt['tanggal_diterima']) ? $receipt['tanggal_diterima'] : '-' ?></strong></td>
+                      </tr>
+                      <tr>
+                        <td align="right">Tanggal Dibuka :</td>
+                        <td><strong><?= !empty($receipt['tanggal_dibuka']) ? $receipt['tanggal_dibuka'] : '-' ?></strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="col-md-6">
+                  <table class="table table-striped" style="margin-bottom: 0;">
+                    <tbody>
+                      <tr>
+                        <td align="right" style="width: 40%;">Status Dibuka :</td>
+                        <td><strong><?= !empty($receipt['status_dibuka']) ? $receipt['status_dibuka'] : '-' ?></strong></td>
+                      </tr>
+                      <tr>
+                        <td align="right">Tanggal ACC :</td>
+                        <td><strong><?= !empty($receipt['tanggal_acc']) ? $receipt['tanggal_acc'] : '-' ?></strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
 

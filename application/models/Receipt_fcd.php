@@ -77,6 +77,7 @@ class Receipt_fcd extends CI_Model
             dr.no_rak,
             s.nama_sku,
             s.link_foto,
+            s.jenis_packing,
             rab.yangambil_pegawai,
             u.name
         ');
@@ -147,12 +148,16 @@ class Receipt_fcd extends CI_Model
 
     function get_detail($noresi)
     {
-        $this->db->select('t.noresi, t.tanggal_printresi, t2.nama_marketplace, t3.tanggal_resiambilbarang
+        $this->db->select('t.noresi, t.toko, t.tanggal_printresi, t2.nama_marketplace, t3.tanggal_resiambilbarang
             , t4.nama_pegawai picker, t5.tanggal_packing, t6.name packer
             , COALESCE(t5.keterangan, t6.nama_komputer) komputer_packer_no, t7.nama_kurir, t8.tanggal_cetak
             , t8.tanggal_resikeluar, t.status_pesanan, t.tanggal_retur, t.tanggal_bataskirim
-            , (SELECT sp.status_name FROM tblkpi k LEFT JOIN tblmasterstatusperforma sp ON sp.id_statusperforma = k.id_statusperforma WHERE k.id_user = t3.admin_pegawai AND DATE(k.tanggal) = DATE(t3.tanggal_resiambilbarang) AND k.tipe_transaksi = "PICKER" AND k.created <= t3.tanggal_resiambilbarang ORDER BY ABS(TIMESTAMPDIFF(SECOND, k.created, t3.tanggal_resiambilbarang)) ASC LIMIT 1) as picker_status
-            , (SELECT sp2.status_name FROM tblkpi k2 LEFT JOIN tblmasterstatusperforma sp2 ON sp2.id_statusperforma = k2.id_statusperforma WHERE k2.id_user = t5.packer_pegawai AND DATE(k2.tanggal) = DATE(t5.tanggal_packing) AND k2.tipe_transaksi = "PACKER" AND k2.created <= t5.tanggal_packing ORDER BY ABS(TIMESTAMPDIFF(SECOND, k2.created, t5.tanggal_packing)) ASC LIMIT 1) as packer_status'
+            , sp_picker.status_name as picker_status
+            , sp_packer.status_name as packer_status
+            , retur.tanggal_resiretur as tanggal_diterima
+            , (SELECT MAX(tanggal_buka_retur) FROM tblbukaretur WHERE resi_buka = t.noresi) as tanggal_dibuka
+            , (SELECT GROUP_CONCAT(DISTINCT status_detail_buka SEPARATOR ", ") FROM tblbukaretur WHERE resi_buka = t.noresi) as status_dibuka
+            , verif.verified_at as tanggal_acc'
         );
 
         $this->db->join('tblmarketplace t2', 't2.id_marketplace = t.id_marketplace', 'left');
@@ -160,8 +165,13 @@ class Receipt_fcd extends CI_Model
         $this->db->join('tblpegawai t4', 't4.kode_pegawai = t3.yangambil_pegawai', 'left');
         $this->db->join('tblpacking t5', 't5.id_resi = t.id_printresi', 'left');
         $this->db->join('tbluser t6', 't6.id_user = t5.packer_pegawai', 'left');
+        // Status performa diambil dari kolom per-resi, bukan tebakan waktu terdekat di tblkpi
+        $this->db->join('tblmasterstatusperforma sp_picker', 'sp_picker.id_statusperforma = t3.status_performa_id', 'left');
+        $this->db->join('tblmasterstatusperforma sp_packer', 'sp_packer.id_statusperforma = t5.status_performa_id', 'left');
         $this->db->join('tblkurir t7', 't7.id_kurir = t.id_kurir', 'left');
         $this->db->join('tblresikeluar t8', 't8.id_resi = t.id_printresi', 'left');
+        $this->db->join('tblresiretur retur', 'retur.noresi = t.noresi', 'left');
+        $this->db->join('tblreturverifikasi verif', 'verif.no_resi = t.noresi AND verif.verified = 1', 'left');
 
         $this->db->where(['t.noresi' => $noresi]);
         $this->db->order_by('t.created_at', 'DESC');
@@ -172,12 +182,40 @@ class Receipt_fcd extends CI_Model
 
     function get_detail_items($noresi)
     {
-        $this->db->select('t9.sku, t9.jumlah, t9.no_pesanan');
+        $this->db->select('t9.sku, t9.jumlah, t9.no_pesanan, COALESCE(s.no_rak, "BELUM DITENTUKAN") as no_rak');
         $this->db->join('tbldetailprintresi t9', 't9.id_resi = t.id_printresi', 'inner');
+        $this->db->join('tblsku s', 's.id_sku = t9.sku', 'left');
         $this->db->where(['t.noresi' => $noresi]);
         $this->db->order_by('t9.id_detail_resi', 'ASC');
 
         return $this->db->get('tblprintresi t');
+    }
+
+    /**
+     * Resolusi nomor resi dari hasil scan/input.
+     * Mendukung input berupa nomor resi maupun nomor pesanan.
+     */
+    function resolve_noresi($keyword)
+    {
+        // Coba cocokkan langsung sebagai nomor resi.
+        $this->db->select('t.noresi');
+        $this->db->where('t.noresi', $keyword);
+        $this->db->order_by('t.created_at', 'DESC');
+        $this->db->limit(1);
+        $row = $this->db->get('tblprintresi t')->row_array();
+        if (!empty($row)) {
+            return $row['noresi'];
+        }
+
+        // Fallback: cocokkan sebagai nomor pesanan pada detail resi.
+        $this->db->select('t.noresi');
+        $this->db->join('tbldetailprintresi d', 'd.id_resi = t.id_printresi', 'inner');
+        $this->db->where('d.no_pesanan', $keyword);
+        $this->db->order_by('t.created_at', 'DESC');
+        $this->db->limit(1);
+        $row = $this->db->get('tblprintresi t')->row_array();
+
+        return !empty($row) ? $row['noresi'] : null;
     }
 
     function get_total_scan_user($id_user)
@@ -226,7 +264,8 @@ class Receipt_fcd extends CI_Model
             t.noresi,
             t4.nama_kurir,
             t.nomorpicklist,
-            t.status_pesanan
+            t.status_pesanan,
+            t.tanggal_bataskirim
         ');
 
         $this->db->distinct();
@@ -313,7 +352,8 @@ class Receipt_fcd extends CI_Model
             t2.nomorpicklist,
             t2.status_pesanan,
             t.tanggal_resiambilbarang,
-            t5.nama_pegawai picker
+            t5.nama_pegawai picker,
+            t2.tanggal_bataskirim
         ');
 
         $this->db->distinct();
@@ -406,7 +446,8 @@ class Receipt_fcd extends CI_Model
             t2.nomorpicklist,
             t3.tanggal_resiambilbarang,
             t6.nama_pegawai picker,
-            t7.name packer
+            t7.name packer,
+            t2.tanggal_bataskirim
         ');
 
         $this->db->distinct();
@@ -473,8 +514,10 @@ class Receipt_fcd extends CI_Model
     {
         $this->db->select('
             f.nama_marketplace,
+            a.toko as nama_toko,
             e.nama_kurir,
             a.noresi,
+            a.status_pesanan,
             a.nomorpicklist,
             a.tanggal_printresi,
             t1.nama_pegawai as admin_scan,
@@ -1095,6 +1138,159 @@ class Receipt_fcd extends CI_Model
         return isset($result) ? $result->num : 0;
     }
 
+    /**
+     * Dipakai auto_upload_resi_api (Jubelio core-api) untuk skip fetch detail
+     * item Jubelio bagi resi yang statusnya sudah final di iresis.
+     */
+    function get_completed_noresi(array $noresi_list)
+    {
+        $completed = [];
+        $chunks = array_chunk(array_values(array_unique($noresi_list)), 1000);
+
+        foreach ($chunks as $chunk) {
+            $this->db->select('noresi');
+            $this->db->from('tblprintresi');
+            $this->db->where('status_pesanan', 'COMPLETED');
+            $this->db->where_in('noresi', $chunk);
+            foreach ($this->db->get()->result() as $row) {
+                $completed[] = $row->noresi;
+            }
+        }
+
+        return $completed;
+    }
+
+    /**
+     * Versi lebih lengkap dari get_completed_noresi(): balikin status_pesanan
+     * SAAT INI untuk semua noresi yang sudah ada di iresis (apapun statusnya,
+     * bukan cuma COMPLETED). Dipakai auto_upload_resi_api untuk skip panggil
+     * detail Jubelio kalau status TIDAK BERUBAH sejak upload terakhir -
+     * mayoritas resi di window H-3 sudah SHIPPED (bukan cuma COMPLETED) jadi
+     * filter status-map ini jauh lebih efektif daripada hanya cek COMPLETED.
+     */
+    function get_status_map(array $noresi_list)
+    {
+        $map = [];
+        $chunks = array_chunk(array_values(array_unique($noresi_list)), 1000);
+
+        foreach ($chunks as $chunk) {
+            $this->db->select('noresi, status_pesanan');
+            $this->db->from('tblprintresi');
+            $this->db->where_in('noresi', $chunk);
+            foreach ($this->db->get()->result() as $row) {
+                $map[$row->noresi] = strtoupper(trim($row->status_pesanan ?? ''));
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * PERBAIKAN SEKALI-JALAN untuk data rusak akibat bug run auto_upload_resi_api
+     * tanggal 2026-07-04 (qty ter-gandakan karena order dobel di pagination, dan
+     * no_rak kosong). NON-DESTRUKTIF: hanya UPDATE kolom jumlah & no_rak pada
+     * tbldetailprintresi untuk resi tertentu; TIDAK menyentuh header, picklist,
+     * status, maupun link pick/pack. Hanya menulis kalau nilainya memang beda.
+     *
+     * $corrections: [ ['noresi'=>..., 'nomorpicklist'=>..., 'items'=>[ ['sku'=>..., 'qty'=>int], ... ] ], ... ]
+     * nomorpicklist (opsional) = detail.picked_in Jubelio; hanya diisi kalau
+     * kolom di iresis saat ini KOSONG (tidak menimpa nilai yang sudah ada).
+     * Return ringkasan jumlah baris yang diperbaiki.
+     */
+    function fix_detail_from_jubelio(array $corrections)
+    {
+        $qty_fixed = 0;
+        $rak_fixed = 0;
+        $picklist_fixed = 0;
+        $resi_touched = 0;
+        $resi_notfound = 0;
+
+        // Kumpulkan semua sku untuk lookup no_rak master sekaligus
+        $all_skus = [];
+        foreach ($corrections as $c) {
+            foreach (($c['items'] ?? []) as $it) {
+                if (!empty($it['sku'])) $all_skus[$it['sku']] = true;
+            }
+        }
+        $rak_map = [];
+        foreach (array_chunk(array_keys($all_skus), 1000) as $sku_chunk) {
+            if (empty($sku_chunk)) continue;
+            $this->db->select('id_sku, no_rak');
+            $this->db->from('tblsku');
+            $this->db->where_in('id_sku', $sku_chunk);
+            foreach ($this->db->get()->result() as $srow) {
+                $rak_map[$srow->id_sku] = $srow->no_rak;
+            }
+        }
+
+        foreach ($corrections as $c) {
+            $noresi = $c['noresi'] ?? '';
+            $items  = $c['items'] ?? [];
+            $has_picklist = trim((string)($c['nomorpicklist'] ?? '')) !== '';
+            if ($noresi === '' || (empty($items) && !$has_picklist)) continue;
+
+            // Ambil id_printresi resi ini (utamakan yang di-insert run bermasalah)
+            $this->db->select('id_printresi, nomorpicklist');
+            $this->db->from('tblprintresi');
+            $this->db->where('noresi', $noresi);
+            $this->db->order_by('id_printresi', 'DESC');
+            $header = $this->db->get()->row();
+            if (!$header) { $resi_notfound++; continue; }
+            $id_resi = $header->id_printresi;
+
+            // Pulihkan nomorpicklist dari Jubelio (picked_in) HANYA kalau kosong
+            $new_picklist = trim((string)($c['nomorpicklist'] ?? ''));
+            if ($new_picklist !== '' && ($header->nomorpicklist ?? '') === '') {
+                $this->db->where('id_printresi', $id_resi);
+                $this->db->update('tblprintresi', ['nomorpicklist' => $new_picklist]);
+                $picklist_fixed++;
+            }
+
+            // Ambil detail sekarang untuk resi ini
+            $this->db->select('id_detail_resi, sku, jumlah, no_rak');
+            $this->db->from('tbldetailprintresi');
+            $this->db->where('id_resi', $id_resi);
+            $current = [];
+            foreach ($this->db->get()->result() as $d) {
+                $current[$d->sku] = $d;
+            }
+
+            $touched = false;
+            foreach ($items as $it) {
+                $sku = $it['sku'] ?? '';
+                $correct_qty = (int)($it['qty'] ?? 0);
+                if ($sku === '' || !isset($current[$sku])) continue;
+
+                $d = $current[$sku];
+                $upd = [];
+
+                if ((int)$d->jumlah !== $correct_qty) {
+                    $upd['jumlah'] = $correct_qty;
+                }
+                if (($d->no_rak ?? '') === '' && !empty($rak_map[$sku])) {
+                    $upd['no_rak'] = $rak_map[$sku];
+                }
+
+                if (!empty($upd)) {
+                    $this->db->where('id_detail_resi', $d->id_detail_resi);
+                    $this->db->update('tbldetailprintresi', $upd);
+                    if (isset($upd['jumlah'])) $qty_fixed++;
+                    if (isset($upd['no_rak'])) $rak_fixed++;
+                    $touched = true;
+                }
+            }
+            if ($touched) $resi_touched++;
+        }
+
+        return [
+            'resi_touched'   => $resi_touched,
+            'qty_fixed'      => $qty_fixed,
+            'rak_fixed'      => $rak_fixed,
+            'picklist_fixed' => $picklist_fixed,
+            'resi_notfound'  => $resi_notfound,
+        ];
+    }
+
     function insert_receipt(array $receiptData, ?string $user_id = null) {
         if (empty($receiptData)) return "No data provided";
 
@@ -1166,6 +1362,8 @@ class Receipt_fcd extends CI_Model
                 'jemput sendiri'    => ['jemput sendiri'],
                 'jne'               => ['jne'],
                 'jnt'               => ['j&t', 'jnt'],
+                'jnt-fierra'        => ['jnt-fierra'],
+                'jnt-kav-dpr'       => ['jnt-kav-dpr'],
                 'lazada'            => ['lazada', 'lex id'],
                 'ninja'             => ['ninja'],
                 'rex'               => ['rex'],
@@ -1271,11 +1469,27 @@ class Receipt_fcd extends CI_Model
                         // Normalize courier
                         $kurirRaw = $row['S'] ?? '';
                         $kurir = $detectCourier($kurirRaw);
-                        // Override: if marketplace is Lazada but detected courier is JNE or Ninja, force Lazada courier
-                        if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt'], true)) {
+                        // Override: if marketplace is Lazada but detected courier is JNE, Ninja, J&T, or SiCepat, force Lazada courier
+                        if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true)) {
                             $kurir = 'lazada';
                         }
-                        $id_kurir = $kurir_map[$kurir] ?? 99;
+                        if ($kurir === 'jnt') {
+                            $tanggal_pesan_date = $combineDateTime($excelDateToPhpDate($row['D'] ?? null), $excelTimeToPhpTime($row['E'] ?? null));
+                            $dateStr = $tanggal_pesan_date ? substr($tanggal_pesan_date, 0, 10) : '';
+                            if ($dateStr !== '') {
+                                if ($dateStr < '2024-05-27') {
+                                    $id_kurir = $kurir_map['jnt'] ?? 99;
+                                } elseif ($dateStr >= '2024-05-27' && $dateStr < '2025-10-13') {
+                                    $id_kurir = $kurir_map['jnt-fierra'] ?? 99;
+                                } else {
+                                    $id_kurir = $kurir_map['jnt-kav-dpr'] ?? 99;
+                                }
+                            } else {
+                                $id_kurir = $kurir_map['jnt-kav-dpr'] ?? 99;
+                            }
+                        } else {
+                            $id_kurir = $kurir_map[$kurir] ?? 99;
+                        }
 
                         $batch_update_map[$noresi] = [
                             'id_printresi'        => $update_candidates[$noresi]['id_printresi'],
@@ -1287,10 +1501,15 @@ class Receipt_fcd extends CI_Model
                             'tanggal_selesai'     => $combineDateTime($excelDateToPhpDate($row['L'] ?? null), $excelTimeToPhpTime($row['M'] ?? null)),
                             'tanggal_retur'       => $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null)),
                             'status_pesanan'      => $row['T'] ?? null,
-                            'nomorpicklist'       => $row['C'] ?? '',
+                            'status_wms'          => $row['W'] ?? null,
                             'modified_at'         => date('Y-m-d H:i:s'),
                             'modified_by'         => $user_id
                         ];
+                        // Hanya timpa nomorpicklist kalau ada nilai baru - jangan kosongkan
+                        // yang sudah ada (sumber data spt Jubelio core-api tidak punya field ini).
+                        if (!empty($row['C'])) {
+                            $batch_update_map[$noresi]['nomorpicklist'] = $row['C'];
+                        }
                     } else {
                         $total_skip_update_same_status++;
                     }
@@ -1311,11 +1530,27 @@ class Receipt_fcd extends CI_Model
                 // Normalize courier
                 $kurirRaw = $row['S'] ?? '';
                 $kurir = $detectCourier($kurirRaw);
-                // Override: if marketplace is Lazada but detected courier is JNE or Ninja, force Lazada courier
-                if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt'], true)) {
+                // Override: if marketplace is Lazada but detected courier is JNE, Ninja, J&T, or SiCepat, force Lazada courier
+                if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true)) {
                     $kurir = 'lazada';
                 }
-                $id_kurir = $kurir_map[$kurir] ?? 99;
+                if ($kurir === 'jnt') {
+                    $tanggal_pesan_date = $combineDateTime($excelDateToPhpDate($row['D'] ?? null), $excelTimeToPhpTime($row['E'] ?? null));
+                    $dateStr = $tanggal_pesan_date ? substr($tanggal_pesan_date, 0, 10) : '';
+                    if ($dateStr !== '') {
+                        if ($dateStr < '2024-05-27') {
+                            $id_kurir = $kurir_map['jnt'] ?? 99;
+                        } elseif ($dateStr >= '2024-05-27' && $dateStr < '2025-10-13') {
+                            $id_kurir = $kurir_map['jnt-fierra'] ?? 99;
+                        } else {
+                            $id_kurir = $kurir_map['jnt-kav-dpr'] ?? 99;
+                        }
+                    } else {
+                        $id_kurir = $kurir_map['jnt-kav-dpr'] ?? 99;
+                    }
+                } else {
+                    $id_kurir = $kurir_map[$kurir] ?? 99;
+                }
 
                 // Always set detail_key
                 $detail_key = "$noresi-$no_pesanan-$sku";
@@ -1335,6 +1570,7 @@ class Receipt_fcd extends CI_Model
                         'tanggal_selesai'     => $combineDateTime($excelDateToPhpDate($row['L'] ?? null), $excelTimeToPhpTime($row['M'] ?? null)),
                         'tanggal_retur'       => $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null)),
                         'status_pesanan'      => $row['T'] ?? null,
+                        'status_wms'          => $row['W'] ?? null,
                         'batal'               => '',
                         'keterangan'          => '',
                         'nomorpicklist'       => $row['C'] ?? '',
@@ -1385,17 +1621,44 @@ class Receipt_fcd extends CI_Model
                     }
                 }
 
+                // Backfill no_rak dari master tblsku untuk detail yang no_rak-nya
+                // kosong. Sumber data spt Jubelio core-api tidak punya nomor rak
+                // (itu data internal iresis) -> tanpa ini, tampilan packer
+                // (get_receipt_for_packer baca dr.no_rak) jadi kosong.
+                $rak_map = [];
+                $skus_need_rak = [];
+                foreach ($batch_detail_map as $detail) {
+                    if (($detail['no_rak'] ?? '') === '' && !empty($detail['sku'])) {
+                        $skus_need_rak[$detail['sku']] = true;
+                    }
+                }
+                if (!empty($skus_need_rak)) {
+                    foreach (array_chunk(array_keys($skus_need_rak), 1000) as $sku_chunk) {
+                        $this->db->select('id_sku, no_rak');
+                        $this->db->from('tblsku');
+                        $this->db->where_in('id_sku', $sku_chunk);
+                        foreach ($this->db->get()->result() as $srow) {
+                            $rak_map[$srow->id_sku] = $srow->no_rak;
+                        }
+                    }
+                }
+
                 // Prepare Detail Rows
                 $detail_rows = [];
                 foreach ($batch_detail_map as $detail) {
                     $id_resi = $id_resi_map[$detail['noresi']] ?? null;
                     if (!$id_resi) continue;
 
+                    $no_rak = $detail['no_rak'] ?? '';
+                    if ($no_rak === '' && isset($rak_map[$detail['sku']])) {
+                        $no_rak = $rak_map[$detail['sku']];
+                    }
+
                     $detail_rows[] = [
                         'id_resi'    => $id_resi,
                         'no_pesanan' => $detail['no_pesanan'],
                         'sku'        => $detail['sku'],
-                        'no_rak'     => $detail['no_rak'],
+                        'no_rak'     => $no_rak,
                         'jumlah'     => $detail['jumlah']
                     ];
                 }
@@ -1632,21 +1895,25 @@ class Receipt_fcd extends CI_Model
         $search_where = '';
         if (!empty($data['search'])) {
             $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t2.nama_pegawai LIKE '%{$search}%' OR DATE(b.tanggal_resiambilbarang) LIKE '%{$search}%')";
+            $search_where = " AND (t_usr.name LIKE '%{$search}%' OR DATE(b.tanggal_resiambilbarang) LIKE '%{$search}%')";
         }
         
         // OPTIMIZED V9: Group hanya per tanggal & picker, ambil status dari scan PERTAMA
         $sql = "
         SELECT 
             DATE(b.tanggal_resiambilbarang) as tanggal_resiambilbarang,
+            b.yangambil_pegawai as id_picker,
             MIN(b.admin_pegawai) as admin_pegawai,
-            MAX(t2.nama_pegawai) as pegawai,
+            MAX(COALESCE(t_usr.name, t_usr.username)) as pegawai,
             MAX(COALESCE(first_status.status_name, 'Tanpa Status')) as status_performa,
             COUNT(DISTINCT a.id_printresi) as total,
-            MIN(b.tanggal_resiambilbarang) as waktu_scan_picker
+            MIN(b.tanggal_resiambilbarang) as waktu_scan_picker,
+            MAX(b.tanggal_resiambilbarang) as waktu_scan_selesai,
+            MAX(t_hak.akses) as role
         FROM tblprintresi a
         INNER JOIN tblresiambilbarang b ON a.id_printresi = b.id_resi
-        LEFT JOIN tblpegawai t2 ON t2.kode_pegawai = b.yangambil_pegawai
+        LEFT JOIN tbluser t_usr ON t_usr.id_user = b.yangambil_pegawai
+        LEFT JOIN tblhakakses t_hak ON t_hak.id_hakakses = t_usr.hakakses
         -- JOIN ke subquery untuk ambil status PERTAMA per picker per hari
         LEFT JOIN (
             SELECT 
@@ -1705,7 +1972,7 @@ class Receipt_fcd extends CI_Model
         $search_where = '';
         if (!empty($data['search'])) {
             $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t2.nama_pegawai LIKE '%{$search}%' OR DATE(b.tanggal_resiambilbarang) LIKE '%{$search}%')";
+            $search_where = " AND (t_usr.name LIKE '%{$search}%' OR DATE(b.tanggal_resiambilbarang) LIKE '%{$search}%')";
         }
         
         // OPTIMIZED V9: Count rows dengan grouping baru (hanya per tanggal & picker)
@@ -1717,7 +1984,7 @@ class Receipt_fcd extends CI_Model
                 b.yangambil_pegawai
             FROM tblprintresi a
             INNER JOIN tblresiambilbarang b ON a.id_printresi = b.id_resi
-            LEFT JOIN tblpegawai t2 ON t2.kode_pegawai = b.yangambil_pegawai
+            LEFT JOIN tbluser t_usr ON t_usr.id_user = b.yangambil_pegawai
             WHERE b.tanggal_resiambilbarang >= " . $this->db->escape($start_date) . "
             AND b.tanggal_resiambilbarang <= " . $this->db->escape($end_date) . "
             {$search_where}
@@ -1745,10 +2012,13 @@ class Receipt_fcd extends CI_Model
             MAX(t3.name) as pegawai,
             MAX(COALESCE(first_status.status_name, 'Tanpa Status')) as status_performa,
             COUNT(DISTINCT a.id_printresi) as total,
-            MIN(c.tanggal_packing) as waktu_scan_packer
+            MIN(c.tanggal_packing) as waktu_scan_packer,
+            MAX(c.tanggal_packing) as waktu_scan_selesai,
+            MAX(t_hak.akses) as role
         FROM tblprintresi a
         INNER JOIN tblpacking c ON a.id_printresi = c.id_resi
         LEFT JOIN tbluser t3 ON t3.id_user = c.packer_pegawai
+        LEFT JOIN tblhakakses t_hak ON t_hak.id_hakakses = t3.hakakses
         -- JOIN ke subquery untuk ambil status PERTAMA per packer per hari
         LEFT JOIN (
             SELECT 
@@ -1824,6 +2094,86 @@ class Receipt_fcd extends CI_Model
             AND c.tanggal_packing <= " . $this->db->escape($end_date) . "
             {$search_where}
             GROUP BY DATE(c.tanggal_packing), c.packer_pegawai
+        ) as grouped_data";
+        
+        $result = $this->db->query($sql)->row();
+        return $result ? $result->total : 0;
+    }
+
+    function get_data_production_team_tab2($data, $start_date, $end_date)
+    {
+        // Build search conditions for the subquery
+        $search_where = '';
+        if (!empty($data['search'])) {
+            $search = $this->db->escape_like_str($data['search']);
+            $search_where = " AND (t4.nama_pegawai LIKE '%{$search}%' OR DATE(d.tanggal_resikeluar) LIKE '%{$search}%')";
+        }
+        
+        $sql = "
+        SELECT 
+            DATE(d.tanggal_resikeluar) as tanggal_resikeluar,
+            d.id_pegawai,
+            MAX(t4.nama_pegawai) as pegawai,
+            'Tanpa Status' as status_performa,
+            COUNT(DISTINCT a.id_printresi) as total,
+            MIN(d.tanggal_resikeluar) as waktu_scan_ho,
+            MAX(t_hak.akses) as role
+        FROM tblprintresi a
+        INNER JOIN tblresikeluar d ON a.id_printresi = d.id_resi
+        LEFT JOIN tblpegawai t4 ON t4.kode_pegawai = d.id_pegawai
+        LEFT JOIN tbluser t_usr ON t_usr.id_pegawai = t4.kode_pegawai
+        LEFT JOIN tblhakakses t_hak ON t_hak.id_hakakses = t_usr.hakakses
+        WHERE d.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
+        AND d.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
+        {$search_where}
+        GROUP BY DATE(d.tanggal_resikeluar), d.id_pegawai
+        ";
+        
+        // Add ORDER BY
+        if (!empty($data) && !empty($data['order'])) {
+            $order_col = ['pegawai', 'tanggal_resikeluar', 'total'];
+            $order_clauses = [];
+            foreach ($data['order'] as $order) {
+                if (isset($order_col[$order['column']])) {
+                    $order_clauses[] = $order_col[$order['column']] . ' ' . strtoupper($order['dir']);
+                }
+            }
+            if (!empty($order_clauses)) {
+                $sql .= " ORDER BY " . implode(', ', $order_clauses);
+            }
+        } else {
+            $sql .= " ORDER BY DATE(d.tanggal_resikeluar) DESC, total DESC";
+        }
+        
+        // Add LIMIT
+        if (!empty($data) && isset($data['start']) && isset($data['length']) && $data['length'] != -1) {
+            $sql .= " LIMIT " . intval($data['length']) . " OFFSET " . intval($data['start']);
+        }
+
+        return $this->db->query($sql);
+    }
+
+    function get_total_data_production_team_tab2($data, $start_date, $end_date)
+    {
+        $search_where = '';
+        if (!empty($data['search'])) {
+            $search = $this->db->escape_like_str($data['search']);
+            $search_where = " AND (t4.nama_pegawai LIKE '%{$search}%' OR DATE(d.tanggal_resikeluar) LIKE '%{$search}%')";
+        }
+        
+        $sql = "
+        SELECT COUNT(*) as total
+        FROM (
+            SELECT 
+                DATE(d.tanggal_resikeluar) as tanggal_resikeluar,
+                d.id_pegawai
+            FROM tblprintresi a
+            INNER JOIN tblresikeluar d ON a.id_printresi = d.id_resi
+            LEFT JOIN tblpegawai t4 ON t4.kode_pegawai = d.id_pegawai
+            WHERE d.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
+            AND d.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
+            {$search_where}
+            GROUP BY DATE(d.tanggal_resikeluar), d.id_pegawai
         ) as grouped_data";
         
         $result = $this->db->query($sql)->row();
@@ -2025,6 +2375,560 @@ class Receipt_fcd extends CI_Model
         $this->db->where('DATE(pr.tanggal_bataskirim)', $today);
         
         return $this->db->get()->row_array();
+    }
+
+    // ==================== SKU SPECIAL REPORT METHODS ====================
+
+    /**
+     * Get summary (per-SKU total qty) for the SKU special report header cards
+     */
+    function get_sku_special_report_summary($start_date, $end_date)
+    {
+        $sql = "
+            SELECT
+                dr.sku,
+                COALESCE(s.nama_sku, dr.sku) AS nama_sku,
+                SUM(dr.jumlah) AS total_qty,
+                COUNT(DISTINCT pr.id_printresi) AS total_resi
+            FROM tblprintresi pr
+            INNER JOIN tbldetailprintresi dr ON dr.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dr.sku AND s.is_special = 1
+            WHERE pr.created_at >= " . $this->db->escape($start_date) . "
+              AND pr.created_at <= " . $this->db->escape($end_date) . "
+            GROUP BY dr.sku, s.nama_sku
+            ORDER BY total_qty DESC
+        ";
+        return $this->db->query($sql)->result();
+    }
+
+    /**
+     * Get paginated detail rows for the SKU special DataTable
+     */
+    function get_data_sku_special_report($data, $start_date, $end_date)
+    {
+        $search_where = '';
+        if (!empty($data['search'])) {
+            $s = $this->db->escape_like_str($data['search']);
+            $search_where = " AND (pr.noresi LIKE '%{$s}%' OR dr.sku LIKE '%{$s}%'
+                OR m.nama_marketplace LIKE '%{$s}%' OR k.nama_kurir LIKE '%{$s}%'
+                OR pr.status_pesanan LIKE '%{$s}%')";
+        }
+
+        $order_by = 'pr.created_at DESC';
+        if (!empty($data['order']) && !empty($data['dir'])) {
+            $allowed = ['pr.created_at', 'pr.noresi', 'dr.sku', 'dr.jumlah',
+                        'm.nama_marketplace', 'k.nama_kurir', 'pr.status_pesanan'];
+            if (in_array($data['order'], $allowed)) {
+                $order_by = $this->db->escape_str($data['order']) . ' ' . ($data['dir'] === 'asc' ? 'ASC' : 'DESC');
+            }
+        }
+
+        $limit_clause = '';
+        if (!empty($data['length'])) {
+            $limit_clause = 'LIMIT ' . intval($data['length']) . ' OFFSET ' . intval($data['start']);
+        }
+
+        $sql = "
+            SELECT
+                pr.created_at,
+                pr.noresi,
+                dr.sku,
+                dr.jumlah,
+                m.nama_marketplace,
+                k.nama_kurir,
+                pr.status_pesanan,
+                agg.unique_skus,
+                agg.total_qty_resi,
+                CASE
+                    WHEN agg.unique_skus = 1 AND agg.total_qty_resi = 1 THEN 'Resi Special'
+                    WHEN agg.unique_skus = 1 AND agg.total_qty_resi BETWEEN 2 AND 9 THEN '1 SKU & Qty ≤9'
+                    WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty_resi <= 9 THEN '2-9 SKU & Qty ≤9'
+                    ELSE 'Qty Banyak'
+                END AS kategori_resi
+            FROM tblprintresi pr
+            INNER JOIN tbldetailprintresi dr ON dr.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dr.sku AND s.is_special = 1
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            LEFT JOIN (
+                SELECT id_resi,
+                       COUNT(DISTINCT sku) AS unique_skus,
+                       SUM(jumlah) AS total_qty_resi
+                FROM tbldetailprintresi
+                GROUP BY id_resi
+            ) agg ON agg.id_resi = pr.id_printresi
+            WHERE pr.created_at >= " . $this->db->escape($start_date) . "
+              AND pr.created_at <= " . $this->db->escape($end_date) . "
+            {$search_where}
+            ORDER BY {$order_by}
+            {$limit_clause}
+        ";
+        return $this->db->query($sql);
+    }
+
+    /**
+     * Get total count for the SKU special DataTable
+     */
+    function get_total_data_sku_special_report($data, $start_date, $end_date)
+    {
+        $search_where = '';
+        if (!empty($data['search'])) {
+            $s = $this->db->escape_like_str($data['search']);
+            $search_where = " AND (pr.noresi LIKE '%{$s}%' OR dr.sku LIKE '%{$s}%'
+                OR m.nama_marketplace LIKE '%{$s}%' OR k.nama_kurir LIKE '%{$s}%'
+                OR pr.status_pesanan LIKE '%{$s}%')";
+        }
+
+        $sql = "
+            SELECT COUNT(*) AS num
+            FROM tblprintresi pr
+            INNER JOIN tbldetailprintresi dr ON dr.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dr.sku AND s.is_special = 1
+            LEFT JOIN tblmarketplace m ON m.id_marketplace = pr.id_marketplace
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            WHERE pr.created_at >= " . $this->db->escape($start_date) . "
+              AND pr.created_at <= " . $this->db->escape($end_date) . "
+            {$search_where}
+        ";
+        $row = $this->db->query($sql)->row();
+        return $row ? (int)$row->num : 0;
+    }
+
+    /**
+     * Get enhanced shipping report with SKU-category breakdown per courier
+     */
+    function get_shipping_report_detail($start_date, $end_date)
+    {
+        $sql = "
+            SELECT
+                COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
+                COUNT(DISTINCT rk.id_resi) AS total,
+                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1 THEN 1 ELSE 0 END) AS total_special,
+                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN 1 ELSE 0 END) AS total_1sku,
+                SUM(CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN 1 ELSE 0 END) AS total_2_9sku,
+                SUM(CASE WHEN agg.total_qty > 9 THEN 1 ELSE 0 END) AS total_qty_banyak
+            FROM tblresikeluar rk
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+            LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            LEFT JOIN (
+                SELECT dr.id_resi,
+                       COUNT(DISTINCT dr.sku) AS unique_skus,
+                       SUM(dr.jumlah) AS total_qty
+                FROM tbldetailprintresi dr
+                GROUP BY dr.id_resi
+            ) agg ON agg.id_resi = pr.id_printresi
+            WHERE rk.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
+              AND rk.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
+            GROUP BY k.nama_kurir
+            ORDER BY total DESC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    /**
+     * Get overall category totals for the shipping report summary cards
+     */
+    function get_shipping_report_category_totals($start_date, $end_date)
+    {
+        $sql = "
+            SELECT
+                COUNT(DISTINCT rk.id_resi) AS grand_total,
+                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1 THEN 1 ELSE 0 END) AS total_special,
+                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN 1 ELSE 0 END) AS total_1sku,
+                SUM(CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN 1 ELSE 0 END) AS total_2_9sku,
+                SUM(CASE WHEN agg.total_qty > 9 THEN 1 ELSE 0 END) AS total_qty_banyak
+            FROM tblresikeluar rk
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+            LEFT JOIN (
+                SELECT dr.id_resi,
+                       COUNT(DISTINCT dr.sku) AS unique_skus,
+                       SUM(dr.jumlah) AS total_qty
+                FROM tbldetailprintresi dr
+                GROUP BY id_resi
+            ) agg ON agg.id_resi = pr.id_printresi
+            WHERE rk.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
+              AND rk.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
+        ";
+        $row = $this->db->query($sql)->row_array();
+        return $row ?: [];
+    }
+
+    /**
+     * Get overall category totals of unique resi containing special SKU
+     */
+    function get_sku_special_report_category_totals($start_date, $end_date)
+    {
+        $sql = "
+            SELECT
+                COUNT(DISTINCT pr.id_printresi) AS total_resi,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty_resi = 1 THEN pr.id_printresi END) AS total_special,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty_resi BETWEEN 2 AND 9 THEN pr.id_printresi END) AS total_1sku,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty_resi <= 9 THEN pr.id_printresi END) AS total_2_9sku,
+                COUNT(DISTINCT CASE WHEN agg.total_qty_resi > 9 THEN pr.id_printresi END) AS total_qty_banyak
+            FROM tblprintresi pr
+            INNER JOIN tbldetailprintresi dr ON dr.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dr.sku AND s.is_special = 1
+            LEFT JOIN (
+                SELECT id_resi,
+                       COUNT(DISTINCT sku) AS unique_skus,
+                       SUM(jumlah) AS total_qty_resi
+                FROM tbldetailprintresi
+                GROUP BY id_resi
+            ) agg ON agg.id_resi = pr.id_printresi
+            WHERE pr.created_at >= " . $this->db->escape($start_date) . "
+              AND pr.created_at <= " . $this->db->escape($end_date) . "
+        ";
+        return $this->db->query($sql)->row_array();
+    }
+
+    public function get_picker_performance_detail_summary($id_picker, $tanggal)
+    {
+        $sql = "
+            SELECT 
+                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus BETWEEN 2 AND 9) THEN 1 ELSE 0 END) as resi_2_9_sku_sd_9,
+                COUNT(*) as total_resi
+            FROM (
+                SELECT 
+                    pr.id_printresi,
+                    m.distinct_skus,
+                    m.total_qty,
+                    COALESCE(m.has_special, 0) as has_special
+                FROM tblresiambilbarang rab
+                INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
+                LEFT JOIN (
+                    SELECT 
+                        dt.id_resi,
+                        COUNT(DISTINCT dt.sku) as distinct_skus,
+                        SUM(dt.jumlah) as total_qty,
+                        MAX(CASE WHEN s.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                    FROM tbldetailprintresi dt
+                    JOIN tblsku s ON s.id_sku = dt.sku
+                    GROUP BY dt.id_resi
+                ) m ON m.id_resi = pr.id_printresi
+                WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
+                  AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+            ) as t
+        ";
+        return $this->db->query($sql)->row_array();
+    }
+
+    public function get_picker_performance_detail_list($id_picker, $tanggal)
+    {
+        $sql = "
+            SELECT 
+                pr.id_printresi,
+                pr.noresi,
+                pr.tanggal_bataskirim,
+                pr.status_pesanan,
+                rab.tanggal_resiambilbarang as waktu_scan,
+                m.distinct_skus,
+                m.total_qty,
+                COALESCE(m.has_special, 0) as has_special,
+                m.detail_barang
+            FROM tblresiambilbarang rab
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
+            LEFT JOIN (
+                SELECT 
+                    dt.id_resi,
+                    COUNT(DISTINCT dt.sku) as distinct_skus,
+                    SUM(dt.jumlah) as total_qty,
+                    MAX(CASE WHEN s.is_special = 1 THEN 1 ELSE 0 END) as has_special,
+                    GROUP_CONCAT(CONCAT(s.nama_sku, ' (x', dt.jumlah, ')') SEPARATOR ', ') as detail_barang
+                FROM tbldetailprintresi dt
+                JOIN tblsku s ON s.id_sku = dt.sku
+                GROUP BY dt.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
+              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+            ORDER BY rab.tanggal_resiambilbarang ASC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_production_team_report_details_batch($start_date, $end_date)
+    {
+        $sql = "
+            SELECT 
+                rab.yangambil_pegawai as id_picker,
+                DATE(rab.tanggal_resiambilbarang) as tanggal,
+                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus BETWEEN 2 AND 9) THEN 1 ELSE 0 END) as resi_2_9_sku_sd_9
+            FROM tblresiambilbarang rab
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
+            LEFT JOIN (
+                SELECT 
+                    dt.id_resi,
+                    COUNT(DISTINCT dt.sku) as distinct_skus,
+                    SUM(dt.jumlah) as total_qty,
+                    MAX(CASE WHEN s.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                FROM tbldetailprintresi dt
+                JOIN tblsku s ON s.id_sku = dt.sku
+                GROUP BY dt.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE rab.tanggal_resiambilbarang >= " . $this->db->escape($start_date) . "
+              AND rab.tanggal_resiambilbarang <= " . $this->db->escape($end_date) . "
+            GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_picker_sku_summary_by_category($id_picker, $tanggal, $category)
+    {
+        $category_cond = "";
+        if ($category == 'sku_special') {
+            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty_resi <= 10";
+        } elseif ($category == 'resi_qty_banyak') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi > 9";
+        } elseif ($category == 'resi_1_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
+        } elseif ($category == 'resi_2_9_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
+        }
+
+        $sql = "
+            SELECT 
+                dt.sku as id_sku,
+                s.nama_sku,
+                SUM(dt.jumlah) as total_qty,
+                COUNT(DISTINCT pr.id_printresi) as resi_count
+            FROM tblresiambilbarang rab
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
+            INNER JOIN tbldetailprintresi dt ON dt.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dt.sku
+            LEFT JOIN (
+                SELECT 
+                    dt2.id_resi,
+                    COUNT(DISTINCT dt2.sku) as distinct_skus,
+                    SUM(dt2.jumlah) as total_qty_resi,
+                    MAX(CASE WHEN s2.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                FROM tbldetailprintresi dt2
+                JOIN tblsku s2 ON s2.id_sku = dt2.sku
+                GROUP BY dt2.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
+              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+              $category_cond
+            GROUP BY dt.sku, s.nama_sku
+            ORDER BY total_qty DESC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku)
+    {
+        $category_cond = "";
+        if ($category == 'sku_special') {
+            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty <= 10";
+        } elseif ($category == 'resi_qty_banyak') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty > 9";
+        } elseif ($category == 'resi_1_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
+        } elseif ($category == 'resi_2_9_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
+        }
+
+        $sql = "
+            SELECT DISTINCT
+                pr.id_printresi,
+                pr.noresi,
+                pr.tanggal_bataskirim,
+                pr.status_pesanan,
+                rab.tanggal_resiambilbarang as waktu_scan,
+                m.distinct_skus,
+                m.total_qty,
+                m.detail_barang
+            FROM tblresiambilbarang rab
+            INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
+            INNER JOIN tbldetailprintresi dt ON dt.id_resi = pr.id_printresi AND dt.sku = " . $this->db->escape($id_sku) . "
+            LEFT JOIN (
+                SELECT 
+                    dt2.id_resi,
+                    COUNT(DISTINCT dt2.sku) as distinct_skus,
+                    SUM(dt2.jumlah) as total_qty,
+                    MAX(CASE WHEN s2.is_special = 1 THEN 1 ELSE 0 END) as has_special,
+                    GROUP_CONCAT(CONCAT(s2.nama_sku, ' (x', dt2.jumlah, ')') SEPARATOR ', ') as detail_barang
+                FROM tbldetailprintresi dt2
+                JOIN tblsku s2 ON s2.id_sku = dt2.sku
+                GROUP BY dt2.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
+              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+              $category_cond
+            ORDER BY rab.tanggal_resiambilbarang ASC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_packer_performance_detail_summary($id_packer, $tanggal)
+    {
+        $sql = "
+            SELECT 
+                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus BETWEEN 2 AND 9) THEN 1 ELSE 0 END) as resi_2_9_sku_sd_9,
+                COUNT(*) as total_resi
+            FROM (
+                SELECT 
+                    pr.id_printresi,
+                    m.distinct_skus,
+                    m.total_qty,
+                    COALESCE(m.has_special, 0) as has_special
+                FROM tblpacking c
+                INNER JOIN tblprintresi pr ON pr.id_printresi = c.id_resi
+                LEFT JOIN (
+                    SELECT 
+                        dt.id_resi,
+                        COUNT(DISTINCT dt.sku) as distinct_skus,
+                        SUM(dt.jumlah) as total_qty,
+                        MAX(CASE WHEN s.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                    FROM tbldetailprintresi dt
+                    JOIN tblsku s ON s.id_sku = dt.sku
+                    GROUP BY dt.id_resi
+                ) m ON m.id_resi = pr.id_printresi
+                WHERE c.packer_pegawai = " . $this->db->escape($id_packer) . "
+                  AND DATE(c.tanggal_packing) = " . $this->db->escape($tanggal) . "
+            ) as t
+        ";
+        return $this->db->query($sql)->row_array();
+    }
+
+    public function get_packer_sku_summary_by_category($id_packer, $tanggal, $category)
+    {
+        $category_cond = "";
+        if ($category == 'sku_special') {
+            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty_resi <= 10";
+        } elseif ($category == 'resi_qty_banyak') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi > 9";
+        } elseif ($category == 'resi_1_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
+        } elseif ($category == 'resi_2_9_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
+        }
+
+        $sql = "
+            SELECT 
+                dt.sku as id_sku,
+                s.nama_sku,
+                SUM(dt.jumlah) as total_qty,
+                COUNT(DISTINCT pr.id_printresi) as resi_count
+            FROM tblpacking c
+            INNER JOIN tblprintresi pr ON pr.id_printresi = c.id_resi
+            INNER JOIN tbldetailprintresi dt ON dt.id_resi = pr.id_printresi
+            INNER JOIN tblsku s ON s.id_sku = dt.sku
+            LEFT JOIN (
+                SELECT 
+                    dt2.id_resi,
+                    COUNT(DISTINCT dt2.sku) as distinct_skus,
+                    SUM(dt2.jumlah) as total_qty_resi,
+                    MAX(CASE WHEN s2.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                FROM tbldetailprintresi dt2
+                JOIN tblsku s2 ON s2.id_sku = dt2.sku
+                GROUP BY dt2.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE c.packer_pegawai = " . $this->db->escape($id_packer) . "
+              AND DATE(c.tanggal_packing) = " . $this->db->escape($tanggal) . "
+              $category_cond
+            GROUP BY dt.sku, s.nama_sku
+            ORDER BY total_qty DESC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_packer_resi_list_by_sku_and_category($id_packer, $tanggal, $category, $id_sku)
+    {
+        $category_cond = "";
+        if ($category == 'sku_special') {
+            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty <= 10";
+        } elseif ($category == 'resi_qty_banyak') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty > 9";
+        } elseif ($category == 'resi_1_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
+        } elseif ($category == 'resi_2_9_sku_sd_9') {
+            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
+        }
+
+        $sql = "
+            SELECT DISTINCT
+                pr.id_printresi,
+                pr.noresi,
+                pr.tanggal_bataskirim,
+                pr.status_pesanan,
+                c.tanggal_packing as waktu_scan,
+                m.distinct_skus,
+                m.total_qty,
+                m.detail_barang
+            FROM tblpacking c
+            INNER JOIN tblprintresi pr ON pr.id_printresi = c.id_resi
+            INNER JOIN tbldetailprintresi dt ON dt.id_resi = pr.id_printresi AND dt.sku = " . $this->db->escape($id_sku) . "
+            LEFT JOIN (
+                SELECT 
+                    dt2.id_resi,
+                    COUNT(DISTINCT dt2.sku) as distinct_skus,
+                    SUM(dt2.jumlah) as total_qty,
+                    MAX(CASE WHEN s2.is_special = 1 THEN 1 ELSE 0 END) as has_special,
+                    GROUP_CONCAT(CONCAT(s2.nama_sku, ' (x', dt2.jumlah, ')') SEPARATOR ', ') as detail_barang
+                FROM tbldetailprintresi dt2
+                JOIN tblsku s2 ON s2.id_sku = dt2.sku
+                GROUP BY dt2.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE c.packer_pegawai = " . $this->db->escape($id_packer) . "
+              AND DATE(c.tanggal_packing) = " . $this->db->escape($tanggal) . "
+              $category_cond
+            ORDER BY c.tanggal_packing ASC
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_production_team_report_details_batch_tab1($start_date, $end_date)
+    {
+        $sql = "
+            SELECT 
+                c.packer_pegawai as id_packer,
+                DATE(c.tanggal_packing) as tanggal,
+                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
+                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus BETWEEN 2 AND 9) THEN 1 ELSE 0 END) as resi_2_9_sku_sd_9
+            FROM tblpacking c
+            INNER JOIN tblprintresi pr ON pr.id_printresi = c.id_resi
+            LEFT JOIN (
+                SELECT 
+                    dt.id_resi,
+                    COUNT(DISTINCT dt.sku) as distinct_skus,
+                    SUM(dt.jumlah) as total_qty,
+                    MAX(CASE WHEN s.is_special = 1 THEN 1 ELSE 0 END) as has_special
+                FROM tbldetailprintresi dt
+                JOIN tblsku s ON s.id_sku = dt.sku
+                GROUP BY dt.id_resi
+            ) m ON m.id_resi = pr.id_printresi
+            WHERE c.tanggal_packing >= " . $this->db->escape($start_date) . "
+              AND c.tanggal_packing <= " . $this->db->escape($end_date) . "
+            GROUP BY c.packer_pegawai, DATE(c.tanggal_packing)
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    public function get_penyesuaian()
+    {
+        return $this->db->select('*')
+                        ->from('pergantian_barang')
+                        ->where('status_acc', 1)
+                        ->group_start()
+                        ->where('status_penyesuaian', 0)
+                        ->or_where('status_penyesuaian IS NULL')
+                        ->group_end()
+                        ->get();
+    }
+
+    public function get_laporan_pergantian_barang()
+    {
+        return $this->db->get_where('pergantian_barang', ['status_acc' => 0]);
     }
 }
 

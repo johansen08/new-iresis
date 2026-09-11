@@ -14,6 +14,90 @@ class Packer extends MY_Controller
         $this->load->model('problemtype_fcd');
 	}
 
+    public function scan_packer_nonsubmit()
+    {
+        $data = [];
+        $data['total_scan'] = 0;
+        $data['nama_picker'] = '-';
+        $data['komputer_packer'] = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : (isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : '-');
+
+        $packer_scan = $this->packer_fcd->get_total_scan_packer_nonsubmit_user($this->data['user']['id_user'])->row();
+        if ($packer_scan) {
+            $data['total_scan'] = $packer_scan->total_scan;
+        }
+
+        // Load session status for packer monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
+        $data['session_status'] = [
+            'masuk' => !empty($session->waktu_masuk),
+            'istirahat' => (!empty($session->waktu_istirahat_mulai) && empty($session->waktu_istirahat_selesai)),
+            'pulang' => !empty($session->waktu_pulang)
+        ];
+
+        $this->show($data, 'packer/scan_packer_nonsubmit');
+    }
+
+    public function save_packer_nonsubmit()
+    {
+        if ($this->input->method() == 'get') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $noresi = $this->input->post('noresi');
+        
+        $packer_data = ['noresi' => $noresi];
+        $status_id = $this->determine_status_performa_id();
+        if ($status_id) {
+            $packer_data['status_performa_id'] = $status_id;
+        }
+
+        $save = $this->packer_fcd->save_packer_nonsubmit($packer_data, $this->data['user']);
+
+        if (isset($save['error'])) {
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? null);
+        }
+
+        if ($save['affected_rows'] > 0) {
+            // Include is_slow and slow_count if available from performance data
+            $res_data = [
+                'performance' => $save['performance'] ?? null,
+                'is_slow' => $save['performance']['is_slow'] ?? 0,
+                'slow_count' => $save['performance']['slow_count'] ?? 0
+            ];
+            $this->make_ajax_response(201, SUCCESS_SAVE_DATA, $res_data);
+        }
+
+        $this->make_ajax_response(200, NOTHING_TO_SAVE);
+    }
+
+    public function masalah_picker_save()
+    {
+        if ($this->input->method() == 'get') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $masalah['id_printresi'] = $this->input->post('id_printresi');
+        $masalah['noresi'] = $this->input->post('noresi');
+        $masalah['sku'] = $this->input->post('sku');
+        $masalah['qty'] = $this->input->post('qty');
+        $masalah['id_typemasalah'] = $this->input->post('type_masalah');
+        $masalah['qty_bermasalah'] = $this->input->post('qty_bermasalah');
+        $masalah['sku_salah'] = $this->input->post('sku_salah');
+
+        $save = $this->packer_fcd->save_masalah_picker($masalah, $this->data['user']);
+
+        if (isset($save['error'])) {
+            $this->make_ajax_response($save['code'], $save['message']);
+        }
+
+        if ($save['affected_rows'] > 0) {
+            $this->make_ajax_response(201, SUCCESS_SAVE_DATA);
+        }
+
+        $this->make_ajax_response(200, NOTHING_TO_SAVE);
+    }
+
 	public function scan_packer()
 	{
         $data = [];
@@ -23,6 +107,21 @@ class Packer extends MY_Controller
         $data['nama_picker'] = '-';
         $data['komputer_picker'] = '-';
         $data['komputer_packer'] = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : (isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : '-');
+
+        // Modal "Submit Masalah Picker" selalu ikut dirender, termasuk saat halaman
+        // dibuka lewat GET (belum ada resi yang discan). Tanpa default di bawah,
+        // view memicu "Undefined variable $list_type_masalah" dan "$noresi".
+        $data['noresi'] = '';
+        $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+        
+        // Load session status for packer monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
+        $data['session_status'] = [
+            'masuk' => !empty($session->waktu_masuk),
+            'istirahat' => (!empty($session->waktu_istirahat_mulai) && empty($session->waktu_istirahat_selesai)),
+            'pulang' => !empty($session->waktu_pulang)
+        ];
 
         if ($this->input->method() == 'post') {
             $noresi = trim($this->input->post('noresi'));
@@ -116,10 +215,11 @@ class Packer extends MY_Controller
         $data['valid_columns'] = [
             0 => null,
             1 => null,
-            2 => 's.nama_barang',
-            3 => 'dr.sku',
-            4 => 'dr.jumlah',
-            5 => null
+            2 => 's.nama_sku',
+            3 => 's.jenis_packing',
+            4 => 'dr.sku',
+            5 => 'dr.jumlah',
+            6 => null
         ];
 
         $data['order'] = isset($data['valid_columns'][$col]) ? $data['valid_columns'][$col] : null;
@@ -135,7 +235,6 @@ class Packer extends MY_Controller
             // Check if we have any detail records
             if (!empty($data_resi)) {
                 foreach ($data_resi as $row_masalah) {
-                    // Handle cases where tbldetailprintresi might be null
                     $sku = $row_masalah->sku ?? '-';
                     $jumlah = $row_masalah->jumlah ?? 0;
                     $no_rak = $row_masalah->no_rak ?? '-';
@@ -144,11 +243,19 @@ class Packer extends MY_Controller
                     $yangambil_pegawai = $row_masalah->yangambil_pegawai ?? '';
                     $picker_name = $row_masalah->name ?? $yangambil_pegawai; // Use picker_name if available, fallback to yangambil_pegawai
 
+                    $jenis_packing = $row_masalah->jenis_packing ?? '';
+                    if ($jenis_packing !== '') {
+                        $packing_display = '<button class="btn btn-xs btn-info" disabled style="cursor: default; opacity: 1 !important; font-weight: bold; background-color: #00c0ef !important; color: #fff !important; border: none; pointer-events: none; padding: 4px 8px;"><i class="fa fa-cube"></i> ' . htmlspecialchars($jenis_packing, ENT_QUOTES, 'UTF-8') . '</button>';
+                    } else {
+                        $packing_display = '<button class="btn btn-xs btn-warning" disabled style="cursor: default; opacity: 1 !important; font-weight: bold; background-color: #f39c12 !important; color: #fff !important; border: none; pointer-events: none; padding: 4px 8px;"><i class="fa fa-warning"></i> Belum diset</button>';
+                    }
+
                     $data_masalah_picker[] = array(
                         $table_number++ . '.',
                         $link_foto ? '<img src="' . htmlspecialchars($link_foto, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' . htmlspecialchars($link_foto, ENT_QUOTES, 'UTF-8') . '">' : '<span class="text-muted">No Photo</span>',
-                        $nama_barang,
-                        $sku,
+                        htmlspecialchars($nama_barang, ENT_QUOTES, 'UTF-8'),
+                        $packing_display,
+                        htmlspecialchars($sku, ENT_QUOTES, 'UTF-8'),
                         $jumlah,
                         '<div class="text-center">
                             <button 

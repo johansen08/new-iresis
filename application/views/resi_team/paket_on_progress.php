@@ -1,32 +1,39 @@
-<div class="row">
-    <!-- Single Top Stat -->
-    <div class="col-md-12">
-        <div class="widget widget-primary widget-item-icon">
-            <div class="widget-item-left">
-                <span class="fa fa-truck"></span>
-            </div>
-            <div class="widget-data">
-                <div class="widget-int num-count" id="total-resi-active">0</div>
-                <div class="widget-title">TOTAL RESI</div>
-                <div class="widget-subtitle">Hari Ini + Pending 7 Hari</div>
-            </div>
-        </div>
-    </div>
+<div class="row" id="today-summary-widgets" style="margin-bottom: 20px;">
+    <!-- Filled by JS -->
 </div>
 
 <div class="row">
     <div class="col-md-12">
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title"><strong>Paket On Progress (5 Hari Kedepan)</strong></h3>
-                <ul class="panel-controls">
-                    <li><a href="#" class="btn btn-success" id="btn-export" style="color: white; padding: 5px 15px; margin-right: 10px;"><small><span class="fa fa-file-excel-o"></span> EXPORT EXCEL</small></a></li>
+                <h3 class="panel-title"><strong>Progress Pengerjaan per Periode (Breakdown per Batas Kirim 30 Hari)</strong></h3>
+                <ul class="panel-controls" style="width: auto; display: flex; align-items: center;">
+                    <li style="width: 350px;">
+                        <div class="input-group">
+                            <span class="input-group-addon"><span class="fa fa-calendar"></span></span>
+                            <input type="text" class="form-control datepicker" id="start-date" value="<?= date('Y-m-d') ?>" placeholder="Dari Tanggal">
+                            <span class="input-group-addon">-</span>
+                            <input type="text" class="form-control datepicker" id="end-date" value="<?= date('Y-m-d') ?>" placeholder="Sampai Tanggal">
+                            <span class="input-group-btn">
+                                <button class="btn btn-primary" id="btn-filter" type="button">CEK</button>
+                            </span>
+                        </div>
+                    </li>
+                    <li><a href="#" class="btn btn-success" id="btn-export" style="color: white; padding: 5px 15px; margin-right: 10px; margin-left: 10px;"><small><span class="fa fa-file-excel-o"></span> EXPORT</small></a></li>
                     <li><a href="#" class="panel-refresh" id="refresh-data"><span class="fa fa-refresh"></span></a></li>
                 </ul>
             </div>
             <div class="panel-body">
-                <div class="row" id="on-progress-container">
-                    <!-- Will be filled by JS for 5 days -->
+                <blockquote style="margin-bottom: 20px; border-left: 5px solid #0288d1; background: #e1f5fe; padding: 10px 20px;">
+                    <p style="font-size: 14px; color: #01579b; margin-bottom: 0;">
+                        <strong>Info:</strong> Menampilkan data resi yang <strong>DIKERJAKAN pada periode terpilih</strong>, dikelompokkan berdasarkan <strong>Batas Kirim</strong>. 
+                    </p>
+                </blockquote>
+
+                <div class="timeline-wrapper">
+                    <div id="on-progress-timeline" class="d-flex timeline-container">
+                        <!-- Filled by JS -->
+                    </div>
                 </div>
             </div>
             <div class="panel-footer">
@@ -38,193 +45,190 @@
 
 <script type="text/javascript">
     $(document).ready(function() {
+        const indicators_meta = [
+            { key: 'sku_special', label: 'SKU SPECIAL', color: '#d32f2f' },
+            { key: 'resi_qty_banyak', label: 'QTY BANYAK', color: '#7b1fa2' },
+            { key: 'resi_lebih_10_sku', label: 'SKU > 10', color: '#0288d1' },
+            { key: 'resi_kurang_10_sku', label: 'SKU 2-9', color: '#388e3c' },
+            { key: 'resi_satuan', label: 'SKU 1', color: '#689f38' }
+        ];
+
         fetchData();
 
-        $('#refresh-data').on('click', function(e) {
-            e.preventDefault();
-            fetchData();
+        $('#refresh-data, #btn-filter').on('click', function(e) { 
+            e.preventDefault(); 
+            fetchData(); 
         });
 
-        $('#btn-export').on('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'resi_team/export_on_progress_excel';
+        $('#btn-export').on('click', function(e) { 
+            e.preventDefault(); 
+            const startStr = $('#start-date').val();
+            const endStr = $('#end-date').val();
+            window.location.href = `resi_team/export_on_progress_excel?start_date=${startStr}&end_date=${endStr}`; 
         });
 
         function fetchData() {
+            const startStr = $('#start-date').val();
+            const endStr = $('#end-date').val();
+
             $.ajax({
                 url: 'resi_team/get_on_progress_data',
                 type: 'POST',
+                data: { start_date: startStr, end_date: endStr },
                 dataType: 'json',
                 success: function(response) {
                     if (response.data) {
                         const d = response.data;
-                        
-                        if (d.top_stats) {
-                            $('#total-resi-active').text(d.top_stats.total_resi);
-                        }
-
-                        updateUI(d.days);
+                        renderSummary(d.summary_today);
+                        updateTimeline(d.days);
                         $('#last-update').text(d.processed_at);
                     }
-                },
-                error: function() {
-                    console.error('Failed to fetch data');
                 }
             });
         }
 
-        function updateUI(days) {
+        function renderSummary(summary) {
             let html = '';
-            days.forEach((day, index) => {
+            const stages = [
+                { id: 'p1', label: 'TOTAL PICKER', color: 'info', icon: 'fa-shopping-basket' },
+                { id: 'p2', label: 'TOTAL PACKER', color: 'warning', icon: 'fa-cube' },
+                { id: 'p3', label: 'TOTAL HO', color: 'danger', icon: 'fa-truck' }
+            ];
+
+            stages.forEach(s => {
+                const data = summary[s.id];
                 html += `
-                    <div class="row" style="margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
-                        <div class="col-md-12">
-                            <h4 style="margin-bottom: 15px; font-weight: bold; color: #33414E;">
-                                <span class="fa fa-calendar"></span> ${day.date_label} (${day.date})
-                            </h4>
-                        </div>
-                        
-                        <!-- P1: RESI KE PICKER -->
-                        <div class="col-md-4">
-                            <div class="panel panel-info">
-                                <div class="panel-heading">
-                                    <h3 class="panel-title">RESI KE PICKER <br><small>(Sudah Ambil Barang)</small></h3>
-                                </div>
-                                <div class="panel-body" style="padding: 0;">
-                                    <table class="table table-bordered" style="margin-bottom: 0;">
-                                        <tbody>
-                                            ${renderIndicators(day.p1, index, 1)}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style="background: #f1f1f1; font-weight: bold;">
-                                                <td>GRAND TOTAL</td>
-                                                <td class="text-right">${day.p1.total_resi || 0}</td>
-                                                <td class="text-right">100%</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
+                    <div class="col-md-4">
+                        <div class="widget widget-${s.color} widget-item-icon">
+                            <div class="widget-item-left"><span class="fa ${s.icon}"></span></div>
+                            <div class="widget-data">
+                                <div class="widget-int num-count">${data.total_resi}</div>
+                                <div class="widget-title">${s.label} HARI INI</div>
+                                <div class="widget-subtitle">Semua Batas Kirim</div>
                             </div>
-                        </div>
-
-                        <!-- P2: PICKER KE PACKER -->
-                        <div class="col-md-4">
-                            <div class="panel panel-warning" style="border-color: #f0ad4e;">
-                                <div class="panel-heading" style="background-color: #f0ad4e; color: white;">
-                                    <h3 class="panel-title">PICKER KE PACKER <br><small>(Sudah Packing)</small></h3>
-                                </div>
-                                <div class="panel-body" style="padding: 0;">
-                                    <table class="table table-bordered" style="margin-bottom: 0;">
-                                        <tbody>
-                                            ${renderIndicators(day.p2, index, 2)}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style="background: #f1f1f1; font-weight: bold;">
-                                                <td>GRAND TOTAL</td>
-                                                <td class="text-right">${day.p2.total_resi || 0}</td>
-                                                <td class="text-right">100%</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- P3: PACKER KE HO -->
-                        <div class="col-md-4">
-                            <div class="panel panel-danger" style="border-color: #d9534f;">
-                                <div class="panel-heading" style="background-color: #d9534f; color: white;">
-                                    <h3 class="panel-title">PACKER KE HO <br><small>(Sudah Scan HO)</small></h3>
-                                </div>
-                                <div class="panel-body" style="padding: 0;">
-                                    <table class="table table-bordered" style="margin-bottom: 0;">
-                                        <tbody>
-                                            ${renderIndicators(day.p3, index, 3)}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr style="background: #f1f1f1; font-weight: bold;">
-                                                <td>GRAND TOTAL</td>
-                                                <td class="text-right">${day.p3.total_resi || 0}</td>
-                                                <td class="text-right">100%</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                            <div class="widget-controls">
+                                <div style="display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 4px; margin-top: 10px;">
+                                    ${indicators_meta.map(ind => `
+                                        <div style="flex: 1 1 45%; font-size: 10px; font-weight: bold;">
+                                            <span style="color: ${ind.color}">${ind.label}:</span> ${data[ind.key]}
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
             });
-            $('#on-progress-container').html(html);
+            $('#today-summary-widgets').html(html);
+        }
 
-            // Add toggle event
+        function updateTimeline(days) {
+            let html = '';
+            if (!days || days.length === 0) {
+                $('#on-progress-timeline').html('<div class="alert alert-info">Belum ada pengerjaan hari ini.</div>');
+                return;
+            }
+
+            days.forEach((day, index) => {
+                const totalWorkToday = (parseInt(day.p1.total_resi) || 0) + (parseInt(day.p2.total_resi) || 0) + (parseInt(day.p3.total_resi) || 0);
+                html += `
+                    <div class="timeline-day-card">
+                        <div class="day-header ${index === 0 ? 'header-today' : ''}">
+                            <div class="day-label">${day.date_label}</div>
+                            <div class="day-date">${day.date}</div>
+                        </div>
+                        <div class="day-content">
+                            ${renderStageBlock('PICKER', 'blue', day.p1, index, 1)}
+                            ${renderStageBlock('PACKER', 'orange', day.p2, index, 2)}
+                            ${renderStageBlock('HO', 'red', day.p3, index, 3)}
+                        </div>
+                        <div class="day-footer">Total: <strong>${totalWorkToday}</strong></div>
+                    </div>
+                `;
+            });
+            $('#on-progress-timeline').html(html);
+
             $('.toggle-sku').off('click').on('click', function(e) {
                 e.preventDefault();
-                const dayIndex = $(this).data('day');
-                const poolIndex = $(this).data('pool');
-                const extras = $(`.day${dayIndex}-p${poolIndex}-extra-sku`);
-                if (extras.first().is(':visible')) {
-                    extras.hide();
-                    $(this).text(`Lihat Selengkapnya (${extras.length} lagi)...`);
-                } else {
-                    extras.show();
-                    $(this).text('Sembunyikan');
-                }
+                const extras = $(`.day${$(this).data('day')}-p${$(this).data('pool')}-extra-sku`);
+                if (extras.first().is(':visible')) { extras.hide(); $(this).text(`+${extras.length} SKU Special...`); }
+                else { extras.show(); $(this).text('Sembunyikan'); }
             });
         }
 
-        function renderIndicators(data, dayIndex, poolIndex) {
-            const total = parseInt(data.total_resi) || 0;
-            const indicators = [
-                { key: 'sku_special', label: 'SKU SPECIAL' },
-                { key: 'resi_qty_banyak', label: 'RESI QTY BANYAK' },
-                { key: 'resi_lebih_10_sku', label: 'RESI > 10 SKU' },
-                { key: 'resi_satuan', label: 'RESI 1 SKU' },
-                { key: 'resi_kurang_10_sku', label: 'RESI 2-10 SKU' }
-            ];
+        function renderStageBlock(label, color, data, dayIndex, poolIndex) {
+            const count = parseInt(data.total_resi) || 0;
+            const hasSpecial = data.special_sku_list && data.special_sku_list.length > 0;
 
-            let html = '';
-            indicators.forEach(ind => {
-                const count = parseInt(data[ind.key]) || 0;
-                const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-                
-                html += `<tr>
-                    <td>${ind.label}</td>
-                    <td class="text-right"><strong>${count}</strong></td>
-                    <td class="text-right"><span class="label ${pct > 0 ? 'label-primary' : 'label-default'}">${pct}%</span></td>
-                </tr>`;
+            let indicatorHtml = `
+                <div class="indicator-grid">
+                    ${indicators_meta.map(ind => `
+                        <div class="ind-item">
+                            <span class="ind-dot" style="background: ${ind.color}"></span>
+                            <span class="ind-label">${ind.label}</span>
+                            <span class="ind-val">${data[ind.key] || 0}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
 
-                if (ind.key === 'sku_special' && data.special_sku_list && data.special_sku_list.length > 0) {
-                    const skuList = data.special_sku_list;
-                    const maxItems = 5;
-                    const hasMore = skuList.length > maxItems;
+            let specialHtml = '';
+            if (hasSpecial) {
+                specialHtml = `
+                    <div class="special-sku-breakdown">
+                        <ul class="sku-list">
+                            ${data.special_sku_list.map((sku, i) => {
+                                const display = i >= 2 ? 'none' : 'block';
+                                const itemClass = i >= 2 ? `day${dayIndex}-p${poolIndex}-extra-sku` : '';
+                                return `<li style="display: ${display};" class="${itemClass}">${sku.id_sku}: <strong>${sku.resi_count}</strong></li>`;
+                            }).join('')}
+                        </ul>
+                        ${data.special_sku_list.length > 2 ? `<a href="#" class="toggle-sku" data-day="${dayIndex}" data-pool="${poolIndex}">+${data.special_sku_list.length - 2} SKU...</a>` : ''}
+                    </div>
+                `;
+            }
 
-                    html += `<tr class="special-sku-row">
-                        <td colspan="3" style="padding: 4px 8px 8px 15px; background: #fffcf0; border-top: none;">
-                            <ul style="margin: 0; padding-left: 10px; font-size: 10px; color: #856404; list-style-type: none;">
-                                ${skuList.map((sku, i) => {
-                                    const skuCount = parseInt(sku.resi_count) || 0;
-                                    const skuPct = total > 0 ? ((skuCount / total) * 100).toFixed(1) : 0;
-                                    const display = i >= maxItems ? 'none' : 'block';
-                                    const itemClass = i >= maxItems ? `day${dayIndex}-p${poolIndex}-extra-sku` : '';
-                                    return `<li style="display: ${display};" class="${itemClass}">- ${sku.id_sku}: <strong>${skuCount}</strong> (${skuPct}%)</li>`;
-                                }).join('')}
-                            </ul>
-                            ${hasMore ? `<div style="margin-top: 3px; padding-left: 10px;">
-                                <a href="#" class="toggle-sku" data-day="${dayIndex}" data-pool="${poolIndex}" style="font-size: 10px; color: #007bff; text-decoration: none;">Lihat Selengkapnya (${skuList.length - maxItems} lagi)...</a>
-                            </div>` : ''}
-                        </td>
-                    </tr>`;
-                }
-            });
-            return html;
+            return `
+                <div class="stage-block block-${color}">
+                    <div class="stage-top">
+                        <span class="stage-label">${label}</span>
+                        <span class="stage-count">${count}</span>
+                    </div>
+                    ${indicatorHtml}
+                    ${specialHtml}
+                </div>
+            `;
         }
     });
 </script>
 
 <style>
-    .panel-heading .panel-title { font-weight: bold; line-height: 1.2; margin: 0; font-size: 13px; }
-    .table > tbody > tr > td { vertical-align: middle; padding: 10px 8px; font-size: 12px; }
-    .label { font-size: 10px; }
-    .special-sku-row td { border-top: none !important; }
+    .timeline-wrapper { width: 100%; overflow-x: auto; padding-bottom: 15px; -webkit-overflow-scrolling: touch; }
+    .timeline-container { display: inline-flex; gap: 15px; padding: 5px; }
+    .timeline-day-card { width: 300px; background: #fff; border: 1px solid #ddd; border-radius: 8px; display: flex; flex-direction: column; }
+    .day-header { background: #f8f9fa; padding: 8px; text-align: center; border-bottom: 2px solid #eee; border-radius: 8px 8px 0 0; }
+    .header-today { background: #0288d1; color: white; }
+    .day-label { font-weight: bold; font-size: 13px; }
+    .day-date { font-size: 10px; opacity: 0.8; }
+    .day-content { padding: 8px; flex: 1; }
+    .stage-block { border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+    .block-blue { background: #e3f2fd; border-left: 4px solid #2196f3; }
+    .block-orange { background: #fff3e0; border-left: 4px solid #ff9800; }
+    .block-red { background: #ffebee; border-left: 4px solid #f44336; }
+    .stage-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .stage-label { font-size: 10px; font-weight: bold; color: #555; }
+    .stage-count { font-size: 14px; font-weight: 900; }
+    
+    .indicator-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 5px; }
+    .ind-item { flex: 1 1 45%; display: flex; align-items: center; font-size: 9px; }
+    .ind-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; flex-shrink: 0; }
+    .ind-label { color: #666; margin-right: 3px; }
+    .ind-val { font-weight: bold; color: #33414E; }
+
+    .special-sku-breakdown { background: rgba(255,255,255,0.6); padding: 4px; border-radius: 4px; font-size: 9px; margin-top: 4px;}
+    .sku-list { margin: 0; padding-left: 12px; }
+    .toggle-sku { display: block; margin-top: 2px; color: #0288d1; text-decoration: none; font-weight: bold; }
+    .day-footer { padding: 6px; text-align: center; background: #f8f9fa; font-size: 10px; border-radius: 0 0 8px 8px; }
+    
+    .widget-controls { margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.2); }
 </style>

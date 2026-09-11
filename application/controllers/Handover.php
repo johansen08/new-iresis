@@ -32,7 +32,7 @@ class Handover extends MY_Controller
 		$save = $this->handover_fcd->save($handover, $this->data['user']);
 
 		if (isset($save['error'])) {
-			$this->make_ajax_response($save['code'], $save['message']);
+			$this->make_ajax_response($save['code'], $save['message'], $save['data']);
 		}
 
 		if ($save['affected_rows'] > 0) {

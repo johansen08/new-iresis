@@ -28,10 +28,6 @@
         <table class="table table-striped" id="datatable-report-receipt-shipped">
           <thead>
             <tr>
-              <th colspan="5" style="text-align:right">Grand Total</th>
-              <th id="grand_total_shipped">-</th>
-            </tr>
-            <tr>
               <th>#</th>
               <th>Tanggal Resi Keluar</th>
               <th>Jam Resi Keluar</th>
@@ -90,11 +86,6 @@
         d.end_date = $('#reportrange').val().split(" - ")[1];
       }
     },
-    'drawCallback': function() {
-      var json = this.api().ajax.json();
-      var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
-      $('#grand_total_shipped').text(total);
-    }
   });
 
   $('#btn-search').on('click', function() {

@@ -11,8 +11,15 @@ class Sku_special extends MY_Controller
 
     public function index()
     {
+        $this->load->model('picking_fcd');
+        $this->load->model('kpi_fcd');
+
         $data['title'] = 'Master Special SKU';
         $data['message'] = $this->session->flashdata('message');
+        
+        $data['list_picker'] = $this->picking_fcd->get_picker('AKTIF')->result_array();
+        $data['list_status_performa'] = $this->kpi_fcd->get_status_performa()->result_array();
+        $data['current_assignment'] = $this->sku_special_fcd->get_special_assignment();
 
         $this->show($data);
     }
@@ -83,6 +90,66 @@ class Sku_special extends MY_Controller
             $this->make_ajax_response(200, 'Status updated successfully');
         } else {
             $this->make_ajax_response(500, 'Failed to update status');
+        }
+    }
+
+    public function reset_all()
+    {
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+
+        if ($this->sku_special_fcd->reset_all_special()) {
+            $this->make_ajax_response(200, 'Berhasil merubah semua SKU special menjadi non-special');
+        } else {
+            $this->make_ajax_response(500, 'Gagal merubah status SKU');
+        }
+    }
+
+    public function undo_reset_all()
+    {
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+
+        if ($this->sku_special_fcd->undo_reset_all_special()) {
+            $this->make_ajax_response(200, 'Berhasil mengembalikan (undo) status SKU special sebelumnya');
+        } else {
+            $this->make_ajax_response(500, 'Gagal mengembalikan status SKU');
+        }
+    }
+
+    public function save_daily_assignment()
+    {
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+
+        $data = [
+            'tanggal' => date('Y-m-d'),
+            'id_pegawaipicker' => $this->input->post('id_pegawaipicker'),
+            'status_performa_id' => $this->input->post('status_performa_id'),
+        ];
+
+        if ($this->sku_special_fcd->save_special_assignment($data)) {
+            $this->make_ajax_response(200, 'Penugasan picker special berhasil disimpan untuk hari ini');
+        } else {
+            $this->make_ajax_response(500, 'Gagal menyimpan penugasan picker');
+        }
+    }
+
+    public function analyze()
+    {
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+
+        $updated_count = $this->sku_special_fcd->analyze_and_set_special();
+
+        if ($updated_count > 0) {
+            $this->make_ajax_response(200, 'Berhasil menganalisa. ' . $updated_count . ' SKU diubah menjadi special.');
+        } else {
+            $this->make_ajax_response(200, 'Analisa selesai, tidak ada SKU baru yang memenuhi kriteria untuk menjadi special.');
         }
     }
 }

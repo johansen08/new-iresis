@@ -28,10 +28,6 @@
         <table class="table table-striped table-bordered" id="datatable-report-receipt-per-day">
           <thead>
             <tr>
-              <th colspan="12" class="text-right">Grand Total</th>
-              <th id="grand_total_per_day">-</th>
-            </tr>
-            <tr>
               <th>#</th>
               <th>No. Resi</th>
               <th>Marketplace</th>
@@ -90,18 +86,13 @@
       [10, 50, 100, 150, 200]
     ],
     'ajax': {
-      url: 'report/get-per-day-receipt-report-data',
+      url: 'report/get_per_day_receipt_report_data',
       type: 'POST',
       data: function(d) {
         d.start_date = $('#reportrange').val().split(" - ")[0];
         d.end_date = $('#reportrange').val().split(" - ")[1];
       }
     },
-    'drawCallback': function() {
-      var json = this.api().ajax.json();
-      var total = (json && typeof json.grandTotal !== 'undefined') ? json.grandTotal : '-';
-      $('#grand_total_per_day').text(total);
-    }
   });
 
   $('#btn-search').on('click', function() {

@@ -101,18 +101,13 @@
 
         <table class="table table-striped table-bordered" id="datatable-report-receipt-daily">
           <thead>
-            <?php $grand_total_scan = isset($header['total_scan_resi']) ? (int) $header['total_scan_resi'] : 0; ?>
-            <tr>
-              <th class="text-right" colspan="18">Grand Total Resi</th>
-              <th class="text-center"><?= number_format($grand_total_scan) ?></th>
-            </tr>
             <tr>
               <?php
               $not_pick_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_pick_resi']) / $header['total_scan_resi'] * 100;
               $not_pack_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_pack_resi']) / $header['total_scan_resi'] * 100;
               $not_ho_by_receipt_in_percent = $header['total_scan_resi'] == 0 ? 0 : ($header['total_scan_resi'] - $header['total_ho_resi']) / $header['total_scan_resi'] * 100;
               ?>
-              <th class="text-right" colspan="8">Yang belum dikerjakan dari total resi (in paket)</th>
+              <th class="text-right" colspan="10">Yang belum dikerjakan dari total resi (in paket)</th>
               <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi'] - $header['total_pick_resi']) ?></th>
               <th class="text-center picker-col-header"><?= number_format($not_pick_by_receipt_in_percent, 2) ?>%</th>
               <th class="text-center">-</th>
@@ -130,7 +125,7 @@
               $not_pack_by_dept_in_percent = $header['total_pick_resi'] == 0 ? 0 : ($header['total_pick_resi'] - $header['total_pack_resi']) / $header['total_pick_resi'] * 100;
               $not_ho_by_dept_in_percent = $header['total_pack_resi'] == 0 ? 0 : ($header['total_pack_resi'] - $header['total_ho_resi']) / $header['total_pack_resi'] * 100;
               ?>
-              <th class="text-right" colspan="8">Yang belum dikerjakan dari masing<sup>2</sup> dept (in paket)</th>
+              <th class="text-right" colspan="10">Yang belum dikerjakan dari masing<sup>2</sup> dept (in paket)</th>
               <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi'] - $header['total_pick_resi']) ?></th>
               <th class="text-center picker-col-header"><?= number_format($not_pick_by_dept_in_percent, 2) ?>%</th>
               <th class="text-center">-</th>
@@ -148,7 +143,7 @@
               $done_pack_in_percent = $header['total_scan_resi'] == 0 ? 0 : $header['total_pack_resi'] / $header['total_scan_resi'] * 100;
               $done_ho_in_percent = $header['total_scan_resi'] == 0 ? 0 : $header['total_ho_resi'] / $header['total_scan_resi'] * 100;
               ?>
-              <th class="text-right" colspan="7">Total yang sedang / sudah dikerjakan</th>
+              <th class="text-right" colspan="9">Total yang sedang / sudah dikerjakan</th>
               <th class="text-center resi-col-header"><?= number_format($header['total_scan_resi']) ?></th>
               <th class="text-center picker-col-header"><?= number_format($header['total_pick_resi']) ?></th>
               <th class="text-center picker-col-header"><?= number_format($done_pick_in_percent, 2) ?>%</th>
@@ -164,8 +159,10 @@
             <tr>
               <th rowspan="2">#</th>
               <th rowspan="2">MP</th>
+              <th rowspan="2">Nama Toko</th>
               <th rowspan="2">Kurir</th>
               <th rowspan="2"># Resi</th>
+              <th rowspan="2">Status</th>
               <th rowspan="2">Pick list</th>
               <th class="text-center" colspan="3" style="background-color: #bbdefb !important; color: #1565c0 !important;">Resi</th>
               <th class="text-center" colspan="4" style="background-color: #c8e6c9 !important; color: #2e7d32 !important;">Picker</th>
@@ -249,24 +246,24 @@
       }
     },
     'columnDefs': [
-      // Resi columns (5, 6, 7) - Light blue
+      // Resi columns (7, 8, 9) - Light blue
       {
-        'targets': [5, 6, 7],
+        'targets': [7, 8, 9],
         'className': 'resi-col'
       },
-      // Picker columns (8, 9, 10, 11) - Light green
+      // Picker columns (10, 11, 12, 13) - Light green
       {
-        'targets': [8, 9, 10, 11],
+        'targets': [10, 11, 12, 13],
         'className': 'picker-col'
       },
-      // Packer columns (12, 13, 14, 15) - Light orange
+      // Packer columns (14, 15, 16, 17) - Light orange
       {
-        'targets': [12, 13, 14, 15],
+        'targets': [14, 15, 16, 17],
         'className': 'packer-col'
       },
-      // HO columns (16, 17, 18) - Light pink
+      // HO columns (18, 19, 20) - Light pink
       {
-        'targets': [16, 17, 18],
+        'targets': [18, 19, 20],
         'className': 'ho-col'
       }
     ]

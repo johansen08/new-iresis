@@ -1,15 +1,12 @@
 <div class="row">
     <div class="col-md-6 center-block float-none">
-        <form action="sku/upload-sku-action" method="post" enctype="multipart/form-data" class="form-horizontal" id="form_upload_sku" autocomplete="off">
+        <form action="sku/upload_sku_action" method="post" enctype="multipart/form-data" class="form-horizontal nojs" id="form_upload_sku" autocomplete="off">
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <h3 class="panel-title"><strong>Upload Data SKU</strong></h3>
                 </div>
 
                 <div class="panel-body">
-
-
-
                     <div class="form-group">
                         <label class="col-md-3 col-xs-12 control-label">Upload File</label>
                         <div class="col-md-8 col-xs-12">
@@ -46,71 +43,60 @@
                 <img src="assets/img/LoaderIcon.gif" />
             </div>
         </div>
-
-
     </div>
 </div>
 
 <script type="text/javascript">
-
-    let jvalidate = $("#form_upload_sku").validate({
-        ignore: [],
-        rules: {
-            skuFile: {
-                required: true
-            }
-        },
-        messages: {
-            skuFile: {
-                required: "Silahkan Input File Terlebih Dahulu!" // Pesan kesalahan
-            }
-        },
-        invalidHandler: function(event, validator) {
-            // Callback ketika form gagal divalidasi
-            console.log("=============> Input file tidak diisi");
-
-            // Mainkan audio jika validasi gagal
-            // document.getElementById('audio-fail').play();
-        },
-        submitHandler: function(form) {
-            // Generate a random ID to track this specific upload session
-            var uploadId = 'up_' + Math.random().toString(36).substr(2, 9);
-            $('#upload_id').val(uploadId);
-
-            var formData = new FormData(form);
-
-            var baseUrl = "<?= base_url() ?>";
-
-            $.ajax({
-                url: baseUrl + 'sku/upload_sku_action',
-                type: 'post',
-                data: formData,
-                contentType: false, 
-                processData: false, 
-                timeout: 600000, 
-                beforeSend: function() {
-                    $('#loadingPopUp').show(); 
-                    $('#progress_container').show();
-                    $('#upload_progress_bar').css('width', '0%').text('0%');
-
-                    $("#span_latest_sku").text("Processing file...");
-                    $("#div_container_latest_sku").removeClass("tile-danger tile-success").addClass("tile-default");
-
-                    window.progressInterval = setInterval(function() {
-                        checkUploadProgress(uploadId, baseUrl);
-                    }, 1000);
+    $(document).ready(function() {
+        let jvalidate = $("#form_upload_sku").validate({
+            ignore: [],
+            rules: {
+                skuFile: {
+                    required: true
                 }
-            })
+            },
+            messages: {
+                skuFile: {
+                    required: "Silahkan Input File Terlebih Dahulu!"
+                }
+            },
+            submitHandler: function(form) {
+                var uploadId = 'up_' + Math.random().toString(36).substr(2, 9);
+                $('#upload_id').val(uploadId);
+
+                var formData = new FormData(form);
+                var baseUrl = "<?= base_url() ?>";
+
+                $.ajax({
+                    url: baseUrl + 'sku/upload_sku_action',
+                    type: 'post',
+                    data: formData,
+                    contentType: false, 
+                    processData: false, 
+                    timeout: 600000, 
+                    beforeSend: function() {
+                        $('#loadingPopUp').show(); 
+                        $('#progress_container').show();
+                        $('#upload_progress_bar').css('width', '0%').text('0%');
+
+                        $("#span_latest_sku").text("Processing file...");
+                        $("#div_container_latest_sku").removeClass("tile-danger tile-success").addClass("tile-default");
+
+                        window.progressInterval = setInterval(function() {
+                            checkUploadProgress(uploadId, baseUrl);
+                        }, 1000);
+                    }
+                })
                 .done(function(res) {
                     $('#loadingPopUp').hide();
                     $('#progress_container').hide();
                     clearInterval(window.progressInterval);
 
-                    $("#span_latest_sku").text(res.message);
+                    $("#span_latest_sku").text(res.message || res);
                     $("#div_container_latest_sku").removeClass("tile-danger tile-default").addClass("tile-success");
                     
-                    if (typeof toastr !== 'undefined') {
-                        toastr.success(res.message);
+                    if (typeof noty !== 'undefined') {
+                        noty({text: res.message || res, timeout: 3000, layout: 'topRight', type: 'success'});
                     }
 
                     $('#sku_file').val('');
@@ -133,36 +119,37 @@
                     $("#span_latest_sku").text(errorMessage);
                     $("#div_container_latest_sku").removeClass("tile-default tile-success").addClass("tile-danger");
                     
-                    if (typeof toastr !== 'undefined') {
-                        toastr.error(errorMessage);
+                    if (typeof noty !== 'undefined') {
+                        noty({text: errorMessage, timeout: 3000, layout: 'topRight', type: 'error'});
                     }
 
                     $('#sku_file').val('');
-                })
+                });
 
-            return false;
-        }
-    });
-
-    function checkUploadProgress(uploadId, baseUrl) {
-        $.ajax({
-            url: baseUrl + 'sku/get_progress_file/' + uploadId,
-            type: 'GET',
-            dataType: 'json',
-            success: function(res) {
-                if (res && res.total > 0) {
-                    $('#upload_progress_bar').css('width', res.percentage + '%').attr('aria-valuenow', res.percentage).text(res.percentage + '%');
-                    
-                    let statusText = res.status || "Processing";
-                    if (statusText === 'Finalizing') {
-                        $("#span_latest_sku").text("Saving to database... Please wait.");
-                    } else {
-                        $("#span_latest_sku").text(statusText + ": " + res.processed + " / " + res.total + " (Remaining: " + res.remaining + ")");
-                    }
-                }
+                return false;
             }
         });
-    }
+
+        function checkUploadProgress(uploadId, baseUrl) {
+            $.ajax({
+                url: baseUrl + 'sku/get_progress_file/' + uploadId,
+                type: 'GET',
+                dataType: 'json',
+                success: function(res) {
+                    if (res && res.total > 0) {
+                        $('#upload_progress_bar').css('width', res.percentage + '%').attr('aria-valuenow', res.percentage).text(res.percentage + '%');
+                        
+                        let statusText = res.status || "Processing";
+                        if (statusText === 'Finalizing') {
+                            $("#span_latest_sku").text("Saving to database... Please wait.");
+                        } else {
+                            $("#span_latest_sku").text(statusText + ": " + res.processed + " / " + res.total);
+                        }
+                    }
+                }
+            });
+        }
+    });
 </script>
 
 <style>
@@ -173,17 +160,12 @@
         width: 100%;
         height: 100%;
         background: rgba(0,0,0,0.6);
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: -webkit-flex;
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 9998;
-    }
-
-    .custom-popup-box {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        width: 50%;
-        text-align: center;
     }
 </style>

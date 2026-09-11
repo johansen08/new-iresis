@@ -13,7 +13,8 @@
                         <th>No. Resi</th>
                         <th>Tanggal Scan Resi</th>
                         <th>Kurir</th>
-                        <th>Market Place</th>
+                        <th>Marketplace</th>
+                        <th>Nama Toko</th>
                         <th>Nomor Picklist</th>
                         <th>Status Pesanan</th>
                         <th>Aksi</th>
