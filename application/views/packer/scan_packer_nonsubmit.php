@@ -265,10 +265,14 @@
                       console.log("Error parsing error response", e);
                   }
 
-                  // Sound logic based on exception code
-                  if (exceptionCode === 'ALREADY_PACKED' || exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
-                      // Double Scan or Canceled - User says ERROR
-                      playAudio('audio-wrong');
+                  // Sound logic based on exception code.
+                  // Dulu ketiga cabang ini sama-sama memutar audio-wrong, jadi
+                  // operator QC tahu scan-nya gagal tapi tidak tahu kenapa --
+                  // harus baca modal error dulu. Sekarang penyebabnya diucapkan.
+                  if (exceptionCode === 'ALREADY_PACKED') {
+                      playAudio('audio-sudah-packing');
+                  } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+                      playAudio('audio-cancel-order');
                   } else if (exceptionCode === 'NOT_PICKED') {
                       // Lost Scan - User says FAIL
                       playAudio('audio-wrong');

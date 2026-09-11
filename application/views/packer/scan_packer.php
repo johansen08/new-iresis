@@ -595,7 +595,7 @@
       timeout: feedback.status === 'auto_save_success' ? 1500 : 2500
     });
 
-    playFeedbackAudio(feedback.status);
+    playFeedbackAudio(feedback.status, feedback.exception_code);
 
     if (feedback.status === 'auto_save_success') {
       resetScanView();
@@ -627,12 +627,22 @@
     }
   }
 
-  function playFeedbackAudio(status) {
+  function playFeedbackAudio(status, exceptionCode) {
     var audioId = 'audio-error';
     if (status === 'auto_save_success') {
       audioId = 'audio-alert';
     } else if (status === 'auto_save_failed') {
-      audioId = 'audio-fail';
+      // Dulu semua kegagalan auto-save bunyinya audio-fail, padahal dua
+      // penyebab paling sering -- resi sudah di-packing dan pesanan sudah
+      // dibatalkan -- menuntut tindakan yang berbeda dari operator.
+      // exception_code-nya dikirim handle_double_scan_state() di Packer.php.
+      if (exceptionCode === 'ALREADY_PACKED') {
+        audioId = 'audio-sudah-packing';
+      } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+        audioId = 'audio-cancel-order';
+      } else {
+        audioId = 'audio-fail';
+      }
     }
 
     playAudio(audioId);
