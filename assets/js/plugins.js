@@ -1,8 +1,45 @@
 $(function() {
     var loading = 
-        "<div style='max-width: 100%; display: -webkit-box; display: -ms-flexbox; display: -webkit-flex; display: flex; justify-content: center; align-items: center;'>" + 
-            "<img src='assets/img/LoaderIcon.gif' />" + 
+        "<div style='max-width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 50px;'>" + 
+            "<div class='jogger-wrap' style='width: auto; height: auto;'><i class='fa fa-street-view' style='font-size: 50px; color: #007bff; animation: jogging 0.6s infinite ease-in-out;'></i></div>" +
+            "<div style='margin-top: 15px; font-weight: 700; color: #444; letter-spacing: 2px; font-size: 14px;'>SABAR, LAGI JOGGING...</div>" +
         "</div>";
+
+    // Penanganan gagal-muat halaman.
+    //
+    // Versi lama melakukan $('.page-content-wrap').html(xhr.responseText), sehingga
+    // ketika respons bukan JSON valid (mis. ada warning/error PHP ikut tercetak di
+    // belakang JSON) seluruh body mentah dirender sebagai HTML. Hasilnya halaman
+    // penuh teks {"view":"... <\/div>\r\n ... -- persis gejala yang dilaporkan.
+    // Sekarang body mentah hanya ditampilkan sebagai TEKS di dalam <pre> lewat
+    // .text(), jadi tidak pernah dieksekusi/dirender sebagai markup.
+    var renderAjaxError = function(xhr, textStatus) {
+        var pesan = (textStatus === 'parsererror')
+            ? 'Respons server bukan JSON yang valid. Biasanya ada error/warning PHP yang ikut tercetak di belakang data.'
+            : 'Gagal memuat halaman dari server.';
+
+        noty({text: pesan, timeout: 5000, layout: 'topRight', type: 'error'});
+
+        var panel = $('<div class="panel panel-danger"></div>');
+        $('<div class="panel-heading"></div>').text('Gagal memuat halaman').appendTo(panel);
+
+        var body = $('<div class="panel-body"></div>').appendTo(panel);
+        $('<p></p>').text(pesan).appendTo(body);
+
+        if (xhr && xhr.status) {
+            $('<p></p>').append($('<small></small>').text('HTTP ' + xhr.status + ' ' + (xhr.statusText || ''))).appendTo(body);
+        }
+
+        var raw = (xhr && typeof xhr.responseText === 'string') ? xhr.responseText : '';
+        if (raw !== '') {
+            $('<p></p>').append($('<small></small>').text('Isi respons mentah (untuk debug):')).appendTo(body);
+            $('<pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all;"></pre>')
+                .text(raw.length > 4000 ? raw.slice(0, 4000) + "\n... (dipotong)" : raw)
+                .appendTo(body);
+        }
+
+        $('.page-content-wrap').empty().append(panel);
+    };
 
     var devScript = function() {
 
@@ -26,11 +63,8 @@ $(function() {
                         if (data.message != null) {
                             noty({text: data.message.message, timeout: 3000, layout: 'topRight', type: data.message.type});
                         }
-                    }, error: function(data) {
-                        noty({text: 'There was an error', timeout: 3000, layout: 'topRight', type: 'error'});
-                        if (data.responseText != null) {
-                            $('.page-content-wrap').html(data.responseText);
-                        }
+                    }, error: function(xhr, textStatus) {
+                        renderAjaxError(xhr, textStatus);
                     }
                 });
             },
@@ -50,7 +84,16 @@ $(function() {
                     processData: false, // To send DOMDocument or non processed data file it is set to false
 
                     success: function(data) {
-                        data = JSON.parse(data);
+                        // Parse only if it's a string, not already an object
+                        if (typeof data === 'string') {
+                            try {
+                                data = JSON.parse(data);
+                            } catch (e) {
+                                console.error('JSON parse error:', e);
+                                noty({text: 'Invalid response format', timeout: 3000, layout: 'topRight', type: 'error'});
+                                return;
+                            }
+                        }
                         
                         $('.page-content-wrap').html(data.view);
         
@@ -64,11 +107,8 @@ $(function() {
                         if (data.message != null) {
                             noty({text: data.message.message, timeout: 3000, layout: 'topRight', type: data.message.type});
                         }
-                    }, error: function(data) {
-                        noty({text: 'There was an error', timeout: 3000, layout: 'topRight', type: 'error'});
-                        if (data.responseText != null) {
-                            $('.page-content-wrap').html(data.responseText);
-                        }
+                    }, error: function(xhr, textStatus) {
+                        renderAjaxError(xhr, textStatus);
                     }
                 });
             }

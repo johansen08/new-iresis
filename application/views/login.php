@@ -10,11 +10,10 @@
 
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-default.css" />
-
-    <!-- CSS INCLUDE -->
+	
+	<!-- CSS INCLUDE -->
     <link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-default.css" />
     <!-- EOF CSS INCLUDE -->
-
     <!-- STYLE OVERRIDE -->
     <style>
         html,
@@ -26,9 +25,9 @@
         }
 
         body {
-            background: url('http://192.168.1.179:8080/iresis/assets/img/bg-iresis.png') no-repeat center center fixed !important;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
             background-size: cover !important;
-            background-color: #1a1a1a !important;
+            background-color: #f5f7fa !important;
         }
 
         .login-container {
@@ -40,12 +39,11 @@
         }
 
         .login-box {
-            background: rgba(0, 0, 0, 0.78);
-            border-radius: 25px;
+            background: #ffffff;
+            border-radius: 20px;
             padding: 45px;
             width: 380px;
-            box-shadow: 0 0 40px rgba(255, 105, 180, 0.35);
-            backdrop-filter: blur(6px);
+            box-shadow: 0 15px 35px rgba(0, 123, 255, 0.15);
             animation: fadeInDown 0.8s ease;
         }
 
@@ -65,60 +63,68 @@
             text-align: center;
             font-size: 44px;
             font-weight: 700;
-            color: #ff4081;
+            color: #007bff;
             letter-spacing: 4px;
             margin-bottom: 5px;
             margin-top: -30px;
-            text-shadow: 0 0 20px rgba(255, 105, 180, 0.8);
+            text-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
         }
 
         .login-subtitle-text {
             text-align: center;
             font-size: 14px;
-            color: #ffd3e6;
+            color: #555;
             letter-spacing: 1px;
             margin-bottom: 25px;
             font-weight: 400;
-            text-shadow: 0 0 8px rgba(255, 182, 193, 0.5);
+        }
+
+        .login-body .login-title {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
         }
 
         .login-box input,
         .login-box select {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
+            background: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
             border-radius: 8px;
-            color: #fff;
+            color: #333 !important;
             padding: 10px 12px;
         }
 
-        .login-box input::placeholder,
-        .login-box select {
-            color: #ccc;
+        .login-box input::placeholder {
+            color: #999;
         }
 
         .btn-info {
-            background-color: #ff4081 !important;
+            background-color: #007bff !important;
             border: none !important;
             border-radius: 10px;
             font-weight: 600;
             transition: 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
         }
 
         .btn-info:hover {
-            background-color: #e73370 !important;
+            background-color: #0056b3 !important;
             transform: scale(1.03);
+            box-shadow: 0 6px 15px rgba(0, 123, 255, 0.4);
         }
 
         .login-footer {
             text-align: center;
             margin-top: 25px;
-            color: #ff85b2;
+            color: #666;
             font-size: 12px;
         }
 
         .login-footer a {
-            color: #ffb6c1;
+            color: #e91e63;
             text-decoration: none;
+            font-weight: 600;
         }
 
         .login-footer a:hover {
@@ -126,9 +132,10 @@
         }
 
         .help-block {
-            color: #d9534f;
+            color: #ff2d55;
             margin-top: 5px;
-            font-size: 12px;
+            font-size: 11px;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -138,12 +145,6 @@
     <div class="login-container">
 
         <div class="login-box animated fadeInDown">
-            
-            <!-- Tambahan: Logo dan Subjudul -->
-            <div class="login-logo">IRESIS</div>
-            <div class="login-subtitle-text">Sistem Informasi Resi dan Stock</div>
-            <!-- End tambahan -->
-
             <div class="login-body">
                 <div class="login-title"><strong>Welcome</strong>, Please login</div>
 
@@ -183,12 +184,14 @@
                             <select name="status_performa" id="status_performa" class="form-control select" data-live-search="true" style="font-weight: bold;">
                                 <option value="" style="font-weight: bold;" selected disabled>-- Select Status Performa --</option>
                                 <?php foreach ($list_status_performa as $role => $statuses) : ?>
-                                    <?php foreach ($statuses as $status) : ?>
-                                        <option value="<?= $status['status_name'] ?>"><?= $status['status_name'] ?></option>
-                                    <?php endforeach; ?>
+                                    <!-- <optgroup label="<?= $role ?>"> -->
+                                        <?php foreach ($statuses as $status) : ?>
+                                            <option value="<?= $status['status_name'] ?>"><?= $status['status_name'] ?></option>
+                                        <?php endforeach; ?>
+                                    <!-- </optgroup> -->
                                 <?php endforeach; ?>
                             </select>
-                            <span class="help-block"><strong>* Status Performa wajib dipilih untuk menghindari kesalahan data</strong></span>
+                            <span class="help-block" style="color: #d9534f; margin-top: 5px; font-size: 12px;"><strong>* Status Performa wajib dipilih untuk menghindari kesalahan data</strong></span>
                         </div>
                     </div>
                     <div class="form-group">
@@ -198,11 +201,10 @@
                     </div>
                 </form>
             </div>
-
             <div class="login-footer">
-                <div class="pull-left">
-                    &copy; 2025 BEVERRA
-                    <p>
+                <div class="text-center">
+                    &copy; ashari wibowo - beverra @2026
+                    <p style="margin-top: 5px;">
                         Login dengan scanner <a href="login?machine_name=<?= $machine_name ?>&using_scanner=1">di sini</a>
                     </p>
                 </div>

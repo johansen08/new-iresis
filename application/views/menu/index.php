@@ -10,7 +10,7 @@
                 <p>
                     <a href="menu/add-menu" class="btn btn-info link"><i class="fa fa-plus"></i> Add new menu</a>
                 </p>
-                <table class="table table-striped datatable">
+                <table class="table table-striped datatable" id="menu-table">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -58,3 +58,20 @@
         </div>
     </div>
 </div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    // Destroy default datatable initialization
+    if ($.fn.DataTable.isDataTable('#menu-table')) {
+        $('#menu-table').DataTable().destroy();
+    }
+
+    // Reinitialize with custom settings for menu page only
+    $('#menu-table').DataTable({
+        "pageLength": 100,
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+        "order": [[0, "asc"]]
+    });
+});
+</script>
+
