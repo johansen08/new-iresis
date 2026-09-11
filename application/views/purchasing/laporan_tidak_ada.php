@@ -1,0 +1,93 @@
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <form action="<?= base_url('purchasing/laporan_tidak_ada') ?>" class="form-horizontal" method="post" id="form-filter">
+                    <div class="form-group">
+                        <label class="col-md-3 col-xs-12 control-label">Rentang waktu Laporan</label>
+                        <div class="col-md-3 col-xs-12">
+                            <input type="text" name="reportrange" id="reportrange" class="form-control"
+                                value="<?= isset($reportrange) ? $reportrange : '' ?>" autocomplete="off" readonly
+                                style="background-color: #fff; cursor: pointer;" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">Laporan Barang Tidak Ada (Bukti QC)</h3>
+            </div>
+            <div class="panel-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover datatable" id="table-tidak-ada">
+                        <thead>
+                            <tr class="bg-navy">
+                                <th>No.</th>
+                                <th>Tanggal Masuk</th>
+                                <th>SKU</th>
+                                <th>No. Rak</th>
+                                <th>Qty</th>
+                                <th>Keterangan Fisik</th>
+                                <th>Diproses Oleh</th>
+                                <th>Waktu Proses</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if(!empty($list_tidak_ada)): ?>
+                            <?php $i = 1; foreach ($list_tidak_ada as $item): ?>
+                            <tr>
+                                <td><?= $i++; ?></td>
+                                <td><?= $item['tanggal'] ?></td>
+                                <td><?= $item['sku'] ?></td>
+                                <td><?= $item['no_rak'] ?></td>
+                                <td><?= $item['qty'] ?></td>
+                                <td><?= $item['keterangan_reject'] ?></td>
+                                <td><?= $item['nama_acc'] ?></td>
+                                <td><?= $item['acc_at'] ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#table-tidak-ada').DataTable({
+        "ordering": false
+    });
+
+    var existingVal = $('#reportrange').val();
+    var start = (existingVal && existingVal.indexOf(' - ') > 0) ? moment(existingVal.split(" - ")[0]) : moment().startOf('day');
+    var end = (existingVal && existingVal.indexOf(' - ') > 0) ? moment(existingVal.split(" - ")[1]) : moment().endOf('day');
+
+    $('#reportrange').daterangepicker({
+        timePicker: true,
+        timePicker24Hour: true,
+        startDate: start,
+        endDate: end,
+        opens: 'right',
+        ranges: {
+            'Hari Ini': [moment().startOf('day'), moment().endOf('day')],
+            'Kemarin': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
+            '7 Hari Terakhir': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
+            'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+        },
+        locale: {
+            format: 'YYYY-MM-DD HH:mm:ss',
+            cancelLabel: 'Clear'
+        }
+    });
+
+    $('#reportrange').on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('YYYY-MM-DD HH:mm:ss') + ' - ' + picker.endDate.format('YYYY-MM-DD HH:mm:ss'));
+        $('#form-filter').submit();
+    });
+});
+</script>
