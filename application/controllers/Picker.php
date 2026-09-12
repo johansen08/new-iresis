@@ -47,54 +47,72 @@ class Picker extends MY_Controller
         $picking['yangambil_pegawai'] = $this->input->post('id_pegawaipicker');
         $picking['pending'] = '';
         
-        // Debug: Tampilkan semua data POST
-        $post_data = $this->input->post();
-        log_message('debug', 'All POST data: ' . json_encode($post_data));
-        
-        // Ambil status performa yang dipilih (optimized with static cache)
         $status_performa_code = $this->input->post('status_performa');
-        log_message('debug', 'Status performa code dari POST: ' . $status_performa_code);
-        
-        $status_id = null;
+
+        /*
+         * Status performa hanya diurus ke DB kalau BERUBAH dari yang tersimpan
+         * di session.
+         *
+         * Dulu tiap scan menjalankan get_status_id_by_name() lalu
+         * log_status_performa() -- padahal dropdown status di layar praktis
+         * tidak pernah diubah di tengah sesi picking, jadi yang ditulis selalu
+         * sama dengan yang sudah ada. Ongkosnya 4 query per scan, 2 di antaranya
+         * UPDATE, cuma untuk menegaskan ulang nilai yang tidak berubah.
+         *
+         * Static cache self::$status_cache tidak pernah menolong: dengan mod_php
+         * state PHP dimulai ulang tiap request, jadi cache-nya selalu kosong
+         * saat dibaca.
+         *
+         * Datanya tidak hilang. Kalau picker benar-benar mengganti mode, cabang
+         * else di bawah tetap jalan pada scan pertama setelah perubahan itu.
+         * Satu-satunya kolom yang berhenti di-refresh tiap scan adalah
+         * jam_login, dan tidak ada kode di aplikasi ini yang membacanya --
+         * hanya ditulis, tidak pernah dibaca.
+         */
+        $status_sesi = $this->session->userdata('user_status_performa');
+        $kode_sesi   = NULL;
+        $id_sesi     = NULL;
+
+        if (is_array($status_sesi)) {
+            $kode_sesi = $status_sesi['kode_status'] ?? NULL;
+            $id_sesi   = $status_sesi['id_statusperforma'] ?? NULL;
+        } elseif (is_object($status_sesi)) {
+            $kode_sesi = $status_sesi->kode_status ?? NULL;
+            $id_sesi   = $status_sesi->id_statusperforma ?? NULL;
+        }
+
         if (!empty($status_performa_code)) {
-            // Check static cache first
-            if (!isset(self::$status_cache[$status_performa_code])) {
+            if ($kode_sesi === $status_performa_code && !empty($id_sesi)) {
+                // Tidak berubah -- pakai nilai session, tanpa query sama sekali.
+                $picking['status_performa_id'] = $id_sesi;
+            } else {
                 $this->load->model('kpi_fcd');
                 $status_id = $this->kpi_fcd->get_status_id_by_name($status_performa_code);
-                
+
                 // Fallback for 1_sku variations
                 if (!$status_id && (strtoupper($status_performa_code) == '1_SKU' || strtoupper($status_performa_code) == '1_SKU_PICKER')) {
                     $status_id = $this->kpi_fcd->get_status_id_by_name('1_SKU_PICKER');
                 }
-                
-                self::$status_cache[$status_performa_code] = $status_id;
-            }
-            
-            $status_id = self::$status_cache[$status_performa_code];
-            if ($status_id) {
-                $picking['status_performa_id'] = $status_id;
-                
-                // CRITICAL FIX: Update active status in tblstatusperforma so reports show correct mode
-                $this->load->model('kpi_fcd');
-                $this->kpi_fcd->log_status_performa($this->data['user']['id_user'], $status_id);
-                
-                // Sync to session
-                $this->session->set_userdata('user_status_performa', [
-                    'id_statusperforma' => $status_id,
-                    'kode_status' => $status_performa_code
-                ]);
+
+                if ($status_id) {
+                    $picking['status_performa_id'] = $status_id;
+
+                    // CRITICAL FIX: Update active status in tblstatusperforma so reports show correct mode
+                    $this->kpi_fcd->log_status_performa($this->data['user']['id_user'], $status_id);
+
+                    // Sync to session
+                    $this->session->set_userdata('user_status_performa', [
+                        'id_statusperforma' => $status_id,
+                        'kode_status' => $status_performa_code
+                    ]);
+                }
             }
         }
 
         // Fallback to session if still no status_id
         if (empty($picking['status_performa_id'])) {
-            $user_status = $this->session->userdata('user_status_performa');
-            if ($user_status) {
-                if (is_object($user_status) && isset($user_status->id_statusperforma)) {
-                    $picking['status_performa_id'] = $user_status->id_statusperforma;
-                } elseif (is_array($user_status) && isset($user_status['id_statusperforma'])) {
-                    $picking['status_performa_id'] = $user_status['id_statusperforma'];
-                }
+            if (!empty($id_sesi)) {
+                $picking['status_performa_id'] = $id_sesi;
             }
 
             if (empty($picking['status_performa_id'])) {
@@ -111,10 +129,6 @@ class Picker extends MY_Controller
             }
         }
 
-        // Debug: Tampilkan data yang akan disimpan
-        log_message('debug', 'Data picking yang akan disimpan: ' . json_encode($picking));
-        log_message('debug', 'User data: ' . json_encode($this->data['user']));
-
         $save = $this->picking_fcd->save($picking, $this->data['user']);
 
         if (isset($save['error'])) {
@@ -128,21 +142,15 @@ class Picker extends MY_Controller
         }
 
         if ($save['affected_rows'] > 0) {
-            // Get item details for summary mode
-            $items = [];
-            $this->db->select('dr.sku, dr.jumlah, dr.no_rak, s.nama_sku');
-            $this->db->from('tblprintresi pr');
-            $this->db->join('tbldetailprintresi dr', 'dr.id_resi = pr.id_printresi');
-            $this->db->join('tblsku s', 's.id_sku = dr.sku', 'left');
-            $this->db->where('pr.noresi', $picking['noresi']);
-            $query = $this->db->get();
-            $items = $query->result_array();
-
+            // Rincian item sudah ikut dibawa Picking_fcd::save(), yang memang
+            // harus membaca isi resi untuk menentukan tipe_resi. Dulu di sini
+            // ada query join sendiri untuk resi yang sama persis -- isi resi
+            // yang sama dibaca dua kali dalam satu request.
             header('Content-Type: application/json');
             echo json_encode([
                 'code' => 201,
                 'message' => SUCCESS_SAVE_DATA,
-                'items' => $items
+                'items' => $save['items'] ?? []
             ]);
             exit;
         }
