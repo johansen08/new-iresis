@@ -64,6 +64,35 @@
     }
   }
 
+  // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
+  // bukan dari teks pesannya -- pola sama dengan halaman Scan Picker.
+  //   NOT_PICKED      -> nada WRONG, resi belum punya nama picker untuk dikoreksi
+  //   NOT_FOUND       -> nada WRONG (patokan lama operator untuk resi salah)
+  //   ORDER_CANCELED  -> ucapan "cancel"
+  //   ORDER_COMPLETED -> nada fail
+  // NOT_PICKED sengaja disamakan dengan NOT_FOUND: dua-duanya berarti resi itu
+  // tidak bisa diproses di sini dan operator harus mengeceknya, jadi cukup satu
+  // nada salah yang sudah mereka kenal.
+  function playScanErrorAudio(message, exceptionCode) {
+    switch (exceptionCode) {
+      case 'NOT_PICKED':      playAudio('audio-wrong');        return;
+      case 'NOT_FOUND':       playAudio('audio-wrong');        return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order'); return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');         return;
+    }
+
+    // Tanpa kode -- error jaringan, timeout, atau respons yang tidak terbaca.
+    var teks = (message || "").toUpperCase();
+
+    if (teks.includes('CANCEL') || teks.includes('BATAL')) {
+      playAudio('audio-cancel-order');
+    } else if (teks.includes('BELUM MEMILIKI NAMA PICKER') || teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-wrong');
+    } else {
+      playAudio('audio-alert');
+    }
+  }
+
   var jvalidate = $("#form_scan_picker").validate({
     ignore: [],
     rules: {
@@ -76,37 +105,66 @@
     },
     submitHandler: function(form) {
       var formData = new FormData(form);
+      var noresiValue = form.noresi.value;
 
       form.noresi.disabled = true;
+
+      function selesai() {
+        form.noresi.value = "";
+        form.noresi.disabled = false;
+        form.noresi.focus();
+      }
+
+      function tampilkanBerhasil() {
+        $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
+        $("#span_latest_receipt").text(noresiValue);
+        $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan Picker");
+
+        playAudio('audio-alexis');
+        selesai();
+      }
+
+      function tampilkanGagal(pesan, exceptionCode) {
+        $("#span_latest_receipt").text(noresiValue);
+        $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+        $("#p_latest_receipt_message").text(pesan || "Gagal memproses data");
+
+        playScanErrorAudio(pesan, exceptionCode);
+        selesai();
+      }
 
       $.ajax({
         url: form.action,
         type: 'post',
         data: Object.fromEntries(formData),
-        success: function(data) {},
-        error: function(data) {},
       }).done(function(response) {
-        $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
-        $("#span_latest_receipt").text(form.noresi.value);
-        $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan Picker");
+        // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di body
+        // JSON, jadi .done() juga dipanggil untuk respons gagal. Dulu blok ini
+        // langsung dianggap berhasil: resi yang belum punya nama picker ditolak
+        // server, tapi di layar tetap tampil "sudah di-scan Picker" dan berbunyi
+        // ALEXIS -- operator menyangka update-nya masuk. Cek response.code dulu.
+        if (typeof response === 'string') {
+          try { response = JSON.parse(response); } catch (err) { response = {}; }
+        }
 
-        playAudio('audio-alexis');
+        if (response && response.code === 201) {
+          tampilkanBerhasil();
+          return;
+        }
 
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+        var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
+        tampilkanGagal(response ? response.message : '', kode);
       }).fail(function(error) {
-        var response = JSON.parse(error.responseText);
+        // Sisa jalur: putus jaringan atau error 500 yang bukan JSON.
+        var response = {};
+        try {
+          response = JSON.parse(error.responseText);
+        } catch (err) {
+          response.message = "Terjadi kesalahan pada server";
+        }
 
-        $("#span_latest_receipt").text(form.noresi.value);
-        $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
-        $("#p_latest_receipt_message").text(response.message);
-
-        playAudio('audio-wrong');
-
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+        var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
+        tampilkanGagal(response.message, kode);
       });
       return false; // required to block normal submit since you used ajax
     }
