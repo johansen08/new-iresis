@@ -69,10 +69,23 @@ class Picking_fcd extends CI_Model
         $this->db->trans_start();
         
         try {
-            // 1. Check if noresi exists and get status (optimized query)
+            // 1. Cek resi + apakah sudah pernah di-picker, DALAM SATU QUERY.
+            //
+            // Dulu dua SELECT terpisah (tblprintresi lalu tblresiambilbarang).
+            // Server DB ada di mesin lain, dan tiap query membayar perjalanan
+            // bolak-balik LAN, jadi menggabungkannya memangkas satu round-trip
+            // penuh dari setiap scan.
+            //
+            // LEFT JOIN, bukan INNER: resi yang belum pernah di-picker harus
+            // tetap kebaca (justru itu kasus normalnya di menu Scan Picker).
+            // tblresiambilbarang.id_resi UNIK, jadi tidak ada risiko baris ganda.
             $receipt = $this->db
-                ->select('id_printresi, status_pesanan, batal')
-                ->get_where('tblprintresi', ['noresi' => $picking['noresi']])
+                ->select('pr.id_printresi, pr.status_pesanan, pr.batal, rab.id_resiambilbarang')
+                ->from('tblprintresi pr')
+                ->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left')
+                ->where('pr.noresi', $picking['noresi'])
+                ->limit(1)
+                ->get()
                 ->row();
 
             if (empty($receipt)) {
@@ -93,11 +106,10 @@ class Picking_fcd extends CI_Model
             unset($picking['noresi']);
             $id_resi = $receipt->id_printresi;
 
-            // 3. Check if id_resi exists in tblresiambilbarang (optimized query)
-            $picking_exist = $this->db
-                ->select('id_resiambilbarang')
-                ->get_where('tblresiambilbarang', ['id_resi' => $id_resi])
-                ->row();
+            // 3. Hasil cek picker sudah ikut terbawa query di atas.
+            $picking_exist = empty($receipt->id_resiambilbarang)
+                ? NULL
+                : (object) ['id_resiambilbarang' => $receipt->id_resiambilbarang];
 
             if ($mode == PICKING_INSERT_PACKER) {
                 if (!empty($picking_exist)) {
@@ -121,12 +133,32 @@ class Picking_fcd extends CI_Model
                 $this->db->insert('tblresiambilbarang', $insert_data);
                 $picking['affected_rows'] = $this->db->affected_rows();
 
-                // Set tipe_resi (satuan/campuran) berdasarkan jumlah detail item
-                $detail_sum = $this->db->select_sum('jumlah')
-                    ->where('id_resi', $id_resi)
-                    ->get('tbldetailprintresi')
-                    ->row();
-                $total_qty = $detail_sum ? intval($detail_sum->jumlah) : 1;
+                // Rincian item diambil SEKALI di sini, lalu dipakai untuk dua
+                // keperluan: menentukan tipe_resi, dan dikirim balik ke layar
+                // untuk tabel summary picker.
+                //
+                // Dulu isi resi yang sama dibaca dua kali dalam satu request:
+                // SUM(jumlah) di sini, lalu Picker::save_scan_picker() menembak
+                // query join sendiri untuk daftar item-nya.
+                $picking['items'] = $this->db
+                    ->select('dr.sku, dr.jumlah, dr.no_rak, s.nama_sku')
+                    ->from('tbldetailprintresi dr')
+                    ->join('tblsku s', 's.id_sku = dr.sku', 'left')
+                    ->where('dr.id_resi', $id_resi)
+                    ->get()
+                    ->result_array();
+
+                $total_qty = 0;
+                foreach ($picking['items'] as $item) {
+                    $total_qty += (int) $item['jumlah'];
+                }
+
+                // Resi tanpa baris detail dianggap satuan, sama seperti dulu
+                // ketika SUM() mengembalikan NULL.
+                if ($total_qty < 1) {
+                    $total_qty = 1;
+                }
+
                 $tipe_resi = ($total_qty > 1) ? 'campuran' : 'satuan';
                 $this->db->where('id_printresi', $id_resi)
                     ->update('tblprintresi', ['tipe_resi' => $tipe_resi]);
