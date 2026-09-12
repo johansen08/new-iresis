@@ -633,7 +633,10 @@ class Picker extends MY_Controller
         $save = $this->picking_fcd->save($picking, $this->data['user'], PICKING_UPDATE_PACKER);
 
         if (isset($save['error'])) {
-            $this->make_ajax_response($save['code'], $save['message']);
+            // EXCEPTION_CODE ikut dikirim supaya update_picker.php bisa memilih suara
+            // sesuai penyebabnya (resi belum punya nama picker vs resi tidak
+            // ditemukan vs pesanan batal), pola sama dengan save_scan_picker().
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? []);
         }
 
         if ($save['affected_rows'] > 0) {

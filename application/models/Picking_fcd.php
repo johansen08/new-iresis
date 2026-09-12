@@ -135,9 +135,14 @@ class Picking_fcd extends CI_Model
                 $this->log_kpi_transaksi_async($user['id_user'], $picking['status_performa_id'] ?? null, $id_resi);
 
             } else if ($mode == PICKING_UPDATE_PACKER) {
+                // Update Picker hanya untuk MENGOREKSI nama picker yang sudah ada.
+                // Tanpa baris di tblresiambilbarang, resi itu belum pernah di-scan
+                // Picker sama sekali -- tidak ada nama picker yang bisa dikoreksi,
+                // resinya harus lewat menu Scan Picker lebih dulu.
+                // EXCEPTION_CODE dibaca update_picker.php untuk memilih suara.
                 if (empty($picking_exist)) {
                     $this->db->trans_rollback();
-                    return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker. Silakan Cek data'];
+                    return ['error' => TRUE, 'code' => 400, 'message' => 'Resi belum memiliki nama picker. Scan lewat menu Scan Picker lebih dulu.', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
                 }
 
                 // Update single record
