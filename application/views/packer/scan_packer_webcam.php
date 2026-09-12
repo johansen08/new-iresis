@@ -37,6 +37,10 @@
       <!-- search input by noresi -->
       <div class="panel-body">
         <form action="packer/scan-packer-webcam" method="post" class="form-horizontal" autocomplete="off">
+          <!-- Status kamera ikut terkirim tiap scan. Dipakai server saat setelan
+               "wajib kamera" menyala: scan ditolak kalau nilainya bukan "siap",
+               supaya tidak ada paket tersimpan tanpa rekaman. -->
+          <input type="hidden" name="kamera_status" id="kamera-status" value="belum" />
           <div class="form-group">
             <div class="col-md-12">
               <div class="input-group">
@@ -62,6 +66,11 @@
           <div class="col-md-7">
             <div id="rekam-status" class="alert alert-warning" style="margin-bottom: 10px;">
               Kamera mati. Nomor resi masih bisa di-scan, tapi packing-nya tidak akan terekam.
+            </div>
+
+            <div class="form-group hidden" id="pilih-kamera-wrap" style="max-width: 340px;">
+              <label class="control-label" for="pilih-kamera">Kamera</label>
+              <select id="pilih-kamera" class="form-control"></select>
             </div>
 
             <button type="button" class="btn btn-primary" id="btn-kamera-mulai">
@@ -100,11 +109,39 @@
                     </button>
                   </div>
                 </div>
+                <div class="checkbox" style="margin-top: 4px;">
+                  <label>
+                    <input type="checkbox" id="setelan-wajib" <?= !empty($setelan_video['wajib_kamera']) ? 'checked' : '' ?> />
+                    Tolak scan kalau kamera belum siap
+                  </label>
+                </div>
+
                 <p class="help-block" style="margin-top: 8px;">
                   Rekaman berhenti sendiri di batas ini dan tetap disimpan (terpotong), tidak dibuang.
                   Setelan baru berlaku saat kamera dinyalakan ulang.<br />
+                  <strong>Tolak scan</strong> menutup celah packing tanpa rekaman, tapi juga menghentikan
+                  lini packing kalau kamera bermasalah — halaman Scan Resi Packer biasa tetap bisa dipakai
+                  sebagai cadangan.<br />
                   Folder simpan: <code><?= htmlspecialchars($folder_video, ENT_QUOTES, 'UTF-8') ?></code>
                 </p>
+
+                <hr style="margin: 12px 0;" />
+
+                <strong>Cari video packing</strong>
+                <div class="row" style="margin-top: 8px;">
+                  <div class="col-md-8">
+                    <div class="input-group">
+                      <input type="text" id="cari-video-resi" class="form-control" placeholder="Nomor resi" autocomplete="off" />
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" id="btn-cari-video">
+                          <i class="fa fa-search"></i> Cari
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="hasil-cari-video" style="margin-top: 10px;"></div>
               </div>
             <?php endif; ?>
           </div>
@@ -778,6 +815,10 @@
 
   var KUNCI_KAMERA_AKTIF = 'packer_rekam_aktif';
 
+  // Kamera pilihan diingat per KOMPUTER (localStorage, bukan sessionStorage),
+  // karena satu meja packing selalu memakai webcam yang sama.
+  var KUNCI_DEVICE = 'packer_video_device_id';
+
   // Toleransi hilangnya elemen <video> sebelum rekaman dianggap ditinggalkan.
   // Saat berpindah halaman SPA, .page-content-wrap sempat diisi spinner, jadi
   // elemennya memang hilang sebentar -- tanpa toleransi ini rekaman yang masih
@@ -789,6 +830,7 @@
     recorder: null,
     potongan: [],
     noresi: '',
+    statusKamera: 'belum', // belum | membuka | siap | gagal | tidak-didukung
     mulai: 0,
     timerUI: null,
     jaga: null,
@@ -805,6 +847,24 @@
 
   function bacaPrefKamera() {
     try { return window.sessionStorage.getItem(KUNCI_KAMERA_AKTIF); } catch (e) { return null; }
+  }
+
+  function bacaDeviceId() {
+    try { return window.localStorage.getItem(KUNCI_DEVICE) || ''; } catch (e) { return ''; }
+  }
+
+  function simpanDeviceId(nilai) {
+    try { window.localStorage.setItem(KUNCI_DEVICE, nilai); } catch (e) {}
+  }
+
+  /**
+   * Status kamera disimpan di window DAN ditulis ke field tersembunyi form.
+   * Field itu ikut terkirim di setiap scan, jadi server bisa menolak scan saat
+   * setelan "wajib kamera" menyala.
+   */
+  function setStatusKamera(nilai) {
+    window.rekamPacking.statusKamera = nilai;
+    $('#kamera-status').val(nilai);
   }
 
   function statusRekam(teks, jenis) {
@@ -834,18 +894,28 @@
       ? { w: 1920, h: 1080 }
       : { w: 1280, h: 720 };
 
+    var video = {
+      width:     { ideal: t.w },
+      height:    { ideal: t.h },
+      frameRate: { ideal: 15, max: 30 }
+    };
+
+    // 'ideal', bukan 'exact': kalau webcam yang diingat sudah dicabut, browser
+    // jatuh ke kamera lain daripada gagal total dan membuat packing tak terekam.
+    var device = bacaDeviceId();
+    if (device) { video.deviceId = { ideal: device }; }
+
     return {
       audio: false, // audio belum diputuskan; mematikannya juga memangkas ukuran
-      video: {
-        width:     { ideal: t.w },
-        height:    { ideal: t.h },
-        frameRate: { ideal: 15, max: 30 }
-      }
+      video: video
     };
   }
 
   function opsiRekam() {
-    var kandidat = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    // VP8 DULU, baru VP9. VP9 memang menghasilkan berkas lebih kecil, tapi
+    // encoding-nya jauh lebih berat dan ini berjalan di PC packer, bukan di
+    // server. Di 1080p beban itu bisa membuat Chrome tersendat saat packing.
+    var kandidat = ['video/webm;codecs=vp8', 'video/webm;codecs=vp9', 'video/webm'];
     var mime = '';
 
     for (var i = 0; i < kandidat.length; i++) {
@@ -859,6 +929,53 @@
     if (mime) { opsi.mimeType = mime; }
 
     return opsi;
+  }
+
+  /**
+   * Mengisi dropdown kamera. Label perangkat baru terbaca SETELAH izin
+   * diberikan, jadi ini dipanggil sesudah stream jalan. Dropdown-nya sendiri
+   * hanya ditampilkan kalau memang ada lebih dari satu kamera.
+   */
+  function isiDaftarKamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { return; }
+
+    navigator.mediaDevices.enumerateDevices().then(function (daftar) {
+      var $sel = $('#pilih-kamera');
+      if (!$sel.length) { return; }
+
+      var kamera = [];
+      for (var i = 0; i < daftar.length; i++) {
+        if (daftar[i].kind === 'videoinput') { kamera.push(daftar[i]); }
+      }
+
+      $sel.empty();
+      $.each(kamera, function (i, d) {
+        $sel.append($('<option></option>').attr('value', d.deviceId).text(d.label || ('Kamera ' + (i + 1))));
+      });
+
+      var tersimpan = bacaDeviceId();
+      if (tersimpan) {
+        $sel.val(tersimpan);
+        if ($sel.val() === null && kamera.length) { $sel.val(kamera[0].deviceId); }
+      }
+
+      $('#pilih-kamera-wrap').toggleClass('hidden', kamera.length < 2);
+    }).catch(function () {});
+  }
+
+  /** Mematikan stream lalu membukanya lagi dengan kamera / setelan terbaru. */
+  function gantiKamera() {
+    var w = window.rekamPacking;
+
+    buangRekam(null);
+
+    if (w.stream) {
+      w.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      w.stream = null;
+    }
+
+    setStatusKamera('belum');
+    nyalakanKamera();
   }
 
   function pasangPratinjau() {
@@ -875,16 +992,19 @@
     var w = window.rekamPacking;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      setStatusKamera('tidak-didukung');
       statusRekam('Browser tidak mendukung perekaman di halaman ini. Buka lewat <code>http://localhost</code> atau HTTPS, bukan alamat IP polos.', 'danger');
       return;
     }
 
     if (w.stream) { pasangPratinjau(); return; }
 
+    setStatusKamera('membuka');
     statusRekam('Menyiapkan kamera...', 'info');
 
     navigator.mediaDevices.getUserMedia(kendalaVideo()).then(function (stream) {
       w.stream = stream;
+      setStatusKamera('siap');
       simpanPrefKamera('1');
       tampilTombolKamera(true);
       pasangPratinjau();
@@ -893,6 +1013,7 @@
       var s = trek ? trek.getSettings() : {};
       statusRekam('Kamera siap (' + (s.width || '?') + 'x' + (s.height || '?') + '). Packing akan terekam otomatis saat resi di-scan.', 'success');
 
+      isiDaftarKamera();
       pasangPenjaga();
 
       // Resi sudah di-scan duluan sebelum kamera siap -- langsung rekam.
@@ -902,6 +1023,7 @@
         mulaiRekam(n);
       }
     }).catch(function (err) {
+      setStatusKamera('gagal');
       simpanPrefKamera('0');
       tampilTombolKamera(false);
       statusRekam('Kamera tidak bisa dibuka: ' + ((err && err.message) ? err.message : err) + '. Packing tidak akan terekam.', 'danger');
@@ -920,6 +1042,7 @@
 
     if (w.jaga) { clearInterval(w.jaga); w.jaga = null; }
 
+    setStatusKamera('belum');
     simpanPrefKamera('0');
     tampilTombolKamera(false);
     statusRekam('Kamera mati. Nomor resi masih bisa di-scan, tapi packing-nya tidak akan terekam.', 'warning');
@@ -1169,6 +1292,21 @@
     $('#btn-kamera-mulai').on('click', nyalakanKamera);
     $('#btn-kamera-stop').on('click', matikanKamera);
     $('#btn-simpan-setelan').on('click', simpanSetelanVideo);
+    $('#btn-cari-video').on('click', cariVideoPacking);
+    $('#cari-video-resi').on('keydown', function (e) {
+      if (e.which === 13) { e.preventDefault(); cariVideoPacking(); }
+    });
+
+    $('#pilih-kamera').on('change', function () {
+      simpanDeviceId($(this).val() || '');
+      gantiKamera();
+    });
+
+    // Field tersembunyi ikut dibuat ulang tiap render, jadi nilainya disetel
+    // ulang dari state yang bertahan di window.
+    setStatusKamera(w.statusKamera);
+
+    if (w.stream) { isiDaftarKamera(); }
 
     if (w.stream) {
       tampilTombolKamera(true);
@@ -1192,15 +1330,17 @@
       type: 'POST',
       dataType: 'json',
       data: {
-        resolusi:    $('#setelan-resolusi').val(),
-        batas_menit: $('#setelan-batas').val()
+        resolusi:     $('#setelan-resolusi').val(),
+        batas_menit:  $('#setelan-batas').val(),
+        wajib_kamera: $('#setelan-wajib').is(':checked') ? '1' : '0'
       }
     }).done(function (res) {
       $btn.prop('disabled', false);
 
       if (res && res.code === 200) {
-        VIDEO_SETELAN.resolusi    = res.data.resolusi;
-        VIDEO_SETELAN.batas_menit = res.data.batas_menit;
+        VIDEO_SETELAN.resolusi     = res.data.resolusi;
+        VIDEO_SETELAN.batas_menit  = res.data.batas_menit;
+        VIDEO_SETELAN.wajib_kamera = res.data.wajib_kamera;
         noty({ text: 'Setelan video disimpan. Matikan lalu nyalakan kamera agar resolusi baru dipakai.', layout: 'topRight', type: 'success', timeout: 4000 });
       } else {
         noty({ text: 'Gagal menyimpan setelan: ' + ((res && res.message) ? res.message : 'respons tidak dikenal'), layout: 'topRight', type: 'error', timeout: 4000 });
@@ -1208,6 +1348,75 @@
     }).fail(function () {
       $btn.prop('disabled', false);
       noty({ text: 'Gagal menghubungi server saat menyimpan setelan.', layout: 'topRight', type: 'error', timeout: 4000 });
+    });
+  }
+
+  // ── pemutar video ────────────────────────────────────────────────────
+  //
+  // Videonya disimpan di luar webroot, jadi <video src> menunjuk ke endpoint
+  // PHP (packer/video-packing/<noresi>), bukan ke berkas statis. Endpoint itu
+  // mendukung HTTP Range sehingga pemutar tetap bisa digeser ke menit tertentu
+  // tanpa mengunduh ulang seluruh berkas.
+
+  function cariVideoPacking() {
+    var resi = $.trim($('#cari-video-resi').val() || '');
+    var $hasil = $('#hasil-cari-video');
+
+    if (!resi) {
+      $hasil.empty();
+      return;
+    }
+
+    $hasil.html($('<p class="help-block"></p>').text('Mencari video resi ' + resi + '...'));
+
+    $.ajax({
+      url: 'packer/cari-video-packing',
+      type: 'POST',
+      dataType: 'json',
+      data: { noresi: resi }
+    }).done(function (res) {
+      if (!res || res.code !== 200 || !res.data) {
+        $hasil.empty().append(
+          $('<div class="alert alert-warning" style="margin-bottom:0;"></div>')
+            .text((res && res.message) ? res.message : 'Video tidak ditemukan.')
+        );
+        return;
+      }
+
+      var d = res.data;
+      var mb = (d.ukuran_byte / 1048576).toFixed(1);
+
+      // Elemen dibangun lewat DOM dan .text(), bukan rangkaian string HTML,
+      // supaya nilai dari server tidak pernah tertafsir sebagai markup.
+      var $video = $('<video controls preload="metadata"></video>')
+        .attr('src', d.url)
+        .css({ width: '100%', maxHeight: '320px', background: '#000', borderRadius: '4px' });
+
+      var $info = $('<p class="help-block" style="margin-top:6px;"></p>')
+        .text(d.nama_berkas + ' — ' + mb + ' MB — direkam ' + (d.diubah_pada || '-'));
+
+      var $unduh = $('<a class="btn btn-default btn-sm"></a>')
+        .attr({ href: d.url, download: d.nama_berkas })
+        .html('<i class="fa fa-download"></i> Unduh');
+
+      $hasil.empty().append($video).append($info).append($unduh);
+
+      if (!d.tercatat) {
+        $hasil.append(
+          $('<div class="alert alert-warning" style="margin-top:8px;margin-bottom:0;"></div>')
+            .text('Berkasnya ada, tapi tblpacking.video_path untuk resi ini kosong — pencatatan ke database gagal saat unggah.')
+        );
+      } else if (d.format_lama) {
+        $hasil.append(
+          $('<div class="alert alert-info" style="margin-top:8px;margin-bottom:0;"></div>')
+            .text('Database masih menyimpan catatan format lama: ' + d.tercatat)
+        );
+      }
+    }).fail(function () {
+      $hasil.empty().append(
+        $('<div class="alert alert-danger" style="margin-bottom:0;"></div>')
+          .text('Gagal menghubungi server saat mencari video.')
+      );
     });
   }
 
