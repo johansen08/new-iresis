@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-08-10.1';
+    const BOOTSTRAP_VERSI = '2026-09-12.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -70,6 +70,7 @@ class MY_Controller extends CI_Controller
         $this->run_complain_migrations();
         $this->run_cancel_order_migrations();
         $this->run_tracking_picker_migration();
+        $this->run_menu_scan_packer_webcam();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1002,6 +1003,59 @@ class MY_Controller extends CI_Controller
                     'createdby' => 1
                 ]);
             }
+        }
+    }
+
+    /**
+     * Menu "Scan Resi Packer (Webcam)" di grup TIM PACKER.
+     *
+     * Halamannya kembaran Scan Resi Packer, bedanya hanya nomor resi dibaca dari
+     * kamera. Untuk sementara hak aksesnya SENGAJA cuma webmaster (roleid 1) --
+     * fiturnya masih uji coba, jadi jangan disamakan dengan hak akses menu
+     * Scan Resi Packer (menuid 25) yang dipegang hampir semua role.
+     *
+     * Kalau nanti sudah dibuka untuk role lain, tambahkan roleid-nya di sini dan
+     * naikkan BOOTSTRAP_VERSI -- jangan menghapus baris roleaccess yang ada.
+     */
+    protected function run_menu_scan_packer_webcam()
+    {
+        $uri = 'packer/scan_packer_webcam';
+
+        // Urutan dikunci ke id terkecil: bootstrap ini pernah jalan dua kali
+        // serentak (dua request masuk sebelum penanda versi sempat ditulis) dan
+        // menghasilkan dua baris menu dengan uri sama. Tanpa order_by, row() bisa
+        // memungut baris duplikat yang sudah dinonaktifkan lalu memberinya hak
+        // akses lagi.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            // Induknya diambil dari menu Scan Resi Packer supaya ikut pindah kalau
+            // grup TIM PACKER pernah ditata ulang; 24 hanya cadangan.
+            $menu_asal = $this->db->get_where('menu', ['uri' => 'packer/scan_packer'])->row();
+            $parent_id = $menu_asal ? $menu_asal->parentid : 24;
+
+            $this->db->insert('menu', [
+                'name'      => 'Scan Resi Packer (Webcam)',
+                'parentid'  => $parent_id,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-video-camera',
+                'sortorder' => 11,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $akses_ada = $this->db->get_where('roleaccess', ['roleid' => 1, 'menuid' => $menu_id])->row();
+        if (!$akses_ada) {
+            $this->db->insert('roleaccess', [
+                'roleid'    => 1,
+                'menuid'    => $menu_id,
+                'created'   => date('Y-m-d H:i:s'),
+                'createdby' => 1
+            ]);
         }
     }
 }
