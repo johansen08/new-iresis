@@ -14,7 +14,14 @@
 
       <!-- search input by noresi -->
       <div class="panel-body">
-        <form action="packer/scan-packer" method="post" class="form-horizontal" autocomplete="off">
+        <!--
+          class="nojs" WAJIB ada. Tanpa itu, handler global di plugins.js
+          membajak submit form dan mengganti seluruh .page-content-wrap -- input
+          nomor resi ikut terhapus dari DOM selagi request berjalan, dan scan
+          yang diketik scanner saat itu hilang tanpa jejak. Scan di halaman ini
+          ditangani sendiri oleh kirimScan() di bawah.
+        -->
+        <form action="packer/scan-packer" method="post" class="form-horizontal nojs" id="form-scan-packer" autocomplete="off">
           <div class="form-group">
             <div class="col-md-12">
               <div class="input-group">
@@ -36,8 +43,12 @@
         </form>
       </div>
 
-      <!-- table untuk data resi -->
-      <?php if (!empty($noresi)) : ?>
+      <!--
+        Blok hasil selalu ikut dirender, cukup disembunyikan lewat CSS, lalu
+        diisi JS dari respons detail_resi(). Dulu blok ini dibungkus
+        "if (!empty($noresi))" karena halaman memang dirender ulang tiap scan;
+        sekarang halaman hanya dirender sekali, jadi elemennya harus sudah ada.
+      -->
           <div class="col-md-12" id="result-info">
               <div id="button-footer">
                   <div class="text-left" style="margin-top: 10px;">
@@ -51,10 +62,10 @@
               </div>
               <div class="row">
                   <div class="col-md-4 text-center" style="border-right: 1px solid #ccc;">
-                      <div><strong>Total Scan: <?= $total_scan ?></strong></div>
+                      <div><strong>Total Scan: <span id="info-total-scan"><?= $total_scan ?></span></strong></div>
                   </div>
                   <div class="col-md-4 text-center" style="border-right: 1px solid #ccc;">
-                      <div><strong>Picker: <?= $nama_picker ?></strong></div>
+                      <div><strong>Picker: <span id="info-nama-picker"><?= $nama_picker ?></span></strong></div>
                   </div>
                   <div class="col-md-4 text-center">
                       <div><strong>Komputer: <?= $komputer_packer ?></strong></div>
@@ -82,7 +93,7 @@
                              id="noresi-detail"
                              class="form-control text-center mx-auto"
                              readonly
-                             value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>"
+                             value=""
                              style="
                                 background-color: transparent;
                                 color: black;
@@ -94,27 +105,33 @@
                   </div>
               </div>
           </div>
+          <!--
+            Tabel biasa, bukan DataTables server-side lagi. Satu resi cuma
+            berisi beberapa SKU, sementara DataTables menuntut satu request HTTP
+            tersendiri (get_scan_packer_data) tiap kali tabel dibangun ulang.
+            Barisnya sekarang dirender renderDetailSku() dari data yang sudah
+            ikut di respons scan.
+          -->
           <div class="panel-body" id="table-scan-packer">
-            <table class="table table-striped datatable-masalah-picker">
+            <table class="table table-striped" id="tabel-detail-sku">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Foto</th>
-                  <th>Nama Barang</th>
-                  <th>Jenis Packing</th>
-                  <th>SKU</th>
-                  <th>Quantity</th>
-                  <th>Aksi</th>
+                  <th class="text-center">#</th>
+                  <th class="text-center">Foto</th>
+                  <th class="text-center">Nama Barang</th>
+                  <th class="text-center">Jenis Packing</th>
+                  <th class="text-center">SKU</th>
+                  <th class="text-center">Quantity</th>
+                  <th class="text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="body-detail-sku">
                 <tr>
                   <td colspan="7" class="text-center">No details</td>
                 </tr>
               </tbody>
             </table>
           </div>
-      <?php endif; ?>
 
       <!-- modal pop up untuk masalah picker -->
       <div id="masalahPickerModal" class="custom-popup-overlay" style="display: none;">
@@ -187,7 +204,13 @@
                 <div class="hidden form-group">
                   <label class="col-md-3 col-xs-12 control-label">Noresi</label>
                   <div class="col-md-8 col-xs-12">
-                    <input type="text" value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>" name="noresi" id="noresi" class="form-control" />
+                    <!--
+                      id-nya dulu "noresi", bentrok dengan input scan di atas.
+                      Selama halaman masih dirender ulang tiap scan nilainya
+                      diisi PHP sehingga bentrokan itu tidak kelihatan; sekarang
+                      diisi JS saat modal dibuka, jadi id-nya harus unik.
+                    -->
+                    <input type="text" value="" name="noresi" id="modal_noresi" class="form-control" />
                   </div>
                 </div>
 
@@ -262,12 +285,23 @@
 </div>
 
 <script type="text/javascript">
-  var table;
   var idPrintResi;
   var noresi;
   var sku;
   var qty;
-  var scanFeedback = <?= json_encode(isset($scan_feedback) ? $scan_feedback : null) ?>;
+
+  // Resi yang sudah discan sekali dan menunggu scan kedua untuk disimpan.
+  // Dulu state ini disimpan di session server (packer_double_scan), sehingga
+  // scan pertama pun harus menunggu satu perjalanan bolak-balik ke server --
+  // dan dua tab browser milik packer yang sama saling merusak hitungan.
+  var resiTertunda = null;
+
+  // Antrian scan. Scanner barcode bisa mengirim resi berikutnya sebelum request
+  // sebelumnya selesai; tanpa antrian, scan itu hilang diam-diam. Ini inti
+  // keluhan "delay antrian" di menu ini -- sekarang scan yang datang saat
+  // request berjalan ditampung, bukan dibuang.
+  var antrianScan = [];
+  var sedangProses = false;
 
   $().ready(function() {
 
@@ -275,7 +309,7 @@
     $(document).ready(function() {
       $('#noresi').focus();
     });
-    
+
     // Packer Monitoring Session JS
     $(document).on('click', '.btn-session', function() {
       var action = $(this).data('action');
@@ -320,38 +354,22 @@
       });
     });
 
-    // menampilkan data list sku by noresi yang di input
-    $(document).ready(function() {
+    // ====================== alur scan ======================
 
-      let noresiTbl = "<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>";
+    // Satu-satunya pintu masuk scan. Nilai input langsung diambil lalu
+    // dikosongkan, jadi scanner boleh mengetik resi berikutnya kapan saja.
+    $('#form-scan-packer').on('submit', function(e) {
+      e.preventDefault();
 
-      table = $('.datatable-masalah-picker').DataTable({
-        'scrollX': true,
-        'pageLength': 10,
-        'processing': true,
-        'serverSide': true,
-        'order': [
-          [2, 'desc']
-        ],
-        'lengthMenu': [
-          [10, 50, 100, 150, 200],
-          [10, 50, 100, 150, 200]
-        ],
-        'columnDefs': [
-          { width: '5%', targets: 0 },
-          { width: '15%', targets: 1 },
-          { width: '25%', targets: 2 },
-          { width: '15%', targets: 3 },
-          { width: '15%', targets: 4 },
-          { width: '10%', targets: 5 },
-          { width: '15%', targets: 6 },
-          { className: 'text-center', targets: [0, 1, 2, 3, 4, 5, 6] }
-        ],
-        'ajax': {
-          url: 'packer/get-scan-packer-data/' + noresiTbl,
-          type: 'POST',
-        },
-      });
+      var nilai = $('#noresi').val().trim();
+      $('#noresi').val('').focus();
+
+      if (nilai === '') {
+        return;
+      }
+
+      antrianScan.push({ noresi: nilai, paksaSimpan: false });
+      prosesAntrian();
     });
 
     // ====================== modal masalah picker ======================
@@ -381,6 +399,11 @@
       $('#modal_sku').val(sku);
       $('#modal_qty').val(qty);
       $('#modal_no_rak').val(noRak);
+
+      // Dulu diisi PHP karena halaman dirender ulang tiap scan. Halaman sekarang
+      // dirender sekali, jadi noresi yang ikut terkirim ke masalah-picker-save
+      // harus diisi dari tombol yang barusan diklik.
+      $('#modal_noresi').val(noresi);
 
       // Update qty_bermasalah dropdown
       const $qtyDropdown = $('#qty_bermasalah');
@@ -449,10 +472,9 @@
 
             $('#masalahPickerModal').hide();
             // $('.custom-popup-overlay').fadeOut();
-            if (typeof table !== 'undefined') {
-              table.ajax.reload(null, false);
-            }
-            // row.fadeOut(500, function() { $(this).remove(); });
+            // Tidak ada lagi muat-ulang tabel di sini: isi baris SKU tidak
+            // berubah setelah masalah picker dilaporkan, dan tabelnya bukan
+            // DataTables server-side lagi.
 
           }).fail(function(response) {
 
@@ -519,12 +541,12 @@
       }
     });
 
-    // Handle submit selected, simpan ke tblpacking
+    // Tombol Submit manual: jalurnya sama persis dengan scan kedua, supaya
+    // hanya ada satu tempat yang menyimpan ke tblpacking.
     $('#submit-selected').on('click', function() {
-      const noresi = $('#noresi-detail').val();
+      var noresiDetail = $('#noresi-detail').val();
 
-      if (!noresi || noresi.trim() === '') {
-          // Show error popup for empty noresi
+      if (!noresiDetail || noresiDetail.trim() === '') {
           $('#errorMessage').text("Nomor resi tidak boleh kosong!");
           $('#errorModal').fadeIn();
           setTimeout(function() {
@@ -533,54 +555,215 @@
           return;
       }
 
-      // Kirim pakai Ajax (status_performa otomatis dari session di controller)
-      $.ajax({
-        url: 'packer/save-packer', // Ganti sesuai route kamu
-        method: 'POST',
-        data: { 
-          noresi: noresi
-        },
-        success: function(response) {
-          // alert("Data berhasil disubmit!");
-          $('#successModal').fadeIn();
-
-          setTimeout(function() {
-            $('#successModal').fadeOut();
-          }, 1000);
-
-            resetScanView();
-        },
-        error: function(xhr, status, error) {
-          // Show error popup instead of alert
-          let errorText = 'Terjadi kesalahan saat memproses data!';
-
-          // Try to parse JSON response and extract message
-          try {
-            let response = JSON.parse(xhr.responseText);
-            if (response.message) {
-              errorText = response.message;
-            }
-          } catch (e) {
-            // If not JSON, use responseText directly or default message
-            errorText = xhr.responseText || errorText;
-          }
-
-          $('#errorMessage').text(errorText);
-          $('#errorModal').fadeIn();
-
-          setTimeout(function() {
-            $('#errorModal').fadeOut();
-          }, 1000);
-        }
-      });
+      // paksaSimpan supaya tombol ini tidak bergantung pada nilai resiTertunda
+      // saat antrian diproses -- scan lain bisa saja berjalan di sela-selanya.
+      antrianScan.push({ noresi: noresiDetail.trim(), paksaSimpan: true });
+      prosesAntrian();
     });
 
     $('#btn-reset').on('click', function () {
         resetScanView();
     });
-
-    triggerScanFeedback(scanFeedback);
   })
+
+  // ====================== inti alur scan ======================
+
+  // Menjalankan antrian satu per satu. Selama satu request berjalan, scan yang
+  // masuk hanya ditampung -- tidak dibuang, dan tidak dikirim berbarengan
+  // (kiriman berbarengan bisa menyimpan resi yang sama dua kali).
+  function prosesAntrian() {
+    if (sedangProses || antrianScan.length === 0) {
+      return;
+    }
+
+    sedangProses = true;
+    var tugas = antrianScan.shift();
+
+    tanganiScan(tugas).always(function() {
+      sedangProses = false;
+      prosesAntrian();
+    });
+  }
+
+  // Aturan double scan, sekarang dijaga di sini (dulu di session server).
+  // Scan pertama: ambil detail paket supaya packer bisa mencocokkan isinya.
+  // Scan kedua atas resi yang sama: langsung simpan.
+  function tanganiScan(tugas) {
+    if (tugas.paksaSimpan || (resiTertunda !== null && resiTertunda === tugas.noresi)) {
+      return simpanResi(tugas.noresi);
+    }
+
+    return ambilDetailResi(tugas.noresi, resiTertunda);
+  }
+
+  function ambilDetailResi(noresiScan, resiSebelumnya) {
+    return $.ajax({
+      url: 'packer/detail-resi',
+      method: 'POST',
+      dataType: 'json',
+      data: { noresi: noresiScan }
+    }).done(function(res) {
+      if (!res || res.code !== 200) {
+        resiTertunda = null;
+        triggerScanFeedback({
+          status: 'auto_save_failed',
+          type: 'error',
+          message: (res && res.message) ? res.message : 'Nomor resi tidak ditemukan',
+          exception_code: (res && res.data) ? res.data.EXCEPTION_CODE : null
+        });
+        return;
+      }
+
+      tampilkanDetailResi(res.data);
+      resiTertunda = noresiScan;
+
+      // Pesan dan suaranya sengaja dibuat sama persis dengan versi lama supaya
+      // packer tidak perlu menyesuaikan kebiasaan.
+      if (resiSebelumnya && resiSebelumnya !== noresiScan) {
+        triggerScanFeedback({
+          status: 'scan_restarted',
+          type: 'information',
+          message: 'Nomor resi berubah dari ' + resiSebelumnya + ' ke ' + noresiScan + '. Scan resi baru ini sekali lagi untuk menyimpan.'
+        });
+      } else {
+        triggerScanFeedback({
+          status: 'need_second_scan',
+          type: 'warning',
+          message: 'Scan ulang nomor resi ' + noresiScan + ' satu kali lagi untuk menyimpan.'
+        });
+      }
+    }).fail(function() {
+      resiTertunda = null;
+      triggerScanFeedback({
+        status: 'auto_save_failed',
+        type: 'error',
+        message: 'Gagal menghubungi server. Periksa koneksi lalu scan ulang.'
+      });
+    });
+  }
+
+  function simpanResi(noresiScan) {
+    return $.ajax({
+      url: 'packer/save-packer',
+      method: 'POST',
+      dataType: 'json',
+      data: { noresi: noresiScan }
+    }).done(function(res) {
+      // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di body
+      // (set_status_header(4xx) di CI mengirim halaman HTML yang merusak parsing
+      // JSON). Jadi kegagalan wajib diperiksa lewat res.code, bukan lewat
+      // callback error -- versi lama memeriksanya di callback error, sehingga
+      // resi yang gagal simpan tetap memunculkan popup "Success".
+      resiTertunda = null;
+
+      if (res && res.code === 201) {
+        if (res.data && typeof res.data.total_scan !== 'undefined') {
+          $('#info-total-scan').text(res.data.total_scan);
+        }
+
+        $('#successMessage').text('Resi ' + noresiScan + ' berhasil disimpan.');
+        $('#successModal').fadeIn();
+        setTimeout(function() { $('#successModal').fadeOut(); }, 1000);
+
+        triggerScanFeedback({
+          status: 'auto_save_success',
+          type: 'success',
+          message: 'Nomor resi ' + noresiScan + ' berhasil otomatis disimpan.'
+        });
+        return;
+      }
+
+      var pesan = (res && res.message) ? res.message : 'Gagal menyimpan data!';
+
+      $('#errorMessage').text(pesan);
+      $('#errorModal').fadeIn();
+      setTimeout(function() { $('#errorModal').fadeOut(); }, 1000);
+
+      triggerScanFeedback({
+        status: 'auto_save_failed',
+        type: 'error',
+        message: pesan,
+        exception_code: (res && res.data) ? res.data.EXCEPTION_CODE : null
+      });
+    }).fail(function() {
+      resiTertunda = null;
+      triggerScanFeedback({
+        status: 'auto_save_failed',
+        type: 'error',
+        message: 'Gagal menghubungi server. Periksa koneksi lalu scan ulang.'
+      });
+    });
+  }
+
+  function tampilkanDetailResi(data) {
+    $('#info-total-scan').text(data.total_scan);
+    $('#info-nama-picker').text(data.nama_picker);
+    $('#noresi-detail').val(data.noresi);
+
+    renderDetailSku(data.items, data.noresi, data.id_printresi);
+
+    $('#result-info').show();
+    $('#button-footer').show();
+    $('#table-scan-packer').show();
+  }
+
+  // Pengganti kolom-kolom yang dulu dirakit di get_scan_packer_data(). Kelas
+  // .foto-preview dan .saveMasalahPicker beserta data-attribute-nya dijaga sama
+  // supaya handler yang sudah ada tetap bekerja tanpa diubah.
+  function renderDetailSku(items, noresiResi, idPrintResiResi) {
+    var $body = $('#body-detail-sku').empty();
+
+    if (!items || items.length === 0) {
+      $body.append('<tr><td colspan="7" class="text-center">No details</td></tr>');
+      return;
+    }
+
+    items.forEach(function(item, i) {
+      var foto = item.link_foto
+        ? '<img src="' + escapeHtml(item.link_foto) + '" style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' + escapeHtml(item.link_foto) + '">'
+        : '<span class="text-muted">No Photo</span>';
+
+      var packing = item.jenis_packing
+        ? '<button class="btn btn-xs btn-info" disabled style="cursor: default; opacity: 1 !important; font-weight: bold; background-color: #00c0ef !important; color: #fff !important; border: none; pointer-events: none; padding: 4px 8px;"><i class="fa fa-cube"></i> ' + escapeHtml(item.jenis_packing) + '</button>'
+        : '<button class="btn btn-xs btn-warning" disabled style="cursor: default; opacity: 1 !important; font-weight: bold; background-color: #f39c12 !important; color: #fff !important; border: none; pointer-events: none; padding: 4px 8px;"><i class="fa fa-warning"></i> Belum diset</button>';
+
+      var aksi = '<div class="text-center"><button class="btn btn-info saveMasalahPicker"'
+        + ' data-id="' + escapeHtml(idPrintResiResi) + '"'
+        + ' data-noresi="' + escapeHtml(noresiResi) + '"'
+        + ' data-sku="' + escapeHtml(item.sku) + '"'
+        + ' data-qty="' + escapeHtml(item.jumlah) + '"'
+        + ' data-nama-picker="' + escapeHtml(item.nama_picker) + '"'
+        + ' data-no-rak="' + escapeHtml(item.no_rak) + '"'
+        + '>Masalah Picker</button></div>';
+
+      $body.append(
+        '<tr>'
+        + '<td class="text-center">' + (i + 1) + '.</td>'
+        + '<td class="text-center">' + foto + '</td>'
+        + '<td class="text-center">' + escapeHtml(item.nama_sku) + '</td>'
+        + '<td class="text-center">' + packing + '</td>'
+        + '<td class="text-center">' + escapeHtml(item.sku) + '</td>'
+        + '<td class="text-center">' + escapeHtml(item.jumlah) + '</td>'
+        + '<td class="text-center">' + aksi + '</td>'
+        + '</tr>'
+      );
+    });
+  }
+
+  // Nama SKU dan link foto berasal dari data master yang diisi manusia, jadi
+  // tetap harus di-escape walau sudah lewat JSON.
+  function escapeHtml(nilai) {
+    if (nilai === null || typeof nilai === 'undefined') {
+      return '';
+    }
+
+    return String(nilai)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   function triggerScanFeedback(feedback) {
     if (!feedback || !feedback.message) {
@@ -649,11 +832,14 @@
   }
 
   function resetScanView() {
+    resiTertunda = null;
     $('#result-info').hide();
     $('#table-scan-packer').hide();
     $('#button-footer').hide();
     $('#noresi').val('').focus();
     $('#noresi-detail').val('');
+    $('#info-nama-picker').text('-');
+    $('#body-detail-sku').html('<tr><td colspan="7" class="text-center">No details</td></tr>');
   }
 
 </script>
@@ -728,8 +914,10 @@
     color: red;
   }
 
-  #result-info {
-      display: <?= empty($noresi) ? 'none' : 'block' ?>;
+  /* Blok hasil selalu ada di DOM, disembunyikan sampai ada resi yang discan. */
+  #result-info,
+  #table-scan-packer {
+      display: none;
   }
 
   /* Style untuk success modal */
