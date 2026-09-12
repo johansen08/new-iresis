@@ -98,6 +98,23 @@ class Packer extends MY_Controller
         $this->make_ajax_response(200, NOTHING_TO_SAVE);
     }
 
+	/**
+	 * Halaman Scan Resi Packer.
+	 *
+	 * Halaman ini sekarang HANYA dirender sekali, saat menu dibuka. Isi per resi
+	 * (detail SKU, nama picker, total scan) diambil lewat AJAX ke detail_resi(),
+	 * dan penyimpanannya lewat save_packer().
+	 *
+	 * Dulu tiap scan mem-POST ke method ini dan seluruh view dirender ulang,
+	 * lalu DataTables menembak get_scan_packer_data() sebagai request kedua.
+	 * Karena resi wajib discan dua kali, satu paket memakan 4 request HTTP dan
+	 * 4 koneksi MySQL baru -- dan DB ada di mesin lain (lihat secrets.php),
+	 * jadi tiap koneksi membayar handshake lewat LAN. Yang lebih merugikan:
+	 * plugins.js mengosongkan .page-content-wrap begitu request dikirim,
+	 * sehingga input nomor resi hilang dari DOM dan scan yang diketik scanner
+	 * selama request berjalan ikut hilang. Itu sumber "antrian" yang dikeluhkan
+	 * packer, dan alasan form di view sekarang diberi class "nojs".
+	 */
 	public function scan_packer()
 	{
         $data = [];
@@ -113,7 +130,7 @@ class Packer extends MY_Controller
         // view memicu "Undefined variable $list_type_masalah" dan "$noresi".
         $data['noresi'] = '';
         $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
-        
+
         // Load session status for packer monitoring
         $this->load->model('packer_monitoring_fcd');
         $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
@@ -123,69 +140,75 @@ class Packer extends MY_Controller
             'pulang' => !empty($session->waktu_pulang)
         ];
 
-        if ($this->input->method() == 'post') {
-            $noresi = trim($this->input->post('noresi'));
-
-            $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
-            $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
-            $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
-
-            // Handle double scan requirement (scan twice to auto save)
-            $scan_feedback = $this->handle_double_scan_state($noresi);
-            if ($scan_feedback) {
-                $data['scan_feedback'] = $scan_feedback;
-            }
-
-            // Refresh total scan count if auto save happened
-            if (!empty($scan_feedback['auto_saved'])) {
-                $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
-            }
-
-            // Always update total_scan from current user
-            if($packer_scan) {
-                $data['total_scan'] = $packer_scan->total_scan;
-            }
-
-            if(!empty($receipts)) {
-                $data['noresi'] = $noresi;
-                $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
-
-                // Get the first receipt for basic info
-                $first_receipt = $receipts[0];
-                $data['id_printresi'] = $first_receipt->id_printresi;
-
-                // Collect all SKUs and quantities - handle null values
-                $data['items'] = [];
-                $total_qty = 0;
-                foreach ($receipts as $receipt) {
-                    $data['items'][] = [
-                        'sku' => $receipt->sku ?? '-',
-                        'jumlah' => $receipt->jumlah ?? 0,
-                        'no_rak' => $receipt->no_rak ?? '-'
-                    ];
-                    $total_qty += ($receipt->jumlah ?? 0);
-                }
-
-                // For backward compatibility, set first item as main
-                $data['sku'] = $first_receipt->sku ?? '-';
-                $data['qty'] = $first_receipt->jumlah ?? 0;
-                $data['no_rak'] = $first_receipt->no_rak ?? '-';
-                $data['total_qty'] = $total_qty;
-                $data['total_items'] = count($receipts);
-
-                // Update picker details if found
-                if($picker_detail) {
-                    $data['nama_picker'] = $picker_detail->nama_pegawai;
-                    $data['komputer_picker'] = $picker_detail->nama_komputer;
-                }
-            } else {
-                // Handle case where no detail records exist
-                $data['noresi'] = $noresi;
-                $data['error_message'] = 'No detail records found for this receipt number';
-            }
-        }
-
         $this->show($data);
+	}
+
+	/**
+	 * Detail satu resi untuk halaman Scan Resi Packer, dalam bentuk JSON.
+	 *
+	 * Menggantikan dua request lama per scan: POST scan_packer() yang merender
+	 * ulang seluruh halaman, plus POST get_scan_packer_data() yang mengisi
+	 * DataTables. Sekarang cukup satu request, dan yang dikirim balik hanya
+	 * data -- bukan puluhan KB HTML halaman.
+	 *
+	 * Baris detail diambil dari query yang sama dengan yang dulu dipakai
+	 * DataTables (get_receipt_for_packer), tanpa limit: satu resi cuma berisi
+	 * beberapa SKU, jadi paginasi server-side di sini hanya menambah request.
+	 */
+	public function detail_resi()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+		$noresi = trim((string) $this->input->post('noresi'));
+		if ($noresi === '') {
+			$this->make_ajax_response(400, 'Nomor resi tidak boleh kosong');
+		}
+
+		// length = 0 supaya get_receipt_for_packer() tidak memasang LIMIT.
+		$rows = $this->receipt_fcd->get_receipt_for_packer(['length' => 0, 'start' => 0], $noresi);
+
+		if (empty($rows)) {
+			$this->make_ajax_response(404, 'Nomor resi tidak ditemukan', ['EXCEPTION_CODE' => 'NOT_FOUND']);
+		}
+
+		// Join ke tbldetailprintresi bersifat LEFT, jadi resi yang belum punya
+		// baris detail tetap balik satu baris dengan sku NULL. Baris itu dibuang
+		// di sini supaya tabel di layar kosong, bukan berisi baris hantu.
+		$items = [];
+		$total_qty = 0;
+		foreach ($rows as $row) {
+			if (empty($row->sku)) {
+				continue;
+			}
+
+			$items[] = [
+				'sku'           => $row->sku,
+				'nama_sku'      => $row->nama_sku ?? '-',
+				'jumlah'        => (int) ($row->jumlah ?? 0),
+				'no_rak'        => $row->no_rak ?? '-',
+				'link_foto'     => $row->link_foto ?? '',
+				'jenis_packing' => $row->jenis_packing ?? '',
+				'nama_picker'   => $row->name ?? ($row->yangambil_pegawai ?? ''),
+			];
+
+			$total_qty += (int) ($row->jumlah ?? 0);
+		}
+
+		$picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
+		$packer_scan   = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+
+		$this->make_ajax_response(200, 'Detail resi ditemukan', [
+			'noresi'          => $noresi,
+			'id_printresi'    => $rows[0]->id_printresi,
+			'items'           => $items,
+			'total_qty'       => $total_qty,
+			'total_items'     => count($items),
+			'total_scan'      => $packer_scan ? (int) $packer_scan->total_scan : 0,
+			'nama_picker'     => $picker_detail ? $picker_detail->nama_pegawai : '-',
+			'komputer_picker' => $picker_detail ? $picker_detail->nama_komputer : '-',
+		]);
 	}
 
 	/**
@@ -422,12 +445,23 @@ class Packer extends MY_Controller
         $status_performa_code = $this->input->post('status_performa');
         $save = $this->process_packer_save($noresi, $status_performa_code);
 
+		// EXCEPTION_CODE ikut dikirim supaya suara gagalnya bisa dibedakan di
+		// layar packer (sudah packing / pesanan cancel / lainnya). Dulu hanya
+		// jalur auto-save di scan_packer() yang meneruskannya, sementara endpoint
+		// ini membuangnya -- sejak double scan pindah ke sisi client, semua
+		// kegagalan lewat sini, jadi kodenya wajib ikut.
 		if (isset($save['error'])) {
-			$this->make_ajax_response($save['code'], $save['message']);
+			$this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? null);
 		}
 
 		if ($save['affected_rows'] > 0) {
-			$this->make_ajax_response(201, SUCCESS_SAVE_DATA);
+			// Total scan dikirim balik supaya layar tidak perlu request ketiga
+			// hanya untuk memperbarui angka penghitung.
+			$packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+
+			$this->make_ajax_response(201, SUCCESS_SAVE_DATA, [
+				'total_scan' => $packer_scan ? (int) $packer_scan->total_scan : 0,
+			]);
 		}
 
 		$this->make_ajax_response(200, NOTHING_TO_SAVE);
@@ -539,75 +573,18 @@ class Packer extends MY_Controller
 	}
 
     /**
-     * Determine double scan flow (requires identical resi to be submitted twice)
+     * Catatan: handle_double_scan_state() versi halaman biasa sudah DIHAPUS.
+     *
+     * Aturan "scan dua kali baru tersimpan" sekarang dijaga di browser
+     * (scan_packer.php), bukan lagi di session server. Scan pertama cukup
+     * memanggil detail_resi() untuk menampilkan isi paket, scan kedua langsung
+     * memanggil save_packer(). Selain memangkas request, ini menutup satu bug
+     * lama: state-nya tersimpan per session, jadi dua tab browser milik packer
+     * yang sama saling mencuri hitungan scan.
+     *
+     * handle_double_scan_state_webcam() di bawah SENGAJA dibiarkan utuh --
+     * halaman webcam punya jalur simpannya sendiri, lihat catatan di sana.
      */
-    private function handle_double_scan_state($noresi)
-    {
-        if (empty($noresi)) {
-            return null;
-        }
-
-        $current_state = $this->session->userdata('packer_double_scan');
-        if (!is_array($current_state)) {
-            $current_state = ['resi' => null, 'count' => 0];
-        }
-        $previous_state = $current_state;
-
-        if ($current_state['resi'] === $noresi) {
-            $current_state['count'] = isset($current_state['count']) ? $current_state['count'] + 1 : 1;
-        } else {
-            $current_state = ['resi' => $noresi, 'count' => 1];
-        }
-
-        $feedback = null;
-
-        if ($current_state['count'] >= 2) {
-            $save = $this->process_packer_save($noresi);
-
-            if (isset($save['error'])) {
-                // exception_code ikut dikirim ke view supaya suara gagalnya bisa
-                // dibedakan (sudah packing / pesanan cancel / lainnya). Tanpa ini
-                // view cuma punya kalimat pesan, dan semua kegagalan terdengar sama.
-                $feedback = [
-                    'status' => 'auto_save_failed',
-                    'type' => 'error',
-                    'message' => $save['message'],
-                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
-                    'auto_saved' => false
-                ];
-            } else {
-                $feedback = [
-                    'status' => 'auto_save_success',
-                    'type' => 'success',
-                    'message' => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
-                    'auto_saved' => true
-                ];
-            }
-
-            $current_state = ['resi' => null, 'count' => 0];
-        } else {
-            $status = 'need_second_scan';
-            $type = 'warning';
-            $message = 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.';
-
-            if (!empty($previous_state['resi']) && $previous_state['resi'] !== $noresi && (isset($previous_state['count']) && $previous_state['count'] === 1)) {
-                $status = 'scan_restarted';
-                $type = 'information';
-                $message = 'Nomor resi berubah dari ' . $previous_state['resi'] . ' ke ' . $noresi . '. Scan resi baru ini sekali lagi untuk menyimpan.';
-            }
-
-            $feedback = [
-                'status' => $status,
-                'type' => $type,
-                'message' => $message,
-                'auto_saved' => false
-            ];
-        }
-
-        $this->session->set_userdata('packer_double_scan', $current_state);
-
-        return $feedback;
-    }
 
     /**
      * Kembaran handle_double_scan_state() untuk halaman Scan Resi Packer
