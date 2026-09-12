@@ -2484,7 +2484,7 @@ class Retur extends MY_Controller
 
 		$resi_list = [];
 		foreach ($iresis as $r) {
-			$resi = strtoupper(trim($r->noresi));
+			$resi = strtoupper(trim($r->noresi ?? ''));
 			if ($resi !== '') {
 				$resi_list[] = $resi;
 			}
@@ -2494,7 +2494,7 @@ class Retur extends MY_Controller
 		$map = [];
 
 		foreach ($iresis as $r) {
-			$key = strtoupper(trim($r->noresi)) . '_' . ($r->id_bukaretur ?: 0);
+			$key = strtoupper(trim($r->noresi ?? '')) . '_' . ($r->id_bukaretur ?: 0);
 			$map[$key] = [
 				'no_resi'            => $r->noresi,
 				'no_pesanan'         => $r->no_pesanan ?: '-',
@@ -2516,14 +2516,18 @@ class Retur extends MY_Controller
 				// Detail SKU: selalu tampilkan SKU beserta qty hasil scan buka
 				// (bukan hanya untuk status yang ditolak).
 				'detail_ditolak'     => !empty($r->sku_list) ? ($r->sku_list . ' (' . (int) $r->total_qty . ' pcs)') : '-',
-				'sku_pergantian'     => in_array(strtoupper(trim($r->status_detail_buka)), [
+				// status_detail_buka NULL untuk resi yang baru "Terima Retur" (belum ada
+				// baris tblbukaretur dari LEFT JOIN). trim(null) memicu Deprecated di
+				// PHP 8.1+; di ENVIRONMENT development pesan itu ikut tercetak ke body
+				// respons sehingga JSON rusak dan tabel tampil kosong.
+				'sku_pergantian'     => in_array(strtoupper(trim($r->status_detail_buka ?? '')), [
 					'PENUKARAN_BERES', 'PENDINGAN BERES (PB)', 'REQUEST_DARI_PEMBELI', 'REQUEST DARI PEMBELI'
 				]) && !empty($r->sku_pergantian) ? ($r->sku_list . ' -> ' . $r->sku_pergantian) : '-',
 			];
 		}
 
 		foreach ($jubelio as $j) {
-			$resi_key = strtoupper(trim($j->noresi));
+			$resi_key = strtoupper(trim($j->noresi ?? ''));
 			if ($resi_key === '') continue;
 			
 			$matched = false;
@@ -2571,7 +2575,7 @@ class Retur extends MY_Controller
 		// Gabungkan status verifikasi (Step 3)
 		$verif = array();
 		foreach ($this->retur_fcd->get_verifikasi_list() as $v) {
-			$verif[strtoupper(trim($v->no_resi))] = $v;
+			$verif[strtoupper(trim($v->no_resi ?? ''))] = $v;
 		}
 		foreach ($map as $k => &$row) {
 			$resi_key = strtoupper(trim($row['no_resi']));
@@ -2596,6 +2600,11 @@ class Retur extends MY_Controller
 	public function get_rekonsiliasi_data()
 	{
 		while (ob_get_level()) ob_end_clean();
+		// Tampung output liar (Notice/Deprecated PHP yang ikut tercetak karena
+		// display_errors menyala di ENVIRONMENT development). Tanpa buffer ini,
+		// satu pesan saja membuat respons bukan JSON valid -> jQuery gagal parse
+		// dan tabel tampil kosong tanpa pesan error apa pun.
+		ob_start();
 		header('Content-Type: application/json');
 
 		$start_date = $this->input->post('start_date');
@@ -2766,6 +2775,8 @@ class Retur extends MY_Controller
 		// Kartu ringkasan = jumlah baris apa adanya (dihitung per baris di loop di atas).
 		$summary = $rc;
 
+		// Buang output liar yang sempat tertampung, lalu kirim JSON bersih.
+		if (ob_get_length()) ob_clean();
 		echo json_encode(['data' => $data, 'data_update' => $data_update, 'summary' => $summary]);
 		exit();
 	}
