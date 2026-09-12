@@ -33,6 +33,7 @@ class Video_packing_fcd extends CI_Model
 
 	const KUNCI_RESOLUSI = 'video_resolusi';
 	const KUNCI_BATAS    = 'video_batas_menit';
+	const KUNCI_WAJIB    = 'video_wajib_kamera';
 
 	/** Dipakai kalau secrets.php belum punya key video_packing_path. */
 	const FOLDER_BAWAAN = 'C:/video-packing';
@@ -130,10 +131,15 @@ class Video_packing_fcd extends CI_Model
 			$batas = self::BATAS_MENIT_BAWAAN;
 		}
 
-		return ['resolusi' => $resolusi, 'batas_menit' => $batas];
+		// Bawaannya MATI. Menyalakan ini membuat scan ditolak saat kamera belum
+		// siap -- pagar yang kuat, tapi langsung menghentikan lini packing kalau
+		// kameranya bermasalah, jadi harus keputusan sadar webmaster.
+		$wajib = ($this->baca_config(self::KUNCI_WAJIB) === '1');
+
+		return ['resolusi' => $resolusi, 'batas_menit' => $batas, 'wajib_kamera' => $wajib];
 	}
 
-	public function simpan_setelan($resolusi, $batas_menit)
+	public function simpan_setelan($resolusi, $batas_menit, $wajib_kamera = FALSE)
 	{
 		if (!in_array($resolusi, $this->resolusi_sah, TRUE)) {
 			return ['error' => TRUE, 'code' => 400, 'message' => 'Resolusi harus 720p atau 1080p'];
@@ -146,8 +152,14 @@ class Video_packing_fcd extends CI_Model
 
 		$this->tulis_config(self::KUNCI_RESOLUSI, $resolusi, 'Resolusi rekam video packing (720p / 1080p)');
 		$this->tulis_config(self::KUNCI_BATAS, (string) $batas_menit, 'Batas menit rekam video packing sebelum dipotong');
+		$this->tulis_config(self::KUNCI_WAJIB, $wajib_kamera ? '1' : '0', 'Tolak scan packer webcam kalau kamera belum siap (1=ya, 0=tidak)');
 
-		return ['error' => FALSE, 'resolusi' => $resolusi, 'batas_menit' => $batas_menit];
+		return [
+			'error'        => FALSE,
+			'resolusi'     => $resolusi,
+			'batas_menit'  => $batas_menit,
+			'wajib_kamera' => (bool) $wajib_kamera,
+		];
 	}
 
 	private function baca_config($kunci)
@@ -259,6 +271,59 @@ class Video_packing_fcd extends CI_Model
 			'nama_berkas' => $this->nama_berkas($noresi),
 			'ukuran_byte' => filesize($tujuan),
 			'tercatat'    => $tercatat,
+		];
+	}
+	// ── Pencarian berkas untuk pemutaran ─────────────────────────────────
+
+	/**
+	 * Mencari rekaman satu resi: berkas fisiknya sekaligus catatan di database.
+	 *
+	 * Keduanya dilaporkan terpisah, bukan salah satu, karena ketidakcocokan di
+	 * antara keduanya justru informasi yang paling berguna saat menelusuri
+	 * sengketa -- berkas ada tapi tidak tercatat berarti pencatatan gagal,
+	 * tercatat tapi berkas hilang berarti berkasnya terhapus atau folder dasar
+	 * berubah.
+	 */
+	public function cari_video($noresi_mentah)
+	{
+		$noresi = $this->sanitasi_noresi($noresi_mentah);
+		if ($noresi === FALSE) {
+			return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak valid'];
+		}
+
+		$path = $this->path_berkas($noresi);
+		$ada  = is_file($path);
+
+		$tercatat = NULL;
+		$format_lama = FALSE;
+
+		$row = $this->db
+			->select('p.video_path')
+			->from('tblpacking p')
+			->join('tblprintresi r', 'r.id_printresi = p.id_resi')
+			->where('r.noresi', $noresi)
+			->limit(1)
+			->get()
+			->row();
+
+		if ($row && $row->video_path !== NULL && $row->video_path !== '') {
+			$tercatat = $row->video_path;
+			// Peninggalan percobaan Juni-Juli 2026: nilainya berupa path lengkap
+			// "assets/videos/packer/<noresi>_<unixtime>.webm" dan berkasnya sudah
+			// tidak ada. Ditandai, bukan diubah.
+			$format_lama = (strpos($tercatat, '/') !== FALSE);
+		}
+
+		return [
+			'error'       => FALSE,
+			'noresi'      => $noresi,
+			'ada_berkas'  => $ada,
+			'nama_berkas' => $this->nama_berkas($noresi),
+			'ukuran_byte' => $ada ? filesize($path) : 0,
+			'diubah_pada' => $ada ? date('Y-m-d H:i:s', filemtime($path)) : NULL,
+			'tercatat'    => $tercatat,
+			'format_lama' => $format_lama,
+			'path'        => $path,
 		];
 	}
 }

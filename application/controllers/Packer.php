@@ -231,7 +231,30 @@ class Packer extends MY_Controller
             'pulang' => !empty($session->waktu_pulang)
         ];
 
-        if ($this->input->method() == 'post') {
+        // Setelan rekam dibaca lebih dulu: kalau "wajib kamera" menyala, scan
+        // harus ditolak SEBELUM double-scan diproses, supaya tidak ada paket
+        // yang tersimpan tanpa rekaman. Statusnya dikirim view lewat field
+        // tersembunyi kamera_status.
+        $this->load->model('video_packing_fcd');
+        $setelan_video = $this->video_packing_fcd->ambil_setelan();
+
+        $kamera_status = trim((string) $this->input->post('kamera_status'));
+        $tolak_karena_kamera = ($this->input->method() == 'post'
+            && !empty($setelan_video['wajib_kamera'])
+            && $kamera_status !== 'siap');
+
+        if ($tolak_karena_kamera) {
+            // noresi sengaja dibiarkan kosong supaya tabel detail dan tombol
+            // Submit tidak ikut tampil -- scan-nya memang tidak diproses.
+            $data['scan_feedback'] = [
+                'status'     => 'kamera_belum_siap',
+                'type'       => 'error',
+                'message'    => 'Kamera belum siap (' . ($kamera_status !== '' ? $kamera_status : 'tidak diketahui') . '). Scan ditolak supaya tidak ada packing tanpa rekaman.',
+                'auto_saved' => FALSE,
+            ];
+        }
+
+        if ($this->input->method() == 'post' && !$tolak_karena_kamera) {
             $noresi = trim($this->input->post('noresi'));
 
             $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
@@ -295,10 +318,8 @@ class Packer extends MY_Controller
 
         $data['akses_ditolak'] = FALSE;
 
-        // Setelan rekam dibaca dari tb_config_operasional (jatuh ke nilai bawaan
-        // kalau barisnya belum ada), jadi tidak ada migrasi yang perlu jalan.
-        $this->load->model('video_packing_fcd');
-        $data['setelan_video'] = $this->video_packing_fcd->ambil_setelan();
+        // Setelan sudah dibaca di atas (dipakai guard wajib kamera).
+        $data['setelan_video'] = $setelan_video;
         $data['folder_video']  = $this->video_packing_fcd->folder();
 
         // Saat ini seluruh halaman memang khusus webmaster, tapi penanda ini
@@ -363,6 +384,150 @@ class Packer extends MY_Controller
 	 * Khusus webmaster -- packer tidak boleh menaikkan resolusi sendiri, karena
 	 * itu langsung mengubah konsumsi disk harian.
 	 */
+	/**
+	 * Mengalirkan berkas video packing ke browser.
+	 *
+	 * Videonya disimpan DI LUAR webroot, jadi tidak bisa ditunjuk langsung oleh
+	 * <video src>. Itu disengaja: rekaman operasional tidak boleh bisa diunduh
+	 * siapa pun yang kebetulan tahu nomor resi, dan lewat endpoint ini setiap
+	 * permintaan tetap melewati pemeriksaan sesi.
+	 *
+	 * Dukungan HTTP Range wajib ada -- tanpa itu browser tidak bisa melompat ke
+	 * menit tertentu dan harus mengunduh ulang seluruh berkas setiap kali digeser.
+	 */
+	public function video_packing($noresi = '')
+	{
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			show_error('Akses ditolak', 403);
+			return;
+		}
+
+		$this->load->model('video_packing_fcd');
+		$info = $this->video_packing_fcd->cari_video(urldecode($noresi));
+
+		if (!empty($info['error']) || empty($info['ada_berkas'])) {
+			show_error('Video untuk resi ini tidak ditemukan.', 404);
+			return;
+		}
+
+		$path    = $info['path'];
+		$ukuran  = $info['ukuran_byte'];
+		$mulai   = 0;
+		$selesai = $ukuran - 1;
+		$parsial = FALSE;
+
+		$range = isset($_SERVER['HTTP_RANGE']) ? $_SERVER['HTTP_RANGE'] : '';
+		if ($range !== '' && preg_match('/bytes=\s*(\d*)\s*-\s*(\d*)/i', $range, $m)) {
+			$parsial = TRUE;
+
+			if ($m[1] === '' && $m[2] !== '') {
+				// Bentuk "bytes=-500": 500 byte terakhir.
+				$mulai = max(0, $ukuran - (int) $m[2]);
+			} else {
+				$mulai   = (int) $m[1];
+				$selesai = ($m[2] === '') ? $ukuran - 1 : (int) $m[2];
+			}
+
+			$selesai = min($selesai, $ukuran - 1);
+
+			if ($mulai > $selesai || $mulai >= $ukuran) {
+				header('HTTP/1.1 416 Range Not Satisfiable');
+				header('Content-Range: bytes */' . $ukuran);
+				exit();
+			}
+		}
+
+		$berkas = @fopen($path, 'rb');
+		if (!$berkas) {
+			show_error('Berkas video tidak bisa dibuka.', 500);
+			return;
+		}
+
+		// Semua level buffer dibuang: satu byte nyasar merusak berkas binernya.
+		while (ob_get_level() > 0) {
+			ob_end_clean();
+		}
+
+		set_time_limit(0);
+
+		header('HTTP/1.1 ' . ($parsial ? '206 Partial Content' : '200 OK'));
+		header('Content-Type: video/webm');
+		header('Accept-Ranges: bytes');
+		header('Content-Length: ' . ($selesai - $mulai + 1));
+		header('Cache-Control: private, max-age=0, no-store');
+		header('Content-Disposition: inline; filename="' . $info['nama_berkas'] . '"');
+
+		if ($parsial) {
+			header('Content-Range: bytes ' . $mulai . '-' . $selesai . '/' . $ukuran);
+		}
+
+		fseek($berkas, $mulai);
+
+		$sisa  = $selesai - $mulai + 1;
+		$blok  = 262144; // 256 KB
+
+		while ($sisa > 0 && !feof($berkas) && !connection_aborted()) {
+			$baca = fread($berkas, min($blok, $sisa));
+			if ($baca === FALSE) {
+				break;
+			}
+
+			echo $baca;
+			flush();
+			$sisa -= strlen($baca);
+		}
+
+		fclose($berkas);
+		exit();
+	}
+
+	/**
+	 * Mencari rekaman satu resi untuk ditampilkan di halaman webcam.
+	 *
+	 * Berkas fisik dan catatan database dilaporkan terpisah supaya
+	 * ketidakcocokan di antara keduanya kelihatan, bukan tersamarkan.
+	 */
+	public function cari_video_packing()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->make_ajax_response(403, 'Hanya webmaster yang boleh membuka video packing');
+		}
+
+		$this->load->model('video_packing_fcd');
+		$info = $this->video_packing_fcd->cari_video($this->input->post('noresi'));
+
+		if (!empty($info['error'])) {
+			$this->make_ajax_response($info['code'], $info['message']);
+		}
+
+		if (empty($info['ada_berkas'])) {
+			$pesan = 'Belum ada video untuk resi ' . $info['noresi'] . '.';
+
+			if (!empty($info['format_lama'])) {
+				$pesan .= ' Database mencatat rekaman lama (' . $info['tercatat'] . '), tapi berkasnya sudah tidak ada.';
+			} elseif (!empty($info['tercatat'])) {
+				$pesan .= ' Database mencatat "' . $info['tercatat'] . '", tapi berkasnya tidak ditemukan di folder video.';
+			}
+
+			$this->make_ajax_response(404, $pesan);
+		}
+
+		$this->make_ajax_response(200, 'Video ditemukan', [
+			'noresi'      => $info['noresi'],
+			'url'         => site_url('packer/video-packing/' . rawurlencode($info['noresi'])),
+			'nama_berkas' => $info['nama_berkas'],
+			'ukuran_byte' => $info['ukuran_byte'],
+			'diubah_pada' => $info['diubah_pada'],
+			'tercatat'    => $info['tercatat'],
+			'format_lama' => $info['format_lama'],
+		]);
+	}
+
+
 	public function simpan_setelan_video()
 	{
 		if ($this->input->method() == 'get') {
@@ -376,7 +541,8 @@ class Packer extends MY_Controller
 		$this->load->model('video_packing_fcd');
 		$simpan = $this->video_packing_fcd->simpan_setelan(
 			$this->input->post('resolusi'),
-			$this->input->post('batas_menit')
+			$this->input->post('batas_menit'),
+			$this->input->post('wajib_kamera') === '1'
 		);
 
 		if ($simpan['error']) {
@@ -384,8 +550,9 @@ class Packer extends MY_Controller
 		}
 
 		$this->make_ajax_response(200, 'Setelan video disimpan', [
-			'resolusi'    => $simpan['resolusi'],
-			'batas_menit' => $simpan['batas_menit'],
+			'resolusi'     => $simpan['resolusi'],
+			'batas_menit'  => $simpan['batas_menit'],
+			'wajib_kamera' => $simpan['wajib_kamera'],
 		]);
 	}
 
