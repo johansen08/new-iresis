@@ -557,7 +557,7 @@
 
       // Kirim pakai Ajax (status_performa otomatis dari session di controller)
       $.ajax({
-        url: 'packer/save-packer', // Ganti sesuai route kamu
+        url: 'packer/save-packer-webcam', // endpoint sendiri, terpisah dari Scan Resi Packer biasa
         method: 'POST',
         data: { 
           noresi: noresi

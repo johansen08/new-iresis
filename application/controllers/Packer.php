@@ -433,6 +433,35 @@ class Packer extends MY_Controller
 		$this->make_ajax_response(200, NOTHING_TO_SAVE);
 	}
 
+	/**
+	 * Endpoint simpan untuk halaman Scan Resi Packer (Webcam).
+	 *
+	 * SENGAJA kembaran save_packer(), bukan pemakaian ulang. Saat rekam video
+	 * dipasang, simpanan halaman webcam perlu ikut menyimpan videonya, dan itu
+	 * tidak boleh mengubah jalur simpan Scan Resi Packer biasa yang dipakai
+	 * sebagai cadangan. Duplikasi di sini disengaja -- jangan disatukan.
+	 */
+	public function save_packer_webcam()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+        $noresi = $this->input->post('noresi');
+        $status_performa_code = $this->input->post('status_performa');
+        $save = $this->process_packer_save_webcam($noresi, $status_performa_code);
+
+		if (isset($save['error'])) {
+			$this->make_ajax_response($save['code'], $save['message']);
+		}
+
+		if ($save['affected_rows'] > 0) {
+			$this->make_ajax_response(201, SUCCESS_SAVE_DATA);
+		}
+
+		$this->make_ajax_response(200, NOTHING_TO_SAVE);
+	}
+
     public function search_packer()
     {
         $this->show();
@@ -584,6 +613,26 @@ class Packer extends MY_Controller
      * Wrapper to reuse save logic both for ajax endpoint and double scan auto save
      */
     private function process_packer_save($noresi, $status_performa_code = null)
+    {
+        if (empty($noresi)) {
+            return ['error' => true, 'code' => 400, 'message' => 'Nomor resi tidak boleh kosong'];
+        }
+
+        $packer = ['noresi' => $noresi];
+        $status_id = $this->determine_status_performa_id($status_performa_code);
+        if ($status_id) {
+            $packer['status_performa_id'] = $status_id;
+        }
+
+        return $this->packer_fcd->save($packer, $this->data['user']);
+    }
+
+    /**
+     * Kembaran process_packer_save() khusus jalur simpan halaman webcam.
+     * Lihat catatan di save_packer_webcam(): duplikasinya disengaja supaya
+     * penambahan rekam video nanti tidak menyentuh jalur simpan yang biasa.
+     */
+    private function process_packer_save_webcam($noresi, $status_performa_code = null)
     {
         if (empty($noresi)) {
             return ['error' => true, 'code' => 400, 'message' => 'Nomor resi tidak boleh kosong'];
