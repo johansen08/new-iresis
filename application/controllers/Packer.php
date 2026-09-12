@@ -239,7 +239,7 @@ class Packer extends MY_Controller
             $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
 
             // Handle double scan requirement (scan twice to auto save)
-            $scan_feedback = $this->handle_double_scan_state($noresi);
+            $scan_feedback = $this->handle_double_scan_state_webcam($noresi);
             if ($scan_feedback) {
                 $data['scan_feedback'] = $scan_feedback;
             }
@@ -605,6 +605,85 @@ class Packer extends MY_Controller
         }
 
         $this->session->set_userdata('packer_double_scan', $current_state);
+
+        return $feedback;
+    }
+
+    /**
+     * Kembaran handle_double_scan_state() untuk halaman Scan Resi Packer
+     * (Webcam). Jalur ini ikut MENYIMPAN saat resi discan dua kali, jadi
+     * dipisah bersama endpoint simpannya: begitu rekam video dipasang, paket
+     * yang tersimpan lewat auto-save juga harus kebagian videonya tanpa
+     * mengubah perilaku Scan Resi Packer biasa.
+     *
+     * Kunci session-nya pun sengaja berbeda (packer_double_scan_webcam). Kalau
+     * dipakai bersama, satu scan di halaman biasa lalu satu scan di halaman
+     * webcam akan terhitung sebagai scan kedua dan menyimpan tanpa disengaja.
+     */
+    private function handle_double_scan_state_webcam($noresi)
+    {
+        if (empty($noresi)) {
+            return null;
+        }
+
+        $current_state = $this->session->userdata('packer_double_scan_webcam');
+        if (!is_array($current_state)) {
+            $current_state = ['resi' => null, 'count' => 0];
+        }
+        $previous_state = $current_state;
+
+        if ($current_state['resi'] === $noresi) {
+            $current_state['count'] = isset($current_state['count']) ? $current_state['count'] + 1 : 1;
+        } else {
+            $current_state = ['resi' => $noresi, 'count' => 1];
+        }
+
+        $feedback = null;
+
+        if ($current_state['count'] >= 2) {
+            $save = $this->process_packer_save_webcam($noresi);
+
+            if (isset($save['error'])) {
+                // exception_code ikut dikirim ke view supaya suara gagalnya bisa
+                // dibedakan (sudah packing / pesanan cancel / lainnya). Tanpa ini
+                // view cuma punya kalimat pesan, dan semua kegagalan terdengar sama.
+                $feedback = [
+                    'status' => 'auto_save_failed',
+                    'type' => 'error',
+                    'message' => $save['message'],
+                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
+                    'auto_saved' => false
+                ];
+            } else {
+                $feedback = [
+                    'status' => 'auto_save_success',
+                    'type' => 'success',
+                    'message' => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
+                    'auto_saved' => true
+                ];
+            }
+
+            $current_state = ['resi' => null, 'count' => 0];
+        } else {
+            $status = 'need_second_scan';
+            $type = 'warning';
+            $message = 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.';
+
+            if (!empty($previous_state['resi']) && $previous_state['resi'] !== $noresi && (isset($previous_state['count']) && $previous_state['count'] === 1)) {
+                $status = 'scan_restarted';
+                $type = 'information';
+                $message = 'Nomor resi berubah dari ' . $previous_state['resi'] . ' ke ' . $noresi . '. Scan resi baru ini sekali lagi untuk menyimpan.';
+            }
+
+            $feedback = [
+                'status' => $status,
+                'type' => $type,
+                'message' => $message,
+                'auto_saved' => false
+            ];
+        }
+
+        $this->session->set_userdata('packer_double_scan_webcam', $current_state);
 
         return $feedback;
     }
