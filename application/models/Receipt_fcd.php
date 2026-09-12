@@ -99,10 +99,11 @@ class Receipt_fcd extends CI_Model
         // Order by latest
         $this->db->order_by('pr.created_at', 'DESC');
 
-        $query = $this->db->get();
-        log_message('error', 'Query get_receipt_for_packer: ' . $this->db->last_query());
-
-        return $query->result();
+        // Di sini dulu ada log_message('error', ...) berisi SQL lengkap. Levelnya
+        // 'error' padahal isinya debug, jadi lolos log_threshold = 1 dan ikut
+        // menulis file di SETIAP pemanggilan -- 4.815 baris pada satu hari kerja,
+        // dan application/logs sudah menggelembung ke 75 MB. Sudah dihapus.
+        return $this->db->get()->result();
     }
 
     function get_total_receipt_for_packer($noresi) {

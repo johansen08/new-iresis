@@ -16,11 +16,27 @@ class Packer_fcd extends CI_Model
          * 7. check does id_resi exist in tblpacking
          * 8. throw if exists
          * 9. save into tblpacking
+         *
+         * Ketiga pemeriksaan di atas dulu tiga SELECT terpisah. Sekarang satu
+         * query ber-LEFT JOIN: urutan penolakannya tetap sama persis, tapi
+         * ongkosnya sepertiga. Itu penting karena DB ada di mesin lain (lihat
+         * secrets.php), jadi tiap query membayar perjalanan bolak-balik LAN.
+         *
+         * LEFT JOIN ke tblpacking bisa menggandakan baris kalau satu resi
+         * punya lebih dari satu baris packing. Tidak jadi soal: yang dipakai
+         * cuma "ada atau tidak", dan baris hasil LEFT JOIN hanya bernilai NULL
+         * kalau memang tidak ada pasangannya sama sekali.
          */
         $receipt = $this->db
-            ->select('id_printresi, status_pesanan, batal')
-            ->get_where('tblprintresi', ['noresi' => $packer['noresi']])
+            ->select('pr.id_printresi, pr.status_pesanan, pr.batal, rab.id_resiambilbarang, pk.id_packing')
+            ->from('tblprintresi pr')
+            ->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left')
+            ->join('tblpacking pk', 'pk.id_resi = pr.id_printresi', 'left')
+            ->where('pr.noresi', $packer['noresi'])
+            ->limit(1)
+            ->get()
             ->row();
+
         if (empty($receipt)) {
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi tidak ditemukan', 'data' => ['EXCEPTION_CODE' => 'NOT_FOUND']];
         }
@@ -37,14 +53,12 @@ class Packer_fcd extends CI_Model
         unset($packer['noresi']);
 
         // Check if this receipt has been picked
-        $picking_exist = $this->db->get_where('tblresiambilbarang', ['id_resi' => $receipt->id_printresi])->row();
-        if (!$picking_exist) {
+        if (empty($receipt->id_resiambilbarang)) {
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker. Silakan Cek data', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
         }
 
         // Check if this receipt has already been packed
-        $packer_exist = $this->db->get_where('tblpacking', ['id_resi' => $receipt->id_printresi])->row();
-        if ($packer_exist) {
+        if (!empty($receipt->id_packing)) {
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-packing (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_PACKED']];
         }
 
@@ -59,20 +73,44 @@ class Packer_fcd extends CI_Model
             'status_performa_id' => $packer['status_performa_id'] ?? null
         ];
 
-        $this->db->insert('tblpacking', $insert_data);
+        // Dua tulisan inti ini harus jadi satu: baris packing tanpa reset
+        // "pending" di tblresiambilbarang membuat resi tersangkut di menu
+        // pending picker. db_debug dimatikan sementara sesuai standar proyek --
+        // pesan error CI berupa halaman HTML dan akan merusak JSON respons AJAX.
+        $db_debug_semula = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
 
-        // Update tblresiambilbarang to reset pending to ''
-        $this->db->where('id_resiambilbarang', $picking_exist->id_resiambilbarang);
+        $this->db->trans_start();
+
+        $this->db->insert('tblpacking', $insert_data);
+        $baris_tersimpan = $this->db->affected_rows();
+
+        $this->db->where('id_resiambilbarang', $receipt->id_resiambilbarang);
         $this->db->update('tblresiambilbarang', ['pending' => '']);
 
-        // Log transaksi ke tblkpi untuk KPI tracking
+        $this->db->trans_complete();
+
+        $transaksi_sukses = $this->db->trans_status();
+        $this->db->db_debug = $db_debug_semula;
+
+        if ($transaksi_sukses === FALSE) {
+            return ['error' => TRUE, 'code' => 500, 'message' => FAILED_SAVE_DATA, 'data' => ['EXCEPTION_CODE' => 'SAVE_FAILED']];
+        }
+
+        // Pencatatan KPI dan monitoring SENGAJA di luar transaksi di atas.
+        // Keduanya data pendamping, bukan data packing itu sendiri; kalau
+        // salah satunya gagal, resi yang sudah benar-benar dipacking tidak
+        // boleh ikut dibatalkan -- itu akan menghentikan seluruh meja packing.
         $this->log_kpi_transaksi($user['id_user'], 'PACKER');
 
         // Log performance monitoring
         $this->load->model('packer_monitoring_fcd');
         $perf = $this->packer_monitoring_fcd->log_performance($user['id_user'], $receipt->id_printresi, $packer['noresi_original']);
 
-        $packer['affected_rows'] = $this->db->affected_rows();
+        // Diambil tepat setelah INSERT. Dulu dibaca di sini, setelah serangkaian
+        // query lain berjalan, jadi yang terbaca sebenarnya affected_rows milik
+        // query terakhir -- kebetulan bernilai 1 sehingga tidak pernah ketahuan.
+        $packer['affected_rows'] = $baris_tersimpan;
         $packer['performance'] = $perf;
         $packer['id_resi'] = $receipt->id_printresi;
 
