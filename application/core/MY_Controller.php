@@ -1009,10 +1009,15 @@ class MY_Controller extends CI_Controller
     /**
      * Menu "Scan Resi Packer (Webcam)" di grup TIM PACKER.
      *
-     * Halamannya kembaran Scan Resi Packer, bedanya hanya nomor resi dibaca dari
-     * kamera. Untuk sementara hak aksesnya SENGAJA cuma webmaster (roleid 1) --
-     * fiturnya masih uji coba, jadi jangan disamakan dengan hak akses menu
-     * Scan Resi Packer (menuid 25) yang dipegang hampir semua role.
+     * Untuk sekarang halamannya salinan utuh Scan Resi Packer; pembedanya baru
+     * menyusul, yaitu rekam video saat packing. Versi biasa tetap dipertahankan
+     * sebagai cadangan kalau kamera bermasalah, jadi kedua menu ini berdiri
+     * sendiri-sendiri -- controller dan view-nya pun sengaja tidak dipakai
+     * bersama.
+     *
+     * Hak aksesnya SENGAJA cuma webmaster (roleid 1) selama fiturnya masih uji
+     * coba, jadi jangan disamakan dengan hak akses menu Scan Resi Packer
+     * (menuid 25) yang dipegang hampir semua role.
      *
      * Kalau nanti sudah dibuka untuk role lain, tambahkan roleid-nya di sini dan
      * naikkan BOOTSTRAP_VERSI -- jangan menghapus baris roleaccess yang ada.

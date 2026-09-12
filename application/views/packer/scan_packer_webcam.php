@@ -1,3 +1,9 @@
+<?php
+// Halaman ini SENGAJA salinan utuh packer/scan_packer.php, bukan turunannya.
+// Scan Resi Packer versi biasa tetap dipakai sebagai cadangan kalau kamera
+// bermasalah, jadi kedua halaman harus bisa berubah sendiri-sendiri.
+// Duplikasi di sini disengaja -- jangan disatukan jadi satu view.
+?>
 <?php if (!empty($akses_ditolak)) : ?>
   <div class="row">
     <div class="col-md-12">
@@ -30,7 +36,7 @@
 
       <!-- search input by noresi -->
       <div class="panel-body">
-        <form action="packer/scan-packer-webcam" method="post" class="form-horizontal" id="form-scan-webcam" autocomplete="off">
+        <form action="packer/scan-packer-webcam" method="post" class="form-horizontal" autocomplete="off">
           <div class="form-group">
             <div class="col-md-12">
               <div class="input-group">
@@ -50,33 +56,6 @@
             </div>
           </div>
         </form>
-
-        <!-- ====== panel kamera ====== -->
-        <div class="row" id="webcam-wrap">
-          <div class="col-md-6">
-            <div class="input-group">
-              <select id="webcam-device" class="form-control">
-                <option value="">Kamera bawaan</option>
-              </select>
-              <span class="input-group-btn">
-                <button type="button" class="btn btn-primary" id="btn-kamera-mulai">
-                  <i class="fa fa-camera"></i> Nyalakan Kamera
-                </button>
-                <button type="button" class="btn btn-danger hidden" id="btn-kamera-stop">
-                  <i class="fa fa-stop"></i> Matikan Kamera
-                </button>
-              </span>
-            </div>
-            <p class="help-block" id="webcam-status">
-              Kamera mati. Nomor resi tetap bisa diketik atau di-scan manual di kolom atas.
-            </p>
-          </div>
-          <div class="col-md-6">
-            <video id="webcam-preview" playsinline muted
-                   style="width: 100%; max-height: 240px; background: #000; border-radius: 4px;"></video>
-          </div>
-        </div>
-        <!-- ====== panel kamera ====== -->
       </div>
 
       <!-- table untuk data resi -->
@@ -623,8 +602,6 @@
     });
 
     triggerScanFeedback(scanFeedback);
-
-    inisialisasiKamera();
   })
 
   function triggerScanFeedback(feedback) {
@@ -700,234 +677,6 @@
     $('#noresi').val('').focus();
     $('#noresi-detail').val('');
   }
-
-
-  // ====================== scanner kamera ======================
-  //
-  // Halaman ini SPA: tiap submit nomor resi mengganti isi .page-content-wrap,
-  // jadi elemen <video> yang lama ikut dibuang dan stream kamera mati. Supaya
-  // operator tidak perlu menyalakan kamera ulang tiap satu resi, status "kamera
-  // menyala" dan kamera yang dipilih disimpan di sessionStorage lalu dipulihkan
-  // otomatis saat halaman dirender ulang.
-  //
-  // Dekodernya ZXing UMD yang dilayani dari assets sendiri (tanpa CDN), dimuat
-  // baru saat kamera pertama kali dinyalakan supaya halaman tidak ikut berat
-  // kalau operator ternyata tetap memakai scanner gun.
-
-  var KUNCI_KAMERA_AKTIF  = 'packer_webcam_aktif';
-  var KUNCI_KAMERA_DEVICE = 'packer_webcam_device';
-  var URL_ZXING = '<?= base_url("assets/js/plugins/zxing/zxing.min.js") ?>';
-
-  window.packerWebcam = window.packerWebcam || {
-    reader: null,
-    jaga: null,
-    kodeTerakhir: '',
-    waktuTerakhir: 0,
-    mengirim: false
-  };
-
-  function simpanPrefKamera(kunci, nilai) {
-    try { window.sessionStorage.setItem(kunci, nilai); } catch (e) {}
-  }
-
-  function bacaPrefKamera(kunci) {
-    try { return window.sessionStorage.getItem(kunci); } catch (e) { return null; }
-  }
-
-  function statusKamera(teks) {
-    $('#webcam-status').text(teks);
-  }
-
-  function tampilTombolKamera(menyala) {
-    $('#btn-kamera-mulai').toggleClass('hidden', menyala);
-    $('#btn-kamera-stop').toggleClass('hidden', !menyala);
-  }
-
-  function muatZxing() {
-    var d = $.Deferred();
-
-    if (typeof ZXing !== 'undefined') {
-      d.resolve();
-    } else {
-      $.ajax({ url: URL_ZXING, dataType: 'script', cache: true })
-        .done(function() { d.resolve(); })
-        .fail(function() { d.reject(); });
-    }
-
-    return d.promise();
-  }
-
-  function isiDaftarKamera(reader) {
-    if (!reader || typeof reader.listVideoInputDevices !== 'function') {
-      return;
-    }
-
-    reader.listVideoInputDevices().then(function(daftar) {
-      var $sel = $('#webcam-device');
-      var dipilih = $sel.val() || '';
-
-      $sel.empty().append($('<option></option>').attr('value', '').text('Kamera bawaan'));
-      $.each(daftar, function(i, perangkat) {
-        $sel.append($('<option></option>')
-          .attr('value', perangkat.deviceId)
-          .text(perangkat.label || ('Kamera ' + (i + 1))));
-      });
-
-      // Kalau deviceId simpanan sudah tidak ada (kamera dicabut), balik ke bawaan.
-      $sel.val(dipilih);
-      if ($sel.val() === null) {
-        $sel.val('');
-      }
-    }).catch(function() {});
-  }
-
-  function hentikanKamera(matikanPref) {
-    var w = window.packerWebcam;
-
-    if (w.reader) {
-      try { w.reader.reset(); } catch (e) {}
-      w.reader = null;
-    }
-
-    if (w.jaga) {
-      clearInterval(w.jaga);
-      w.jaga = null;
-    }
-
-    w.mengirim = false;
-
-    if (matikanPref) {
-      simpanPrefKamera(KUNCI_KAMERA_AKTIF, '0');
-      tampilTombolKamera(false);
-      statusKamera('Kamera mati. Nomor resi tetap bisa diketik atau di-scan manual di kolom atas.');
-    }
-  }
-
-  function mulaiKamera() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      statusKamera('Browser tidak mengizinkan akses kamera di halaman ini. Buka lewat http://localhost:8080 atau https://, bukan alamat IP polos.');
-      return;
-    }
-
-    statusKamera('Menyiapkan kamera...');
-
-    muatZxing().done(function() {
-      var w = window.packerWebcam;
-
-      // Bersihkan sisa reader lama sebelum bikin yang baru, supaya tidak ada dua
-      // stream jalan bersamaan setelah halaman dirender ulang.
-      hentikanKamera(false);
-
-      w.reader = new ZXing.BrowserMultiFormatReader();
-
-      var deviceId = $('#webcam-device').val() || null;
-
-      w.reader.decodeFromVideoDevice(deviceId, 'webcam-preview', function(hasil) {
-        // Parameter error-nya sengaja tidak dipakai: ZXing melempar
-        // NotFoundException di setiap frame yang tidak berisi barcode, dan itu
-        // kondisi normal, bukan kegagalan.
-        if (hasil) {
-          tanganiHasilScan(hasil.getText ? hasil.getText() : hasil.text);
-        }
-      }).catch(function(err) {
-        hentikanKamera(true);
-        statusKamera('Gagal membuka kamera: ' + ((err && err.message) ? err.message : err));
-      });
-
-      simpanPrefKamera(KUNCI_KAMERA_AKTIF, '1');
-      tampilTombolKamera(true);
-      statusKamera('Kamera menyala. Arahkan barcode resi ke kamera.');
-
-      // Label kamera baru terisi setelah izin diberikan, jadi daftarnya diisi
-      // ulang sesaat setelah stream jalan.
-      setTimeout(function() { isiDaftarKamera(w.reader); }, 1200);
-
-      pasangPenjagaKamera();
-    }).fail(function() {
-      statusKamera('Gagal memuat pustaka pemindai (zxing.min.js). Periksa berkas di assets/js/plugins/zxing/.');
-    });
-  }
-
-  // Saat pengguna pindah menu, .page-content-wrap diganti dan <video> hilang
-  // tanpa memicu event apa pun. Tanpa penjaga ini lampu kamera tetap menyala
-  // dan stream-nya bocor sampai tab ditutup.
-  function pasangPenjagaKamera() {
-    var w = window.packerWebcam;
-
-    if (w.jaga) {
-      clearInterval(w.jaga);
-    }
-
-    w.jaga = setInterval(function() {
-      var video = document.getElementById('webcam-preview');
-      if (!video || !document.body.contains(video)) {
-        hentikanKamera(false);
-      }
-    }, 1000);
-  }
-
-  function tanganiHasilScan(kode) {
-    var w = window.packerWebcam;
-
-    kode = $.trim(kode || '');
-    if (kode.length < 4 || w.mengirim) {
-      return;
-    }
-
-    // Satu barcode terbaca puluhan kali per detik. Tanpa jeda ini satu resi
-    // terkirim berkali-kali dan langsung memicu logika double-scan di server.
-    var sekarang = new Date().getTime();
-    if (kode === w.kodeTerakhir && (sekarang - w.waktuTerakhir) < 3000) {
-      return;
-    }
-
-    w.kodeTerakhir = kode;
-    w.waktuTerakhir = sekarang;
-    w.mengirim = true;
-
-    statusKamera('Terbaca: ' + kode);
-
-    $('#noresi').first().val(kode);
-    $('#form-scan-webcam').submit();
-  }
-
-  function inisialisasiKamera() {
-    // Reader sisa render sebelumnya wajib dimatikan dulu: elemen <video>-nya
-    // sudah dibuang, tapi objek ZXing-nya masih memegang stream.
-    hentikanKamera(false);
-
-    var deviceTersimpan = bacaPrefKamera(KUNCI_KAMERA_DEVICE);
-    if (deviceTersimpan) {
-      $('#webcam-device').append($('<option></option>').attr('value', deviceTersimpan).text('Kamera terakhir dipakai'));
-      $('#webcam-device').val(deviceTersimpan);
-    }
-
-    // Tombol di-bind langsung ke elemennya (bukan lewat $(document)) karena
-    // elemen ini selalu baru tiap render; delegasi ke document akan menumpuk
-    // handler setiap kali halaman dibuka ulang.
-    $('#btn-kamera-mulai').on('click', function() {
-      mulaiKamera();
-    });
-
-    $('#btn-kamera-stop').on('click', function() {
-      hentikanKamera(true);
-    });
-
-    $('#webcam-device').on('change', function() {
-      simpanPrefKamera(KUNCI_KAMERA_DEVICE, $(this).val() || '');
-      if (window.packerWebcam.reader) {
-        mulaiKamera();
-      }
-    });
-
-    if (bacaPrefKamera(KUNCI_KAMERA_AKTIF) === '1') {
-      mulaiKamera();
-    } else {
-      tampilTombolKamera(false);
-    }
-  }
-
-  // ====================== scanner kamera ======================
 
 </script>
 <style>
