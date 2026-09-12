@@ -82,6 +82,21 @@
       el.play();
     }
   }
+
+  // Penyebab gagal dibaca dari kalimat pesan server: endpoint save-receipt
+  // tidak mengirim EXCEPTION_CODE seperti jalur packer/HO.
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+
+    if (teks.includes('CANCEL') || teks.includes('BATAL')) {
+      playAudio('audio-cancel-order');
+    } else if (teks.includes('SUDAH') || teks.includes('COMPLETED')) {
+      playAudio('audio-sudah-scan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
   $("#noresi").focus();
   var total_scan = document.getElementById('total_scan');
 
@@ -113,8 +128,30 @@
         success: function(data) {},
         error: function(data) {},
       }).done(function(response) {
-        $("#span_latest_receipt").text(form.noresi.value);
+        var noresi = form.noresi.value;
+        $("#span_latest_receipt").text(noresi);
+
+        // make_ajax_response() SELALU mengirim HTTP 200 dan menaruh status di
+        // body (lihat MY_Controller). Jadi .fail() di bawah cuma kena error
+        // jaringan -- resi gagal tetap masuk ke sini. Sebelum ini cabangnya
+        // tidak diperiksa sama sekali: resi yang ditolak server tetap berbunyi
+        // ALEXIS dan tetap menambah counter, seolah-olah berhasil.
+        var berhasil = response && (response.code === 201 || response.code === 200);
+
+        if (!berhasil) {
+          $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+          $("#p_latest_receipt_message").text(response && response.message ? response.message : "Gagal memproses data");
+
+          playScanErrorAudio(response && response.message);
+
+          form.noresi.value = "";
+          form.noresi.disabled = false;
+          form.noresi.focus();
+          return;
+        }
+
         $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
+        $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan");
 
         playAudio('audio-alexis');
 

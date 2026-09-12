@@ -40,6 +40,18 @@ class Receipt extends MY_Controller
 
         $save = $this->receipt_fcd->save($receipt, $this->data['user']['id_user']);
 
+        // Receipt_fcd::save() mengembalikan ['error' => TRUE, 'message' => ...]
+        // untuk resi yang sudah completed, dan array itu tidak punya kunci
+        // affected_rows. Tanpa cabang ini, PHP 8 melempar undefined array key
+        // lalu responsnya jatuh ke NOTHING_TO_SAVE -- alasan gagal yang
+        // sebenarnya hilang, dan halaman scan tidak bisa memilih suaranya.
+        if (isset($save['error']) && $save['error'] === TRUE) {
+            $this->make_ajax_response(
+                isset($save['code']) ? $save['code'] : 400,
+                $save['message']
+            );
+        }
+
         if ($save['affected_rows'] > 0) {
             $this->make_ajax_response(201, SUCCESS_SAVE_DATA, ['id_printresi' => $save['id_printresi']]);
         }

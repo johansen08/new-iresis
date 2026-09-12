@@ -426,10 +426,14 @@ class Packer extends MY_Controller
             $save = $this->process_packer_save($noresi);
 
             if (isset($save['error'])) {
+                // exception_code ikut dikirim ke view supaya suara gagalnya bisa
+                // dibedakan (sudah packing / pesanan cancel / lainnya). Tanpa ini
+                // view cuma punya kalimat pesan, dan semua kegagalan terdengar sama.
                 $feedback = [
                     'status' => 'auto_save_failed',
                     'type' => 'error',
                     'message' => $save['message'],
+                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
                     'auto_saved' => false
                 ];
             } else {

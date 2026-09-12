@@ -127,7 +127,7 @@
         } else {
             $("#div_container_latest_receipt").removeClass("tile-success").addClass("tile-danger");
             $("#p_latest_receipt_message").text(data.message);
-            playStandardAudio('audio-wrong');
+            playScanErrorAudio(data.message);
         }
         $("#noresi").focus();
       },
@@ -139,7 +139,7 @@
         $("#span_latest_receipt").text(noresi);
         $("#div_container_latest_receipt").removeClass("tile-success").addClass("tile-danger");
         $("#p_latest_receipt_message").text(msg);
-        playStandardAudio('audio-wrong');
+        playScanErrorAudio(msg);
         $("#noresi").focus();
       }
     });
@@ -162,6 +162,22 @@
       audio.play().catch(function(e) {
           console.error("Audio play failed:", e);
       });
+    }
+  }
+
+  // save_combined_scan() menolak resi lewat kalimat pesan, bukan kode, jadi
+  // penyebabnya dibaca dari teksnya. Dulu semua penolakan berbunyi audio-wrong
+  // dan operator harus membaca layar untuk tahu bedanya pesanan batal dengan
+  // resi yang sudah pernah di-scan.
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+
+    if (teks.includes('CANCEL') || teks.includes('BATAL')) {
+      playStandardAudio('audio-cancel-order');
+    } else if (teks.includes('SUDAH') || teks.includes('COMPLETED')) {
+      playStandardAudio('audio-sudah-scan');
+    } else {
+      playStandardAudio('audio-wrong');
     }
   }
 </script>
