@@ -70,4 +70,30 @@ Kesalahan database sering menghentikan eksekusi dengan tampilan halaman HTML err
 
 ---
 
-*Dokumen ini diperbarui terakhir: 2026-02-07*
+## 5. Alur Git (Branching)
+
+Branch utama proyek ini adalah **`master`**. Branch `development` sudah dihapus (dimerge penuh ke `master` pada 2026-09-12) — jangan dibuat lagi.
+
+### **Standar:**
+1. **Satu branch per pekerjaan**, selalu lahir dari `master`:
+   ```bash
+   git switch master
+   git switch -c feature/nama-fitur   # untuk fitur baru
+   git switch -c fix/nama-masalah     # untuk perbaikan bug
+   ```
+2. **Format pesan commit:** `tipe(modul): deskripsi singkat bahasa Indonesia`. Tipe yang dipakai di repo ini: `feat`, `fix`, `docs`, `chore`.
+   ```bash
+   git commit -m "feat(retur): kartu ringkasan verifikasi per-baris"
+   ```
+3. **Merge balik ke `master` dengan `--no-ff`** setelah diuji langsung di browser, supaya jejak branch tetap terbaca di riwayat:
+   ```bash
+   git switch master
+   git merge --no-ff feature/nama-fitur
+   git branch -d feature/nama-fitur
+   ```
+4. **Hapus branch dengan `-d`, JANGAN `-D`.** Huruf kecil akan menolak jika masih ada commit yang belum termerge — itu pengaman agar tidak ada pekerjaan yang hilang.
+5. **Belum ada remote.** Seluruh riwayat hanya tersimpan di PC ini dan belum punya backup off-site.
+
+---
+
+*Dokumen ini diperbarui terakhir: 2026-09-12*
