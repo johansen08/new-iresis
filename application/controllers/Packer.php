@@ -100,6 +100,42 @@ class Packer extends MY_Controller
 
 	public function scan_packer()
 	{
+		$this->show($this->siapkan_data_scan_packer());
+	}
+
+	/**
+	 * Varian webcam dari Scan Resi Packer.
+	 *
+	 * Alur, data, dan aksi submit-nya identik dengan scan_packer(); yang berbeda
+	 * hanya sumber input nomor resi -- kamera, bukan scanner gun. Datanya karena
+	 * itu dibangun lewat siapkan_data_scan_packer() yang sama, supaya kedua
+	 * halaman tidak pernah berbeda perilaku.
+	 *
+	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
+	 * ditaruh di sini juga, bukan hanya di menu, karena URL-nya bisa dibuka
+	 * langsung. Penolakan sengaja tetap lewat show() supaya responsnya JSON yang
+	 * valid -- show_404() mengirim halaman HTML dan merusak parsing di sisi SPA.
+	 */
+	public function scan_packer_webcam()
+	{
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->show(['akses_ditolak' => TRUE], 'packer/scan_packer_webcam');
+			return;
+		}
+
+		$data = $this->siapkan_data_scan_packer();
+		$data['akses_ditolak'] = FALSE;
+
+		$this->show($data, 'packer/scan_packer_webcam');
+	}
+
+	/**
+	 * Menyiapkan seluruh data halaman scan packer, baik saat dibuka lewat GET
+	 * maupun saat menerima POST nomor resi. Dipakai bersama oleh scan_packer()
+	 * dan scan_packer_webcam().
+	 */
+	protected function siapkan_data_scan_packer()
+	{
         $data = [];
 
         // Initialize default values to prevent undefined variable errors
@@ -185,7 +221,7 @@ class Packer extends MY_Controller
             }
         }
 
-        $this->show($data);
+        return $data;
 	}
 
     public function get_scan_packer_data($noresi)
