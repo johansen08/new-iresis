@@ -118,7 +118,13 @@ class Picker extends MY_Controller
         $save = $this->picking_fcd->save($picking, $this->data['user']);
 
         if (isset($save['error'])) {
-            $this->make_ajax_response($save['code'], $save['message']);
+            // EXCEPTION_CODE dari Picking_fcd::save() ikut dikirim supaya halaman
+            // scan bisa memilih suara sesuai penyebabnya (resi tidak ditemukan vs
+            // double scan vs pesanan batal). Sebelumnya data ini dibuang di sini dan
+            // JS terpaksa menebak dari teks pesan -- tebakannya meleset karena pesan
+            // double berbunyi "sudah di-picker", tidak cocok dengan kata kunci yang
+            // dicari, jadi double dan resi tidak ditemukan berbunyi sama.
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? []);
         }
 
         if ($save['affected_rows'] > 0) {

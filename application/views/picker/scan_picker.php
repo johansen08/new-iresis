@@ -56,6 +56,23 @@
             <p><small id="p_latest_receipt_message">Nomor resi terakhir yang sudah di-scan Picker</small></p>
           </div>
 
+          <!--
+            Riwayat scan sesi ini, bentuknya mengikuti halaman Scan Paket NDD.
+            Kartu resi terakhir cuma menyimpan satu baris, jadi kalau operator
+            menembak beruntun dan salah satunya gagal, pesannya sudah tertimpa
+            sebelum sempat dibaca. Tabel ini menahan 8 scan terakhir.
+          -->
+          <div id="history_wrapper" style="margin-top: 20px; display: none;">
+            <label style="color: #666; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+              <i class="fa fa-history"></i> Riwayat Scan Terakhir
+            </label>
+            <div style="background: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
+              <table class="table table-condensed" style="margin: 0; font-size: 0.9rem;">
+                <tbody id="scan_history"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
 
         <div class="panel-footer">
@@ -162,20 +179,76 @@
     }
   }
 
-  // Server di jalur ini tidak mengirim EXCEPTION_CODE, hanya kalimat pesan,
-  // jadi penyebabnya dibaca dari teksnya. Dulu logika ini disalin dua kali --
-  // di cabang respons gagal dan di cabang error ajax -- dan sempat berbeda
-  // isinya. Satu tempat saja supaya nada dan kata kuncinya tidak lagi menyimpang.
-  function playScanErrorAudio(message) {
+  // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
+  // bukan lagi dari teks pesannya. Sebelumnya kodenya dibuang di controller dan
+  // di sini penyebabnya ditebak dengan includes() -- tebakan itu meleset untuk
+  // double scan: pesannya "Nomor resi sudah di-picker (Double Scan)", tidak
+  // mengandung 'SUDAH DI PICK' karena ada tanda hubung. Akibatnya double scan
+  // dan resi tidak ditemukan sama-sama jatuh ke audio-wrong, terdengar identik.
+  //
+  // Empat penyebab, empat suara yang tidak bisa tertukar di telinga:
+  //   ALREADY_PICKED  -> ucapan "sudah scan"
+  //   NOT_FOUND       -> nada WRONG (patokan lama operator untuk resi salah)
+  //   ORDER_CANCELED  -> ucapan "cancel"
+  //   ORDER_COMPLETED -> nada fail
+  function playScanErrorAudio(message, exceptionCode) {
+    switch (exceptionCode) {
+      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');   return;
+      case 'NOT_FOUND':       playAudio('audio-wrong');        return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order'); return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');         return;
+    }
+
+    // Tanpa kode -- error jaringan, timeout, atau respons yang tidak terbaca.
+    // Teksnya masih dicoba dibaca supaya jalur itu tidak kehilangan suaranya.
     var teks = (message || "").toUpperCase();
 
     if (teks.includes('CANCEL') || teks.includes('BATAL')) {
       playAudio('audio-cancel-order');
-    } else if (teks.includes('SUDAH DI SCAN') || teks.includes('SUDAH DI PICK')) {
+    } else if (teks.includes('DOUBLE') || teks.includes('SUDAH DI SCAN') ||
+               teks.includes('SUDAH DI PICK') || teks.includes('SUDAH DI-PICK')) {
       playAudio('audio-sudah-scan');
-    } else {
+    } else if (teks.includes('TIDAK DITEMUKAN')) {
       playAudio('audio-wrong');
+    } else {
+      playAudio('audio-alert');
     }
+  }
+
+  // ===== RIWAYAT SCAN =====
+  // Tabel 8 baris terakhir, pola sama dengan halaman Scan Paket NDD. Waktu
+  // bolak-balik AJAX ikut dicatat supaya scan yang tersendat kelihatan dari
+  // layar stasiun tanpa perlu buka log.
+  var AMBANG_LAMBAT = 1000; // ms
+
+  function ukurWaktu(t0) {
+    var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+    return Math.round(t1 - t0);
+  }
+
+  function pushHistory(noresi, message, ok, ms) {
+    var jam = new Date().toTimeString().substring(0, 8);
+    var warna = ok ? '#28a745' : '#dc3545';
+    var ikon = ok ? 'fa-check-circle' : 'fa-times-circle';
+    var lambat = (typeof ms === 'number' && ms > AMBANG_LAMBAT);
+
+    var kolomMs = (typeof ms === 'number')
+      ? '<td style="width: 75px; text-align: right; font-weight: 700; color: ' +
+        (lambat ? '#dc3545' : '#999') + ';">' + ms + ' ms</td>'
+      : '<td></td>';
+
+    $("#history_wrapper").show();
+    $("#scan_history").prepend(
+      '<tr>' +
+      '<td style="width: 62px; color: #999;">' + jam + '</td>' +
+      '<td style="font-weight: 700; letter-spacing: 1px;">' + $('<div>').text(noresi).html() + '</td>' +
+      '<td style="color: ' + warna + '; font-weight: 600;">' +
+      '<i class="fa ' + ikon + '"></i> ' + $('<div>').text(message).html() +
+      '</td>' +
+      kolomMs +
+      '</tr>'
+    );
+    $("#scan_history tr:gt(7)").remove();
   }
 
   function updateSummaryTable() {
@@ -404,7 +477,13 @@
 
     isProcessing = true;
     var request = requestQueue.shift(); // Ambil request pertama
-    
+
+    // Waktu dihitung dari sini, bukan dari saat resi masuk antrean. Kalau
+    // operator menembak beruntun, resi ke-5 menunggu 4 request selesai dulu --
+    // menghitung dari submit membuat angkanya membengkak dan semua baris
+    // riwayat tertandai merah padahal servernya tidak lambat.
+    var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+
     $.ajax({
       url: request.url,
       type: 'post',
@@ -412,12 +491,12 @@
       timeout: 10000,
       cache: false,
       success: function(data) {
-        request.success(data);
+        request.success(data, ukurWaktu(t0));
         isProcessing = false;
         processQueue(); // Process next request in queue
       },
       error: function(xhr, status, error) {
-        request.error(xhr, status, error);
+        request.error(xhr, status, error, ukurWaktu(t0));
         isProcessing = false;
         processQueue(); // Process next request in queue
       }
@@ -566,7 +645,7 @@
         url: form.action,
         data: Object.fromEntries(formData),
         noresiValue: noresiValue,
-        success: function(data) {
+        success: function(data, ms) {
           // Parse JSON if needed
           if (typeof data === 'string') {
              try { data = JSON.parse(data); } catch(e) {}
@@ -580,6 +659,7 @@
   
             // Play success sound (Alexis)
             playAudio('audio-alexis');
+            pushHistory(noresiValue, 'SCAN PICKER BERHASIL', true, ms);
 
             // UPDATE SUMMARY STATE if available
             console.log('Scan Response Data:', data);
@@ -620,11 +700,13 @@
             $("#div_container_latest_receipt").removeClass("tile-default tile-success").addClass("tile-danger");
             $("#p_latest_receipt_message").text(msg);
 
-            // Play error sound (Wrong / Cancel / Sudah scan)
-            playScanErrorAudio(msg);
+            // Suara dipilih dari EXCEPTION_CODE; teks pesan cuma cadangan.
+            var kode = (data && data.data) ? data.data.EXCEPTION_CODE : '';
+            pushHistory(noresiValue, msg, false, ms);
+            playScanErrorAudio(msg, kode);
           }
         },
-        error: function(xhr, status, error) {
+        error: function(xhr, status, error, ms) {
           // Error feedback (network or internal server error)
           var response = {};
           try {
@@ -640,8 +722,10 @@
           $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
           $("#p_latest_receipt_message").text(response.message);
 
-          // Play error sound (Wrong / Cancel / Sudah scan)
-          playScanErrorAudio(response.message);
+          // Jalur ini sering tanpa EXCEPTION_CODE (timeout/putus), tetap dicoba.
+          var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
+          pushHistory(noresiValue, response.message, false, ms);
+          playScanErrorAudio(response.message, kode);
         }
       });
 
