@@ -56,7 +56,67 @@
             </div>
           </div>
         </form>
+
+        <!-- ====== panel rekam video packing ====== -->
+        <div class="row" id="rekam-wrap">
+          <div class="col-md-7">
+            <div id="rekam-status" class="alert alert-warning" style="margin-bottom: 10px;">
+              Kamera mati. Nomor resi masih bisa di-scan, tapi packing-nya tidak akan terekam.
+            </div>
+
+            <button type="button" class="btn btn-primary" id="btn-kamera-mulai">
+              <i class="fa fa-video-camera"></i> Nyalakan Kamera
+            </button>
+            <button type="button" class="btn btn-default hidden" id="btn-kamera-stop">
+              <i class="fa fa-power-off"></i> Matikan Kamera
+            </button>
+
+            <span id="rekam-indikator" class="hidden" style="margin-left: 12px; font-weight: bold; color: #d9534f;">
+              <i class="fa fa-circle"></i> REC <span id="rekam-durasi">00:00</span>
+            </span>
+
+            <?php if (!empty($is_webmaster)) : ?>
+              <hr style="margin: 12px 0;" />
+              <div id="setelan-video">
+                <strong>Setelan rekam</strong>
+                <small class="text-muted">(hanya webmaster)</small>
+                <div class="row" style="margin-top: 8px;">
+                  <div class="col-md-4">
+                    <label class="control-label" for="setelan-resolusi">Resolusi</label>
+                    <select id="setelan-resolusi" class="form-control">
+                      <option value="720p" <?= $setelan_video['resolusi'] === '720p' ? 'selected' : '' ?>>720p (hemat)</option>
+                      <option value="1080p" <?= $setelan_video['resolusi'] === '1080p' ? 'selected' : '' ?>>1080p</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="control-label" for="setelan-batas">Batas rekam (menit)</label>
+                    <input type="number" id="setelan-batas" class="form-control" min="1" max="120"
+                           value="<?= (int) $setelan_video['batas_menit'] ?>" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="control-label">&nbsp;</label>
+                    <button type="button" class="btn btn-default btn-block" id="btn-simpan-setelan">
+                      Simpan Setelan
+                    </button>
+                  </div>
+                </div>
+                <p class="help-block" style="margin-top: 8px;">
+                  Rekaman berhenti sendiri di batas ini dan tetap disimpan (terpotong), tidak dibuang.
+                  Setelan baru berlaku saat kamera dinyalakan ulang.<br />
+                  Folder simpan: <code><?= htmlspecialchars($folder_video, ENT_QUOTES, 'UTF-8') ?></code>
+                </p>
+              </div>
+            <?php endif; ?>
+          </div>
+
+          <div class="col-md-5">
+            <video id="rekam-preview" playsinline muted
+                   style="width: 100%; max-height: 260px; background: #000; border-radius: 4px;"></video>
+          </div>
+        </div>
+        <!-- ====== panel rekam video packing ====== -->
       </div>
+
 
       <!-- table untuk data resi -->
       <?php if (!empty($noresi)) : ?>
@@ -563,7 +623,25 @@
           noresi: noresi
         },
         success: function(response) {
-          // alert("Data berhasil disubmit!");
+          // make_ajax_response() selalu balas HTTP 200 dan menaruh statusnya
+          // di body, jadi gagal-simpan ikut mendarat di handler ini. Tanpa
+          // pemeriksaan res.code, video bisa terunggah untuk resi yang
+          // sebenarnya GAGAL tersimpan.
+          var res = response;
+          if (typeof res === 'string') {
+            try { res = JSON.parse(res); } catch (e) { res = null; }
+          }
+
+          if (!res || res.code !== 201) {
+            $('#errorMessage').text((res && res.message) ? res.message : 'Data tidak tersimpan.');
+            $('#errorModal').fadeIn();
+            setTimeout(function() { $('#errorModal').fadeOut(); }, 1500);
+            return; // rekaman sengaja dibiarkan jalan supaya bisa dicoba lagi
+          }
+
+          // Video baru diunggah SETELAH simpan terkonfirmasi.
+          selesaikanRekam(noresi);
+
           $('#successModal').fadeIn();
 
           setTimeout(function() {
@@ -598,9 +676,11 @@
     });
 
     $('#btn-reset').on('click', function () {
+        buangRekam('reset oleh packer');
         resetScanView();
     });
 
+    inisialisasiRekam();
     triggerScanFeedback(scanFeedback);
   })
 
@@ -677,6 +757,461 @@
     $('#noresi').val('').focus();
     $('#noresi-detail').val('');
   }
+
+
+  // ====================== rekam video packing ======================
+  //
+  // Halaman ini SPA: setiap scan resi mengganti isi .page-content-wrap, jadi
+  // elemen <video> ikut dibuang. MediaStream dan MediaRecorder karena itu
+  // disimpan di window, bukan di dalam closure halaman, lalu dipasang ulang ke
+  // elemen <video> yang baru tiap render. Tanpa itu rekaman mati setiap kali
+  // packer men-scan resi berikutnya.
+  //
+  // Videonya diunggah SEKALI setelah simpan terkonfirmasi, bukan potongan
+  // berkala. Konsekuensinya sengaja: rekaman yang terputus (pindah menu, tab
+  // ditutup, Chrome mati) tidak pernah sampai ke server, jadi "dibuang" terjadi
+  // dengan sendirinya -- tidak ada berkas separuh jadi yang perlu disapu.
+
+  var VIDEO_SETELAN   = <?= json_encode(isset($setelan_video) ? $setelan_video : ['resolusi' => '720p', 'batas_menit' => 15]) ?>;
+  var NORESI_HALAMAN  = <?= json_encode(isset($noresi) ? $noresi : '') ?>;
+  var SUDAH_TERSIMPAN = <?= json_encode(!empty($scan_feedback['auto_saved'])) ?>;
+
+  var KUNCI_KAMERA_AKTIF = 'packer_rekam_aktif';
+
+  // Toleransi hilangnya elemen <video> sebelum rekaman dianggap ditinggalkan.
+  // Saat berpindah halaman SPA, .page-content-wrap sempat diisi spinner, jadi
+  // elemennya memang hilang sebentar -- tanpa toleransi ini rekaman yang masih
+  // sah ikut dibuang.
+  var BATAS_JAGA_HILANG = 5;
+
+  window.rekamPacking = window.rekamPacking || {
+    stream: null,
+    recorder: null,
+    potongan: [],
+    noresi: '',
+    mulai: 0,
+    timerUI: null,
+    jaga: null,
+    jagaHilang: 0,
+    finalisasi: false,
+    terpotong: false,
+    menunggu: '',
+    mengunggah: false
+  };
+
+  function simpanPrefKamera(nilai) {
+    try { window.sessionStorage.setItem(KUNCI_KAMERA_AKTIF, nilai); } catch (e) {}
+  }
+
+  function bacaPrefKamera() {
+    try { return window.sessionStorage.getItem(KUNCI_KAMERA_AKTIF); } catch (e) { return null; }
+  }
+
+  function statusRekam(teks, jenis) {
+    var $s = $('#rekam-status');
+    if (!$s.length) { return; }
+    $s.removeClass('alert-warning alert-success alert-danger alert-info')
+      .addClass('alert-' + (jenis || 'info'))
+      .html(teks);
+  }
+
+  function tampilTombolKamera(menyala) {
+    $('#btn-kamera-mulai').toggleClass('hidden', menyala);
+    $('#btn-kamera-stop').toggleClass('hidden', !menyala);
+  }
+
+  function formatDurasi(detik) {
+    var m = Math.floor(detik / 60), d = detik % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (d < 10 ? '0' : '') + d;
+  }
+
+  // ── kamera ───────────────────────────────────────────────────────────
+
+  function kendalaVideo() {
+    // Resolusi HARUS diminta eksplisit. Tanpa ini Chrome memberi 640x480
+    // walaupun kameranya 1080p -- itu yang bikin percobaan lama tercatat 480p.
+    var t = (VIDEO_SETELAN.resolusi === '1080p')
+      ? { w: 1920, h: 1080 }
+      : { w: 1280, h: 720 };
+
+    return {
+      audio: false, // audio belum diputuskan; mematikannya juga memangkas ukuran
+      video: {
+        width:     { ideal: t.w },
+        height:    { ideal: t.h },
+        frameRate: { ideal: 15, max: 30 }
+      }
+    };
+  }
+
+  function opsiRekam() {
+    var kandidat = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    var mime = '';
+
+    for (var i = 0; i < kandidat.length; i++) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(kandidat[i])) {
+        mime = kandidat[i];
+        break;
+      }
+    }
+
+    var opsi = { videoBitsPerSecond: (VIDEO_SETELAN.resolusi === '1080p') ? 2500000 : 1500000 };
+    if (mime) { opsi.mimeType = mime; }
+
+    return opsi;
+  }
+
+  function pasangPratinjau() {
+    var video = document.getElementById('rekam-preview');
+    var w = window.rekamPacking;
+
+    if (video && w.stream && video.srcObject !== w.stream) {
+      video.srcObject = w.stream;
+      video.play().catch(function () {});
+    }
+  }
+
+  function nyalakanKamera() {
+    var w = window.rekamPacking;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      statusRekam('Browser tidak mendukung perekaman di halaman ini. Buka lewat <code>http://localhost</code> atau HTTPS, bukan alamat IP polos.', 'danger');
+      return;
+    }
+
+    if (w.stream) { pasangPratinjau(); return; }
+
+    statusRekam('Menyiapkan kamera...', 'info');
+
+    navigator.mediaDevices.getUserMedia(kendalaVideo()).then(function (stream) {
+      w.stream = stream;
+      simpanPrefKamera('1');
+      tampilTombolKamera(true);
+      pasangPratinjau();
+
+      var trek = stream.getVideoTracks()[0];
+      var s = trek ? trek.getSettings() : {};
+      statusRekam('Kamera siap (' + (s.width || '?') + 'x' + (s.height || '?') + '). Packing akan terekam otomatis saat resi di-scan.', 'success');
+
+      pasangPenjaga();
+
+      // Resi sudah di-scan duluan sebelum kamera siap -- langsung rekam.
+      if (w.menunggu) {
+        var n = w.menunggu;
+        w.menunggu = '';
+        mulaiRekam(n);
+      }
+    }).catch(function (err) {
+      simpanPrefKamera('0');
+      tampilTombolKamera(false);
+      statusRekam('Kamera tidak bisa dibuka: ' + ((err && err.message) ? err.message : err) + '. Packing tidak akan terekam.', 'danger');
+    });
+  }
+
+  function matikanKamera() {
+    var w = window.rekamPacking;
+
+    buangRekam('kamera dimatikan');
+
+    if (w.stream) {
+      w.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+      w.stream = null;
+    }
+
+    if (w.jaga) { clearInterval(w.jaga); w.jaga = null; }
+
+    simpanPrefKamera('0');
+    tampilTombolKamera(false);
+    statusRekam('Kamera mati. Nomor resi masih bisa di-scan, tapi packing-nya tidak akan terekam.', 'warning');
+  }
+
+  // ── siklus rekam ─────────────────────────────────────────────────────
+
+  function mulaiRekam(noresi) {
+    var w = window.rekamPacking;
+
+    if (!w.stream) { w.menunggu = noresi; return; }
+    if (w.recorder && w.noresi === noresi) { return; }
+
+    buangRekam('ganti resi');
+
+    try {
+      w.recorder = new MediaRecorder(w.stream, opsiRekam());
+    } catch (e) {
+      statusRekam('Perekam tidak bisa dibuat: ' + e.message, 'danger');
+      w.recorder = null;
+      return;
+    }
+
+    w.potongan   = [];
+    w.noresi     = noresi;
+    w.mulai      = Date.now();
+    w.finalisasi = false;
+    w.terpotong  = false;
+
+    w.recorder.ondataavailable = function (e) {
+      if (e.data && e.data.size > 0) { w.potongan.push(e.data); }
+    };
+
+    w.recorder.onstop = function () {
+      if (w.finalisasi) {
+        w.finalisasi = false;
+        kirimVideo();
+      }
+    };
+
+    // Potongan 5 detik supaya Chrome bisa melimpahkan data ke disk dan tidak
+    // menahan seluruh rekaman di memori sampai selesai.
+    w.recorder.start(5000);
+
+    $('#rekam-indikator').removeClass('hidden');
+    jalankanTimer();
+    statusRekam('Merekam packing resi <strong>' + noresi + '</strong>.', 'success');
+  }
+
+  function jalankanTimer() {
+    var w = window.rekamPacking;
+
+    if (w.timerUI) { clearInterval(w.timerUI); }
+
+    w.timerUI = setInterval(function () {
+      if (!w.recorder || !w.mulai) { return; }
+
+      var detik = Math.floor((Date.now() - w.mulai) / 1000);
+      $('#rekam-durasi').text(formatDurasi(detik));
+
+      // Batas rekam: rekaman DIHENTIKAN tapi TIDAK dibuang. Paket kuantitas
+      // banyak justru yang paling butuh bukti, jadi lebih baik punya rekaman
+      // terpotong daripada tidak punya sama sekali.
+      if (!w.terpotong && detik >= VIDEO_SETELAN.batas_menit * 60) {
+        w.terpotong = true;
+        if (w.recorder.state === 'recording') {
+          w.finalisasi = false;
+          w.recorder.stop();
+        }
+        statusRekam('Batas ' + VIDEO_SETELAN.batas_menit + ' menit tercapai. Rekaman dihentikan dan akan tetap disimpan saat Submit.', 'warning');
+      }
+    }, 1000);
+  }
+
+  function hentikanTimer() {
+    var w = window.rekamPacking;
+    if (w.timerUI) { clearInterval(w.timerUI); w.timerUI = null; }
+    $('#rekam-indikator').addClass('hidden');
+    $('#rekam-durasi').text('00:00');
+  }
+
+  /** Menghentikan rekaman TANPA mengunggah -- isinya benar-benar dibuang. */
+  function buangRekam(alasan) {
+    var w = window.rekamPacking;
+
+    w.menunggu = '';
+
+    if (!w.recorder) { w.potongan = []; w.noresi = ''; return; }
+
+    w.finalisasi = false;
+
+    try {
+      if (w.recorder.state !== 'inactive') { w.recorder.stop(); }
+    } catch (e) {}
+
+    w.recorder  = null;
+    w.potongan  = [];
+    w.noresi    = '';
+    w.mulai     = 0;
+    w.terpotong = false;
+
+    hentikanTimer();
+
+    if (alasan && w.stream) {
+      statusRekam('Rekaman dibuang (' + alasan + '). Kamera masih menyala.', 'warning');
+    }
+  }
+
+  /** Menutup rekaman lalu mengunggahnya. Dipanggil setelah simpan berhasil. */
+  function selesaikanRekam(noresi) {
+    var w = window.rekamPacking;
+
+    if (!w.recorder || w.noresi !== noresi) { return; }
+
+    hentikanTimer();
+
+    if (w.recorder.state === 'inactive') {
+      // Sudah berhenti karena kena batas menit; potongannya masih utuh.
+      kirimVideo();
+      return;
+    }
+
+    w.finalisasi = true;
+    w.recorder.stop(); // onstop -> kirimVideo()
+  }
+
+  function kirimVideo() {
+    var w = window.rekamPacking;
+    var noresi = w.noresi;
+    var potongan = w.potongan;
+
+    // State dibersihkan lebih dulu supaya resi berikutnya bisa langsung direkam
+    // walaupun unggahan ini masih berjalan di latar.
+    w.recorder  = null;
+    w.potongan  = [];
+    w.noresi    = '';
+    w.mulai     = 0;
+    var terpotong = w.terpotong;
+    w.terpotong = false;
+
+    if (!noresi || !potongan.length) { return; }
+
+    var blob = new Blob(potongan, { type: 'video/webm' });
+    var mb = (blob.size / 1048576).toFixed(1);
+
+    var fd = new FormData();
+    fd.append('noresi', noresi);
+    fd.append('video', blob, noresi + '.webm');
+
+    w.mengunggah = true;
+    statusRekam('Mengunggah video resi <strong>' + noresi + '</strong> (' + mb + ' MB)...', 'info');
+
+    $.ajax({
+      url: 'packer/upload-video-packing',
+      type: 'POST',
+      data: fd,
+      processData: false,
+      contentType: false,
+      dataType: 'json',
+      timeout: 600000
+    }).done(function (res) {
+      w.mengunggah = false;
+
+      // make_ajax_response() selalu balas HTTP 200 dan menaruh statusnya di
+      // body, jadi keberhasilan diperiksa dari res.code, bukan status HTTP.
+      if (res && res.code === 201) {
+        statusRekam('Video resi <strong>' + noresi + '</strong> tersimpan (' + mb + ' MB)'
+          + (terpotong ? ' <em>— terpotong di batas waktu</em>' : '') + '.', 'success');
+      } else {
+        statusRekam('Video resi ' + noresi + ' GAGAL disimpan: ' + ((res && res.message) ? res.message : 'respons tidak dikenal'), 'danger');
+      }
+    }).fail(function (xhr, textStatus) {
+      w.mengunggah = false;
+      statusRekam('Video resi ' + noresi + ' GAGAL diunggah (' + textStatus + '). Rekamannya hilang — laporkan ke IT.', 'danger');
+    });
+  }
+
+  // ── penjaga & pengelola per render ───────────────────────────────────
+
+  function pasangPenjaga() {
+    var w = window.rekamPacking;
+
+    if (w.jaga) { clearInterval(w.jaga); }
+    w.jagaHilang = 0;
+
+    w.jaga = setInterval(function () {
+      var video = document.getElementById('rekam-preview');
+
+      if (video && document.body.contains(video)) {
+        w.jagaHilang = 0;
+        return;
+      }
+
+      w.jagaHilang++;
+      if (w.jagaHilang < BATAS_JAGA_HILANG) { return; }
+
+      // Packer sudah pindah menu: rekaman yang belum disimpan dibuang, kamera
+      // dilepas supaya lampunya tidak menyala terus.
+      buangRekam(null);
+      if (w.stream) {
+        w.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+        w.stream = null;
+      }
+      clearInterval(w.jaga);
+      w.jaga = null;
+    }, 1000);
+  }
+
+  /**
+   * Menentukan apa yang harus dilakukan rekaman pada render halaman ini.
+   * Satu-satunya tempat keputusan itu diambil, supaya tidak ada dua jalur yang
+   * saling menimpa saat auto-save double-scan terjadi.
+   */
+  function kelolaRekamHalaman() {
+    var w = window.rekamPacking;
+
+    pasangPratinjau();
+
+    if (SUDAH_TERSIMPAN) {
+      // Scan kedua sudah menyimpan resi di sisi server pada request ini.
+      w.menunggu = '';
+      selesaikanRekam(NORESI_HALAMAN);
+      return;
+    }
+
+    if (NORESI_HALAMAN) {
+      if (w.recorder && w.noresi === NORESI_HALAMAN) {
+        jalankanTimer();
+        $('#rekam-indikator').removeClass('hidden');
+        return;
+      }
+      mulaiRekam(NORESI_HALAMAN);
+      return;
+    }
+
+    // Halaman dibuka tanpa resi: rekaman yang masih menggantung tidak akan
+    // pernah punya pasangan simpanan, jadi dibuang.
+    w.menunggu = '';
+    if (w.recorder) { buangRekam('resi dibatalkan'); }
+  }
+
+  function inisialisasiRekam() {
+    var w = window.rekamPacking;
+
+    // Tombol di-bind langsung ke elemennya (bukan lewat $(document)) karena
+    // elemen ini selalu baru tiap render; delegasi ke document akan menumpuk.
+    $('#btn-kamera-mulai').on('click', nyalakanKamera);
+    $('#btn-kamera-stop').on('click', matikanKamera);
+    $('#btn-simpan-setelan').on('click', simpanSetelanVideo);
+
+    if (w.stream) {
+      tampilTombolKamera(true);
+      pasangPenjaga();
+    } else {
+      tampilTombolKamera(false);
+    }
+
+    if (!w.stream && bacaPrefKamera() !== '0') {
+      nyalakanKamera();
+    }
+
+    kelolaRekamHalaman();
+  }
+
+  function simpanSetelanVideo() {
+    var $btn = $('#btn-simpan-setelan').prop('disabled', true);
+
+    $.ajax({
+      url: 'packer/simpan-setelan-video',
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        resolusi:    $('#setelan-resolusi').val(),
+        batas_menit: $('#setelan-batas').val()
+      }
+    }).done(function (res) {
+      $btn.prop('disabled', false);
+
+      if (res && res.code === 200) {
+        VIDEO_SETELAN.resolusi    = res.data.resolusi;
+        VIDEO_SETELAN.batas_menit = res.data.batas_menit;
+        noty({ text: 'Setelan video disimpan. Matikan lalu nyalakan kamera agar resolusi baru dipakai.', layout: 'topRight', type: 'success', timeout: 4000 });
+      } else {
+        noty({ text: 'Gagal menyimpan setelan: ' + ((res && res.message) ? res.message : 'respons tidak dikenal'), layout: 'topRight', type: 'error', timeout: 4000 });
+      }
+    }).fail(function () {
+      $btn.prop('disabled', false);
+      noty({ text: 'Gagal menghubungi server saat menyimpan setelan.', layout: 'topRight', type: 'error', timeout: 4000 });
+    });
+  }
+
+  // ====================== rekam video packing ======================
 
 </script>
 <style>

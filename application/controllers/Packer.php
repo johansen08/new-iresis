@@ -295,7 +295,98 @@ class Packer extends MY_Controller
 
         $data['akses_ditolak'] = FALSE;
 
+        // Setelan rekam dibaca dari tb_config_operasional (jatuh ke nilai bawaan
+        // kalau barisnya belum ada), jadi tidak ada migrasi yang perlu jalan.
+        $this->load->model('video_packing_fcd');
+        $data['setelan_video'] = $this->video_packing_fcd->ambil_setelan();
+        $data['folder_video']  = $this->video_packing_fcd->folder();
+
+        // Saat ini seluruh halaman memang khusus webmaster, tapi penanda ini
+        // dipisah supaya kontrol setelannya tetap tersembunyi kalau nanti menu
+        // ini dibuka untuk packer.
+        $data['is_webmaster'] = TRUE;
+
         $this->show($data, 'packer/scan_packer_webcam');
+	}
+
+	/**
+	 * Menerima unggahan video packing dari halaman Scan Resi Packer (Webcam).
+	 *
+	 * Videonya diunggah SEKALI di akhir, bukan potongan berkala. Itu keputusan
+	 * sadar: rekaman yang terputus (tab ditutup, Chrome mati, PC padam) tidak
+	 * pernah sampai ke server, jadi "dibuang" terjadi dengan sendirinya -- tidak
+	 * ada berkas separuh jadi di disk, tidak perlu penyapu, dan tidak ada satu
+	 * pun operasi hapus berkas di seluruh fitur ini.
+	 */
+	public function upload_video_packing()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->make_ajax_response(403, 'Hanya webmaster yang boleh mengunggah video packing');
+		}
+
+		// Rekaman 1080p yang mentok batas bisa menyentuh ratusan MB.
+		ini_set('memory_limit', '3072M');
+		set_time_limit(0);
+
+		$berkas = isset($_FILES['video']) ? $_FILES['video'] : NULL;
+
+		if (empty($berkas) || !isset($berkas['error'])) {
+			$this->make_ajax_response(400, 'Tidak ada berkas video pada permintaan ini');
+		}
+
+		if ($berkas['error'] !== UPLOAD_ERR_OK) {
+			// UPLOAD_ERR_INI_SIZE / FORM_SIZE paling sering muncul kalau batas
+			// upload_max_filesize di php.ini lebih kecil dari videonya.
+			$this->make_ajax_response(400, 'Unggahan video gagal, kode PHP: ' . $berkas['error']);
+		}
+
+		$this->load->model('video_packing_fcd');
+		$simpan = $this->video_packing_fcd->simpan_video($this->input->post('noresi'), $berkas);
+
+		if ($simpan['error']) {
+			$this->make_ajax_response($simpan['code'], $simpan['message']);
+		}
+
+		$this->make_ajax_response(201, 'Video packing tersimpan', [
+			'nama_berkas' => $simpan['nama_berkas'],
+			'ukuran_byte' => $simpan['ukuran_byte'],
+			'tercatat'    => $simpan['tercatat'],
+		]);
+	}
+
+	/**
+	 * Menyimpan setelan rekam (resolusi + batas menit) ke tb_config_operasional.
+	 * Khusus webmaster -- packer tidak boleh menaikkan resolusi sendiri, karena
+	 * itu langsung mengubah konsumsi disk harian.
+	 */
+	public function simpan_setelan_video()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->make_ajax_response(403, 'Hanya webmaster yang boleh mengubah setelan video');
+		}
+
+		$this->load->model('video_packing_fcd');
+		$simpan = $this->video_packing_fcd->simpan_setelan(
+			$this->input->post('resolusi'),
+			$this->input->post('batas_menit')
+		);
+
+		if ($simpan['error']) {
+			$this->make_ajax_response($simpan['code'], $simpan['message']);
+		}
+
+		$this->make_ajax_response(200, 'Setelan video disimpan', [
+			'resolusi'    => $simpan['resolusi'],
+			'batas_menit' => $simpan['batas_menit'],
+		]);
 	}
 
     public function get_scan_packer_data($noresi)
