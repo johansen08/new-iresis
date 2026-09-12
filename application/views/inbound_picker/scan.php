@@ -181,16 +181,18 @@ $(function() {
             type: 'GET',
             data: { id_picker: id_picker, id_packer: id_packer },
             dataType: 'JSON',
+            // Sinkronisasi massal bisa memakan waktu, jangan diputus lebih cepat dari server.
+            timeout: 600000,
             success: function(resp) {
                 if (typeof resp === 'string') resp = JSON.parse(resp);
                 
                 if (resp.code == 200) {
                     noty({text: resp.message, layout: 'topRight', type: 'success', timeout: 5000});
                     playSound('success');
-                    // Refresh total scan display after 1 second
-                    setTimeout(function(){
-                        location.reload();
-                    }, 1000);
+                    // Tidak perlu location.reload(): sinkronisasi hanya mengisi tblpacking
+                    // milik packer, sedangkan "TOTAL SCAN HARI INI" menghitung scan
+                    // user yang sedang login. Reload penuh justru memuat ulang
+                    // seluruh aplikasi dan terasa seperti sinkronisasi yang lambat.
                 } else {
                     noty({text: resp.message, layout: 'topRight', type: 'error', timeout: 3000});
                 }

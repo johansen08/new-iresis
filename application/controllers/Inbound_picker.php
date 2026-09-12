@@ -128,6 +128,11 @@ class Inbound_picker extends MY_Controller
 
     public function sync_resi()
     {
+        // Sinkronisasi bisa menyentuh ribuan resi sekaligus (±4.500/hari/picker),
+        // jadi jangan sampai dipotong batas eksekusi default.
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
         $id_picker = $this->input->get('id_picker');
         $id_packer = $this->input->get('id_packer');
 
@@ -136,14 +141,24 @@ class Inbound_picker extends MY_Controller
         }
 
         // Cari semua resi yang sudah di-scan oleh picker ini HARI INI
-        // Tapi BELUM di-scan oleh packer mana pun
-        $this->db->select('rab.id_resi, rab.id_resiambilbarang');
+        // Tapi BELUM di-scan oleh packer mana pun.
+        //
+        // Filter tanggal memakai rentang (>= awal hari, < awal hari besok), BUKAN
+        // DATE(tanggal_resiambilbarang) = CURDATE(). Membungkus kolom dengan DATE()
+        // membuat index idx_resiambilbarang_date_user tidak terpakai, sehingga MySQL
+        // memindai seluruh riwayat picker tersebut (±590.000 baris, 11-41 detik).
+        // Dengan rentang, yang dibaca hanya ±21.000 baris satu hari (±0,3 detik).
+        $awal_hari  = date('Y-m-d 00:00:00');
+        $besok_hari = date('Y-m-d 00:00:00', strtotime('+1 day'));
+
+        $this->db->select('rab.id_resi');
         $this->db->from('tblresiambilbarang rab');
         $this->db->join('tblpacking p', 'p.id_resi = rab.id_resi', 'left');
         $this->db->where('rab.yangambil_pegawai', $id_picker);
-        $this->db->where('DATE(rab.tanggal_resiambilbarang)', date('Y-m-d'));
+        $this->db->where('rab.tanggal_resiambilbarang >=', $awal_hari);
+        $this->db->where('rab.tanggal_resiambilbarang <', $besok_hari);
         $this->db->where('p.id_packing IS NULL');
-        
+
         $query = $this->db->get();
         $resis_to_sync = $query->result_array();
 
@@ -151,38 +166,57 @@ class Inbound_picker extends MY_Controller
             $this->make_ajax_response(200, 'Tidak ada resi baru dari Picker ini yang perlu disinkronkan.');
         }
 
-        $this->db->trans_start();
-        $count = 0;
-        
         $normal_packer_status_id = $this->kpi_fcd->get_status_id_by_name('NORMAL');
 
         // Cari status performa aktif untuk packer terpilih
         $packer_status = $this->kpi_fcd->get_user_status_performa($id_packer);
         $packer_status_id = $packer_status ? $packer_status->id_statusperforma : $normal_packer_status_id;
 
+        $tanggal_packing = date('Y-m-d H:i:s');
+        $batch = [];
+
         foreach ($resis_to_sync as $row) {
-            $packer_save_data = [
+            $batch[] = [
                 'id_resi' => $row['id_resi'],
-                'tanggal_packing' => date('Y-m-d H:i:s'),
+                'tanggal_packing' => $tanggal_packing,
                 'packer_pegawai' => $id_packer,
                 'keterangan' => 'SYNC_FROM_PICKER',
                 'status_performa_id' => $packer_status_id
             ];
-
-            $this->db->insert('tblpacking', $packer_save_data);
-            
-            // Log KPI for Packer - Use correct public method
-            $this->kpi_fcd->log_transaksi_harian($id_packer, $packer_status_id, 'PACKING', 1);
-            
-            $count++;
         }
+
+        $count = count($batch);
+
+        // Matikan db_debug sementara: kalau insert gagal, CI mencetak halaman HTML
+        // yang tercampur ke respon JSON dan merusak tampilan (lihat DEVELOPMENT_STANDARDS).
+        $db_debug_asli = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+
+        $this->db->trans_start();
+
+        // insert_batch per 500 baris: ±9 perjalanan ke server DB menggantikan
+        // ±4.500 INSERT satuan. Inilah beban terbesar versi lama — tiap statement
+        // memakan ±11 ms bolak-balik, jadi 4.500 INSERT saja sudah ±50 detik.
+        foreach (array_chunk($batch, 500) as $chunk) {
+            $this->db->insert_batch('tblpacking', $chunk);
+        }
+
+        // Log KPI packer cukup SEKALI dengan total resi, bukan N kali @1 resi.
+        // Hasil akhir di tblkpi identik (jumlah_resi bertambah sebanyak $count),
+        // tapi menghemat ±9.000 query (1 SELECT + 1 UPDATE per resi).
+        $this->kpi_fcd->log_transaksi_harian($id_packer, $packer_status_id, 'PACKING', $count);
 
         $this->db->trans_complete();
 
-        if ($this->db->trans_status() === FALSE) {
+        $sukses = $this->db->trans_status();
+        $this->db->db_debug = $db_debug_asli;
+
+        if ($sukses === FALSE) {
             $this->make_ajax_response(500, 'Gagal melakukan sinkronisasi massal.');
         }
 
-        $this->make_ajax_response(200, "Berhasil menyinkronkan $count resi ke Packer yang dipilih.");
+        $this->make_ajax_response(200, "Berhasil menyinkronkan $count resi ke Packer yang dipilih.", [
+            'total_sync' => $count
+        ]);
     }
 }
