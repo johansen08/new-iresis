@@ -83,7 +83,35 @@ $db['default'] = array(
 	'database' => iresis_secret('db_database', 'iresis-prod'),
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
-	'pconnect' => FALSE,
+
+	/*
+	 * Koneksi persisten -- SAKLARNYA DI secrets.php, bukan di sini.
+	 *
+	 * Kenapa ada: server DB berada di mesin lain (192.168.3.55) dan pconnect
+	 * FALSE membuat SETIAP request HTTP membuka koneksi TCP + handshake auth
+	 * baru. Diukur 2026-09-12 dari mesin aplikasi, 100 sampel connect penuh
+	 * (TCP + auth) lewat mysqli ke server produksi:
+	 *
+	 *     min 5,0 | p50 20,1 | p90 32,3 | p99 44,9 | maks 48,1 ms
+	 *     rata 21,9 ms, tidak satu pun di atas 100 ms
+	 *
+	 * Jadi ini pajak yang TETAP, sekitar 20 ms, dibayar di setiap request --
+	 * bukan lonjakan sesekali. Sebagai pembanding, connect ke MySQL lokal
+	 * di mesin yang sama cuma ~1 ms.
+	 *
+	 * JANGAN dinyalakan sebelum max_connections di server DB dinaikkan.
+	 * Kondisi per 2026-09-12: max_connections = 151, sedangkan ThreadsPerChild
+	 * Apache di mesin ini 150. Dengan pconnect, tiap thread Apache memegang
+	 * satu koneksi sendiri, jadi kuotanya nyaris pasti habis dan aplikasi mati
+	 * dengan "Too many connections". Naikkan dulu ke 300+; ongkosnya ringan,
+	 * Max_used_connections sekarang baru 26.
+	 *
+	 * Cara pakai: tambahkan 'db_pconnect' => TRUE di secrets.php mesin yang
+	 * bersangkutan. Karena secrets.php per-mesin dan gitignored, produksi bisa
+	 * dinyalakan tanpa deploy kode, dan dimatikan lagi seketika kalau
+	 * bermasalah.
+	 */
+	'pconnect' => (bool) iresis_secret('db_pconnect', FALSE),
 	'db_debug' => (ENVIRONMENT !== 'production'),
 	'cache_on' => FALSE,
 	'cachedir' => '',

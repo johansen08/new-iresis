@@ -12,8 +12,17 @@ class Scan_logistic_fcd extends CI_Model
      * ini yang paling terasa saat scanner gun menembak beruntun.
      *
      * Insert dibungkus transaksi + INSERT ... WHERE NOT EXISTS supaya double
-     * Enter dari scanner tidak pernah menghasilkan baris ganda, walaupun
-     * UNIQUE index (dev_tools/optimasi_scan_ndd.sql) belum dipasang.
+     * Enter dari scanner tidak pernah menghasilkan baris ganda.
+     *
+     * Status index per 2026-09-12:
+     *   tblscan_ndd   -- uq_scan_ndd_resi (UNIQUE) SUDAH terpasang, jadi
+     *                    jaring pengaman DB-nya nyata. Catatan lama di sini
+     *                    yang bilang "belum dipasang" sudah tidak berlaku.
+     *   tblresikeluar -- id_resi BELUM unik, jadi pola WHERE NOT EXISTS di
+     *                    bawah masih bisa kebobolan kalau dua stasiun men-scan
+     *                    resi yang sama pada saat bersamaan. Skrip pemasangan
+     *                    UNIQUE-nya ada di dev_tools/optimasi_scan_ho.sql
+     *                    (sudah diverifikasi 0 duplikat dari 2.525.459 baris).
      */
     public function save_scan($noresi, $user, $type)
     {
