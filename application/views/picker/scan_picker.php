@@ -740,27 +740,23 @@
     }
   });
 
-  // Process KPI queue every 30 seconds (optimized)
-  var kpiQueueInterval = setInterval(function() {
-    $.ajax({
-      url: 'picker/process-kpi-queue',
-      type: 'post',
-      timeout: 5000, // 5 second timeout
-      cache: false, // Disable cache for real-time data
-      success: function(response) {
-        // KPI queue processed successfully
-      },
-      error: function(xhr, status, error) {
-        // Silent fail - KPI processing is not critical
-        if (status === 'timeout') {
-          console.warn('KPI queue processing timeout');
-        }
-      }
-    });
-  }, 30000); // 30 seconds
-  
-  // Clear interval when page unloads
-  $(window).on('beforeunload', function() {
-    clearInterval(kpiQueueInterval);
-  });
+  /*
+   * Polling 'picker/process-kpi-queue' tiap 30 detik SUDAH DIHAPUS.
+   *
+   * Endpoint itu memanggil Picking_fcd::process_kpi_queue(), yang langsung
+   * keluar kalau $_SESSION['kpi_queue'] kosong -- dan antrean itu TIDAK PERNAH
+   * diisi siapa pun. log_kpi_transaksi_async() menulis langsung ke tblkpi,
+   * lihat komentarnya sendiri: "Log KPI langsung tanpa queue untuk menghindari
+   * duplikasi". Jadi polling ini tidak pernah mengerjakan apa pun.
+   *
+   * Bukan cuma sia-sia, tapi merugikan: driver session file CodeIgniter
+   * mengunci berkas session secara EKSKLUSIF selama satu request penuh
+   * (system/libraries/Session/drivers/Session_files_driver.php baris 186,
+   * flock LOCK_EX). Request kosong ini memegang kunci itu sambil menunggu
+   * bootstrap PHP dan koneksi ke DB yang ada di mesin lain. Scan yang kebetulan
+   * datang pada saat bersamaan harus ANTRE menunggu kuncinya lepas -- persis
+   * gejala "sesekali scan tiba-tiba lama" padahal tidak ada query yang lambat.
+   *
+   * Endpoint-nya sendiri sengaja dibiarkan ada di controller, tidak dihapus.
+   */
 </script>
