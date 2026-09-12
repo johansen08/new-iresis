@@ -95,7 +95,11 @@ $route['picker/get-kurangan-picker-data'] = 'picker/get_kurangan_picker_data';
 $route['picker/get-kurangan-picker-data/(:any)'] = 'picker/get_kurangan_picker_data/$1';
 
 $route['packer/scan-packer'] = 'packer/scan_packer';
+$route['packer/scan-packer-webcam'] = 'packer/scan_packer_webcam';
+$route['packer/scan_packer_webcam'] = 'packer/scan_packer_webcam';
 $route['packer/save-packer'] = 'packer/save_packer';
+$route['packer/save-packer-webcam'] = 'packer/save_packer_webcam';
+$route['packer/save_packer_webcam'] = 'packer/save_packer_webcam';
 $route['packer/get-data-packer'] = 'packer/get_data_packer';
 $route['packer/get-scan-packer-data/(:any)'] = 'packer/get_scan_packer_data/$1';
 $route['packer/masalah-picker-save'] = 'packer/masalah_picker_save';

@@ -188,6 +188,116 @@ class Packer extends MY_Controller
         $this->show($data);
 	}
 
+	/**
+	 * Scan Resi Packer versi webcam.
+	 *
+	 * SENGAJA salinan utuh scan_packer(), bukan berbagi method dengannya. Dua
+	 * halaman ini harus berdiri sendiri: versi biasa tetap jadi cadangan kalau
+	 * kamera bermasalah, jadi perubahan di halaman webcam tidak boleh merembet
+	 * ke sana. Duplikasi di sini disengaja, bukan kelalaian -- jangan disatukan.
+	 *
+	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
+	 * ditaruh di controller juga, bukan hanya di menu, karena URL-nya bisa
+	 * dibuka langsung. Penolakannya lewat show() supaya responsnya tetap JSON
+	 * yang valid -- show_404() mengirim halaman HTML dan merusak parsing SPA.
+	 */
+	public function scan_packer_webcam()
+	{
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->show(['akses_ditolak' => TRUE], 'packer/scan_packer_webcam');
+			return;
+		}
+
+        $data = [];
+
+        // Initialize default values to prevent undefined variable errors
+        $data['total_scan'] = 0;
+        $data['nama_picker'] = '-';
+        $data['komputer_picker'] = '-';
+        $data['komputer_packer'] = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : (isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : '-');
+
+        // Modal "Submit Masalah Picker" selalu ikut dirender, termasuk saat halaman
+        // dibuka lewat GET (belum ada resi yang discan). Tanpa default di bawah,
+        // view memicu "Undefined variable $list_type_masalah" dan "$noresi".
+        $data['noresi'] = '';
+        $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+        
+        // Load session status for packer monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
+        $data['session_status'] = [
+            'masuk' => !empty($session->waktu_masuk),
+            'istirahat' => (!empty($session->waktu_istirahat_mulai) && empty($session->waktu_istirahat_selesai)),
+            'pulang' => !empty($session->waktu_pulang)
+        ];
+
+        if ($this->input->method() == 'post') {
+            $noresi = trim($this->input->post('noresi'));
+
+            $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
+            $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+            $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
+
+            // Handle double scan requirement (scan twice to auto save)
+            $scan_feedback = $this->handle_double_scan_state_webcam($noresi);
+            if ($scan_feedback) {
+                $data['scan_feedback'] = $scan_feedback;
+            }
+
+            // Refresh total scan count if auto save happened
+            if (!empty($scan_feedback['auto_saved'])) {
+                $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+            }
+
+            // Always update total_scan from current user
+            if($packer_scan) {
+                $data['total_scan'] = $packer_scan->total_scan;
+            }
+
+            if(!empty($receipts)) {
+                $data['noresi'] = $noresi;
+                $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+
+                // Get the first receipt for basic info
+                $first_receipt = $receipts[0];
+                $data['id_printresi'] = $first_receipt->id_printresi;
+
+                // Collect all SKUs and quantities - handle null values
+                $data['items'] = [];
+                $total_qty = 0;
+                foreach ($receipts as $receipt) {
+                    $data['items'][] = [
+                        'sku' => $receipt->sku ?? '-',
+                        'jumlah' => $receipt->jumlah ?? 0,
+                        'no_rak' => $receipt->no_rak ?? '-'
+                    ];
+                    $total_qty += ($receipt->jumlah ?? 0);
+                }
+
+                // For backward compatibility, set first item as main
+                $data['sku'] = $first_receipt->sku ?? '-';
+                $data['qty'] = $first_receipt->jumlah ?? 0;
+                $data['no_rak'] = $first_receipt->no_rak ?? '-';
+                $data['total_qty'] = $total_qty;
+                $data['total_items'] = count($receipts);
+
+                // Update picker details if found
+                if($picker_detail) {
+                    $data['nama_picker'] = $picker_detail->nama_pegawai;
+                    $data['komputer_picker'] = $picker_detail->nama_komputer;
+                }
+            } else {
+                // Handle case where no detail records exist
+                $data['noresi'] = $noresi;
+                $data['error_message'] = 'No detail records found for this receipt number';
+            }
+        }
+
+        $data['akses_ditolak'] = FALSE;
+
+        $this->show($data, 'packer/scan_packer_webcam');
+	}
+
     public function get_scan_packer_data($noresi)
     {
         // Decode the noresi parameter in case it contains special characters
@@ -311,6 +421,35 @@ class Packer extends MY_Controller
         $noresi = $this->input->post('noresi');
         $status_performa_code = $this->input->post('status_performa');
         $save = $this->process_packer_save($noresi, $status_performa_code);
+
+		if (isset($save['error'])) {
+			$this->make_ajax_response($save['code'], $save['message']);
+		}
+
+		if ($save['affected_rows'] > 0) {
+			$this->make_ajax_response(201, SUCCESS_SAVE_DATA);
+		}
+
+		$this->make_ajax_response(200, NOTHING_TO_SAVE);
+	}
+
+	/**
+	 * Endpoint simpan untuk halaman Scan Resi Packer (Webcam).
+	 *
+	 * SENGAJA kembaran save_packer(), bukan pemakaian ulang. Saat rekam video
+	 * dipasang, simpanan halaman webcam perlu ikut menyimpan videonya, dan itu
+	 * tidak boleh mengubah jalur simpan Scan Resi Packer biasa yang dipakai
+	 * sebagai cadangan. Duplikasi di sini disengaja -- jangan disatukan.
+	 */
+	public function save_packer_webcam()
+	{
+		if ($this->input->method() == 'get') {
+			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+		}
+
+        $noresi = $this->input->post('noresi');
+        $status_performa_code = $this->input->post('status_performa');
+        $save = $this->process_packer_save_webcam($noresi, $status_performa_code);
 
 		if (isset($save['error'])) {
 			$this->make_ajax_response($save['code'], $save['message']);
@@ -471,9 +610,108 @@ class Packer extends MY_Controller
     }
 
     /**
+     * Kembaran handle_double_scan_state() untuk halaman Scan Resi Packer
+     * (Webcam). Jalur ini ikut MENYIMPAN saat resi discan dua kali, jadi
+     * dipisah bersama endpoint simpannya: begitu rekam video dipasang, paket
+     * yang tersimpan lewat auto-save juga harus kebagian videonya tanpa
+     * mengubah perilaku Scan Resi Packer biasa.
+     *
+     * Kunci session-nya pun sengaja berbeda (packer_double_scan_webcam). Kalau
+     * dipakai bersama, satu scan di halaman biasa lalu satu scan di halaman
+     * webcam akan terhitung sebagai scan kedua dan menyimpan tanpa disengaja.
+     */
+    private function handle_double_scan_state_webcam($noresi)
+    {
+        if (empty($noresi)) {
+            return null;
+        }
+
+        $current_state = $this->session->userdata('packer_double_scan_webcam');
+        if (!is_array($current_state)) {
+            $current_state = ['resi' => null, 'count' => 0];
+        }
+        $previous_state = $current_state;
+
+        if ($current_state['resi'] === $noresi) {
+            $current_state['count'] = isset($current_state['count']) ? $current_state['count'] + 1 : 1;
+        } else {
+            $current_state = ['resi' => $noresi, 'count' => 1];
+        }
+
+        $feedback = null;
+
+        if ($current_state['count'] >= 2) {
+            $save = $this->process_packer_save_webcam($noresi);
+
+            if (isset($save['error'])) {
+                // exception_code ikut dikirim ke view supaya suara gagalnya bisa
+                // dibedakan (sudah packing / pesanan cancel / lainnya). Tanpa ini
+                // view cuma punya kalimat pesan, dan semua kegagalan terdengar sama.
+                $feedback = [
+                    'status' => 'auto_save_failed',
+                    'type' => 'error',
+                    'message' => $save['message'],
+                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
+                    'auto_saved' => false
+                ];
+            } else {
+                $feedback = [
+                    'status' => 'auto_save_success',
+                    'type' => 'success',
+                    'message' => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
+                    'auto_saved' => true
+                ];
+            }
+
+            $current_state = ['resi' => null, 'count' => 0];
+        } else {
+            $status = 'need_second_scan';
+            $type = 'warning';
+            $message = 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.';
+
+            if (!empty($previous_state['resi']) && $previous_state['resi'] !== $noresi && (isset($previous_state['count']) && $previous_state['count'] === 1)) {
+                $status = 'scan_restarted';
+                $type = 'information';
+                $message = 'Nomor resi berubah dari ' . $previous_state['resi'] . ' ke ' . $noresi . '. Scan resi baru ini sekali lagi untuk menyimpan.';
+            }
+
+            $feedback = [
+                'status' => $status,
+                'type' => $type,
+                'message' => $message,
+                'auto_saved' => false
+            ];
+        }
+
+        $this->session->set_userdata('packer_double_scan_webcam', $current_state);
+
+        return $feedback;
+    }
+
+    /**
      * Wrapper to reuse save logic both for ajax endpoint and double scan auto save
      */
     private function process_packer_save($noresi, $status_performa_code = null)
+    {
+        if (empty($noresi)) {
+            return ['error' => true, 'code' => 400, 'message' => 'Nomor resi tidak boleh kosong'];
+        }
+
+        $packer = ['noresi' => $noresi];
+        $status_id = $this->determine_status_performa_id($status_performa_code);
+        if ($status_id) {
+            $packer['status_performa_id'] = $status_id;
+        }
+
+        return $this->packer_fcd->save($packer, $this->data['user']);
+    }
+
+    /**
+     * Kembaran process_packer_save() khusus jalur simpan halaman webcam.
+     * Lihat catatan di save_packer_webcam(): duplikasinya disengaja supaya
+     * penambahan rekam video nanti tidak menyentuh jalur simpan yang biasa.
+     */
+    private function process_packer_save_webcam($noresi, $status_performa_code = null)
     {
         if (empty($noresi)) {
             return ['error' => true, 'code' => 400, 'message' => 'Nomor resi tidak boleh kosong'];
