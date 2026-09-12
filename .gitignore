@@ -2,6 +2,9 @@
 #  Editor & dependency
 # ============================================================
 .vscode
+
+# Izin lokal Claude Code — entrinya bisa memuat cuplikan perintah berisi token
+.claude/settings.local.json
 /vendor/
 composer.lock
 composer.json
