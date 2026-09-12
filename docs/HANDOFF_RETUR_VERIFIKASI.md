@@ -74,4 +74,5 @@ sehingga angka kartu = jumlah baris yang tampil. Tab utama (is_update=0) tetap m
 git add application/controllers/Retur.php application/views/retur/validasi_jubelio.php
 git commit  # (Bash tool = POSIX sh; pakai heredoc `-F - <<'EOF'`, JANGAN here-string PowerShell @'...'@)
 ```
-Branch: `development`. Belum ada push.
+Branch: `master` (branch utama sejak 2026-09-12 — `development` sudah dimerge ke `master` lalu dihapus).
+Belum ada remote, jadi belum ada push. Lihat `DEVELOPMENT_STANDARDS.md` bagian "Alur Git" untuk alur branch.
