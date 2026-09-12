@@ -6,7 +6,9 @@ class Packer_monitoring_fcd extends CI_Model
     public function __construct()
     {
         parent::__construct();
-        $this->load->model('sku_special_fcd');
+        // sku_special_fcd tidak di-load lagi: satu-satunya pemakainya di sini
+        // adalah is_special_receipt() di log_performance(), yang sekarang sudah
+        // dijawab bersamaan dengan hitung qty lewat satu query.
     }
 
     /**
@@ -82,12 +84,21 @@ class Packer_monitoring_fcd extends CI_Model
         $session = $this->get_session($user_id);
 
         // 1. Determine SOP Status & Target
-        $is_special = $this->sku_special_fcd->is_special_receipt($noresi);
-        
-        // Get total qty
-        $this->db->select_sum('jumlah');
-        $qty_row = $this->db->get_where('tbldetailprintresi', ['id_resi' => $id_resi])->row();
-        $total_qty = $qty_row->jumlah ?? 0;
+        //
+        // Dulu dua query: is_special_receipt() menelusuri noresi -> printresi ->
+        // detail -> sku, lalu SUM(jumlah) menelusuri detail sekali lagi. Padahal
+        // $id_resi sudah di tangan, jadi keduanya bisa dijawab satu query lewat
+        // tbldetailprintresi (kolom id_resi-nya terindeks).
+        $ringkasan = $this->db
+            ->select('COALESCE(SUM(dr.jumlah), 0) AS total_qty, MAX(COALESCE(s.is_special, 0)) AS ada_special', FALSE)
+            ->from('tbldetailprintresi dr')
+            ->join('tblsku s', 's.id_sku = dr.sku', 'left')
+            ->where('dr.id_resi', $id_resi)
+            ->get()
+            ->row();
+
+        $total_qty  = $ringkasan ? (int) $ringkasan->total_qty : 0;
+        $is_special = $ringkasan ? ((int) $ringkasan->ada_special === 1) : FALSE;
 
         $status = 'NORMAL';
         $target = 60; // default 60s (1 minute per resi)
@@ -103,10 +114,14 @@ class Packer_monitoring_fcd extends CI_Model
             $target = 120; // 2 minutes
         }
 
+        $awal_hari  = date('Y-m-d 00:00:00');
+        $awal_besok = date('Y-m-d 00:00:00', strtotime('+1 day'));
+
         // 2. Calculate Actual Duration
         $last_scan = $this->db
             ->where('id_user', $user_id)
-            ->where('DATE(tanggal_packing)', date('Y-m-d'))
+            ->where('tanggal_packing >=', $awal_hari)
+            ->where('tanggal_packing <', $awal_besok)
             ->order_by('tanggal_packing', 'DESC')
             ->limit(1)
             ->get('tblpacker_performance_logs')
@@ -143,7 +158,8 @@ class Packer_monitoring_fcd extends CI_Model
         // Count how many slow scans today (not deleted)
         $slow_count = $this->db
             ->where('id_user', $user_id)
-            ->where('DATE(tanggal_packing)', date('Y-m-d'))
+            ->where('tanggal_packing >=', $awal_hari)
+            ->where('tanggal_packing <', $awal_besok)
             ->where('is_slow', 1)
             ->where('is_deleted', 0)
             ->count_all_results('tblpacker_performance_logs');
@@ -161,16 +177,27 @@ class Packer_monitoring_fcd extends CI_Model
      */
     public function get_slow_status($user_id)
     {
+        // Dua query ini dipanggil polling tiap 30 detik dari halaman scan
+        // packer. Bentuk DATE(tanggal_packing) = hari ini membuat indeks
+        // (id_user, tanggal_packing) cuma terpakai sebagian, sehingga satu
+        // pemanggilan memindai seluruh baris milik user itu -- packer teramai
+        // punya 70 ribu baris. Rentang tanggal di bawah setara persis, tapi
+        // bisa memakai indeksnya utuh.
+        $awal_hari  = date('Y-m-d 00:00:00');
+        $awal_besok = date('Y-m-d 00:00:00', strtotime('+1 day'));
+
         $slow_count = $this->db
             ->where('id_user', $user_id)
-            ->where('DATE(tanggal_packing)', date('Y-m-d'))
+            ->where('tanggal_packing >=', $awal_hari)
+            ->where('tanggal_packing <', $awal_besok)
             ->where('is_slow', 1)
             ->where('is_deleted', 0)
             ->count_all_results('tblpacker_performance_logs');
 
         $last_log = $this->db
             ->where('id_user', $user_id)
-            ->where('DATE(tanggal_packing)', date('Y-m-d'))
+            ->where('tanggal_packing >=', $awal_hari)
+            ->where('tanggal_packing <', $awal_besok)
             ->order_by('tanggal_packing', 'DESC')
             ->limit(1)
             ->get('tblpacker_performance_logs')
