@@ -100,42 +100,6 @@ class Packer extends MY_Controller
 
 	public function scan_packer()
 	{
-		$this->show($this->siapkan_data_scan_packer());
-	}
-
-	/**
-	 * Varian webcam dari Scan Resi Packer.
-	 *
-	 * Alur, data, dan aksi submit-nya identik dengan scan_packer(); yang berbeda
-	 * hanya sumber input nomor resi -- kamera, bukan scanner gun. Datanya karena
-	 * itu dibangun lewat siapkan_data_scan_packer() yang sama, supaya kedua
-	 * halaman tidak pernah berbeda perilaku.
-	 *
-	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
-	 * ditaruh di sini juga, bukan hanya di menu, karena URL-nya bisa dibuka
-	 * langsung. Penolakan sengaja tetap lewat show() supaya responsnya JSON yang
-	 * valid -- show_404() mengirim halaman HTML dan merusak parsing di sisi SPA.
-	 */
-	public function scan_packer_webcam()
-	{
-		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
-			$this->show(['akses_ditolak' => TRUE], 'packer/scan_packer_webcam');
-			return;
-		}
-
-		$data = $this->siapkan_data_scan_packer();
-		$data['akses_ditolak'] = FALSE;
-
-		$this->show($data, 'packer/scan_packer_webcam');
-	}
-
-	/**
-	 * Menyiapkan seluruh data halaman scan packer, baik saat dibuka lewat GET
-	 * maupun saat menerima POST nomor resi. Dipakai bersama oleh scan_packer()
-	 * dan scan_packer_webcam().
-	 */
-	protected function siapkan_data_scan_packer()
-	{
         $data = [];
 
         // Initialize default values to prevent undefined variable errors
@@ -221,7 +185,117 @@ class Packer extends MY_Controller
             }
         }
 
-        return $data;
+        $this->show($data);
+	}
+
+	/**
+	 * Scan Resi Packer versi webcam.
+	 *
+	 * SENGAJA salinan utuh scan_packer(), bukan berbagi method dengannya. Dua
+	 * halaman ini harus berdiri sendiri: versi biasa tetap jadi cadangan kalau
+	 * kamera bermasalah, jadi perubahan di halaman webcam tidak boleh merembet
+	 * ke sana. Duplikasi di sini disengaja, bukan kelalaian -- jangan disatukan.
+	 *
+	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
+	 * ditaruh di controller juga, bukan hanya di menu, karena URL-nya bisa
+	 * dibuka langsung. Penolakannya lewat show() supaya responsnya tetap JSON
+	 * yang valid -- show_404() mengirim halaman HTML dan merusak parsing SPA.
+	 */
+	public function scan_packer_webcam()
+	{
+		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+			$this->show(['akses_ditolak' => TRUE], 'packer/scan_packer_webcam');
+			return;
+		}
+
+        $data = [];
+
+        // Initialize default values to prevent undefined variable errors
+        $data['total_scan'] = 0;
+        $data['nama_picker'] = '-';
+        $data['komputer_picker'] = '-';
+        $data['komputer_packer'] = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : (isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : '-');
+
+        // Modal "Submit Masalah Picker" selalu ikut dirender, termasuk saat halaman
+        // dibuka lewat GET (belum ada resi yang discan). Tanpa default di bawah,
+        // view memicu "Undefined variable $list_type_masalah" dan "$noresi".
+        $data['noresi'] = '';
+        $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+        
+        // Load session status for packer monitoring
+        $this->load->model('packer_monitoring_fcd');
+        $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
+        $data['session_status'] = [
+            'masuk' => !empty($session->waktu_masuk),
+            'istirahat' => (!empty($session->waktu_istirahat_mulai) && empty($session->waktu_istirahat_selesai)),
+            'pulang' => !empty($session->waktu_pulang)
+        ];
+
+        if ($this->input->method() == 'post') {
+            $noresi = trim($this->input->post('noresi'));
+
+            $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
+            $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+            $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
+
+            // Handle double scan requirement (scan twice to auto save)
+            $scan_feedback = $this->handle_double_scan_state($noresi);
+            if ($scan_feedback) {
+                $data['scan_feedback'] = $scan_feedback;
+            }
+
+            // Refresh total scan count if auto save happened
+            if (!empty($scan_feedback['auto_saved'])) {
+                $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
+            }
+
+            // Always update total_scan from current user
+            if($packer_scan) {
+                $data['total_scan'] = $packer_scan->total_scan;
+            }
+
+            if(!empty($receipts)) {
+                $data['noresi'] = $noresi;
+                $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+
+                // Get the first receipt for basic info
+                $first_receipt = $receipts[0];
+                $data['id_printresi'] = $first_receipt->id_printresi;
+
+                // Collect all SKUs and quantities - handle null values
+                $data['items'] = [];
+                $total_qty = 0;
+                foreach ($receipts as $receipt) {
+                    $data['items'][] = [
+                        'sku' => $receipt->sku ?? '-',
+                        'jumlah' => $receipt->jumlah ?? 0,
+                        'no_rak' => $receipt->no_rak ?? '-'
+                    ];
+                    $total_qty += ($receipt->jumlah ?? 0);
+                }
+
+                // For backward compatibility, set first item as main
+                $data['sku'] = $first_receipt->sku ?? '-';
+                $data['qty'] = $first_receipt->jumlah ?? 0;
+                $data['no_rak'] = $first_receipt->no_rak ?? '-';
+                $data['total_qty'] = $total_qty;
+                $data['total_items'] = count($receipts);
+
+                // Update picker details if found
+                if($picker_detail) {
+                    $data['nama_picker'] = $picker_detail->nama_pegawai;
+                    $data['komputer_picker'] = $picker_detail->nama_komputer;
+                }
+            } else {
+                // Handle case where no detail records exist
+                $data['noresi'] = $noresi;
+                $data['error_message'] = 'No detail records found for this receipt number';
+            }
+        }
+
+        $data['akses_ditolak'] = FALSE;
+
+        $this->show($data, 'packer/scan_packer_webcam');
 	}
 
     public function get_scan_packer_data($noresi)
