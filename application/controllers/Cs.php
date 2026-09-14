@@ -2196,4 +2196,106 @@ class Cs extends MY_Controller
         ]);
         exit;
     }
+
+    /**
+     * Alirkan isi satu berkas rekaman ke browser.
+     *
+     * Folder rekaman ada di luar document root (lihat Video_packing_fcd), jadi
+     * Apache tidak bisa menyajikannya langsung; endpoint ini yang membacanya
+     * dan mengirimnya sebagai video/webm. Login sudah diperiksa MY_Controller,
+     * jadi video hanya bisa dibuka pengguna yang masuk.
+     *
+     * Permintaan Range dilayani supaya player bisa melompat ke tengah video
+     * tanpa mengunduh seluruh berkas -- tanpa itu, seek di tag <video> harus
+     * menunggu berkas utuh, dan rekaman satu jam praktis tidak bisa ditonton.
+     *
+     * ?unduh=1 memaksa dialog simpan-berkas alih-alih diputar di browser.
+     */
+    public function putar_video_packing($id = 0)
+    {
+        $row  = $this->video_packing_fcd->get_by_id($id);
+        $path = $row ? $this->video_packing_fcd->path_berkas($row) : '';
+
+        if (!$row || $row->status === 'DIBATALKAN' || !is_file($path)) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('HTTP/1.1 404 Not Found');
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Video tidak ditemukan.';
+            exit;
+        }
+
+        $ukuran = filesize($path);
+        $mulai  = 0;
+        $akhir  = $ukuran - 1;
+        $mime   = !empty($row->mime_type) ? $row->mime_type : 'video/webm';
+
+        // Output buffer CI dan apa pun yang tercetak sebelum ini dibuang: satu
+        // byte nyasar di depan data biner membuat WebM-nya tidak bisa diputar.
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        // Batas waktu dan memori: berkasnya dibaca per 8 KB, bukan sekaligus,
+        // jadi memori tidak masalah, tapi mengalirkan rekaman satu jam bisa
+        // lebih lama dari max_execution_time bawaan.
+        set_time_limit(0);
+
+        $range = isset($_SERVER['HTTP_RANGE']) ? $_SERVER['HTTP_RANGE'] : '';
+
+        if ($range !== '' && preg_match('/bytes=(\d*)-(\d*)/', $range, $m)) {
+            if ($m[1] !== '') {
+                $mulai = (int) $m[1];
+                if ($m[2] !== '') {
+                    $akhir = min((int) $m[2], $ukuran - 1);
+                }
+            } elseif ($m[2] !== '') {
+                // "bytes=-500": 500 byte terakhir.
+                $mulai = max(0, $ukuran - (int) $m[2]);
+            }
+
+            if ($mulai > $akhir || $mulai >= $ukuran) {
+                header('HTTP/1.1 416 Range Not Satisfiable');
+                header('Content-Range: bytes */' . $ukuran);
+                exit;
+            }
+
+            header('HTTP/1.1 206 Partial Content');
+            header('Content-Range: bytes ' . $mulai . '-' . $akhir . '/' . $ukuran);
+        } else {
+            header('HTTP/1.1 200 OK');
+        }
+
+        $nama_unduh = preg_replace('/[^A-Za-z0-9._-]/', '_', $row->nama_file);
+        $disposisi  = $this->input->get('unduh') ? 'attachment' : 'inline';
+
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . ($akhir - $mulai + 1));
+        header('Accept-Ranges: bytes');
+        header('Content-Disposition: ' . $disposisi . '; filename="' . $nama_unduh . '"');
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('X-Content-Type-Options: nosniff');
+
+        $fp = fopen($path, 'rb');
+        if ($fp === FALSE) {
+            exit;
+        }
+
+        fseek($fp, $mulai);
+        $sisa = $akhir - $mulai + 1;
+
+        while ($sisa > 0 && !feof($fp) && !connection_aborted()) {
+            $baca = fread($fp, min(8192, $sisa));
+            if ($baca === FALSE) {
+                break;
+            }
+            echo $baca;
+            flush();
+            $sisa -= strlen($baca);
+        }
+
+        fclose($fp);
+        exit;
+    }
 }

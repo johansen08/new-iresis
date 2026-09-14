@@ -311,6 +311,7 @@ $route['cs/get-laporan-kurangan-picker-data'] = 'cs/get_laporan_kurangan_picker_
 $route['cs/export-excel-laporan-kurangan-picker'] = 'cs/export_excel_laporan_kurangan_picker';
 $route['cs/video-packing'] = 'cs/video_packing';
 $route['cs/get-video-packing'] = 'cs/get_video_packing';
+$route['cs/putar-video-packing/(:num)'] = 'cs/putar_video_packing/$1';
 $route['cs/retur-complain'] = 'cs/retur_complain';
 $route['cs/get-retur-complain-data'] = 'cs/get_retur_complain_data';
 $route['cs/export-excel-retur-complain'] = 'cs/export_excel_retur_complain';
