@@ -4,6 +4,54 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Packer extends MY_Controller
 {
 
+    /**
+     * Berapa lama sebuah resi yang menunggu scan kedua masih dianggap "sedang
+     * dikerjakan": rekamannya boleh dilanjutkan otomatis saat halaman dibuka
+     * ulang, dan siklusnya belum ditutup paksa oleh bersihkan_scan_kedaluwarsa().
+     *
+     * Harus lebih longgar dari MAKS_DURASI_DTK di assets/js/packer_video.js (90
+     * menit) -- kalau lebih pendek, resi yang memang sedang direkam bisa
+     * kedaluwarsa di tengah jalan, dan scan penutupnya malah dianggap scan
+     * pertama yang baru. Tetap jauh lebih pendek dari umur session (1 hari),
+     * supaya sisa pekerjaan kemarin tidak ikut hidup lagi hari ini.
+     */
+    const BATAS_LANJUT_REKAM_DETIK = 6000;
+
+    /**
+     * Jeda minimum antara scan pertama dan scan kedua sebuah resi.
+     *
+     * Scan kedua yang datang lebih cepat dari ini hampir pasti bukan tanda
+     * packing selesai, melainkan pemicu scanner yang tertekan dua kali atau
+     * refleks packer -- barangnya belum sempat dipacking sama sekali. Kalau
+     * diterima, resi tertutup tanpa pernah dipacking dan videonya cuma berisi
+     * beberapa detik kosong.
+     */
+    const MIN_JEDA_SCAN_DETIK = 20;
+
+    /**
+     * Batas jumlah bagian rekaman untuk satu resi.
+     *
+     * Bagian baru hanya lahir kalau tab packer mati di tengah packing, jadi dua
+     * atau tiga sudah tidak wajar. Angka ini cuma pengaman supaya komputer yang
+     * bermasalah tidak mengisi folder dengan ratusan potongan tanpa ada yang
+     * menyadarinya.
+     */
+    const MAKS_BAGIAN_VIDEO = 20;
+
+    /**
+     * Umur siklus minimum sebelum resi boleh ditutup otomatis oleh batas durasi
+     * rekaman. HARUS sama dengan MAKS_DURASI_DTK di assets/js/packer_video.js.
+     *
+     * Penutupan otomatis menyimpan resi tanpa scan kedua, jadi tanpa penjagaan
+     * ini ia jadi jalan pintas: satu permintaan POST bisa menutup resi yang baru
+     * saja discan, tanpa pernah dipacking dan tanpa video.
+     */
+    const BATAS_TUTUP_OTOMATIS_DETIK = 5400;
+
+    /** Kelonggaran untuk selisih jam browser-server dan waktu tempuh permintaan. */
+    const TOLERANSI_TUTUP_DETIK = 60;
+
+
 	function __construct()
 	{
 		parent::__construct();
@@ -12,6 +60,7 @@ class Packer extends MY_Controller
 		$this->load->model('packer_fcd');
         $this->load->model('receipt_fcd');
         $this->load->model('problemtype_fcd');
+        $this->load->model('video_packing_fcd');
 	}
 
     public function scan_packer_nonsubmit()
@@ -219,6 +268,12 @@ class Packer extends MY_Controller
 	 * kamera bermasalah, jadi perubahan di halaman webcam tidak boleh merembet
 	 * ke sana. Duplikasi di sini disengaja, bukan kelalaian -- jangan disatukan.
 	 *
+	 * Bedanya dengan versi biasa: setiap resi direkam videonya (lihat
+	 * assets/js/packer_video.js), dan aturan double-scan-nya dijaga di session
+	 * server lewat handle_double_scan_state_webcam() -- siklus scan pertama
+	 * harus bertahan melewati reload maupun tab yang mati, karena rekamannya
+	 * ikut bergantung pada siklus itu.
+	 *
 	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
 	 * ditaruh di controller juga, bukan hanya di menu, karena URL-nya bisa
 	 * dibuka langsung. Penolakannya lewat show() supaya responsnya tetap JSON
@@ -244,7 +299,6 @@ class Packer extends MY_Controller
         // view memicu "Undefined variable $list_type_masalah" dan "$noresi".
         $data['noresi'] = '';
         $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
-        
         // Load session status for packer monitoring
         $this->load->model('packer_monitoring_fcd');
         $session = $this->packer_monitoring_fcd->get_session($this->data['user']['id_user']);
@@ -254,23 +308,45 @@ class Packer extends MY_Controller
             'pulang' => !empty($session->waktu_pulang)
         ];
 
+        // Siklus scan pertama yang sudah menggantung terlalu lama ditutup di sini,
+        // sebelum scan apa pun diproses. Kalau dibiarkan, bilah "menunggu scan
+        // kedua" bertahan sampai berjam-jam kemudian dan menolak semua resi lain,
+        // sementara rekamannya sendiri sudah lama mati kena batas durasi browser --
+        // menutupnya dengan scan kedua cuma menghasilkan packing tanpa video utuh.
+        $data['resi_kedaluwarsa'] = $this->bersihkan_scan_kedaluwarsa();
+
         if ($this->input->method() == 'post') {
             $noresi = trim($this->input->post('noresi'));
 
-            $receipts = $this->receipt_fcd->get_detail_receipt($noresi)->result();
-            $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
-            $picker_detail = $this->packer_fcd->get_picker_detail_for_packer($noresi);
+            // Status siklus ditentukan lebih dulu, baru detail resinya diambil:
+            // scan yang ditolak menampilkan resi yang sedang dikerjakan, bukan
+            // resi yang barusan discan.
+            //
+            // kamera_status dikirim halaman dari PackerVideo. Kalau field-nya
+            // tidak ada sama sekali -- browser tanpa JS, atau permintaan yang
+            // dirakit di luar halaman -- kamera dianggap tidak siap, karena
+            // packing tanpa rekaman memang tidak boleh dimulai.
+            $scan = $this->handle_double_scan_state_webcam(
+                $noresi,
+                (string) $this->input->post('kamera_status'),
+                $data['session_status']
+            );
 
-            // Handle double scan requirement (scan twice to auto save)
-            $scan_feedback = $this->handle_double_scan_state_webcam($noresi);
+            $scan_feedback = $scan ? $scan['feedback'] : null;
+            $resi_tampil   = $scan ? $scan['resi_tampil'] : $noresi;
+
             if ($scan_feedback) {
                 $data['scan_feedback'] = $scan_feedback;
             }
 
-            // Refresh total scan count if auto save happened
-            if (!empty($scan_feedback['auto_saved'])) {
-                $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
-            }
+            $receipts = $resi_tampil !== ''
+                ? $this->receipt_fcd->get_detail_receipt($resi_tampil)->result()
+                : [];
+            $picker_detail = $resi_tampil !== ''
+                ? $this->packer_fcd->get_picker_detail_for_packer($resi_tampil)
+                : null;
+
+            $packer_scan = $this->packer_fcd->get_total_scan_user($this->data['user']['id_user'])->row();
 
             // Always update total_scan from current user
             if($packer_scan) {
@@ -278,8 +354,7 @@ class Packer extends MY_Controller
             }
 
             if(!empty($receipts)) {
-                $data['noresi'] = $noresi;
-                $data['list_type_masalah'] = $this->problemtype_fcd->get_list();
+                $data['noresi'] = $resi_tampil;
 
                 // Get the first receipt for basic info
                 $first_receipt = $receipts[0];
@@ -309,17 +384,66 @@ class Packer extends MY_Controller
                     $data['nama_picker'] = $picker_detail->nama_pegawai;
                     $data['komputer_picker'] = $picker_detail->nama_komputer;
                 }
-            } else {
+            } elseif ($resi_tampil !== '') {
                 // Handle case where no detail records exist
-                $data['noresi'] = $noresi;
+                $data['noresi'] = $resi_tampil;
                 $data['error_message'] = 'No detail records found for this receipt number';
             }
         }
+
+        // Resi yang dipakai perekam video. Diambil dari state double-scan di
+        // session -- bukan dari $noresi -- supaya rekaman ikut lanjut sendiri
+        // saat halaman dibuka lagi setelah tab packer mati di tengah packing.
+        $data['video_noresi'] = $this->resi_untuk_rekaman(
+            isset($resi_tampil) ? $resi_tampil : null,
+            isset($receipts) ? !empty($receipts) : null
+        );
+
+        // Resi yang masih menunggu scan kedua, dipakai view untuk menampilkan
+        // bilah "Batal Scan". Selalu dihitung ulang di sini supaya tetap muncul
+        // walau halaman dibuka lewat GET (mis. setelah tab packer sempat mati).
+        $data['scan_aktif'] = $this->resi_menunggu_scan_kedua();
 
         $data['akses_ditolak'] = FALSE;
 
         $this->show($data, 'packer/scan_packer_webcam');
 	}
+
+    /**
+     * Resi mana yang boleh direkam pada request ini.
+     *
+     * Sumbernya state double-scan di session, yang bertahan melewati reload
+     * maupun tab yang mati. Jadi kalau packer sempat scan resi lalu tabnya
+     * tertutup, membuka menu ini lagi langsung melanjutkan rekaman untuk resi
+     * itu -- sebagai rekaman baru, karena berkas WebM dari dua sesi
+     * MediaRecorder tidak bisa disambung jadi satu. Halaman CS memang
+     * menampilkan semua rekaman per resi, jadi keduanya tetap kelihatan.
+     */
+    private function resi_untuk_rekaman($noresi_post, $receipts_ada)
+    {
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        if (!is_array($state) || empty($state['resi']) || empty($state['count'])) {
+            return '';
+        }
+
+        // State yang sudah lama tidak disentuh bukan pekerjaan yang sedang
+        // berjalan -- jangan sampai membuka halaman besok pagi malah merekam resi
+        // kemarin sore. Penyaringannya dikerjakan bersama di
+        // bersihkan_scan_kedaluwarsa(), yang sudah jalan lebih dulu di
+        // scan_packer(), jadi state yang sampai ke sini pasti masih segar.
+        $resi = $state['resi'];
+
+        // Pada request POST detail resinya sudah diambil di scan_packer();
+        // tidak perlu query ulang.
+        if ($noresi_post !== null && $resi === $noresi_post) {
+            return $receipts_ada ? $resi : '';
+        }
+
+        // Request GET (halaman dibuka lagi): pastikan dulu resinya punya detail
+        // sebelum kamera disuruh merekam.
+        return $this->receipt_fcd->get_detail_receipt($resi)->num_rows() > 0 ? $resi : '';
+    }
 
     public function get_scan_packer_data($noresi)
     {
@@ -468,12 +592,13 @@ class Packer extends MY_Controller
 	}
 
 	/**
-	 * Endpoint simpan untuk halaman Scan Resi Packer (Webcam).
+	 * Endpoint simpan (tombol Submit) untuk halaman Scan Resi Packer (Webcam).
 	 *
-	 * SENGAJA kembaran save_packer(), bukan pemakaian ulang. Saat rekam video
-	 * dipasang, simpanan halaman webcam perlu ikut menyimpan videonya, dan itu
-	 * tidak boleh mengubah jalur simpan Scan Resi Packer biasa yang dipakai
-	 * sebagai cadangan. Duplikasi di sini disengaja -- jangan disatukan.
+	 * SENGAJA kembaran save_packer(), bukan pemakaian ulang: jalur webcam
+	 * terikat pada siklus double-scan di session (jeda minimum, tutup siklus)
+	 * yang tidak dimiliki Scan Resi Packer biasa, dan versi biasa dipakai
+	 * sebagai cadangan yang tidak boleh berubah. Duplikasi di sini disengaja --
+	 * jangan disatukan.
 	 */
 	public function save_packer_webcam()
 	{
@@ -481,9 +606,30 @@ class Packer extends MY_Controller
 			$this->make_ajax_response(400, INVALID_REQUEST_METHOD);
 		}
 
-        $noresi = $this->input->post('noresi');
+        $noresi = trim((string) $this->input->post('noresi'));
         $status_performa_code = $this->input->post('status_performa');
+
+        // Tombol Submit menutup resi yang sama dengan yang dibuka scan pertama,
+        // jadi aturan jeda minimumnya ikut berlaku di sini. Tanpa penjaga ini
+        // scan pertama bisa langsung disusul klik Submit, dan resinya tersimpan
+        // dengan video sedetik yang tidak menunjukkan proses packing apa pun --
+        // persis yang dicegah di jalur scan kedua.
+        $sisa = $this->sisa_jeda_scan($noresi);
+        if ($sisa > 0) {
+            $this->make_ajax_response(400, 'Packing dulu, baru simpan.', [
+                'status'     => 'scan_terlalu_cepat',
+                'sisa_detik' => $sisa,
+            ]);
+        }
+
         $save = $this->process_packer_save_webcam($noresi, $status_performa_code);
+
+        // Siklus ditutup di sini juga, bukan cuma lewat scan kedua, dan -- sama
+        // seperti di sana -- apa pun hasil simpannya. Kalau dilewat, resi yang
+        // sudah tersimpan tetap tercatat "menunggu scan kedua": bilahnya
+        // bertahan di layar dan semua resi berikutnya ditolak dengan alasan resi
+        // ini belum selesai.
+        $this->tutup_siklus_scan($noresi);
 
 		if (isset($save['error'])) {
 			$this->make_ajax_response($save['code'], $save['message']);
@@ -587,82 +733,732 @@ class Packer extends MY_Controller
      */
 
     /**
-     * Kembaran handle_double_scan_state() untuk halaman Scan Resi Packer
-     * (Webcam). Jalur ini ikut MENYIMPAN saat resi discan dua kali, jadi
-     * dipisah bersama endpoint simpannya: begitu rekam video dipasang, paket
-     * yang tersimpan lewat auto-save juga harus kebagian videonya tanpa
-     * mengubah perilaku Scan Resi Packer biasa.
+     * Terima potongan rekaman video packing dari browser packer.
      *
-     * Kunci session-nya pun sengaja berbeda (packer_double_scan_webcam). Kalau
-     * dipakai bersama, satu scan di halaman biasa lalu satu scan di halaman
-     * webcam akan terhitung sebagai scan kedua dan menyimpan tanpa disengaja.
+     * Rekaman dikirim bertahap (MediaRecorder timeslice) alih-alih sekali kirim
+     * di akhir, karena dua hal: batas upload_max_filesize/post_max_size bawaan
+     * XAMPP cuma 2M/8M -- satu video utuh pasti ditolak -- dan kalau tab packer
+     * ketutup di tengah packing, bagian yang sudah naik tetap tersimpan dan
+     * tetap bisa diputar.
+     *
+     * Potongan WebM dari MediaRecorder valid kalau digabung berurutan apa
+     * adanya (potongan pertama membawa header), jadi cukup di-append.
      */
-    private function handle_double_scan_state_webcam($noresi)
+    public function upload_video_packing()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $kode_sesi = (string) $this->input->post('kode_sesi');
+        $noresi    = trim((string) $this->input->post('noresi'));
+        $seq       = (int) $this->input->post('seq');
+        $terakhir  = (int) $this->input->post('terakhir') === 1;
+        $durasi    = (int) $this->input->post('durasi');
+
+        // Kode sesi ikut jadi nama berkas, jadi harus dikunci ketat supaya tidak
+        // bisa dipakai keluar dari folder upload.
+        if (!preg_match('/^[A-Za-z0-9]{10,40}$/', $kode_sesi)) {
+            $this->make_ajax_response(400, 'Kode sesi rekaman tidak valid.');
+        }
+
+        if ($noresi === '') {
+            $this->make_ajax_response(400, 'Nomor resi tidak boleh kosong.');
+        }
+
+        if (!isset($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
+            $kode_error = isset($_FILES['chunk']) ? $_FILES['chunk']['error'] : 'tidak ada berkas';
+            $this->make_ajax_response(400, 'Potongan video gagal diterima (' . $kode_error . ').');
+        }
+
+        $sesi = $this->video_packing_fcd->get_by_kode_sesi($kode_sesi);
+
+        // Nisan dari batalkan_video_packing(): potongan yang masih di jalan saat
+        // pembatalan tidak boleh menghidupkan lagi berkas yang sudah dihapus.
+        if ($sesi && $sesi->status === 'DIBATALKAN') {
+            $this->make_ajax_response(200, 'Rekaman sudah dibatalkan, potongan diabaikan.');
+        }
+
+        if ($sesi) {
+            // Sesi yang sudah berjalan: nama dan folder berkasnya sudah
+            // ditetapkan di potongan pertama, jangan dihitung ulang.
+            $nama   = $sesi->nama_file;
+            $folder = (string) $sesi->folder;
+            $bagian = isset($sesi->bagian) ? (int) $sesi->bagian : 1;
+        } else {
+            // Nama berkas mengikuti nomor resinya, bukan kode sesi, dan semuanya
+            // rata di satu folder -- CS bisa menemukan videonya lewat nama
+            // berkas saja.
+            //
+            // Bagian 2 dan seterusnya lahir kalau tab packer mati di tengah
+            // packing lalu rekamannya dilanjutkan. Berkas WebM dari dua sesi
+            // MediaRecorder tidak bisa disambung jadi satu, dan potongan
+            // lanjutannya tetap bukti yang dibutuhkan -- jadi disimpan
+            // berdampingan dengan nama yang mirip, bukan saling menimpa.
+            $bagian = $this->video_packing_fcd->bagian_berikutnya($noresi);
+            $nama   = $this->video_packing_fcd->nama_file_untuk($noresi, $bagian);
+            $folder = '';
+
+            if ($nama === '') {
+                $this->make_ajax_response(400, 'Nomor resi tidak bisa dipakai sebagai nama berkas.');
+            }
+
+            // Nomor bagian dilewati kalau namanya sudah dipegang resi lain --
+            // lihat nama_dipakai_resi_lain(). Lebih baik ada lompatan nomor
+            // daripada satu video menimpa video resi lain.
+            while ($bagian <= self::MAKS_BAGIAN_VIDEO
+                && $this->video_packing_fcd->nama_dipakai_resi_lain($noresi, $nama)) {
+                $bagian++;
+                $nama = $this->video_packing_fcd->nama_file_untuk($noresi, $bagian);
+            }
+
+            if ($bagian > self::MAKS_BAGIAN_VIDEO) {
+                $this->make_ajax_response(400, 'Resi ' . $noresi . ' sudah punya '
+                    . self::MAKS_BAGIAN_VIDEO . ' bagian rekaman. Laporkan ke IT.');
+            }
+        }
+
+        $path = $this->video_packing_fcd->folder_path($folder) . $nama;
+
+        // Potongan pertama menimpa, sisanya menyambung. Kalau baris sesinya
+        // belum ada (mis. potongan pertama gagal), berkas dimulai dari sini.
+        $mode = ($seq === 0 || !$sesi) ? 0 : FILE_APPEND;
+        $isi  = file_get_contents($_FILES['chunk']['tmp_name']);
+
+        if ($isi === FALSE || file_put_contents($path, $isi, $mode) === FALSE) {
+            $this->make_ajax_response(500, 'Gagal menulis berkas video ke server.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        if (!$sesi) {
+            // Packing yang selesai sebelum potongan periodik pertama sempat
+            // keluar (kurang dari satu jeda chunk) cuma mengirim satu potongan,
+            // dan potongan itu sekaligus penutup sesi -- jadi status finalnya
+            // harus ikut diputuskan di sini, bukan cuma di cabang update.
+            $this->video_packing_fcd->mulai_sesi([
+                'noresi'        => $noresi,
+                'kode_sesi'     => $kode_sesi,
+                'nama_file'     => $nama,
+                'folder'        => $folder,
+                'bagian'        => $bagian,
+                'mime_type'     => 'video/webm',
+                'status'        => $terakhir ? 'SELESAI' : 'MEREKAM',
+                'durasi_detik'  => $terakhir && $durasi > 0 ? $durasi : 0,
+                'ukuran_byte'   => (int) @filesize($path),
+                'id_user'       => $this->data['user']['id_user'],
+                'nama_komputer' => isset($this->data['nama_pk']) ? $this->data['nama_pk'] : null,
+                'mulai_at'      => $now,
+                'selesai_at'    => $terakhir ? $now : null,
+            ]);
+        } else {
+            // Durasi ikut diperbarui di setiap potongan, bukan hanya di potongan
+            // penutup. Kalau rekaman terputus (tab ditutup, jaringan mati),
+            // barisnya tetap punya durasi yang akurat sampai potongan terakhir
+            // yang berhasil naik -- selisihnya paling banyak satu jeda chunk.
+            $update = ['ukuran_byte' => (int) @filesize($path)];
+
+            if ($durasi > 0) {
+                $update['durasi_detik'] = $durasi;
+            }
+
+            if ($terakhir) {
+                $update['status']     = 'SELESAI';
+                $update['selesai_at'] = $now;
+            }
+
+            $this->video_packing_fcd->update_sesi($kode_sesi, $update);
+        }
+
+        $this->make_ajax_response(201, SUCCESS_SAVE_DATA, [
+            'kode_sesi' => $kode_sesi,
+            'seq'       => $seq,
+            'ukuran'    => (int) @filesize($path),
+            'selesai'   => $terakhir,
+        ]);
+    }
+
+    /**
+     * Resi yang saat ini menunggu scan kedua, atau '' kalau tidak ada.
+     */
+    private function resi_menunggu_scan_kedua()
+    {
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        if (!is_array($state) || empty($state['resi']) || empty($state['count'])) {
+            return '';
+        }
+
+        return $state['resi'];
+    }
+
+    /**
+     * Tutup siklus double-scan yang sudah menggantung terlalu lama.
+     *
+     * Siklus dihitung sejak scan pertama dan tidak pernah kedaluwarsa sendiri:
+     * packer yang scan resi lalu ditarik ke pekerjaan lain akan menemukan
+     * siklusnya masih terbuka berjam-jam kemudian, dan -- karena scan resi
+     * berbeda ditolak -- seluruh resi lain ikut tertolak sampai dia sadar harus
+     * menekan Batal Scan. Menutupnya dengan scan kedua juga bukan jalan keluar:
+     * rekamannya sudah dihentikan browser di menit ke-10, jadi yang tersimpan
+     * adalah packing dengan video yang tidak menggambarkan pekerjaannya.
+     *
+     * Ambangnya disamakan dengan batas lanjut-rekam supaya cuma ada satu angka
+     * yang menentukan sampai kapan sebuah siklus dianggap masih dikerjakan.
+     *
+     * @return string Resi yang siklusnya baru saja ditutup, atau '' kalau tidak
+     *                ada yang kedaluwarsa.
+     */
+    private function bersihkan_scan_kedaluwarsa()
+    {
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        if (!is_array($state) || empty($state['resi']) || empty($state['count'])) {
+            return '';
+        }
+
+        // State tanpa 'ts' berasal dari versi sebelum penanda waktu ada; umurnya
+        // tidak bisa dipastikan, jadi diperlakukan sebagai kedaluwarsa.
+        $ts = isset($state['ts']) ? (int) $state['ts'] : 0;
+
+        if ($ts > 0 && (time() - $ts) <= self::BATAS_LANJUT_REKAM_DETIK) {
+            return '';
+        }
+
+        $resi = $state['resi'];
+        $this->tutup_siklus_scan(null);
+
+        return $resi;
+    }
+
+    /**
+     * Kosongkan siklus double-scan.
+     *
+     * $noresi diisi kalau penutupan harus terikat pada resi tertentu -- dipakai
+     * jalur simpan manual, supaya Submit atas resi lain tidak ikut menghapus
+     * siklus resi yang sedang dipegang. Isi null untuk menutup apa pun yang
+     * sedang terbuka.
+     *
+     * @return bool TRUE kalau memang ada siklus yang ditutup.
+     */
+    private function tutup_siklus_scan($noresi)
+    {
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        if (!is_array($state) || empty($state['resi'])) {
+            return FALSE;
+        }
+
+        if ($noresi !== null && $state['resi'] !== $noresi) {
+            return FALSE;
+        }
+
+        $this->session->set_userdata('packer_double_scan_webcam', ['resi' => null, 'count' => 0]);
+
+        return TRUE;
+    }
+
+    /**
+     * Berapa detik lagi resi ini boleh ditutup, dihitung dari scan pertamanya.
+     *
+     * @return int 0 kalau jeda minimum sudah terlewati, atau memang tidak ada
+     *             siklus terbuka atas nama resi ini.
+     */
+    private function sisa_jeda_scan($noresi)
+    {
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        if (!is_array($state) || empty($state['resi']) || empty($state['count'])) {
+            return 0;
+        }
+
+        if ($state['resi'] !== $noresi || empty($state['ts_pertama'])) {
+            return 0;
+        }
+
+        $jeda = microtime(TRUE) - (float) $state['ts_pertama'];
+
+        if ($jeda >= self::MIN_JEDA_SCAN_DETIK) {
+            return 0;
+        }
+
+        return (int) ceil(self::MIN_JEDA_SCAN_DETIK - $jeda);
+    }
+
+    /**
+     * Batalkan scan pertama yang sedang menunggu.
+     *
+     * Dipakai kalau barangnya ternyata kurang atau salah dan penyelesaiannya
+     * lama: siklus dikembalikan ke kosong supaya packer bisa mengerjakan resi
+     * lain, lalu memulai scan pertama yang benar-benar baru begitu barangnya
+     * beres. Rekaman yang sudah telanjur berjalan dibuang oleh sisi browser
+     * lewat batalkan_video_packing() -- rekaman setengah jalan itu tidak
+     * menunjukkan proses packing, dan satu resi hanya boleh punya satu video.
+     */
+    public function batal_scan()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $resi  = $this->resi_menunggu_scan_kedua();
+        $state = $this->session->userdata('packer_double_scan_webcam');
+
+        $this->tutup_siklus_scan(null);
+
+        if ($resi === '') {
+            $this->make_ajax_response(200, 'Tidak ada scan yang perlu dibatalkan.', ['resi' => null]);
+        }
+
+        // Durasi ikut dicatat karena itu yang membedakan pembatalan wajar dari
+        // yang tidak: barang kurang biasanya ketahuan dalam hitungan detik,
+        // sedangkan pembatalan setelah beberapa menit berarti packing-nya sudah
+        // dikerjakan dan yang dibuang justru rekamannya.
+        $durasi = 0;
+        if (is_array($state) && !empty($state['ts_pertama'])) {
+            $durasi = max(0, (int) round(microtime(TRUE) - (float) $state['ts_pertama']));
+        }
+
+        $this->packer_fcd->catat_batal_scan([
+            'noresi'        => $resi,
+            'id_user'       => $this->data['user']['id_user'],
+            'nama_komputer' => isset($this->data['nama_pk']) ? $this->data['nama_pk'] : null,
+            'durasi_detik'  => $durasi,
+            'tanggal_batal' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->make_ajax_response(200, 'Scan pertama resi ' . $resi . ' dibatalkan.', ['resi' => $resi]);
+    }
+
+    /**
+     * Tutup resi karena rekamannya sudah mencapai batas durasi.
+     *
+     * Begitu kamera berhenti, resi tidak boleh dibiarkan menggantung: bilahnya
+     * akan terus menunggu scan kedua padahal tidak ada lagi yang direkam, dan
+     * scan berikutnya justru membuka siklus baru berikut rekaman bagian kedua.
+     * Jadi resinya ditutup di sini juga -- tersimpan sebagai selesai di-packing,
+     * dengan video bagian pertama sebagai buktinya. Scan sesudahnya akan ditolak
+     * dengan popup "Resi Sudah Di-packing", seperti resi selesai lainnya.
+     */
+    public function tutup_batas_rekam()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $noresi = trim((string) $this->input->post('noresi'));
+        $state  = $this->session->userdata('packer_double_scan_webcam');
+
+        $resi_aktif = (is_array($state) && !empty($state['resi']) && !empty($state['count']))
+            ? $state['resi'] : null;
+
+        if ($noresi === '' || $resi_aktif === null || $resi_aktif !== $noresi) {
+            $this->make_ajax_response(400, 'Tidak ada resi yang sedang dipegang.', [
+                'resi' => $noresi, 'tersimpan' => FALSE,
+            ]);
+        }
+
+        // Umur siklus dipakai sebagai bukti bahwa rekamannya memang sudah
+        // berjalan sampai batas. Lihat BATAS_TUTUP_OTOMATIS_DETIK.
+        $umur = !empty($state['ts_pertama'])
+            ? (microtime(TRUE) - (float) $state['ts_pertama'])
+            : 0;
+
+        if ($umur < (self::BATAS_TUTUP_OTOMATIS_DETIK - self::TOLERANSI_TUTUP_DETIK)) {
+            $this->make_ajax_response(400,
+                'Rekaman resi ' . $noresi . ' belum mencapai batas durasi.', [
+                    'resi' => $noresi, 'tersimpan' => FALSE,
+                ]);
+        }
+
+        $save = $this->process_packer_save_webcam($noresi);
+
+        // Siklus ditutup apa pun hasil simpannya, sama seperti jalur scan kedua.
+        $this->tutup_siklus_scan($noresi);
+
+        if (isset($save['error'])) {
+            $this->make_ajax_response($save['code'], $save['message'], [
+                'resi' => $noresi, 'tersimpan' => FALSE,
+            ]);
+        }
+
+        $this->make_ajax_response(201,
+            'Resi ' . $noresi . ' ditutup otomatis karena rekaman mencapai batas durasi.', [
+                'resi' => $noresi, 'tersimpan' => TRUE,
+            ]);
+    }
+
+    /**
+     * Buang rekaman yang belum selesai: berkasnya dihapus, barisnya disisakan
+     * sebagai nisan berstatus DIBATALKAN.
+     *
+     * Barisnya sengaja tidak ikut dihapus. Saat pembatalan terjadi masih mungkin
+     * ada satu potongan yang sedang di jalan; kalau barisnya hilang, potongan
+     * itu akan diperlakukan sebagai sesi baru dan berkasnya hidup lagi. Dengan
+     * nisan, potongan susulan tahu harus diabaikan.
+     */
+    public function batalkan_video_packing()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $kode_sesi = (string) $this->input->post('kode_sesi');
+        $noresi    = trim((string) $this->input->post('noresi'));
+
+        if (!preg_match('/^[A-Za-z0-9]{10,40}$/', $kode_sesi)) {
+            $this->make_ajax_response(400, 'Kode sesi rekaman tidak valid.');
+        }
+
+        $sesi = $this->video_packing_fcd->get_by_kode_sesi($kode_sesi);
+
+        if ($sesi) {
+            $path = $this->video_packing_fcd->path_berkas($sesi);
+            if (is_file($path)) {
+                @unlink($path);
+            }
+
+            $this->video_packing_fcd->update_sesi($kode_sesi, [
+                'status'      => 'DIBATALKAN',
+                'ukuran_byte' => 0,
+                'selesai_at'  => date('Y-m-d H:i:s'),
+            ]);
+        } else {
+            // Belum ada potongan yang sempat naik. Nisan tetap dibuat supaya
+            // potongan yang mungkin menyusul tidak menghidupkan sesi ini.
+            $resi_nisan = $noresi !== '' ? $noresi : '-';
+
+            $this->video_packing_fcd->mulai_sesi([
+                'noresi'    => $resi_nisan,
+                'kode_sesi' => $kode_sesi,
+                'nama_file' => $this->video_packing_fcd->nama_file_untuk($resi_nisan),
+                'folder'    => '',
+                'status'    => 'DIBATALKAN',
+                'id_user'   => $this->data['user']['id_user'],
+                'mulai_at'  => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        $this->make_ajax_response(200, 'Rekaman dibatalkan.', ['kode_sesi' => $kode_sesi]);
+    }
+
+    /**
+     * Penolakan karena status sesi packer, atau NULL kalau boleh lanjut.
+     *
+     * Hanya istirahat dan pulang yang menghalangi. Packer yang belum check-in
+     * sengaja tetap dibiarkan bekerja: itu keadaan awal setiap pagi, dan
+     * menolaknya berarti satu orang yang lupa menekan tombol tidak bisa packing
+     * sama sekali.
+     */
+    private function tolak_karena_sesi($sesi_status)
+    {
+        if (!is_array($sesi_status)) {
+            return NULL;
+        }
+
+        if (!empty($sesi_status['istirahat'])) {
+            return [
+                'feedback' => [
+                    'status'     => 'sesi_tidak_aktif',
+                    'type'       => 'error',
+                    'message'    => 'Status Anda masih ISTIRAHAT. Tekan tombol "Selesai Istirahat" dulu, '
+                        . 'baru scan resi lagi.',
+                    'auto_saved' => false,
+                ],
+                'resi_tampil' => '',
+            ];
+        }
+
+        if (!empty($sesi_status['pulang'])) {
+            return [
+                'feedback' => [
+                    'status'     => 'sesi_tidak_aktif',
+                    'type'       => 'error',
+                    'message'    => 'Anda sudah Check-out hari ini, jadi resi baru tidak bisa dibuka. '
+                        . 'Hubungi atasan kalau memang masih harus packing.',
+                    'auto_saved' => false,
+                ],
+                'resi_tampil' => '',
+            ];
+        }
+
+        return NULL;
+    }
+
+    /**
+     * Pesan penolakan kamera, disesuaikan dengan apa yang dilaporkan browser.
+     */
+    private function pesan_kamera($kamera_status)
+    {
+        if ($kamera_status === 'membuka') {
+            return 'Kamera masih disiapkan. Tunggu sampai panel kamera bertulisan '
+                . '"Kamera siap", lalu scan lagi.';
+        }
+
+        if ($kamera_status === 'tidak-didukung') {
+            return 'Browser di komputer ini tidak bisa merekam video. Packing tidak boleh '
+                . 'dimulai tanpa rekaman -- laporkan ke IT.';
+        }
+
+        return 'Kamera belum siap, jadi packing belum boleh dimulai. Periksa panel kamera di '
+            . 'pojok kanan bawah: izinkan akses kamera, atau laporkan ke IT kalau kameranya rusak.';
+    }
+
+    /**
+     * Ubah penolakan dari model jadi umpan balik layar.
+     *
+     * Dua alasan lama memakai tampilan yang sudah ada supaya packer tidak perlu
+     * menghafal popup baru; sisanya -- pesanan batal, pesanan selesai, belum
+     * di-picker -- masuk ke satu popup "tidak bisa dipacking" dengan pesan asli
+     * dari model, jadi bunyinya sama persis dengan yang selama ini muncul di
+     * scan kedua.
+     */
+    private function feedback_resi_tidak_layak($noresi, $periksa)
+    {
+        $kode = isset($periksa['data']['EXCEPTION_CODE']) ? $periksa['data']['EXCEPTION_CODE'] : '';
+
+        if ($kode === 'ALREADY_PACKED') {
+            // Siapa dan kapan ikut disebutkan: tanpa itu packer tahu resinya
+            // ditolak tapi tidak tahu harus bertanya ke siapa, dan resi yang
+            // ternyata di-packing orang lain jadi tidak pernah tertelusuri.
+            $info  = $this->packer_fcd->info_packing($noresi);
+            $oleh  = ($info && !empty($info->nama_pegawai)) ? $info->nama_pegawai : null;
+            $waktu = ($info && !empty($info->tanggal_packing))
+                ? date('d/m/Y H:i', strtotime($info->tanggal_packing))
+                : null;
+
+            $pesan = 'Resi ' . $noresi . ' sudah selesai di-packing';
+            if ($oleh !== null) {
+                $pesan .= ' oleh ' . $oleh;
+            }
+            if ($waktu !== null) {
+                $pesan .= ' pada ' . $waktu;
+            }
+            $pesan .= ' dan sudah punya video. Satu resi hanya boleh dua kali scan.';
+
+            return [
+                'feedback' => [
+                    'status'          => 'resi_sudah_selesai',
+                    'type'            => 'error',
+                    'message'         => $pesan,
+                    'packer_sebelumnya' => $oleh,
+                    'waktu_packing'   => $waktu,
+                    'auto_saved'      => false,
+                ],
+                'resi_tampil' => '',
+            ];
+        }
+
+        // Resi yang sama sekali tidak ada di tblprintresi ditangani penjaga
+        // berikutnya, yang pesannya lebih menolong: kemungkinan besar yang
+        // discan memang bukan barcode resi.
+        if ($kode === 'NOT_FOUND') {
+            return NULL;
+        }
+
+        return [
+            'feedback' => [
+                'status'      => 'resi_tidak_layak',
+                'type'        => 'error',
+                'message'     => $periksa['message'] . ' (resi ' . $noresi . '). '
+                    . 'Jangan dipacking dulu, laporkan ke CS.',
+                'kode_alasan' => $kode,
+                'auto_saved'  => false,
+            ],
+            'resi_tampil' => '',
+        ];
+    }
+
+    /**
+     * Mesin status double-scan: satu resi ditutup oleh dua kali scan.
+     *
+     * Mengembalikan dua hal:
+     *   feedback     -> pesan untuk noty/popup di halaman
+     *   resi_tampil  -> resi mana yang detailnya ditampilkan. Tidak selalu sama
+     *                   dengan resi yang barusan discan: scan yang ditolak tidak
+     *                   boleh menggeser layar dari resi yang sedang dikerjakan.
+     *
+     * Tidak satu pun penolakan di sini menutup rekaman video yang sedang
+     * berjalan -- packer masih berada di tengah pekerjaan yang sama.
+     *
+     * Semua penjaga baru hanya berlaku pada scan PERTAMA. Scan kedua tidak
+     * pernah dihalangi: kalau kameranya mati atau jam istirahat keburu datang di
+     * tengah packing, packer harus tetap bisa menutup resi yang sudah dipegang.
+     * Menolaknya justru menjebak dia dengan siklus terbuka dan rekaman berjalan.
+     *
+     * @param string $kamera_status Laporan browser: 'siap', 'membuka', 'gagal',
+     *                              atau 'tidak-didukung'.
+     * @param array  $sesi_status   Status check-in/istirahat/pulang packer.
+     */
+    private function handle_double_scan_state_webcam($noresi, $kamera_status = 'siap', $sesi_status = [])
     {
         if (empty($noresi)) {
             return null;
         }
 
-        $current_state = $this->session->userdata('packer_double_scan_webcam');
-        if (!is_array($current_state)) {
-            $current_state = ['resi' => null, 'count' => 0];
-        }
-        $previous_state = $current_state;
-
-        if ($current_state['resi'] === $noresi) {
-            $current_state['count'] = isset($current_state['count']) ? $current_state['count'] + 1 : 1;
-        } else {
-            $current_state = ['resi' => $noresi, 'count' => 1];
+        $state = $this->session->userdata('packer_double_scan_webcam');
+        if (!is_array($state)) {
+            $state = ['resi' => null, 'count' => 0];
         }
 
-        $feedback = null;
+        $resi_aktif = (!empty($state['resi']) && !empty($state['count'])) ? $state['resi'] : null;
 
-        if ($current_state['count'] >= 2) {
-            $save = $this->process_packer_save_webcam($noresi);
-
-            if (isset($save['error'])) {
-                // exception_code ikut dikirim ke view supaya suara gagalnya bisa
-                // dibedakan (sudah packing / pesanan cancel / lainnya). Tanpa ini
-                // view cuma punya kalimat pesan, dan semua kegagalan terdengar sama.
-                $feedback = [
-                    'status' => 'auto_save_failed',
-                    'type' => 'error',
-                    'message' => $save['message'],
-                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
-                    'auto_saved' => false
-                ];
-            } else {
-                $feedback = [
-                    'status' => 'auto_save_success',
-                    'type' => 'success',
-                    'message' => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
-                    'auto_saved' => true
-                ];
-            }
-
-            $current_state = ['resi' => null, 'count' => 0];
-        } else {
-            $status = 'need_second_scan';
-            $type = 'warning';
-            $message = 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.';
-
-            if (!empty($previous_state['resi']) && $previous_state['resi'] !== $noresi && (isset($previous_state['count']) && $previous_state['count'] === 1)) {
-                $status = 'scan_restarted';
-                $type = 'information';
-                $message = 'Nomor resi berubah dari ' . $previous_state['resi'] . ' ke ' . $noresi . '. Scan resi baru ini sekali lagi untuk menyimpan.';
-            }
-
-            $feedback = [
-                'status' => $status,
-                'type' => $type,
-                'message' => $message,
-                'auto_saved' => false
+        // (1) Resi lain masih menunggu scan kedua. Scan resi baru ditolak, bukan
+        // menggantikan yang lama seperti perilaku sebelumnya -- kalau digantikan,
+        // resi pertama tertinggal setengah jalan tanpa ada yang memberi tahu.
+        if ($resi_aktif !== null && $resi_aktif !== $noresi) {
+            return [
+                'feedback' => [
+                    'status'       => 'scan_beda_resi',
+                    'type'         => 'warning',
+                    'message'      => 'Resi ' . $resi_aktif . ' belum selesai. Scan resi ' . $resi_aktif
+                        . ' sekali lagi untuk menutupnya, atau tekan Batal Scan kalau mau ditinggal dulu.',
+                    'resi_aktif'   => $resi_aktif,
+                    'resi_ditolak' => $noresi,
+                    'auto_saved'   => false,
+                ],
+                'resi_tampil' => $resi_aktif,
             ];
         }
 
-        $this->session->set_userdata('packer_double_scan_webcam', $current_state);
+        // (2) Packer yang sedang istirahat atau sudah pulang tidak boleh memulai
+        // resi baru. Statusnya selama ini cuma dipakai menyembunyikan tombol,
+        // jadi packing yang dikerjakan di luar jam kerja tetap masuk dan
+        // membuat data KPI serta monitoring tidak cocok dengan kenyataannya.
+        if ($resi_aktif === null) {
+            $tolak_sesi = $this->tolak_karena_sesi($sesi_status);
+            if ($tolak_sesi) {
+                return $tolak_sesi;
+            }
+        }
 
-        return $feedback;
+        // (3) Kamera wajib siap sebelum resi baru dibuka. Tanpa penjaga ini satu
+        // komputer bisa bekerja seharian tanpa satu pun video -- panel kameranya
+        // memang berubah merah, tapi letaknya di pojok dan bisa disembunyikan,
+        // jadi tidak ada yang menyadarinya sampai CS mencari videonya.
+        if ($resi_aktif === null && $kamera_status !== 'siap') {
+            return [
+                'feedback' => [
+                    'status'        => 'kamera_belum_siap',
+                    'type'          => 'error',
+                    'message'       => $this->pesan_kamera($kamera_status),
+                    'kamera_status' => $kamera_status,
+                    'auto_saved'    => false,
+                ],
+                'resi_tampil' => '',
+            ];
+        }
+
+        // (4) Resi yang memang tidak boleh dipacking dicegat di scan pertama:
+        // sudah di-packing, sudah selesai, dibatalkan, atau belum di-picker.
+        // Aturannya diambil dari model, sama persis dengan yang dipakai saat
+        // menyimpan -- sebelumnya cuma dipakai di scan kedua, jadi packer baru
+        // diberi tahu setelah merekam dan mem-packing barangnya, dan video
+        // sampahnya tetap tersimpan.
+        if ($resi_aktif === null) {
+            $periksa = $this->packer_fcd->periksa_kelayakan_packing($noresi);
+
+            if (isset($periksa['error'])) {
+                $tolak = $this->feedback_resi_tidak_layak($noresi, $periksa);
+                if ($tolak) {
+                    return $tolak;
+                }
+            }
+        }
+
+        // (5) Resi yang tidak punya detail sama sekali tidak boleh membuka
+        // siklus. Sejak scan resi berbeda ditolak, satu salah scan -- barcode
+        // produk, label rak, apa pun yang bukan resi -- akan mengunci packer:
+        // siklusnya terbuka atas nama resi hantu dan semua scan berikutnya
+        // ditolak sampai Batal Scan ditekan.
+        if ($resi_aktif === null && $this->receipt_fcd->get_detail_receipt($noresi)->num_rows() === 0) {
+            return [
+                'feedback' => [
+                    'status'     => 'resi_tidak_dikenal',
+                    'type'       => 'error',
+                    'message'    => 'Resi ' . $noresi . ' tidak ditemukan. Pastikan yang discan barcode resi, bukan barcode lain.',
+                    'auto_saved' => false,
+                ],
+                'resi_tampil' => '',
+            ];
+        }
+
+        // (6) Scan pertama: siklus baru dibuka.
+        if ($resi_aktif === null) {
+            $this->session->set_userdata('packer_double_scan_webcam', [
+                'resi'       => $noresi,
+                'count'      => 1,
+                // microtime dipakai supaya ambang jeda tidak meleset gara-gara
+                // pembulatan detik.
+                'ts_pertama' => microtime(TRUE),
+                // ts terpisah dan berbasis detik; dibaca resi_untuk_rekaman()
+                // untuk menilai apakah siklusnya masih segar.
+                'ts'         => time(),
+            ]);
+
+            return [
+                'feedback' => [
+                    'status'     => 'need_second_scan',
+                    'type'       => 'warning',
+                    'message'    => 'Scan ulang nomor resi ' . $noresi . ' satu kali lagi untuk menyimpan.',
+                    'auto_saved' => false,
+                ],
+                'resi_tampil' => $noresi,
+            ];
+        }
+
+        // (7) Scan kedua yang datang terlalu cepat dianggap tidak pernah terjadi:
+        // hitungan tetap 1 supaya packer tinggal packing lalu scan sekali lagi.
+        if (!empty($state['ts_pertama'])) {
+            $jeda = microtime(TRUE) - (float) $state['ts_pertama'];
+
+            if ($jeda < self::MIN_JEDA_SCAN_DETIK) {
+                $state['ts'] = time();
+                $this->session->set_userdata('packer_double_scan_webcam', $state);
+
+                return [
+                    'feedback' => [
+                        'status'      => 'scan_terlalu_cepat',
+                        'type'        => 'warning',
+                        'message'     => 'Packing dulu, baru scan lagi. Scan kedua baru diterima minimal '
+                            . self::MIN_JEDA_SCAN_DETIK . ' detik setelah scan pertama.',
+                        'sisa_detik'  => (int) ceil(self::MIN_JEDA_SCAN_DETIK - $jeda),
+                        'auto_saved'  => false,
+                    ],
+                    'resi_tampil' => $noresi,
+                ];
+            }
+        }
+
+        // Scan kedua yang sah: simpan, lalu tutup siklusnya apa pun hasilnya.
+        $save = $this->process_packer_save_webcam($noresi);
+
+        $this->tutup_siklus_scan($noresi);
+
+        if (isset($save['error'])) {
+            return [
+                'feedback' => [
+                    'status'     => 'auto_save_failed',
+                    'type'       => 'error',
+                    'message'    => $save['message'],
+                    // Dipakai view untuk memilih suara gagal (sudah packing /
+                    // pesanan cancel / lainnya).
+                    'exception_code' => isset($save['data']['EXCEPTION_CODE']) ? $save['data']['EXCEPTION_CODE'] : null,
+                    'auto_saved' => false,
+                ],
+                'resi_tampil' => $noresi,
+            ];
+        }
+
+        return [
+            'feedback' => [
+                'status'     => 'auto_save_success',
+                'type'       => 'success',
+                'message'    => 'Nomor resi ' . $noresi . ' berhasil otomatis disimpan.',
+                'auto_saved' => true,
+            ],
+            'resi_tampil' => $noresi,
+        ];
     }
 
     /**

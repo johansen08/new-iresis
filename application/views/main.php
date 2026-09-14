@@ -24,6 +24,8 @@
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/blueimp-gallery/2.41.0/css/blueimp-gallery.min.css" />
 	
 	<link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-fresh.css?v=1.0.1" />
+	<!-- Panel perekam video packing (Scan Resi Packer Webcam); dibuat oleh assets/js/packer_video.js -->
+	<link rel="stylesheet" type="text/css" href="assets/css/packer_video.css?v=<?= @filemtime(FCPATH . 'assets/css/packer_video.css') ?: '1.0.0' ?>" />
 	<!-- EOF CSS INCLUDE -->
     <style>
         /* Force clear frames */
@@ -717,6 +719,10 @@
 	<!-- START TEMPLATE -->
 	<script type="text/javascript" src="assets/js/plugins.js?v=1.0.1"></script>
 	<script type="text/javascript" src="assets/js/actions.js?v=1.0.1"></script>
+	<!-- Perekam video packing. Dimuat global (bukan di view) karena panel kameranya
+	     harus selamat dari pergantian isi .page-content-wrap tiap kali packer scan.
+	     Pasif sampai halaman Scan Resi Packer (Webcam) memanggil PackerVideo.sinkron(). -->
+	<script type="text/javascript" src="assets/js/packer_video.js?v=<?= @filemtime(FCPATH . 'assets/js/packer_video.js') ?: '1.0.0' ?>"></script>
 	<!-- END TEMPLATE -->
 
 	<!-- NOTIFIKASI -->

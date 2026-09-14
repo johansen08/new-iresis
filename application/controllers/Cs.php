@@ -10,6 +10,7 @@ class Cs extends MY_Controller
         $this->load->model('retur_fcd');
         $this->load->model('packer_fcd');
         $this->load->model('Notification');
+        $this->load->model('video_packing_fcd');
     }
 
     public function laporan_kurangan_picker()
@@ -2118,6 +2119,81 @@ class Cs extends MY_Controller
         echo json_encode(['code' => 200, 'message' => 'Lampiran dihapus.']);
         exit;
     }
+
+    // -----------------------------------------------------------------------
+    // Video packing
+    // -----------------------------------------------------------------------
+
+    /** Halaman cari video packing berdasarkan nomor resi. */
+    public function video_packing()
+    {
+        $data['message'] = $this->session->flashdata('message');
+
+        $this->show($data);
+    }
+
+    /**
+     * Daftar rekaman untuk satu resi (JSON).
+     *
+     * Satu resi bisa punya lebih dari satu rekaman kalau sempat di-scan ulang,
+     * jadi yang dikembalikan selalu berupa daftar -- terbaru di urutan pertama.
+     */
+    public function get_video_packing()
+    {
+        header('Content-Type: application/json');
+
+        $noresi = trim((string) $this->input->post('noresi'));
+        if ($noresi === '') {
+            $noresi = trim((string) $this->input->get('noresi'));
+        }
+
+        if ($noresi === '') {
+            echo json_encode(['code' => 400, 'message' => 'Nomor resi tidak boleh kosong.', 'data' => []]);
+            exit;
+        }
+
+        $rows = $this->video_packing_fcd->get_by_resi($noresi);
+
+        $list = [];
+        foreach ($rows as $row) {
+            $path = $this->video_packing_fcd->path_berkas($row);
+
+            // Baris tanpa berkas (mis. berkas dihapus manual saat bersih-bersih)
+            // sengaja tidak ditampilkan supaya player tidak gagal diam-diam.
+            if (!is_file($path)) {
+                continue;
+            }
+
+            $list[] = [
+                'id'            => (int) $row->id_videopacking,
+                'noresi'        => $row->noresi,
+                'bagian'        => isset($row->bagian) ? (int) $row->bagian : 1,
+                'nama_file'     => $row->nama_file,
+                'url'           => $this->video_packing_fcd->url_video($row),
+                'nama_packer'   => $row->nama_packer ? $row->nama_packer : '-',
+                'nama_komputer' => $row->nama_komputer ? $row->nama_komputer : '-',
+                'mulai_at'      => $row->mulai_at,
+                'selesai_at'    => $row->selesai_at,
+                'durasi_detik'  => (int) $row->durasi_detik,
+                'ukuran_byte'   => (int) $row->ukuran_byte,
+                'status'        => $row->status,
+            ];
+        }
+
+        if (empty($list)) {
+            echo json_encode([
+                'code'    => 404,
+                'message' => 'Belum ada video packing untuk resi ' . $noresi . '.',
+                'data'    => []
+            ]);
+            exit;
+        }
+
+        echo json_encode([
+            'code'    => 200,
+            'message' => count($list) . ' video ditemukan.',
+            'data'    => $list
+        ]);
+        exit;
+    }
 }
-
-
