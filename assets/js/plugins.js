@@ -930,6 +930,37 @@ $(function() {
         devScript.openPage($(this).attr('href'));
     });
 
+    // Deep-link menu lewat hash: .../new-iresis/#menu=packer/scan_packer_webcam
+    //
+    // Navigasi SPA tidak mengubah URL, jadi halaman yang perlu memuat ulang
+    // dirinya (mis. pengalihan http -> https oleh packer_video.js) tidak punya
+    // cara membawa menu yang sedang dibuka. Hash ini jalan keluarnya. Menu
+    // hanya dibuka kalau tautannya memang ada di sidebar pengguna ini -- jadi
+    // hak akses per role tetap berlaku, tidak bisa ditembus lewat URL.
+    (function bukaMenuDariHash() {
+        var cocok = /^#menu=(.+)$/.exec(window.location.hash || '');
+        if (!cocok) {
+            return;
+        }
+
+        var uri = decodeURIComponent(cocok[1]);
+        var tautan = $("a.link").filter(function() {
+            return $(this).attr('href') === uri;
+        }).first();
+
+        // Hash dibuang supaya refresh manual tidak membuka menu itu lagi.
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+
+        if (!tautan.length) {
+            return;
+        }
+
+        $(".breadcrumb li").html(tautan.html());
+        devScript.openPage(uri);
+    })();
+
     $("body").on('submit', 'form', function(event) {
         if ($(this).hasClass('nojs')) {
             return;
