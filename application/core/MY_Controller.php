@@ -1093,7 +1093,8 @@ class MY_Controller extends CI_Controller
     /**
      * Tabel metadata rekaman video packing + menu "Video Packing" untuk CS.
      *
-     * Berkas videonya sendiri ada di assets/uploads/video_packing/ (lihat
+     * Berkas videonya sendiri ada di C:/video-packing/ -- di luar document
+     * root, bisa diubah lewat kunci video_packing_dir di secrets.php (lihat
      * Video_packing_fcd); tabel ini hanya menyimpan siapa, kapan, berapa lama,
      * dan status rekamannya. Satu baris = satu sesi rekam (satu resi, satu
      * kali packing; bagian 2+ lahir kalau tab packer mati di tengah).

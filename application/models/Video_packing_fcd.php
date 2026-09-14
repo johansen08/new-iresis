@@ -10,8 +10,39 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Video_packing_fcd extends CI_Model
 {
-    /** Folder root (relatif ke document root) tempat semua rekaman disimpan. */
-    const ROOT_UPLOAD = 'assets/uploads/video_packing/';
+    /**
+     * Folder root tempat semua rekaman disimpan, kalau secrets.php tidak
+     * menentukan lain (kunci 'video_packing_dir').
+     *
+     * Sengaja DI LUAR document root: berkasnya besar (±3 MB/menit) dan tidak
+     * boleh ikut disalin/di-backup bersama kode, dan supaya tidak bisa diunduh
+     * siapa pun yang tahu nomor resinya -- videonya hanya bisa diputar lewat
+     * Cs::putar_video_packing() yang memeriksa login. Konsekuensinya Apache
+     * tidak bisa menyajikan berkasnya langsung; lihat url_video().
+     */
+    const ROOT_UPLOAD_DEFAULT = 'C:/video-packing/';
+
+    /**
+     * Folder root yang berlaku, selalu berakhiran '/'.
+     *
+     * Dibaca dari secrets.php supaya folder dev dan produksi di PC yang sama
+     * tidak saling menimpa (folder dev diarahkan ke tempat lain).
+     */
+    public function root_upload()
+    {
+        if (!function_exists('iresis_secret')) {
+            require_once APPPATH . 'config/secrets_load.php';
+        }
+
+        $root = (string) iresis_secret('video_packing_dir', self::ROOT_UPLOAD_DEFAULT);
+        $root = str_replace('\\', '/', trim($root));
+
+        if ($root === '') {
+            $root = self::ROOT_UPLOAD_DEFAULT;
+        }
+
+        return rtrim($root, '/') . '/';
+    }
 
     /**
      * Path absolut folder penyimpanan, dibuat kalau belum ada.
@@ -23,7 +54,7 @@ class Video_packing_fcd extends CI_Model
      */
     public function folder_path($folder)
     {
-        $path = FCPATH . self::ROOT_UPLOAD . ($folder === '' || $folder === NULL ? '' : $folder . '/');
+        $path = $this->root_upload() . ($folder === '' || $folder === NULL ? '' : $folder . '/');
 
         if (!is_dir($path)) {
             mkdir($path, 0777, TRUE);
@@ -32,16 +63,27 @@ class Video_packing_fcd extends CI_Model
         return $path;
     }
 
-    /** URL publik satu rekaman, dipakai langsung sebagai src tag <video>. */
+    /**
+     * URL untuk memutar satu rekaman, dipakai sebagai src tag <video>.
+     *
+     * Bukan URL berkas langsung -- foldernya di luar document root -- melainkan
+     * endpoint yang mengalirkan isinya (Cs::putar_video_packing). Kuncinya id
+     * baris, bukan nama berkas, supaya path apa pun tidak pernah lewat URL.
+     */
     public function url_video($row)
     {
-        return base_url(self::ROOT_UPLOAD . $this->sub_path($row));
+        return base_url('cs/putar-video-packing/' . (int) $row->id_videopacking);
     }
 
     /** Path absolut berkas satu baris rekaman. */
     public function path_berkas($row)
     {
-        return FCPATH . self::ROOT_UPLOAD . $this->sub_path($row);
+        return $this->root_upload() . $this->sub_path($row);
+    }
+
+    public function get_by_id($id)
+    {
+        return $this->db->get_where('tblvideopacking', ['id_videopacking' => (int) $id])->row();
     }
 
     private function sub_path($row)

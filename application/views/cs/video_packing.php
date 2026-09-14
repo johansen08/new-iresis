@@ -119,7 +119,7 @@
                 'Durasi: ' + formatDurasi(v.durasi_detik) + ' &middot; ' +
                 'Ukuran: ' + formatUkuran(v.ukuran_byte) + ' &middot; ' +
                 'Berkas: <code>' + escapeHtml(v.nama_file || '-') + '</code> &middot; ' +
-                '<a href="' + escapeHtml(v.url) + '" download>Unduh</a>' +
+                '<a href="' + escapeHtml(v.url) + '?unduh=1">Unduh</a>' +
               '</div>' +
             '</div>' +
           '</div>';
