@@ -571,6 +571,54 @@ class Cron extends CI_Controller
         exit;
     }
 
+    /**
+     * Tutup baris video packing yang menggantung di status MEREKAM.
+     *
+     * Baris ditandai MEREKAM sejak potongan pertama masuk dan baru jadi SELESAI
+     * kalau potongan penutup sempat naik. Kalau tab packer mati mendadak --
+     * Chrome crash, PC padam, jaringan putus di tengah packing -- potongan
+     * penutup itu tidak pernah dikirim, dan barisnya menggantung selamanya.
+     *
+     * Berkasnya sendiri tetap utuh sampai potongan terakhir yang berhasil naik
+     * dan tetap bisa diputar, jadi yang dibereskan di sini murni labelnya:
+     * MEREKAM -> TERPUTUS, supaya CS bisa membedakan rekaman yang benar-benar
+     * masih berjalan dari rekaman yang mati di tengah jalan.
+     *
+     * Jalankan berkala, mis. tiap 15 menit:
+     *   php index.php cron tutup_video_menggantung
+     *   php index.php cron tutup_video_menggantung 45   (ambang khusus)
+     */
+    public function tutup_video_menggantung($menit = null)
+    {
+        // Ambang HARUS lebih longgar dari batas durasi rekaman di browser
+        // (MAKS_DURASI_DTK di assets/js/packer_video.js = 90 menit). Kalau lebih
+        // pendek, rekaman yang masih berjalan ikut ditandai terputus: packing
+        // resi berisi ratusan barang memang wajar memakan satu jam, dan selama
+        // itu barisnya memang berstatus MEREKAM.
+        //
+        // Argumen diambil dari parameter CLI kalau ada; $_GET tidak terisi saat
+        // dijalankan lewat command line, jadi query string hanya berlaku untuk
+        // pemanggilan HTTP ber-token.
+        $ambang_menit = (int) ($menit !== null ? $menit : $this->input->get('menit'));
+        if ($ambang_menit <= 0) {
+            $ambang_menit = 120;
+        }
+
+        $batas = date('Y-m-d H:i:s', time() - ($ambang_menit * 60));
+
+        $this->db->where('status', 'MEREKAM');
+        $this->db->where('mulai_at <', $batas);
+        $this->db->update('tblvideopacking', ['status' => 'TERPUTUS']);
+
+        $jumlah = $this->db->affected_rows();
+
+        $this->_log('cron_tutup_video_menggantung', [
+            'success'      => TRUE,
+            'ditandai'     => $jumlah,
+            'ambang_menit' => $ambang_menit,
+        ]);
+    }
+
     private function _is_text_output()
     {
         return $this->input->get('output') === 'text';
