@@ -717,7 +717,7 @@
 	<!-- END PLUGINS -->
 
 	<!-- START TEMPLATE -->
-	<script type="text/javascript" src="assets/js/plugins.js?v=1.0.1"></script>
+	<script type="text/javascript" src="assets/js/plugins.js?v=<?= @filemtime(FCPATH . 'assets/js/plugins.js') ?: '1.0.1' ?>"></script>
 	<script type="text/javascript" src="assets/js/actions.js?v=1.0.1"></script>
 	<!-- Perekam video packing. Dimuat global (bukan di view) karena panel kameranya
 	     harus selamat dari pergantian isi .page-content-wrap tiap kali packer scan.
