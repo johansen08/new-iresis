@@ -54,13 +54,30 @@ class MY_Controller extends CI_Controller
      * request memulai ulang state PHP, jadi statis tidak bertahan lintas
      * request. Kalau penanda gagal ditulis (mis. folder tidak bisa ditulisi),
      * migrasi tetap jalan seperti dulu -- lambat, tapi tidak pernah gagal.
+     *
+     * Dijaga kunci berkas (flock) karena pada 2026-09-14 dua request tiba
+     * bersamaan tepat setelah versi dinaikkan: keduanya membaca penanda lama,
+     * keduanya menjalankan migrasi, dan menu "Video Packing" pun tercipta dua
+     * kali (id 175 & 176). Request kedua kini menunggu yang pertama selesai,
+     * lalu membaca ulang penanda dan langsung keluar.
      */
     protected function jalankan_bootstrap_sekali()
     {
         $penanda = APPPATH . 'cache/bootstrap_migrasi.txt';
 
-        if (is_file($penanda) && trim((string) @file_get_contents($penanda)) === self::BOOTSTRAP_VERSI) {
+        if ($this->bootstrap_sudah_versi_ini($penanda)) {
             return FALSE;
+        }
+
+        $kunci = @fopen(APPPATH . 'cache/bootstrap_migrasi.lock', 'c');
+        if ($kunci) {
+            @flock($kunci, LOCK_EX);
+            // Cek ulang setelah dapat kunci: request lain mungkin baru saja selesai.
+            if ($this->bootstrap_sudah_versi_ini($penanda)) {
+                @flock($kunci, LOCK_UN);
+                @fclose($kunci);
+                return FALSE;
+            }
         }
 
         $this->migrasi_menu_cek_sku();
@@ -76,7 +93,17 @@ class MY_Controller extends CI_Controller
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
+        if ($kunci) {
+            @flock($kunci, LOCK_UN);
+            @fclose($kunci);
+        }
+
         return TRUE;
+    }
+
+    protected function bootstrap_sudah_versi_ini($penanda)
+    {
+        return is_file($penanda) && trim((string) @file_get_contents($penanda)) === self::BOOTSTRAP_VERSI;
     }
 
     /**
