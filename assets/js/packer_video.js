@@ -42,6 +42,10 @@
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
     var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~7 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
+    // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
+    // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
+    var URI_MENU_WEBCAM  = 'packer/scan_packer_webcam';
+    var JEDA_ALIH_HTTPS_MS = 2500; // beri waktu membaca pesan sebelum dialihkan
     // -----------------------------------------------------------------------
 
     var stream = null;
@@ -123,6 +127,35 @@
         return !!(navigator.mediaDevices &&
             navigator.mediaDevices.getUserMedia &&
             window.MediaRecorder);
+    }
+
+    /**
+     * Alamat https untuk halaman yang sedang dibuka, atau null kalau tidak
+     * relevan (sudah https, atau bukan http sama sekali).
+     *
+     * getUserMedia hanya tersedia di secure context, sedangkan klien LAN
+     * terbiasa membuka aplikasi lewat http://IP. Apache di server ini sudah
+     * melayani port 443 dengan sertifikat yang memuat IP LAN-nya, jadi cukup
+     * pindah skema. Port eksplisit dibuang karena https memakai port bakunya.
+     *
+     * Navigasi SPA tidak mengubah URL, jadi menu yang sedang dibuka tidak ikut
+     * terbawa -- URI-nya dititipkan di hash #menu=... yang dibaca plugins.js
+     * saat halaman utama termuat ulang.
+     */
+    function alamatHttps() {
+        if (window.location.protocol !== 'http:') {
+            return null;
+        }
+        return 'https://' + window.location.hostname +
+            window.location.pathname + window.location.search +
+            '#menu=' + URI_MENU_WEBCAM;
+    }
+
+    function alihkanKeHttps() {
+        var tujuan = alamatHttps();
+        if (tujuan) {
+            window.location.replace(tujuan);
+        }
     }
 
     // ---------------------------------------------------------------- panel
@@ -579,9 +612,28 @@
                 bangunPanel();
                 tampilkanPanel(true);
                 setStatus('Rekam video tidak tersedia', '#d9534f');
+
+                var tujuanHttps = window.isSecureContext ? null : alamatHttps();
+                if (tujuanHttps) {
+                    // Dibuka lewat http://IP. Alihkan otomatis ke https; tautan
+                    // disediakan kalau pengguna tidak mau menunggu jedanya.
+                    setInfo('Perekaman butuh HTTPS. Mengalihkan ke alamat https&hellip; ' +
+                        '<a href="' + tujuanHttps + '" class="pvp-alih-https">Buka sekarang</a>');
+                    var tautan = el.info.querySelector('.pvp-alih-https');
+                    if (tautan) {
+                        tautan.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            alihkanKeHttps();
+                        });
+                    }
+                    window.setTimeout(alihkanKeHttps, JEDA_ALIH_HTTPS_MS);
+                    return;
+                }
+
                 setInfo(window.isSecureContext
                     ? 'Browser ini tidak mendukung perekaman kamera.'
-                    : 'Perekaman butuh HTTPS. Buka aplikasi lewat https atau localhost.');
+                    : 'Perekaman butuh HTTPS. Buka aplikasi lewat https://' +
+                      window.location.host + ' atau localhost.');
                 return;
             }
 
