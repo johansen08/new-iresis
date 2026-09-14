@@ -1,0 +1,83 @@
+/* Panel perekam video packing (dibuat oleh assets/js/packer_video.js).
+   Menempel di <body>, bukan di dalam .page-content-wrap, supaya tidak ikut
+   terhapus saat SPA mengganti isi halaman setiap kali packer scan. */
+
+#packer-video-panel {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    width: 260px;
+    z-index: 9997;
+    background: #fff;
+    border: 1px solid #d5d5d5;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .2);
+    font-size: 12px;
+    overflow: hidden;
+}
+
+#packer-video-panel .pvp-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e3e3e3;
+}
+
+#packer-video-panel .pvp-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #bbb;
+    flex: 0 0 auto;
+}
+
+#packer-video-panel .pvp-status {
+    flex: 1 1 auto;
+    font-weight: 700;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#packer-video-panel .pvp-toggle {
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    font-size: 18px;
+    line-height: 1;
+    color: #777;
+    cursor: pointer;
+    padding: 0 3px;
+}
+
+#packer-video-panel .pvp-body {
+    padding: 8px;
+}
+
+#packer-video-panel .pvp-video {
+    width: 100%;
+    height: 150px;
+    background: #000;
+    border-radius: 4px;
+    object-fit: cover;
+    display: block;
+}
+
+#packer-video-panel .pvp-info {
+    margin-top: 6px;
+    color: #555;
+    min-height: 16px;
+    word-break: break-all;
+}
+
+#packer-video-panel .pvp-kamera {
+    margin-top: 6px;
+    width: 100%;
+    font-size: 11px;
+    padding: 3px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}

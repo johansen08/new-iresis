@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-12.2';
+    const BOOTSTRAP_VERSI = '2026-09-14.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -71,6 +71,8 @@ class MY_Controller extends CI_Controller
         $this->run_cancel_order_migrations();
         $this->run_tracking_picker_migration();
         $this->run_menu_scan_packer_webcam();
+        $this->run_batal_scan_packer_migration();
+        $this->run_video_packing_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1063,5 +1065,100 @@ class MY_Controller extends CI_Controller
             ]);
         }
     }
-}
 
+    /**
+     * Tabel jejak tombol Batal Scan di Scan Resi Packer (Webcam).
+     *
+     * Batal Scan membuka kembali siklus scan pertama yang menggantung sekaligus
+     * membuang rekamannya. Itu memang perlu -- barang kurang atau salah bisa
+     * lama beresnya -- tapi tanpa catatan, urutan "scan, packing sampai selesai,
+     * lalu Batal Scan" menghasilkan resi yang tersimpan normal dengan video
+     * beberapa detik saja, dan tidak ada yang bisa melihatnya terjadi.
+     */
+    protected function run_batal_scan_packer_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblbatalscanpacker` (
+          `id_batalscan` int(11) NOT NULL AUTO_INCREMENT,
+          `noresi` varchar(100) NOT NULL,
+          `id_user` int(11) DEFAULT NULL,
+          `nama_komputer` varchar(50) DEFAULT NULL,
+          `durasi_detik` int(11) NOT NULL DEFAULT 0,
+          `tanggal_batal` datetime NOT NULL,
+          PRIMARY KEY (`id_batalscan`),
+          KEY `idx_noresi` (`noresi`),
+          KEY `idx_tanggal_batal` (`tanggal_batal`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    }
+
+    /**
+     * Tabel metadata rekaman video packing + menu "Video Packing" untuk CS.
+     *
+     * Berkas videonya sendiri ada di C:/video-packing/ -- di luar document
+     * root, bisa diubah lewat kunci video_packing_dir di secrets.php (lihat
+     * Video_packing_fcd); tabel ini hanya menyimpan siapa, kapan, berapa lama,
+     * dan status rekamannya. Satu baris = satu sesi rekam (satu resi, satu
+     * kali packing; bagian 2+ lahir kalau tab packer mati di tengah).
+     */
+    protected function run_video_packing_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblvideopacking` (
+          `id_videopacking` int(11) NOT NULL AUTO_INCREMENT,
+          `noresi` varchar(100) NOT NULL,
+          `kode_sesi` varchar(40) NOT NULL,
+          `nama_file` varchar(255) NOT NULL,
+          `folder` varchar(20) NOT NULL,
+          `bagian` int(11) NOT NULL DEFAULT 1,
+          `mime_type` varchar(60) NOT NULL DEFAULT 'video/webm',
+          `durasi_detik` int(11) NOT NULL DEFAULT 0,
+          `ukuran_byte` bigint(20) NOT NULL DEFAULT 0,
+          `status` enum('MEREKAM','SELESAI','TERPUTUS','DIBATALKAN') NOT NULL DEFAULT 'MEREKAM',
+          `id_user` int(11) DEFAULT NULL,
+          `nama_komputer` varchar(50) DEFAULT NULL,
+          `mulai_at` datetime NOT NULL,
+          `selesai_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`id_videopacking`),
+          UNIQUE KEY `idx_kode_sesi` (`kode_sesi`),
+          KEY `idx_noresi` (`noresi`),
+          KEY `idx_mulai_at` (`mulai_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Menu "Video Packing" di grup TIM CS. Induknya diambil dari menu
+        // Manajemen Komplain supaya ikut pindah kalau grup CS pernah ditata
+        // ulang; 51 hanya cadangan. order_by id: bootstrap pernah jalan dua kali
+        // serentak dan membuat baris menu dobel, jadi baris terkecil yang dipegang.
+        $uri = 'cs/video-packing';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $menu_cs   = $this->db->get_where('menu', ['uri' => 'cs/complain-management'])->row();
+            $parent_id = $menu_cs ? $menu_cs->parentid : 51;
+
+            $this->db->insert('menu', [
+                'name'      => 'Video Packing',
+                'parentid'  => $parent_id,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-video-camera',
+                'sortorder' => 70,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        // Hak akses SENGAJA cuma webmaster (roleid 1) selama fitur webcam masih
+        // uji coba -- sama seperti menu Scan Resi Packer (Webcam). Kalau nanti
+        // dibuka untuk tim CS, tambahkan roleid-nya di sini dan naikkan
+        // BOOTSTRAP_VERSI; jangan menghapus baris roleaccess yang ada.
+        $akses_ada = $this->db->get_where('roleaccess', ['roleid' => 1, 'menuid' => $menu_id])->row();
+        if (!$akses_ada) {
+            $this->db->insert('roleaccess', [
+                'roleid'    => 1,
+                'menuid'    => $menu_id,
+                'created'   => date('Y-m-d H:i:s'),
+                'createdby' => 1
+            ]);
+        }
+    }
+}

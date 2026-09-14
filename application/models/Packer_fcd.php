@@ -4,35 +4,38 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Packer_fcd extends CI_Model
 {
 
-    function save($packer, $user)
+    /**
+     * Periksa apakah sebuah resi boleh dipacking.
+     *
+     * Dipisah dari save() supaya bisa dipanggil sejak scan PERTAMA di halaman
+     * webcam: resi yang sudah di-packing, pesanan selesai/batal, atau belum
+     * di-picker ditolak sebelum kamera mulai merekam. Kalau baru dicek waktu
+     * menyimpan, packer sudah telanjur merekam dan mem-packing barangnya, dan
+     * videonya tetap tersimpan walau resinya tidak pernah jadi disimpan.
+     *
+     * Tiga pemeriksaan (ada di tblprintresi, sudah di-picker, belum di-packing)
+     * dilakukan lewat satu query ber-LEFT JOIN, bukan tiga SELECT terpisah:
+     * urutan penolakannya tetap sama persis, tapi ongkosnya sepertiga. Itu
+     * penting karena DB ada di mesin lain (lihat secrets.php), jadi tiap query
+     * membayar perjalanan bolak-balik LAN.
+     *
+     * LEFT JOIN ke tblpacking bisa menggandakan baris kalau satu resi punya
+     * lebih dari satu baris packing. Tidak jadi soal: yang dipakai cuma "ada
+     * atau tidak", dan baris hasil LEFT JOIN hanya bernilai NULL kalau memang
+     * tidak ada pasangannya sama sekali.
+     *
+     * @return array ['error' => TRUE, ...] kalau tidak boleh, atau
+     *               ['receipt' => obj] kalau boleh. Baris yang sudah diambil
+     *               ikut dikembalikan supaya save() tidak perlu query ulang.
+     */
+    function periksa_kelayakan_packing($noresi)
     {
-        /**
-         * 1. check does noresi exist in tblprintresi and get status
-         * 2. throw if does not exist
-         * 3. check if status_pesanan is COMPLETED or CANCELED
-         * 4. throw if status is COMPLETED or CANCELED
-         * 5. check does id_resi exist in tblresiambilbarang
-         * 6. throw if does not exist
-         * 7. check does id_resi exist in tblpacking
-         * 8. throw if exists
-         * 9. save into tblpacking
-         *
-         * Ketiga pemeriksaan di atas dulu tiga SELECT terpisah. Sekarang satu
-         * query ber-LEFT JOIN: urutan penolakannya tetap sama persis, tapi
-         * ongkosnya sepertiga. Itu penting karena DB ada di mesin lain (lihat
-         * secrets.php), jadi tiap query membayar perjalanan bolak-balik LAN.
-         *
-         * LEFT JOIN ke tblpacking bisa menggandakan baris kalau satu resi
-         * punya lebih dari satu baris packing. Tidak jadi soal: yang dipakai
-         * cuma "ada atau tidak", dan baris hasil LEFT JOIN hanya bernilai NULL
-         * kalau memang tidak ada pasangannya sama sekali.
-         */
         $receipt = $this->db
             ->select('pr.id_printresi, pr.status_pesanan, pr.batal, rab.id_resiambilbarang, pk.id_packing')
             ->from('tblprintresi pr')
             ->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left')
             ->join('tblpacking pk', 'pk.id_resi = pr.id_printresi', 'left')
-            ->where('pr.noresi', $packer['noresi'])
+            ->where('pr.noresi', $noresi)
             ->limit(1)
             ->get()
             ->row();
@@ -49,9 +52,6 @@ class Packer_fcd extends CI_Model
             return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
         }
 
-        $packer['noresi_original'] = $packer['noresi'];
-        unset($packer['noresi']);
-
         // Check if this receipt has been picked
         if (empty($receipt->id_resiambilbarang)) {
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor Resi belum di-picker. Silakan Cek data', 'data' => ['EXCEPTION_CODE' => 'NOT_PICKED']];
@@ -61,6 +61,61 @@ class Packer_fcd extends CI_Model
         if (!empty($receipt->id_packing)) {
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah di-packing (Double Scan).', 'data' => ['EXCEPTION_CODE' => 'ALREADY_PACKED']];
         }
+
+        return ['receipt' => $receipt];
+    }
+
+    /**
+     * Siapa yang mem-packing resi ini dan kapan.
+     *
+     * Dipakai popup penolakan di halaman webcam supaya packer tidak cuma diberi
+     * tahu "sudah di-packing" lalu bingung harus lapor ke siapa.
+     */
+    function info_packing($noresi)
+    {
+        $this->db->select('u.name AS nama_pegawai, p.tanggal_packing');
+        $this->db->from('tblpacking p');
+        $this->db->join('tblprintresi pr', 'pr.id_printresi = p.id_resi');
+        $this->db->join('tbluser u', 'u.id_user = p.packer_pegawai', 'left');
+        $this->db->where('pr.noresi', $noresi);
+
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Catat satu pembatalan scan pertama (tombol Batal Scan di halaman webcam).
+     *
+     * Tanpa catatan ini pembatalan tidak meninggalkan jejak sama sekali, padahal
+     * urutan "scan - packing sampai selesai - Batal Scan - scan ulang" menghasilkan
+     * resi yang tersimpan normal dengan video beberapa detik yang tidak
+     * menunjukkan proses packing apa pun. durasi_detik-lah yang membuat pola itu
+     * kelihatan: pembatalan yang wajar terjadi cepat, yang mencurigakan terjadi
+     * setelah beberapa menit.
+     */
+    function catat_batal_scan($data)
+    {
+        $this->db->insert('tblbatalscanpacker', $data);
+
+        return $this->db->affected_rows();
+    }
+
+    function save($packer, $user)
+    {
+        /**
+         * 1. periksa kelayakan resi (lihat periksa_kelayakan_packing)
+         * 2. throw kalau tidak layak
+         * 3. save into tblpacking
+         */
+        $periksa = $this->periksa_kelayakan_packing($packer['noresi']);
+
+        if (isset($periksa['error'])) {
+            return $periksa;
+        }
+
+        $receipt = $periksa['receipt'];
+
+        $packer['noresi_original'] = $packer['noresi'];
+        unset($packer['noresi']);
 
         // Insert packing record
         // Priority: use nama_komputer from $user array (should be synced with database since login fix)

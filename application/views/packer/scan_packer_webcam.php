@@ -3,6 +3,11 @@
 // Scan Resi Packer versi biasa tetap dipakai sebagai cadangan kalau kamera
 // bermasalah, jadi kedua halaman harus bisa berubah sendiri-sendiri.
 // Duplikasi di sini disengaja -- jangan disatukan jadi satu view.
+//
+// Bedanya dengan versi biasa: setiap packing direkam videonya. Perekamnya ada
+// di assets/js/packer_video.js (dimuat global lewat main.php karena panel
+// kameranya harus selamat dari pergantian isi halaman SPA); view ini cuma
+// memberi tahu resi mana yang sedang direkam lewat PackerVideo.sinkron().
 ?>
 <?php if (!empty($akses_ditolak)) : ?>
   <div class="row">
@@ -20,7 +25,7 @@
   </div>
 <?php return; ?>
 <?php endif; ?>
-<div class="row">
+<div class="row" id="scan-packer-webcam-root">
   <div class="col-md-12">
     <div class="panel panel-default">
       <!-- title form -->
@@ -34,9 +39,47 @@
         </div>
       </div>
 
+      <?php if (!empty($scan_aktif)) : ?>
+        <!-- Bilah ini muncul selama ada resi yang menunggu scan kedua, termasuk
+             saat halaman dibuka lewat GET, supaya packer selalu tahu resi mana
+             yang sedang dipegang dan punya jalan keluar kalau barangnya
+             bermasalah. -->
+        <div class="panel-body" style="padding-bottom: 0;">
+          <div class="alert alert-warning" id="bar-scan-aktif" style="margin-bottom: 0;">
+            <button type="button" class="btn btn-danger btn-sm pull-right" id="btn-batal-scan">
+              <i class="fa fa-times"></i> <strong>Batal Scan</strong>
+            </button>
+            <i class="fa fa-clock-o"></i>
+            Menunggu scan kedua untuk resi
+            <strong id="teks-scan-aktif"><?= htmlspecialchars($scan_aktif, ENT_QUOTES, 'UTF-8') ?></strong>
+            <!-- Penanda rekam ikut di bilah ini, bukan cuma di panel kamera:
+                 panelnya duduk di pojok kanan bawah, bisa dilipat, dan tertutup
+                 setiap popup. Bilah ini selalu terlihat selama resi dipegang. -->
+            <span id="tanda-rekam" style="display: none;">
+              <span class="titik-rekam"></span>
+              <strong>MEREKAM</strong>
+              <span id="durasi-rekam">00:00</span>
+            </span>
+            <!-- Hitung mundur jeda packing tinggal di sini, bukan di dalam popup.
+                 Popupnya menutupi tabel SKU, dan justru daftar barang itulah yang
+                 perlu dibaca packer selama menunggu. -->
+            <span id="tunggu-packing" style="display: none;">
+              <i class="fa fa-hand-paper-o"></i>
+              Packing dulu &mdash; tunggu <strong id="tunggu-packing-detik">0</strong> detik
+            </span>
+            <div style="clear: both;"></div>
+          </div>
+        </div>
+      <?php endif; ?>
+
       <!-- search input by noresi -->
       <div class="panel-body">
-        <form action="packer/scan-packer-webcam" method="post" class="form-horizontal" autocomplete="off">
+        <form action="packer/scan-packer-webcam" method="post" class="form-horizontal" id="form-scan-packer" autocomplete="off">
+          <!-- Kesiapan kamera ikut dikirim tiap scan; server yang memutuskan
+               boleh tidaknya resi baru dibuka. Nilai awalnya sengaja yang paling
+               ketat, jadi kalau JS-nya gagal jalan sekalipun scan tetap ditolak
+               alih-alih diam-diam diterima tanpa rekaman. -->
+          <input type="hidden" name="kamera_status" id="kamera-status" value="tidak-didukung" />
           <div class="form-group">
             <div class="col-md-12">
               <div class="input-group">
@@ -63,11 +106,13 @@
           <div class="col-md-12" id="result-info">
               <div id="button-footer">
                   <div class="text-left" style="margin-top: 10px;">
+                      <!-- Tombol Reset dihapus: satu-satunya jalan keluar dari
+                           resi yang sedang dipegang sekarang Batal Scan, yang
+                           membuang rekamannya sekalian. Reset dulu menutup
+                           rekaman tanpa menyimpan resinya, jadi satu resi bisa
+                           berakhir punya lebih dari satu video. -->
                       <button id="submit-selected" class="btn btn-success mb-2" style="margin-bottom: 10px;">
                           <strong>Submit</strong>
-                      </button>
-                      <button id="btn-reset" class="btn btn-warning mb-2" style="margin-bottom: 10px;">
-                          <strong>Reset</strong>
                       </button>
                   </div>
               </div>
@@ -104,7 +149,7 @@
                              id="noresi-detail"
                              class="form-control text-center mx-auto"
                              readonly
-                             value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>"
+                             value="<?= $noresi ?>"
                              style="
                                 background-color: transparent;
                                 color: black;
@@ -183,7 +228,7 @@
                   <label class="col-md-3 col-xs-12 control-label">Action</label>
                   <div class="col-md-8 col-xs-12">
                     <select name="type_masalah" id="type_masalah" class="form-control selectpicker" data-live-search="true">
-                      <?php foreach ((isset($list_type_masalah) && is_array($list_type_masalah) ? $list_type_masalah : []) as $masalah) : ?>
+                      <?php foreach ($list_type_masalah as $masalah) : ?>
                         <option value="<?= $masalah['id_typemasalah'] ?>"><?= $masalah['type_masalah'] ?></option>
                       <?php endforeach; ?>
                     </select>
@@ -209,7 +254,7 @@
                 <div class="hidden form-group">
                   <label class="col-md-3 col-xs-12 control-label">Noresi</label>
                   <div class="col-md-8 col-xs-12">
-                    <input type="text" value="<?= isset($noresi) ? htmlspecialchars($noresi, ENT_QUOTES, 'UTF-8') : '' ?>" name="noresi" id="noresi" class="form-control" />
+                    <input type="text" value="<?= $noresi ?>" name="noresi" id="noresi" class="form-control" />
                   </div>
                 </div>
 
@@ -260,6 +305,73 @@
         </div>
       </div>
 
+      <!-- Kabar dari perekam: rekaman terputus, durasi hampir habis, atau batas
+           durasi tercapai. Semuanya ditahan sampai ditutup packer -- ini justru
+           kejadian yang selama ini paling tidak terlihat, karena cuma muncul
+           sebagai teks kecil di panel kamera yang mungkin sedang dilipat. -->
+      <div id="videoModal" class="custom-popup-overlay" style="display: none;">
+        <div class="custom-popup-box">
+          <div class="panel panel-default">
+            <div class="panel-heading" id="videoModalHeader" style="background-color: #d9534f; color: white;">
+              <h3 class="panel-title">
+                <i class="fa" id="videoModalIcon"></i> <strong id="videoModalTitle">Rekaman</strong>
+              </h3>
+            </div>
+            <div class="panel-body">
+              <p id="videoModalMessage" style="font-size: 17px; margin: 15px 0;"></p>
+              <button type="button" class="btn btn-default" id="videoModalTutup">Mengerti</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Konfirmasi Batal Scan. Tombolnya duduk tepat di atas kolom input yang
+           dipakai sepanjang hari, dan akibatnya tidak bisa dikembalikan:
+           rekamannya dihapus. -->
+      <div id="konfirmasiBatalModal" class="custom-popup-overlay" style="display: none;">
+        <div class="custom-popup-box">
+          <div class="panel panel-default">
+            <div class="panel-heading" style="background-color: #d9534f; color: white;">
+              <h3 class="panel-title">
+                <i class="fa fa-exclamation-triangle"></i> <strong>Batalkan Scan?</strong>
+              </h3>
+            </div>
+            <div class="panel-body">
+              <p style="font-size: 17px; margin: 15px 0;">
+                Scan pertama resi <strong id="konfirmasiBatalResi"></strong> akan dibatalkan
+                dan <strong>rekaman videonya dibuang</strong>. Tidak bisa dikembalikan.
+              </p>
+              <p style="font-size: 14px; color: #8a6d3b; margin-bottom: 20px;">
+                Pakai ini kalau barangnya kurang atau salah dan penyelesaiannya lama.
+                Kalau barangnya sudah beres, mulai lagi dari scan pertama.
+              </p>
+              <button type="button" class="btn btn-danger" id="konfirmasiBatalYa"><strong>Ya, Batalkan</strong></button>
+              <button type="button" class="btn btn-default" id="konfirmasiBatalTidak">Tidak Jadi</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup penolakan scan. Dipakai bersama oleh semua scan yang ditolak:
+           terlalu cepat, resi berbeda, resi yang sudah selesai, resi yang tidak
+           layak dipacking, kamera belum siap, dan status sesi yang tidak aktif. -->
+      <div id="tolakScanModal" class="custom-popup-overlay" style="display: none;">
+        <div class="custom-popup-box">
+          <div class="panel panel-default">
+            <div class="panel-heading" id="tolakScanHeader" style="background-color: #f0ad4e; color: white;">
+              <h3 class="panel-title">
+                <i class="fa" id="tolakScanIcon"></i> <strong id="tolakScanTitle">Perhatian</strong>
+              </h3>
+            </div>
+            <div class="panel-body">
+              <p id="tolakScanMessage" style="font-size: 18px; margin: 15px 0;"></p>
+              <p id="tolakScanCountdown" style="font-size: 15px; font-weight: bold; color: #8a6d3b;">&nbsp;</p>
+              <button type="button" class="btn btn-default" id="tolakScanTutup">Tutup</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Error Auto Popup Modal -->
       <div id="errorModal" class="custom-popup-overlay" style="display: none;">
         <div class="custom-popup-box error-popup">
@@ -291,7 +403,42 @@
   var qty;
   var scanFeedback = <?= json_encode(isset($scan_feedback) ? $scan_feedback : null) ?>;
 
+  // Resi yang layak direkam, sudah divalidasi di controller: hanya resi yang
+  // detailnya ketemu dan yang memang sedang menunggu scan kedua. Nilainya bisa
+  // terisi walau halaman dibuka lewat GET -- itulah yang membuat rekaman lanjut
+  // sendiri setelah tab packer sempat mati.
+  var videoNoresi = <?= json_encode(isset($video_noresi) ? $video_noresi : '') ?>;
+  // Resi yang siklus scan pertamanya baru saja ditutup server karena sudah
+  // terlalu lama menggantung. Diberitahukan juga saat halaman dibuka lewat GET,
+  // supaya packer tahu resi itu harus dimulai lagi dari scan pertama -- bukan
+  // ditutup dengan scan kedua atas rekaman yang sudah lama mati.
+  var resiKedaluwarsa = <?= json_encode(isset($resi_kedaluwarsa) ? $resi_kedaluwarsa : '') ?>;
+
+  var videoUploadUrl = <?= json_encode(base_url('packer/upload-video-packing')) ?>;
+  var videoBatalUrl  = <?= json_encode(base_url('packer/batalkan-video-packing')) ?>;
+  var batalScanUrl   = <?= json_encode(base_url('packer/batal-scan')) ?>;
+  var tutupBatasUrl  = <?= json_encode(base_url('packer/tutup-batas-rekam')) ?>;
+
   $().ready(function() {
+
+    // Timer jeda packing disimpan di window: isi halaman diganti total tiap
+    // scan, jadi timer dari render sebelumnya harus dimatikan -- kalau tidak, ia
+    // akan mengunci kolom resi milik scan berikutnya.
+    hentikanJedaPacking();
+
+    if (window.timerTutupPopupTolak) {
+      clearTimeout(window.timerTutupPopupTolak);
+      window.timerTutupPopupTolak = null;
+    }
+
+    // Penanda MEREKAM di bilah kuning, alasannya sama: dimatikan dulu supaya
+    // interval dari render sebelumnya tidak menumpuk.
+    if (window.timerTandaRekam) {
+      clearInterval(window.timerTandaRekam);
+      window.timerTandaRekam = null;
+    }
+    perbaruiTandaRekam();
+    window.timerTandaRekam = setInterval(perbaruiTandaRekam, 1000);
 
     // agar saat tampilkan halaman, kursor langsung muncul di form input noresi
     $(document).ready(function() {
@@ -559,11 +706,35 @@
       $.ajax({
         url: 'packer/save-packer-webcam', // endpoint sendiri, terpisah dari Scan Resi Packer biasa
         method: 'POST',
-        data: { 
+        dataType: 'json',
+        data: {
           noresi: noresi
         },
         success: function(response) {
-          // alert("Data berhasil disubmit!");
+          // make_ajax_response SELALU membalas HTTP 200 dan menaruh status
+          // sebenarnya di body, supaya jawaban JSON-nya tidak dirusak halaman
+          // error bawaan CodeIgniter. Jadi gagal-tidaknya harus dibaca dari
+          // response.code; cabang error jQuery di bawah cuma kena kalau
+          // jaringannya yang putus.
+          var kode = response && response.code ? response.code : 0;
+          var data = response && response.data ? response.data : null;
+          var ditolakJeda = !!(data && data.status === 'scan_terlalu_cepat');
+
+          // Di luar penolakan jeda, server sudah menutup siklusnya -- berhasil
+          // maupun gagal. Bilahnya ikut dilepas supaya packer tidak melihat resi
+          // yang sebenarnya sudah tidak ditunggu lagi masih tercatat "menunggu
+          // scan kedua".
+          if (!ditolakJeda) {
+            $('#bar-scan-aktif').slideUp();
+          }
+
+          if (kode >= 400) {
+            tampilkanGagalSimpan(response);
+            return;
+          }
+
+          if (window.PackerVideo) window.PackerVideo.selesai();
+
           $('#successModal').fadeIn();
 
           setTimeout(function() {
@@ -573,39 +744,145 @@
             resetScanView();
         },
         error: function(xhr, status, error) {
-          // Show error popup instead of alert
-          let errorText = 'Terjadi kesalahan saat memproses data!';
-
-          // Try to parse JSON response and extract message
-          try {
-            let response = JSON.parse(xhr.responseText);
-            if (response.message) {
-              errorText = response.message;
-            }
-          } catch (e) {
-            // If not JSON, use responseText directly or default message
-            errorText = xhr.responseText || errorText;
-          }
-
-          $('#errorMessage').text(errorText);
-          $('#errorModal').fadeIn();
-
-          setTimeout(function() {
-            $('#errorModal').fadeOut();
-          }, 1000);
+          tampilkanGagalSimpan(null);
         }
       });
     });
 
-    $('#btn-reset').on('click', function () {
-        resetScanView();
+    $('#tolakScanTutup').on('click', tutupPopupTolak);
+
+    // Kesiapan kamera dilaporkan pada saat scan, bukan pada saat halaman dimuat:
+    // kamera bisa saja baru selesai dibuka -- atau justru dicabut -- di antara
+    // keduanya. Handler ini menempel langsung di form, jadi jalan lebih dulu
+    // daripada handler SPA yang menunggu di body.
+    $('#form-scan-packer').on('submit', function (e) {
+      // Enter di kolom kosong dulu tetap dikirim: halaman dimuat ulang, layar
+      // berkedip, dan tidak ada pesan apa pun. Diabaikan saja di sini.
+      if ($('#noresi').val().trim() === '') {
+        e.preventDefault();
+        e.stopPropagation();
+        $('#noresi').val('').focus();
+        return false;
+      }
+
+      // Dicek sebagai fungsi, bukan cuma keberadaan PackerVideo-nya. Kalau
+      // browser masih memegang packer_video.js versi lama, memanggil metode yang
+      // belum ada akan melempar error di tengah handler ini -- dan scan tetap
+      // terkirim dengan nilai bawaan field, tanpa jejak apa pun selain penolakan
+      // yang membingungkan.
+      var siapKamera = (window.PackerVideo && typeof window.PackerVideo.statusKamera === 'function')
+        ? window.PackerVideo.statusKamera()
+        : 'tidak-didukung';
+
+      $('#kamera-status').val(siapKamera);
     });
 
+    $('#videoModalTutup').on('click', function () {
+      $('#videoModal').fadeOut();
+      $('#noresi').focus();
+    });
+
+    // Batal Scan: dipakai kalau barang kurang/salah dan penyelesaiannya lama.
+    // Karena akibatnya tidak bisa dikembalikan -- rekamannya dihapus -- tombolnya
+    // cuma membuka konfirmasi, bukan langsung menjalankan.
+    $('#btn-batal-scan').on('click', function () {
+      $('#konfirmasiBatalResi').text($('#teks-scan-aktif').text());
+      $('#konfirmasiBatalModal').fadeIn();
+    });
+
+    $('#konfirmasiBatalTidak').on('click', function () {
+      $('#konfirmasiBatalModal').fadeOut();
+      $('#noresi').focus();
+    });
+
+    // Status scan pertama dikosongkan di server DAN rekamannya dibuang, jadi
+    // resi itu benar-benar kembali seperti belum pernah discan.
+    $('#konfirmasiBatalYa').on('click', function () {
+      var $btn = $('#btn-batal-scan');
+      $btn.prop('disabled', true);
+      $('#konfirmasiBatalModal').fadeOut();
+
+      if (window.PackerVideo) {
+        window.PackerVideo.batalkan(videoBatalUrl);
+      }
+
+      $.ajax({
+        url: batalScanUrl,
+        method: 'POST',
+        dataType: 'json',
+        success: function (res) {
+          noty({
+            text: res && res.message ? res.message : 'Scan dibatalkan.',
+            layout: 'topRight',
+            type: 'information',
+            timeout: 2500
+          });
+
+          // Pembatalan sebelumnya tidak berbunyi sama sekali, padahal akibatnya
+          // paling berat di menu ini: rekamannya dibuang.
+          playAudio('audio-cancel');
+
+          // Resinya sudah dilepas, jadi jeda packing-nya ikut batal. Tanpa ini
+          // kolom resi tetap terkunci sampai hitungannya habis padahal tidak ada
+          // lagi yang ditunggu -- dan bilah kuningnya sendiri sudah hilang.
+          hentikanJedaPacking();
+          $('#noresi').prop('disabled', false);
+
+          $('#bar-scan-aktif').slideUp();
+          resetScanView();
+        },
+        error: function () {
+          $btn.prop('disabled', false);
+          noty({
+            text: 'Gagal membatalkan scan. Coba lagi.',
+            layout: 'topRight',
+            type: 'error',
+            timeout: 2500
+          });
+        }
+      });
+    });
+
+    if (resiKedaluwarsa) {
+      noty({
+        text: 'Scan pertama resi ' + resiKedaluwarsa + ' sudah kedaluwarsa dan ditutup otomatis. '
+            + 'Kalau resi itu masih perlu dipacking, mulai lagi dari scan pertama.',
+        layout: 'topRight',
+        type: 'warning',
+        timeout: 6000
+      });
+
+      playAudio('audio-cancel');
+    }
+
     triggerScanFeedback(scanFeedback);
+
+    // Rekaman menumpang aturan double-scan yang sudah ada: scan pertama membuka
+    // rekaman, scan kedua (yang sekaligus menyimpan resi) menutup lalu
+    // mengunggahnya.
+    if (window.PackerVideo) {
+      window.PackerVideo.sinkron({
+        noresi: videoNoresi,
+        status: scanFeedback ? scanFeedback.status : null,
+        uploadUrl: videoUploadUrl,
+        // Diisi ulang tiap render, jadi selalu menunjuk ke DOM halaman yang
+        // sekarang -- isi halaman diganti total setiap scan.
+        pemberitahu: tanganiKabarVideo
+      });
+    }
   })
 
   function triggerScanFeedback(feedback) {
     if (!feedback || !feedback.message) {
+      return;
+    }
+
+    // Scan kedua yang terlalu cepat ditampilkan sebagai popup, bukan noty:
+    // packer perlu benar-benar berhenti dan packing dulu, bukan sekadar melihat
+    // notifikasi kecil yang lewat di pojok.
+    if (STATUS_DITOLAK[feedback.status]) {
+      tampilkanPopupTolak(feedback);
+      playFeedbackAudio(feedback.status, feedback.exception_code || feedback.kode_alasan);
       return;
     }
 
@@ -617,11 +894,301 @@
       timeout: feedback.status === 'auto_save_success' ? 1500 : 2500
     });
 
-    playFeedbackAudio(feedback.status, feedback.exception_code);
+    playFeedbackAudio(feedback.status, feedback.exception_code || feedback.kode_alasan);
 
     if (feedback.status === 'auto_save_success') {
       resetScanView();
     }
+  }
+
+  // Semua penolakan scan tampil sebagai popup, bukan noty: packer perlu benar-
+  // benar berhenti dan membaca, bukan sekadar melihat notifikasi kecil lewat.
+  var STATUS_DITOLAK = {
+    scan_terlalu_cepat: { judul: 'Packing Dulu!',         ikon: 'fa-hand-paper-o', warna: '#f0ad4e' },
+    scan_beda_resi:     { judul: 'Resi Belum Selesai',    ikon: 'fa-exchange',     warna: '#f0ad4e' },
+    resi_sudah_selesai: { judul: 'Resi Sudah Di-packing', ikon: 'fa-ban',          warna: '#d9534f' },
+    resi_tidak_dikenal: { judul: 'Resi Tidak Ditemukan',  ikon: 'fa-question',     warna: '#d9534f' },
+    resi_tidak_layak:   { judul: 'Jangan Dipacking',      ikon: 'fa-ban',          warna: '#d9534f' },
+    kamera_belum_siap:  { judul: 'Kamera Belum Siap',     ikon: 'fa-video-camera', warna: '#d9534f' },
+    sesi_tidak_aktif:   { judul: 'Status Belum Aktif',    ikon: 'fa-user-times',   warna: '#d9534f' }
+  };
+
+  // Berapa lama popup penolakan menahan layar sebelum menyingkir sendiri.
+  // Cukup untuk dibaca, tidak sampai menghalangi packing -- sisa waktunya
+  // diteruskan bilah kuning yang tidak menutupi apa pun.
+  var DURASI_POPUP_TOLAK_MS = 3000;
+
+  function tutupPopupTolak() {
+    if (window.timerTutupPopupTolak) {
+      clearTimeout(window.timerTutupPopupTolak);
+      window.timerTutupPopupTolak = null;
+    }
+
+    $('#tolakScanModal').fadeOut();
+
+    // Kolom resi TIDAK dibuka di sini kalau jeda packing-nya masih berjalan:
+    // penguncinya milik hitung mundur, bukan milik popup. Menutup popup lebih
+    // awal boleh, menyingkat jedanya tidak.
+    if (!window.timerScanTerlaluCepat) {
+      $('#noresi').prop('disabled', false).val('').focus();
+    }
+  }
+
+  /**
+   * Jeda packing: kolom resi dikunci dan sisa waktunya tampil di bilah kuning.
+   * Berjalan terus walau popupnya sudah menyingkir.
+   */
+  function mulaiJedaPacking(sisa) {
+    hentikanJedaPacking();
+
+    $('#noresi').prop('disabled', true).blur();
+
+    var tick = function () {
+      // Packer sudah pindah halaman -- tidak ada lagi yang perlu dihitung.
+      if (!$('#noresi').length) {
+        hentikanJedaPacking();
+        return;
+      }
+
+      if (sisa <= 0) {
+        hentikanJedaPacking();
+        $('#noresi').prop('disabled', false).val('').focus();
+        return;
+      }
+
+      $('#tunggu-packing-detik').text(sisa);
+      $('#tunggu-packing').show();
+      sisa--;
+    };
+
+    tick();
+    window.timerScanTerlaluCepat = setInterval(tick, 1000);
+  }
+
+  function hentikanJedaPacking() {
+    if (window.timerScanTerlaluCepat) {
+      clearInterval(window.timerScanTerlaluCepat);
+      window.timerScanTerlaluCepat = null;
+    }
+    $('#tunggu-packing').hide();
+  }
+
+  /**
+   * Untuk penolakan karena terlalu cepat, popup menahan layar sampai jeda
+   * minimum terlewati lalu menutup sendiri. Penolakan lain menunggu ditutup
+   * packer, karena tidak ada hitungan waktu yang relevan.
+   *
+   * Rekaman video sengaja tidak disentuh di sini: kamera terus merekam sesi yang
+   * sama, jadi begitu packer selesai packing dan scan resi yang benar, videonya
+   * utuh dari scan pertama sampai scan kedua yang sah.
+   */
+  function tampilkanPopupTolak(feedback) {
+    var gaya = STATUS_DITOLAK[feedback.status] || { judul: 'Perhatian', ikon: 'fa-warning', warna: '#f0ad4e' };
+
+    $('#tolakScanTitle').text(gaya.judul);
+    $('#tolakScanIcon').attr('class', 'fa ' + gaya.ikon);
+    $('#tolakScanHeader').css('background-color', gaya.warna);
+    $('#tolakScanMessage').text(feedback.message);
+    $('#tolakScanModal').fadeIn();
+
+    hentikanJedaPacking();
+
+    var sisa = parseInt(feedback.sisa_detik, 10);
+    if (!(sisa > 0)) {
+      $('#tolakScanCountdown').html('&nbsp;');
+      return;
+    }
+
+    // Overlay tidak mencuri fokus, jadi scan berikutnya tetap masuk ke kolom
+    // resi dan mengulang popup yang sama. Kolomnya dikunci selama jeda packing,
+    // dan tetap terkunci walau popupnya sudah menyingkir.
+    $('#tolakScanCountdown').text('Kolom resi terkunci ' + sisa +
+      ' detik. Sisa waktunya lanjut di bilah kuning.');
+
+    mulaiJedaPacking(sisa);
+
+    window.timerTutupPopupTolak = setTimeout(function () {
+      $('#tolakScanModal').fadeOut();
+      window.timerTutupPopupTolak = null;
+    }, DURASI_POPUP_TOLAK_MS);
+  }
+
+  /**
+   * Kegagalan tombol Submit. Penolakan yang aturannya sama dengan jalur scan
+   * kedua -- sejauh ini cuma jeda minimum -- memakai popup yang sama persis,
+   * lengkap dengan hitung mundurnya, supaya satu aturan tidak tampil dalam dua
+   * rupa yang berbeda. Sisanya jatuh ke modal error biasa.
+   */
+  function tampilkanGagalSimpan(response) {
+    var data = response && response.data ? response.data : null;
+
+    if (data && data.status && STATUS_DITOLAK[data.status]) {
+      tampilkanPopupTolak({
+        status: data.status,
+        message: response.message,
+        sisa_detik: data.sisa_detik
+      });
+      playFeedbackAudio(data.status);
+      return;
+    }
+
+    $('#errorMessage').text(
+      (response && response.message) || 'Terjadi kesalahan saat memproses data!'
+    );
+    $('#errorModal').fadeIn();
+
+    setTimeout(function() {
+      $('#errorModal').fadeOut();
+    }, 1500);
+
+    playAudio('audio-fail');
+  }
+
+  /**
+   * Penanda "MEREKAM 03:12" di bilah kuning, disegarkan tiap detik.
+   *
+   * Sengaja membaca keadaan perekam apa adanya, bukan menebak dari status scan:
+   * kalau kameranya ternyata mati atau rekamannya sudah ditutup batas durasi,
+   * penandanya ikut hilang -- persis itu yang perlu diketahui packer.
+   */
+  function perbaruiTandaRekam() {
+    if (!document.getElementById('scan-packer-webcam-root')) {
+      clearInterval(window.timerTandaRekam);
+      window.timerTandaRekam = null;
+      return;
+    }
+
+    var $tanda = $('#tanda-rekam');
+    if (!$tanda.length) {
+      return;
+    }
+
+    if (!window.PackerVideo || !window.PackerVideo.aktif()) {
+      $tanda.hide();
+      return;
+    }
+
+    var detik = window.PackerVideo.durasi();
+    $('#durasi-rekam').text(formatDurasiDetik(detik === null ? 0 : detik));
+    $tanda.show();
+  }
+
+  function formatDurasiDetik(detik) {
+    var m = Math.floor(detik / 60);
+    var s = detik % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  /**
+   * Kabar dari perekam video. Tiga di antaranya menahan layar dengan popup,
+   * karena packer harus benar-benar tahu videonya tidak utuh; satu lagi -- video
+   * selesai diunggah -- cukup noty, supaya tidak memperlambat lini packing.
+   */
+  function tanganiKabarVideo(info) {
+    if (!info || !info.jenis) {
+      return;
+    }
+
+    if (info.jenis === 'tersimpan') {
+      // Baru di sini videonya benar-benar aman di server. Scan kedua sudah
+      // dijawab "tersimpan" beberapa detik sebelumnya, saat potongan penutupnya
+      // masih di jalan -- kalau unggahannya gagal, kabarnya datang lewat
+      // 'rusak' di bawah, bukan lewat diam.
+      noty({
+        text: 'Video resi ' + info.noresi + ' tersimpan (' + formatDurasiDetik(info.durasi) + ').',
+        layout: 'topRight',
+        type: 'success',
+        timeout: 2500
+      });
+      return;
+    }
+
+    // Tidak ada lagi peringatan "hampir habis": batas durasinya sekarang jauh di
+    // atas packing terpanjang yang wajar, jadi popup itu hanya akan mengganggu.
+    if (info.jenis === 'batas-habis') {
+      tutupKarenaBatasRekam(info);
+      return;
+    }
+
+    if (info.jenis === 'rusak') {
+      tampilkanPopupVideo({
+        judul: 'Video Terpotong',
+        ikon:  'fa-chain-broken',
+        warna: '#d9534f',
+        pesan: 'Rekaman resi ' + info.noresi + ' terputus di potongan ke-' + info.seq +
+               ' (' + info.alasan + '). Video tersimpan sebagian saja. ' +
+               'Laporkan ke IT: kemungkinan jaringan atau server bermasalah.'
+      });
+      playAudio('audio-fail');
+    }
+  }
+
+  /**
+   * Rekaman mentok batas durasi: resinya ikut ditutup, tidak dibiarkan
+   * menggantung.
+   *
+   * Kalau siklusnya dibiarkan terbuka, bilah kuning terus menunggu scan kedua
+   * padahal kamera sudah mati, dan scan berikutnya justru membuka siklus baru
+   * berikut rekaman bagian kedua. Menutupnya di sini membuat resi itu
+   * berperilaku seperti resi selesai lainnya: scan sesudahnya ditolak dengan
+   * popup "Resi Sudah Di-packing".
+   */
+  function tutupKarenaBatasRekam(info) {
+    playAudio('audio-error');
+
+    var lama = formatDurasiDetik(info.batas);
+
+    var tutupTampilan = function () {
+      $('#bar-scan-aktif').slideUp();
+      hentikanJedaPacking();
+      $('#noresi').prop('disabled', false);
+      resetScanView();
+    };
+
+    $.ajax({
+      url: tutupBatasUrl,
+      method: 'POST',
+      dataType: 'json',
+      data: { noresi: info.noresi },
+      success: function (res) {
+        var berhasil = res && res.code && res.code < 400;
+
+        tampilkanPopupVideo({
+          judul: berhasil ? 'Rekaman Berhenti, Resi Ditutup' : 'Rekaman Berhenti',
+          ikon:  'fa-stop-circle',
+          warna: '#d9534f',
+          // Pesan popup masuk lewat .text(), jadi HARUS teks biasa. Entitas HTML
+          // seperti &mdash; akan tampil apa adanya di layar packer.
+          pesan: berhasil
+            ? 'Rekaman resi ' + info.noresi + ' mencapai batas ' + lama + ' dan dihentikan. ' +
+              'Resi ini otomatis ditutup sebagai selesai di-packing, videonya tersimpan. ' +
+              'Kalau packing-nya sebenarnya belum selesai, segera laporkan ke atasan.'
+            : 'Rekaman resi ' + info.noresi + ' mencapai batas ' + lama + ' dan dihentikan, ' +
+              'tapi resinya gagal ditutup: ' + ((res && res.message) || 'sebab tidak diketahui') +
+              '. Laporkan ke atasan.'
+        });
+
+        tutupTampilan();
+      },
+      error: function () {
+        tampilkanPopupVideo({
+          judul: 'Rekaman Berhenti',
+          ikon:  'fa-stop-circle',
+          warna: '#d9534f',
+          pesan: 'Rekaman resi ' + info.noresi + ' mencapai batas ' + lama + ' dan dihentikan, ' +
+                 'tapi server tidak bisa dihubungi untuk menutup resinya. Periksa koneksi, ' +
+                 'lalu laporkan ke atasan.'
+        });
+      }
+    });
+  }
+
+  function tampilkanPopupVideo(gaya) {
+    $('#videoModalTitle').text(gaya.judul);
+    $('#videoModalIcon').attr('class', 'fa ' + gaya.ikon);
+    $('#videoModalHeader').css('background-color', gaya.warna);
+    $('#videoModalMessage').text(gaya.pesan);
+    $('#videoModal').fadeIn();
   }
 
   function mapFeedbackType(type) {
@@ -649,22 +1216,48 @@
     }
   }
 
-  function playFeedbackAudio(status, exceptionCode) {
+  // Scan pertama yang berhasil TIDAK boleh berbunyi seperti kesalahan. Kalau
+  // suara error terdengar di tiap awal packing, packer berhenti menganggapnya
+  // tanda bahaya -- dan penolakan yang sungguhan (resi sudah di-packing, resi
+  // tidak dikenal) ikut lewat begitu saja. audio-alexis adalah nada "scan
+  // diterima" yang sudah dipakai menu picker/receipt/retur, dan berkasnya beda
+  // dari audio-alert yang menandai simpanan akhir di menu ini.
+  function playFeedbackAudio(status, kodeAlasan) {
     var audioId = 'audio-error';
-    if (status === 'auto_save_success') {
+    if (status === 'need_second_scan') {
+      audioId = 'audio-alexis';
+    } else if (status === 'auto_save_success') {
       audioId = 'audio-alert';
     } else if (status === 'auto_save_failed') {
-      // Dulu semua kegagalan auto-save bunyinya audio-fail, padahal dua
-      // penyebab paling sering -- resi sudah di-packing dan pesanan sudah
-      // dibatalkan -- menuntut tindakan yang berbeda dari operator.
-      // exception_code-nya dikirim handle_double_scan_state() di Packer.php.
-      if (exceptionCode === 'ALREADY_PACKED') {
+      // Dua penyebab paling sering -- resi sudah di-packing dan pesanan sudah
+      // dibatalkan -- punya suara ucapan sendiri, karena tindakan operatornya
+      // berbeda. exception_code-nya dikirim handle_double_scan_state_webcam().
+      if (kodeAlasan === 'ALREADY_PACKED') {
         audioId = 'audio-sudah-packing';
-      } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+      } else if (kodeAlasan === 'ORDER_CANCELED' || kodeAlasan === 'ORDER_COMPLETED') {
         audioId = 'audio-cancel-order';
       } else {
         audioId = 'audio-fail';
       }
+    } else if (status === 'scan_terlalu_cepat') {
+      audioId = 'audio-double';
+    } else if (status === 'scan_beda_resi') {
+      audioId = 'audio-wrong';
+    } else if (status === 'resi_tidak_layak') {
+      // Nada "cancel" dipisahkan dari nada error biasa: resi batal, resi sudah
+      // selesai, dan resi belum di-picker bukan salah scan -- barangnya harus
+      // ditahan dan dilaporkan ke CS, bukan discan ulang. Pesanan batal/selesai
+      // memakai suara ucapan yang sama dengan jalur auto-save.
+      if (kodeAlasan === 'ORDER_CANCELED' || kodeAlasan === 'ORDER_COMPLETED') {
+        audioId = 'audio-cancel-order';
+      } else {
+        audioId = 'audio-cancelcoi';
+      }
+    } else if (status === 'resi_sudah_selesai') {
+      audioId = 'audio-sudah-packing';
+    } else if (status === 'resi_tidak_dikenal'
+               || status === 'kamera_belum_siap' || status === 'sesi_tidak_aktif') {
+      audioId = 'audio-error';
     }
 
     playAudio(audioId);
@@ -699,6 +1292,67 @@
     border-radius: 8px;
     width: 50%;
     text-align: center;
+  }
+
+  /* Penanda MEREKAM di bilah kuning. Kedipannya sengaja pelan (1,2 detik) --
+     cukup menarik mata tanpa jadi gangguan sepanjang packing. */
+  #tanda-rekam {
+    margin-left: 14px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #d9534f;
+    color: #d9534f;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  #tanda-rekam .titik-rekam {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: #d9534f;
+    vertical-align: middle;
+    animation: kedip-rekam 1.2s ease-in-out infinite;
+  }
+
+  #durasi-rekam {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Chip padat, bukan garis tipis: ini satu-satunya penanda yang tersisa begitu
+     popupnya menyingkir, jadi harus terbaca dari jarak kerja packer. */
+  #tunggu-packing {
+    margin-left: 14px;
+    padding: 3px 12px;
+    border-radius: 12px;
+    background: #f0ad4e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  #tunggu-packing-detik {
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+    min-width: 1.4em;
+    text-align: right;
+  }
+
+  /* Kolom resi yang sedang terkunci harus terlihat terkunci, bukan seperti
+     halaman yang macet. */
+  #noresi:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+  }
+
+  @keyframes kedip-rekam {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .15; }
   }
 
   .custom-popup-buttons {
