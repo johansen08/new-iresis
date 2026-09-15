@@ -23,10 +23,10 @@
     }
 
     // --- Setelan yang paling mungkin perlu disesuaikan di lapangan ----------
-    var LEBAR_IDEAL      = 640;
-    var TINGGI_IDEAL     = 480;
+    var LEBAR_IDEAL      = 1280;   // 720p: label resi/SKU terbaca dari jarak meja packing
+    var TINGGI_IDEAL     = 720;
     var FPS_IDEAL        = 15;
-    var BITRATE_VIDEO    = 400000;  // ~3 MB per menit rekaman
+    var BITRATE_VIDEO    = 1200000; // ~9 MB per menit rekaman (~540 MB/jam per PC)
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
@@ -40,7 +40,7 @@
     var MAKS_DURASI_DTK  = 5400;    // 90 menit
     var MAKS_PERCOBAAN   = 4;       // percobaan kirim ulang per potongan
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
-    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~7 MB)
+    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~18 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
     // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
