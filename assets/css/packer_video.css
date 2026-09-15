@@ -73,6 +73,16 @@
     word-break: break-all;
 }
 
+/* Resolusi aktual dari kamera; diisi packer_video.js::tampilkanResolusi() */
+#packer-video-panel .pvp-resolusi {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #888;
+}
+#packer-video-panel .pvp-resolusi:empty {
+    display: none;
+}
+
 #packer-video-panel .pvp-kamera {
     margin-top: 6px;
     width: 100%;
