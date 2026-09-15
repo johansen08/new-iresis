@@ -87,6 +87,8 @@
         }
       },
       'initComplete': function() {
+        pasangPencarianTertunda(this.api(), '#datatable-receipt-process-tab2');
+
         // Update grand total
         var json = this.api().ajax.json();
         if (json && json.grandTotal !== undefined) {
