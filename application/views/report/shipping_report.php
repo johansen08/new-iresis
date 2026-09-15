@@ -7,6 +7,7 @@
   --sr-teal:   #00897b;
   --sr-amber:  #f57c00;
   --sr-purple: #7b1fa2;
+  --sr-indigo: #3949ab;
   --sr-red:    #c62828;
   --sr-green:  #2e7d32;
   --sr-gray:   #546e7a;
@@ -129,6 +130,7 @@
 }
 .sr-card.total-all   { border-color: var(--sr-blue);   } .sr-card.total-all::after   { background: var(--sr-blue);   }
 .sr-card.total-spec  { border-color: var(--sr-purple);  } .sr-card.total-spec::after  { background: var(--sr-purple); }
+.sr-card.total-reg   { border-color: var(--sr-indigo); } .sr-card.total-reg::after   { background: var(--sr-indigo); }
 .sr-card.total-1sku  { border-color: var(--sr-teal);   } .sr-card.total-1sku::after  { background: var(--sr-teal);  }
 .sr-card.total-29sku { border-color: var(--sr-amber);  } .sr-card.total-29sku::after { background: var(--sr-amber); }
 .sr-card.total-banyak{ border-color: var(--sr-red);    } .sr-card.total-banyak::after{ background: var(--sr-red);   }
@@ -228,6 +230,7 @@
 }
 .pill-blue   { background: #e3f2fd; color: #1565c0; }
 .pill-purple { background: #f3e5f5; color: #7b1fa2; }
+.pill-indigo { background: #e8eaf6; color: #283593; }
 .pill-teal   { background: #e0f2f1; color: #004d40; }
 .pill-amber  { background: #fff8e1; color: #e65100; }
 .pill-red    { background: #ffebee; color: #b71c1c; }
@@ -286,7 +289,10 @@
     <?php
       $cat = !empty($cat_totals) ? $cat_totals : [];
       $gt  = !empty($grand_total) ? $grand_total : 0;
-      $t_special = isset($cat['total_special'])   ? (int)$cat['total_special']   : 0;
+      // Resi 1 SKU 1 Qty dipisah menurut jalur spesial: Spesial kalau di-pick
+      // 1_SKU_PICKER atau di-packing 1_SKU_PACKER, selain itu Reguler.
+      $t_spesial = isset($cat['total_1sku1qty_spesial']) ? (int)$cat['total_1sku1qty_spesial'] : 0;
+      $t_reguler = isset($cat['total_1sku1qty_reguler']) ? (int)$cat['total_1sku1qty_reguler'] : 0;
       $t_1sku    = isset($cat['total_1sku'])       ? (int)$cat['total_1sku']       : 0;
       $t_29sku   = isset($cat['total_2_9sku'])     ? (int)$cat['total_2_9sku']     : 0;
       $t_banyak  = isset($cat['total_qty_banyak']) ? (int)$cat['total_qty_banyak'] : 0;
@@ -301,16 +307,23 @@
         <div class="sr-card-sub">Seluruh paket dikirim</div>
         <span class="sr-card-icon"><i class="fa fa-boxes"></i></span>
       </div>
-      <!-- Resi Special -->
+      <!-- 1 SKU 1 Qty Spesial (jalur 1_SKU picker/packer) -->
       <div class="sr-card total-spec">
-        <div class="sr-card-label">Resi Special</div>
-        <div class="sr-card-val"><?= number_format($t_special) ?></div>
-        <div class="sr-card-sub"><?= $pct($t_special,$gt) ?>% dari total</div>
+        <div class="sr-card-label">1 SKU 1 Qty Spesial</div>
+        <div class="sr-card-val"><?= number_format($t_spesial) ?></div>
+        <div class="sr-card-sub"><?= $pct($t_spesial,$gt) ?>% &middot; jalur 1_SKU</div>
         <span class="sr-card-icon"><i class="fa fa-star"></i></span>
+      </div>
+      <!-- 1 SKU 1 Qty Reguler (picker selain 1_SKU_PICKER) -->
+      <div class="sr-card total-reg">
+        <div class="sr-card-label">1 SKU 1 Qty Reguler</div>
+        <div class="sr-card-val"><?= number_format($t_reguler) ?></div>
+        <div class="sr-card-sub"><?= $pct($t_reguler,$gt) ?>% &middot; jalur biasa</div>
+        <span class="sr-card-icon"><i class="fa fa-cube"></i></span>
       </div>
       <!-- 1 SKU -->
       <div class="sr-card total-1sku">
-        <div class="sr-card-label">1 SKU &amp; Qty ≤9</div>
+        <div class="sr-card-label">1 SKU &amp; Qty 2-9</div>
         <div class="sr-card-val"><?= number_format($t_1sku) ?></div>
         <div class="sr-card-sub"><?= $pct($t_1sku,$gt) ?>% dari total</div>
         <span class="sr-card-icon"><i class="fa fa-cube"></i></span>
@@ -346,8 +359,9 @@
               <th style="width:40px">#</th>
               <th>Kurir</th>
               <th class="text-center">Total Paket</th>
-              <th class="text-center"><span class="pill pill-purple">Resi Special</span></th>
-              <th class="text-center"><span class="pill pill-teal">1 SKU &amp; Qty ≤9</span></th>
+              <th class="text-center"><span class="pill pill-purple">1 SKU 1 Qty Spesial</span></th>
+              <th class="text-center"><span class="pill pill-indigo">1 SKU 1 Qty Reguler</span></th>
+              <th class="text-center"><span class="pill pill-teal">1 SKU &amp; Qty 2-9</span></th>
               <th class="text-center"><span class="pill pill-amber">2-9 SKU &amp; Qty ≤9</span></th>
               <th class="text-center"><span class="pill pill-red">Qty Banyak (&gt;9)</span></th>
             </tr>
@@ -355,7 +369,10 @@
           <tbody>
             <?php $i = 1; foreach ($detail_data as $d):
               $tot = (int)$d['total'];
-              $p_spec  = $pct((int)$d['total_special'],   $tot);
+              $n_spes  = isset($d['total_1sku1qty_spesial']) ? (int)$d['total_1sku1qty_spesial'] : 0;
+              $n_reg   = isset($d['total_1sku1qty_reguler']) ? (int)$d['total_1sku1qty_reguler'] : 0;
+              $p_spes  = $pct($n_spes, $tot);
+              $p_reg   = $pct($n_reg,  $tot);
               $p_1sku  = $pct((int)$d['total_1sku'],      $tot);
               $p_29sku = $pct((int)$d['total_2_9sku'],    $tot);
               $p_banyak= $pct((int)$d['total_qty_banyak'],$tot);
@@ -372,11 +389,18 @@
                 <span style="font-size:1.15rem;font-weight:800;color:#263238"><?= number_format($tot) ?></span>
               </td>
               <td class="text-center">
-                <div><span class="pill pill-purple"><?= number_format($d['total_special']) ?></span></div>
+                <div><span class="pill pill-purple"><?= number_format($n_spes) ?></span></div>
                 <div class="sr-bar-wrap" style="width:70px;margin:4px auto 0">
-                  <div class="sr-bar" style="width:<?= $p_spec ?>%;background:#7b1fa2"></div>
+                  <div class="sr-bar" style="width:<?= $p_spes ?>%;background:#7b1fa2"></div>
                 </div>
-                <div style="font-size:.7rem;color:#90a4ae;margin-top:2px"><?= $p_spec ?>%</div>
+                <div style="font-size:.7rem;color:#90a4ae;margin-top:2px"><?= $p_spes ?>%</div>
+              </td>
+              <td class="text-center">
+                <div><span class="pill pill-indigo"><?= number_format($n_reg) ?></span></div>
+                <div class="sr-bar-wrap" style="width:70px;margin:4px auto 0">
+                  <div class="sr-bar" style="width:<?= $p_reg ?>%;background:#3949ab"></div>
+                </div>
+                <div style="font-size:.7rem;color:#90a4ae;margin-top:2px"><?= $p_reg ?>%</div>
               </td>
               <td class="text-center">
                 <div><span class="pill pill-teal"><?= number_format($d['total_1sku']) ?></span></div>
@@ -406,7 +430,8 @@
             <tr>
               <td colspan="2" style="text-align:right"><i class="fa fa-sigma"></i> TOTAL</td>
               <td class="text-center" style="font-size:1.1rem"><?= number_format($gt) ?></td>
-              <td class="text-center"><?= number_format($t_special) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_special,$gt) ?>%</small></td>
+              <td class="text-center"><?= number_format($t_spesial) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_spesial,$gt) ?>%</small></td>
+              <td class="text-center"><?= number_format($t_reguler) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_reguler,$gt) ?>%</small></td>
               <td class="text-center"><?= number_format($t_1sku) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_1sku,$gt) ?>%</small></td>
               <td class="text-center"><?= number_format($t_29sku) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_29sku,$gt) ?>%</small></td>
               <td class="text-center"><?= number_format($t_banyak) ?><br><small style="color:#90a4ae;font-weight:400"><?= $pct($t_banyak,$gt) ?>%</small></td>

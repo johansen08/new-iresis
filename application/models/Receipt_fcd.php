@@ -2530,6 +2530,18 @@ class Receipt_fcd extends CI_Model
 
     /**
      * Get enhanced shipping report with SKU-category breakdown per courier
+     *
+     * Resi 1 SKU 1 Qty dipecah menurut jalur spesial saat diproses:
+     *  - total_1sku1qty_spesial : di-pick dengan status 1_SKU_PICKER
+     *                             (tblresiambilbarang) ATAU di-packing dengan
+     *                             status 1_SKU_PACKER (tblpacking)
+     *  - total_1sku1qty_reguler : sisanya (status lain, kosong, belum ada data)
+     * Dua sisi dipakai karena mode picker kadang jatuh ke NORMAL_PICKER di
+     * tengah hari (13 Sep 2026: 404 resi jalur 1 SKU tercatat NORMAL_PICKER)
+     * padahal packer-nya tetap 1_SKU_PACKER -- salah satu sisi cukup.
+     * Resi jalur spesial yang isinya bukan 1 SKU 1 Qty tetap masuk kategori
+     * qty/SKU-nya sendiri, jadi jumlah semua kategori tetap = total.
+     * Dihitung COUNT(DISTINCT) karena tblpacking.id_resi tidak unik.
      */
     function get_shipping_report_detail($start_date, $end_date)
     {
@@ -2537,13 +2549,23 @@ class Receipt_fcd extends CI_Model
             SELECT
                 COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
                 COUNT(DISTINCT rk.id_resi) AS total,
-                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1 THEN 1 ELSE 0 END) AS total_special,
-                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN 1 ELSE 0 END) AS total_1sku,
-                SUM(CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN 1 ELSE 0 END) AS total_2_9sku,
-                SUM(CASE WHEN agg.total_qty > 9 THEN 1 ELSE 0 END) AS total_qty_banyak
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
+                                     AND (spp.kode_status = '1_SKU_PICKER' OR spk.kode_status = '1_SKU_PACKER')
+                                    THEN rk.id_resi END) AS total_1sku1qty_spesial,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
+                                     AND COALESCE(spp.kode_status, '') <> '1_SKU_PICKER'
+                                     AND COALESCE(spk.kode_status, '') <> '1_SKU_PACKER'
+                                    THEN rk.id_resi END) AS total_1sku1qty_reguler,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN rk.id_resi END) AS total_1sku,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN rk.id_resi END) AS total_2_9sku,
+                COUNT(DISTINCT CASE WHEN agg.total_qty > 9 THEN rk.id_resi END) AS total_qty_banyak
             FROM tblresikeluar rk
             INNER JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
             LEFT JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblmasterstatusperforma spp ON spp.id_statusperforma = rab.status_performa_id
+            LEFT JOIN tblpacking p ON p.id_resi = pr.id_printresi
+            LEFT JOIN tblmasterstatusperforma spk ON spk.id_statusperforma = p.status_performa_id
             LEFT JOIN (
                 SELECT dr.id_resi,
                        COUNT(DISTINCT dr.sku) AS unique_skus,
@@ -2561,18 +2583,30 @@ class Receipt_fcd extends CI_Model
 
     /**
      * Get overall category totals for the shipping report summary cards
+     *
+     * Pemecahan 1 SKU 1 Qty Spesial/Reguler sama dengan get_shipping_report_detail().
      */
     function get_shipping_report_category_totals($start_date, $end_date)
     {
         $sql = "
             SELECT
                 COUNT(DISTINCT rk.id_resi) AS grand_total,
-                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1 THEN 1 ELSE 0 END) AS total_special,
-                SUM(CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN 1 ELSE 0 END) AS total_1sku,
-                SUM(CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN 1 ELSE 0 END) AS total_2_9sku,
-                SUM(CASE WHEN agg.total_qty > 9 THEN 1 ELSE 0 END) AS total_qty_banyak
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
+                                     AND (spp.kode_status = '1_SKU_PICKER' OR spk.kode_status = '1_SKU_PACKER')
+                                    THEN rk.id_resi END) AS total_1sku1qty_spesial,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
+                                     AND COALESCE(spp.kode_status, '') <> '1_SKU_PICKER'
+                                     AND COALESCE(spk.kode_status, '') <> '1_SKU_PACKER'
+                                    THEN rk.id_resi END) AS total_1sku1qty_reguler,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN rk.id_resi END) AS total_1sku,
+                COUNT(DISTINCT CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN rk.id_resi END) AS total_2_9sku,
+                COUNT(DISTINCT CASE WHEN agg.total_qty > 9 THEN rk.id_resi END) AS total_qty_banyak
             FROM tblresikeluar rk
             INNER JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+            LEFT JOIN tblresiambilbarang rab ON rab.id_resi = pr.id_printresi
+            LEFT JOIN tblmasterstatusperforma spp ON spp.id_statusperforma = rab.status_performa_id
+            LEFT JOIN tblpacking p ON p.id_resi = pr.id_printresi
+            LEFT JOIN tblmasterstatusperforma spk ON spk.id_statusperforma = p.status_performa_id
             LEFT JOIN (
                 SELECT dr.id_resi,
                        COUNT(DISTINCT dr.sku) AS unique_skus,

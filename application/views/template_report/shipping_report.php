@@ -14,6 +14,7 @@
   
   /* Column headers with specific brand colors */
   .h-spec  { background-color: #8e44ad; color: #ffffff; font-weight: bold; text-align: center; }
+  .h-reg   { background-color: #3949ab; color: #ffffff; font-weight: bold; text-align: center; }
   .h-1sku  { background-color: #16a085; color: #ffffff; font-weight: bold; text-align: center; }
   .h-29sk  { background-color: #d35400; color: #ffffff; font-weight: bold; text-align: center; }
   .h-banyak { background-color: #c0392b; color: #ffffff; font-weight: bold; text-align: center; }
@@ -21,6 +22,7 @@
 
   /* Cells with soft color backgrounds matching headers */
   .cell-spec   { background-color: #f5eef8; text-align: center; }
+  .cell-reg    { background-color: #e8eaf6; text-align: center; }
   .cell-1sku   { background-color: #e8f8f5; text-align: center; }
   .cell-29sku  { background-color: #fdf2e9; text-align: center; }
   .cell-banyak { background-color: #fdedd8; text-align: center; }
@@ -37,6 +39,7 @@
   /* Footers */
   .foot-row { background-color: #eaeded; font-weight: bold; }
   .foot-spec { background-color: #ebdef0; font-weight: bold; text-align: center; }
+  .foot-reg  { background-color: #c5cae9; font-weight: bold; text-align: center; }
   .foot-1sku { background-color: #d1f2eb; font-weight: bold; text-align: center; }
   .foot-29sk { background-color: #fadbd8; font-weight: bold; text-align: center; }
   .foot-ban  { background-color: #fcdcd3; font-weight: bold; text-align: center; }
@@ -45,7 +48,10 @@
 <?php
   $cat    = !empty($cat_totals) ? $cat_totals : [];
   $gt     = !empty($grand_total) ? (int)$grand_total : 0;
-  $t_spec = isset($cat['total_special'])   ? (int)$cat['total_special']   : 0;
+  // Resi 1 SKU 1 Qty dipisah menurut jalur spesial: Spesial kalau di-pick
+  // 1_SKU_PICKER atau di-packing 1_SKU_PACKER, selain itu Reguler.
+  $t_spes = isset($cat['total_1sku1qty_spesial']) ? (int)$cat['total_1sku1qty_spesial'] : 0;
+  $t_reg  = isset($cat['total_1sku1qty_reguler']) ? (int)$cat['total_1sku1qty_reguler'] : 0;
   $t_1sku = isset($cat['total_1sku'])      ? (int)$cat['total_1sku']      : 0;
   $t_29   = isset($cat['total_2_9sku'])    ? (int)$cat['total_2_9sku']    : 0;
   $t_ban  = isset($cat['total_qty_banyak'])? (int)$cat['total_qty_banyak']: 0;
@@ -100,12 +106,17 @@
       <td class="tc bold" style="background-color: #fcfcfc;">100%</td>
     </tr>
     <tr>
-      <td class="bold" style="color: #8e44ad; background-color: #f5eef8;">â˜… Resi Special (1 SKU, 1 Qty Special)</td>
-      <td class="tc cell-spec bold"><?= number_format($t_spec) ?></td>
-      <td class="tc cell-spec pct"><?= $pct($t_spec, $gt) ?></td>
+      <td class="bold" style="color: #8e44ad; background-color: #f5eef8;">&#9733; 1 SKU 1 Qty Spesial (jalur 1_SKU picker/packer)</td>
+      <td class="tc cell-spec bold"><?= number_format($t_spes) ?></td>
+      <td class="tc cell-spec pct"><?= $pct($t_spes, $gt) ?></td>
     </tr>
     <tr>
-      <td style="color: #16a085; background-color: #e8f8f5;">1 SKU &amp; Qty &le; 9</td>
+      <td class="bold" style="color: #3949ab; background-color: #e8eaf6;">1 SKU 1 Qty Reguler (jalur biasa)</td>
+      <td class="tc cell-reg bold"><?= number_format($t_reg) ?></td>
+      <td class="tc cell-reg pct"><?= $pct($t_reg, $gt) ?></td>
+    </tr>
+    <tr>
+      <td style="color: #16a085; background-color: #e8f8f5;">1 SKU &amp; Qty 2-9</td>
       <td class="tc cell-1sku"><?= number_format($t_1sku) ?></td>
       <td class="tc cell-1sku pct"><?= $pct($t_1sku, $gt) ?></td>
     </tr>
@@ -135,17 +146,19 @@
     <col width="130">
     <col width="130">
     <col width="130">
+    <col width="130">
   </colgroup>
   <thead>
     <tr>
-      <th colspan="7" class="h-main">RINCIAN KINERJA PENGIRIMAN PER KURIR</th>
+      <th colspan="8" class="h-main">RINCIAN KINERJA PENGIRIMAN PER KURIR</th>
     </tr>
     <tr>
       <th class="h-sub">#</th>
       <th class="h-sub">Kurir</th>
       <th class="h-total">Total Paket</th>
-      <th class="h-spec">Resi Special</th>
-      <th class="h-1sku">1 SKU &amp; Qty &le; 9</th>
+      <th class="h-spec">1 SKU 1 Qty Spesial</th>
+      <th class="h-reg">1 SKU 1 Qty Reguler</th>
+      <th class="h-1sku">1 SKU &amp; Qty 2-9</th>
       <th class="h-29sk">2-9 SKU &amp; Qty &le; 9</th>
       <th class="h-banyak">Qty Banyak (&gt; 9)</th>
     </tr>
@@ -153,7 +166,8 @@
   <tbody>
     <?php $i = 1; foreach($detail_data as $d):
       $tot   = (int)$d['total'];
-      $spec  = (int)$d['total_special'];
+      $spes  = isset($d['total_1sku1qty_spesial']) ? (int)$d['total_1sku1qty_spesial'] : 0;
+      $reg   = isset($d['total_1sku1qty_reguler']) ? (int)$d['total_1sku1qty_reguler'] : 0;
       $s1sku = (int)$d['total_1sku'];
       $s29   = (int)$d['total_2_9sku'];
       $sban  = (int)$d['total_qty_banyak'];
@@ -163,7 +177,8 @@
       <td class="tc pct"><?= $i++ ?></td>
       <td class="cell-kurir"><?= htmlspecialchars($d['nama_kurir']) ?></td>
       <td class="cell-total"><?= number_format($tot) ?></td>
-      <td class="cell-spec"><?= number_format($spec) ?> <span class="pct">(<?= $pct($spec, $tot) ?>)</span></td>
+      <td class="cell-spec"><?= number_format($spes) ?> <span class="pct">(<?= $pct($spes, $tot) ?>)</span></td>
+      <td class="cell-reg"><?= number_format($reg) ?> <span class="pct">(<?= $pct($reg, $tot) ?>)</span></td>
       <td class="cell-1sku"><?= number_format($s1sku) ?> <span class="pct">(<?= $pct($s1sku, $tot) ?>)</span></td>
       <td class="cell-29sku"><?= number_format($s29) ?> <span class="pct">(<?= $pct($s29, $tot) ?>)</span></td>
       <td class="cell-banyak"><?= number_format($sban) ?> <span class="pct">(<?= $pct($sban, $tot) ?>)</span></td>
@@ -172,7 +187,8 @@
     <tr class="foot-row">
       <td colspan="2" class="tr bold">TOTAL HARI INI</td>
       <td class="tc bold"><?= number_format($gt) ?></td>
-      <td class="foot-spec"><?= number_format($t_spec) ?> <span class="pct">(<?= $pct($t_spec, $gt) ?>)</span></td>
+      <td class="foot-spec"><?= number_format($t_spes) ?> <span class="pct">(<?= $pct($t_spes, $gt) ?>)</span></td>
+      <td class="foot-reg"><?= number_format($t_reg) ?> <span class="pct">(<?= $pct($t_reg, $gt) ?>)</span></td>
       <td class="foot-1sku"><?= number_format($t_1sku) ?> <span class="pct">(<?= $pct($t_1sku, $gt) ?>)</span></td>
       <td class="foot-29sk"><?= number_format($t_29) ?> <span class="pct">(<?= $pct($t_29, $gt) ?>)</span></td>
       <td class="foot-ban"><?= number_format($t_ban) ?> <span class="pct">(<?= $pct($t_ban, $gt) ?>)</span></td>
