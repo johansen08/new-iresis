@@ -164,8 +164,8 @@ Isi rilis:
 
 | Commit | Perubahan |
 |---|---|
-| `c6bb95c`, `a0e52e6` | Rekaman webcam packer 1920×1080 @ 15 fps, 2,5 Mbps (~1,1 GB/jam per PC) |
-| `010878c` | Panel kamera menampilkan resolusi aktual webcam (oranye kalau di bawah 1080p) |
+| `c6bb95c`, `a0e52e6` | Rekaman webcam packer sempat 1920×1080 @ 2,5 Mbps; **diturunkan lagi** ke 1280×720 @ 15 fps, 1,2 Mbps (~540 MB/jam per PC) oleh branch `fix/video-packing-720p` |
+| `010878c` | Panel kamera menampilkan resolusi aktual webcam (oranye kalau di bawah 720p) |
 | `c585bf1` | Finalisasi WebM dengan ffmpeg (durasi/seek) + tombol "Siapkan MP4" di menu Video Packing |
 
 Tanpa langkah di bawah, aplikasi tetap jalan: rekaman tetap tersimpan dan
@@ -264,15 +264,17 @@ Get-Content logs\cron_finalisasi_video.log -Tail 3
 
 ### B.6 Cek kapasitas disk `C:\video-packing\`
 
-Ukuran rekaman naik ~6× dibanding setelan lama (≈ 1,1 GB per jam per PC
-packer). Dengan ~30 PC × 6 jam/hari ≈ **200 GB/hari**. Pastikan drive-nya
+Dengan setelan 720p @ 1,2 Mbps, rekaman ≈ 540 MB per jam per PC packer.
+Dengan ~30 PC × 6 jam/hari ≈ **100 GB/hari** (separuh setelan 1080p
+sebelumnya). Rekaman yang sudah terlanjur dibuat dengan 1080p tetap
+berukuran lama. Pastikan drive-nya
 cukup dan sepakati kebijakan retensi (berapa hari rekaman disimpan) —
 belum ada penghapusan otomatis di aplikasi.
 
 Perhatikan: di PC produksi `C:\video-packing\` berada di drive **C:** yang
 sama dengan data MariaDB (`iresis_prod`) dan XAMPP. Kalau drive itu penuh,
 yang berhenti bukan cuma rekaman — database dan aplikasi ikut macet. Per
-15 September 2026 sisa ruang C: ±375 GB, artinya kurang dari dua hari kerja
+15 September 2026 sisa ruang C: ±375 GB, artinya kurang dari empat hari kerja
 pada perkiraan penuh di atas. Pantau:
 
 ```powershell
@@ -282,8 +284,8 @@ Get-PSDrive C | Select-Object @{n='Terpakai_GB';e={[math]::Round($_.Used/1GB)}},
 ### B.7 Verifikasi di sisi pengguna
 
 - **Packer**: buka Scan Resi Packer (Webcam) → di panel kamera muncul baris
-  `Resolusi: 1920×1080 @ 15 fps`. Kalau oranye ("di bawah 1920×1080"),
-  webcam PC itu tidak sanggup 1080p — catat PC-nya.
+  `Resolusi: 1280×720 @ 15 fps`. Kalau oranye ("di bawah 1280×720"),
+  webcam PC itu tidak sanggup 720p — catat PC-nya.
 - **CS**: Video Packing → cari resi yang sudah selesai → durasi tampil dan
   slider bisa dilompat; tombol **Siapkan MP4** → dalam 1–3 menit berubah
   jadi **Unduh MP4**.
