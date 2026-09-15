@@ -24,16 +24,29 @@ shift pagi atau setelah `cron_laporan_sore` selesai.
 
 ### A.2 Backup database dulu
 
-Beberapa rilis menjalankan migrasi tabel otomatis saat login pertama
-(lihat `BOOTSTRAP_VERSI` di `application/core/MY_Controller.php`).
-Migrasi tidak bisa di-undo dengan `git`, jadi backup dulu:
+Beberapa rilis menjalankan migrasi tabel otomatis pada request pertama dari
+pengguna yang sedang login (lihat `BOOTSTRAP_VERSI` di
+`application/core/MY_Controller.php`). Migrasi tidak bisa di-undo dengan
+`git`, jadi backup dulu.
+
+> **Database live bernama `iresis_prod` (garis bawah).** Di MariaDB PC
+> produksi masih ada `iresis-prod` (tanda hubung): salinan lama per
+> 2 September 2026 yang tidak dipakai aplikasi. Jangan backup atau cek
+> kolom di sana. Kalau ragu, lihat kunci `db_database` di
+> `application/config/secrets.php`.
 
 ```powershell
+New-Item -ItemType Directory -Force C:\backup-db | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
-cmd /c "`"C:\xampp\mysql\bin\mysqldump.exe`" -u root --routines --triggers --single-transaction iresis-prod > C:\backup-db\iresis-prod-$stamp.sql"
+cmd /c "`"C:\xampp\mysql\bin\mysqldump.exe`" -u root --routines --triggers --single-transaction iresis_prod > C:\backup-db\iresis_prod-$stamp.sql"
+Get-Item C:\backup-db\iresis_prod-$stamp.sql | Select-Object Name, Length
+Get-Content C:\backup-db\iresis_prod-$stamp.sql -Tail 1
 ```
 
-Pastikan folder `C:\backup-db\` ada, dan cek ukuran file hasilnya bukan 0 KB.
+Ukurannya harus jauh di atas 0 (per September 2026 sekitar 2,3 GB) dan baris
+terakhirnya `-- Dump completed on ...`. Dump penuh selesai sekitar 1,5 menit
+dan tidak mengunci tabel (semua tabel InnoDB, `--single-transaction`), jadi
+tetap aman dijalankan saat packer sedang bekerja.
 
 ### A.3 Pastikan working tree bersih
 
@@ -98,10 +111,13 @@ ke versi sebelumnya (lihat A.9) dan laporkan.
 
 ### A.7 Picu migrasi + buang cache menu
 
-Migrasi dan pembaruan menu berjalan **sekali** saat request pertama setelah
-login oleh pengguna mana pun. Jadi setelah pull: **logout, lalu login lagi**
-dengan akun webmaster, buka satu menu apa saja. Tandanya berhasil: berkas
-`application/cache/bootstrap_migrasi.txt` berisi versi baru:
+Migrasi dan pembaruan menu berjalan **sekali**, pada request pertama dari
+pengguna mana pun yang sedang login. Di jam kerja itu terjadi dalam hitungan
+detik setelah pull karena packer terus mengirim scan (rilis 15 September 2026
+termigrasi pada detik yang sama dengan pull). Di luar jam kerja, picu sendiri:
+**logout, lalu login lagi** dengan akun webmaster, buka satu menu apa saja.
+Tandanya berhasil: berkas `application/cache/bootstrap_migrasi.txt` berisi
+versi baru:
 
 ```powershell
 Get-Content application\cache\bootstrap_migrasi.txt
@@ -112,15 +128,20 @@ logout/login (cache menu di session dikunci per versi bootstrap).
 
 ### A.8 Verifikasi cepat
 
-1. Buka `http://localhost:8080/new-iresis/` — halaman login tampil tanpa
-   teks `PHP Error`/`Warning` di atasnya.
+1. Buka `http://localhost/new-iresis/` — halaman login tampil tanpa
+   teks `PHP Error`/`Warning` di atasnya. Apache di PC produksi mendengarkan
+   port **80** (dan 443 untuk https), bukan 8080.
 2. Login, buka 2–3 menu yang disentuh rilis (lihat `git log`). Halaman yang
    tampil sebagai **teks JSON mentah** berarti ada output nyasar di PHP —
    lihat `CLAUDE.md` bagian "SPA semu".
-3. Cek log error PHP hari ini:
+3. Cek log error PHP hari ini. Dua jenis baris sudah biasa dan boleh
+   diabaikan: `Undefined array key "WARNING"` dari `system/core/Log.php`
+   (bawaan CI3 di PHP 8) dan `[cron_finalisasi_video] OK` yang ditulis cron
+   tiap menit (Bagian B). Saring keduanya:
 
 ```powershell
-Get-Content application\logs\log-$(Get-Date -Format yyyy-MM-dd).php -Tail 40
+Get-Content application\logs\log-$(Get-Date -Format yyyy-MM-dd).php -Tail 400 |
+    Select-String -NotMatch 'Undefined array key "WARNING"|\[cron_finalisasi_video\] OK'
 ```
 
 ### A.9 Kembali ke versi sebelumnya (kalau ada masalah)
@@ -153,23 +174,34 @@ menampilkan "mengantre" tanpa pernah selesai.
 
 ### B.1 Pasang ffmpeg
 
-Pilih salah satu:
+Taruh ffmpeg di path tetap `C:\ffmpeg\bin\`. Jangan pakai `winget install`:
+paket portable itu dipasang di `AppData` milik satu user dengan nama folder
+berversi, jadi path di `secrets.php` bisa putus setelah `winget upgrade`.
+Pakai `winget download` (hash unduhan tetap diverifikasi winget), lalu
+ekstrak. Tidak butuh Administrator:
 
 ```powershell
-winget install Gyan.FFmpeg
+$dl = "$env:TEMP\ffmpeg-dl"
+winget download --id Gyan.FFmpeg --exact --source winget --download-directory $dl
+$zip = Get-ChildItem $dl -Filter *.zip | Select-Object -First 1
+New-Item -ItemType Directory -Force "$dl\x" | Out-Null
+tar -xf $zip.FullName -C "$dl\x"
+$isi = Get-ChildItem "$dl\x" -Directory | Select-Object -First 1
+Move-Item $isi.FullName C:\ffmpeg
 ```
 
-atau unduh build "release full" dari https://www.gyan.dev/ffmpeg/builds/,
-ekstrak ke `C:\ffmpeg\` sehingga ada `C:\ffmpeg\bin\ffmpeg.exe` dan
-`C:\ffmpeg\bin\ffprobe.exe`.
+Tanpa winget: unduh `ffmpeg-<versi>-full_build.zip` dari
+https://github.com/GyanD/codexffmpeg/releases (sumber yang sama dengan paket
+winget) dan ekstrak dengan cara yang sama. Hasil akhirnya harus
+`C:\ffmpeg\bin\ffmpeg.exe` dan `C:\ffmpeg\bin\ffprobe.exe` di folder yang
+sama — library mencari ffprobe di sebelah ffmpeg.
 
 Cek:
 
 ```powershell
 & C:\ffmpeg\bin\ffmpeg.exe -version
+Test-Path C:\ffmpeg\bin\ffprobe.exe
 ```
-
-(Kalau lewat winget, cari lokasinya dengan `(Get-Command ffmpeg).Source`.)
 
 ### B.2 Tambah `ffmpeg_path` di `secrets.php`
 
@@ -187,7 +219,7 @@ Contoh lengkapnya ada di `application/config/secrets.php.example`.
 Setelah logout/login (A.7), cek:
 
 ```powershell
-& C:\xampp\mysql\bin\mysql.exe -u root iresis-prod -e "SHOW COLUMNS FROM tblvideopacking LIKE 'mp4_status';"
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "SHOW COLUMNS FROM tblvideopacking LIKE 'mp4_status';"
 ```
 
 Harus menampilkan satu baris `mp4_status`. Kalau kosong, versi bootstrap
@@ -203,20 +235,32 @@ Keluaran yang benar berbentuk
 `[cron_finalisasi_video] OK: {"remux_ok":N,...}`. Kalau muncul
 `ffmpeg tidak bisa dijalankan`, periksa B.1–B.2. Jalankan beberapa kali
 sampai `remux_ok` menjadi 0 — itu artinya semua rekaman lama sudah
-difinalisasi (maks. 20 rekaman per jalan).
+difinalisasi (maks. 20 rekaman per jalan). Kalau belum pernah ada rekaman
+(tabel `tblvideopacking` kosong), `remux_ok` langsung 0 pada jalan pertama;
+itu normal — yang diuji di sini hanya bahwa ffmpeg bisa dijalankan.
 
 ### B.5 Daftarkan task terjadwal (tiap 1 menit)
 
-Jalankan PowerShell **sebagai Administrator**:
+Buka PowerShell **sebagai Administrator** (klik kanan → *Run as
+administrator*), lalu:
 
 ```powershell
-.\setup_task_finalisasi_video.ps1
+cd C:\xampp\htdocs\new-iresis
+powershell -ExecutionPolicy Bypass -File .\setup_task_finalisasi_video.ps1
 ```
 
 Skrip itu membuat task `IRESIS - Finalisasi Video` yang memanggil
-`cron_finalisasi_video.bat` tiap menit. Cek di Task Scheduler bahwa task
-ada dan "Last Run Result" = `0x0` setelah satu-dua menit. Log-nya di
-`logs\cron_finalisasi_video.log`.
+`cron_finalisasi_video.bat` tiap menit sebagai akun **SYSTEM**: tidak ada
+jendela cmd yang berkedip di layar PC produksi, dan task tetap jalan walau
+belum ada user yang login (misalnya setelah restart Windows Update). Skrip
+aman dijalankan ulang — task lama ditimpa.
+
+Cek setelah satu-dua menit — `LastTaskResult` harus `0` dan log bertambah:
+
+```powershell
+Get-ScheduledTaskInfo -TaskName "IRESIS - Finalisasi Video" | Select-Object LastRunTime, LastTaskResult, NextRunTime
+Get-Content logs\cron_finalisasi_video.log -Tail 3
+```
 
 ### B.6 Cek kapasitas disk `C:\video-packing\`
 
@@ -224,6 +268,16 @@ Ukuran rekaman naik ~6× dibanding setelan lama (≈ 1,1 GB per jam per PC
 packer). Dengan ~30 PC × 6 jam/hari ≈ **200 GB/hari**. Pastikan drive-nya
 cukup dan sepakati kebijakan retensi (berapa hari rekaman disimpan) —
 belum ada penghapusan otomatis di aplikasi.
+
+Perhatikan: di PC produksi `C:\video-packing\` berada di drive **C:** yang
+sama dengan data MariaDB (`iresis_prod`) dan XAMPP. Kalau drive itu penuh,
+yang berhenti bukan cuma rekaman — database dan aplikasi ikut macet. Per
+15 September 2026 sisa ruang C: ±375 GB, artinya kurang dari dua hari kerja
+pada perkiraan penuh di atas. Pantau:
+
+```powershell
+Get-PSDrive C | Select-Object @{n='Terpakai_GB';e={[math]::Round($_.Used/1GB)}}, @{n='Sisa_GB';e={[math]::Round($_.Free/1GB)}}
+```
 
 ### B.7 Verifikasi di sisi pengguna
 
