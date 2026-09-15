@@ -569,6 +569,18 @@ class Packer extends MY_Controller
         $status_performa_code = $this->input->post('status_performa');
         $save = $this->process_packer_save($noresi, $status_performa_code);
 
+        // Jalur darurat: packer yang kameranya bermasalah boleh menyelesaikan
+        // resi di menu biasa. Kalau resi ini sedang terbuka di siklus webcam
+        // (scan pertama sudah masuk di sana), siklusnya ditutup di sini supaya
+        // menu webcam tidak menganggapnya masih menunggu scan kedua -- dan
+        // tidak menghidupkan lagi rekaman untuk resi yang sudah selesai saat
+        // menu webcam dibuka kembali. Rekamannya sendiri sudah ditutup browser
+        // begitu halaman webcam ditinggalkan (lihat pantauHalaman() di
+        // packer_video.js), jadi yang perlu dibereskan di sini hanya state-nya.
+        if (!isset($save['error']) || ($save['data']['EXCEPTION_CODE'] ?? '') === 'ALREADY_PACKED') {
+            $this->tutup_siklus_scan(trim((string) $noresi));
+        }
+
 		// EXCEPTION_CODE ikut dikirim supaya suara gagalnya bisa dibedakan di
 		// layar packer (sudah packing / pesanan cancel / lainnya). Dulu hanya
 		// jalur auto-save di scan_packer() yang meneruskannya, sementara endpoint
@@ -1196,12 +1208,15 @@ class Packer extends MY_Controller
         }
 
         if ($kamera_status === 'tidak-didukung') {
-            return 'Browser di komputer ini tidak bisa merekam video. Packing tidak boleh '
-                . 'dimulai tanpa rekaman -- laporkan ke IT.';
+            return 'Browser di komputer ini tidak bisa merekam video. Packing di menu ini tidak '
+                . 'boleh dimulai tanpa rekaman -- lanjutkan di menu Scan Resi Packer biasa '
+                . '(tautannya ada di panel kamera) dan laporkan ke IT.';
         }
 
         return 'Kamera belum siap, jadi packing belum boleh dimulai. Periksa panel kamera di '
-            . 'pojok kanan bawah: izinkan akses kamera, atau laporkan ke IT kalau kameranya rusak.';
+            . 'pojok kanan bawah: izinkan akses kamera, atau -- kalau kameranya rusak -- '
+            . 'lanjutkan di menu Scan Resi Packer biasa (tautannya ada di panel kamera) '
+            . 'dan laporkan ke IT.';
     }
 
     /**
