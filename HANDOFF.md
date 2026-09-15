@@ -79,4 +79,5 @@ Semua endpoint butuh `?token=<CRON_TOKEN>` (nilai sama dengan token WA gateway) 
 - [`docs/WORKFLOW_DIAGRAM.md`](docs/WORKFLOW_DIAGRAM.md) — diagram alur bisnis.
 - [`docs/DEVELOPMENT_STANDARDS.md`](docs/DEVELOPMENT_STANDARDS.md) — coding standard.
 - [`docs/AUTO_UPLOAD_RESI.md`](docs/AUTO_UPLOAD_RESI.md), [`docs/AUTO_UPLOAD_RETUR_JUBELIO.md`](docs/AUTO_UPLOAD_RETUR_JUBELIO.md) — setup automasi Jubelio.
+- [`docs/PANDUAN_PULL_PRODUKSI.md`](docs/PANDUAN_PULL_PRODUKSI.md) — prosedur `git pull` di PC produksi (backup, migrasi, verifikasi, rollback) + langkah tambahan per rilis.
 - `README.md` di root saat ini **kosong** — pertimbangkan mengisinya dengan ringkasan dari file ini.
