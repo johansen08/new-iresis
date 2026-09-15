@@ -233,10 +233,34 @@ class Receipt_fcd extends CI_Model
         return $this->db->get_where('tblprintresi');
     }
 
+    /*
+     * Laporan > Resi Dalam Proses (Report::get_receipt_in_process_data_tab0..2).
+     *
+     * Hint USE INDEX FOR ORDER BY () pada tblprintresi di query data ketiga tab
+     * JANGAN dibuang. Tanpa hint, ORDER BY + LIMIT membuat MariaDB 10.4 memilih
+     * menyisir indeks kolom urutan (idx_printresi_btk untuk Batas Kirim, urutan
+     * default tabel) dari awal sambil berharap cepat menemukan 10 baris yang
+     * masuk rentang tanggal. Kenyataannya ia membaca hampir seluruh ~2,5 juta
+     * baris tblprintresi. Diukur 2026-09-15 (iresis_prod lokal):
+     *
+     *     tab 0, rentang hari ini   21,3 dtk -> 0,03 dtk
+     *     tab 0, rentang bulan ini  22,1 dtk -> 0,7 dtk
+     *     tab 1, rentang bulan ini  19,8 dtk -> 1,6 dtk
+     *     tab 2, rentang bulan ini  24,6 dtk -> 0,9 dtk (ditambah NOT EXISTS)
+     *
+     * Dengan hint, indeks tanggal tetap dipakai untuk menyaring; hanya
+     * pengurutan yang dikerjakan filesort atas hasil yang sudah tersaring.
+     * Query Builder membiarkan nama tabel yang mengandung tanda kurung apa
+     * adanya (DB_driver::protect_identifiers), jadi hint aman ditulis di
+     * get()/join().
+     */
     function get_data_receipt_process_tab0($data, $start_date, $end_date)
     {
         if (!empty($data) && $data['order'] != null) {
             $this->db->order_by($data['order'], $data['dir'], FALSE);
+            // Pemecah seri: banyak resi berbatas kirim sama (atau NULL). Tanpa ini
+            // urutan antarhalaman tidak pasti, baris bisa dobel atau terlewat.
+            $this->db->order_by('t.id_printresi', 'ASC');
         }
 
         if (!empty($data['search'])) {
@@ -281,7 +305,8 @@ class Receipt_fcd extends CI_Model
             $this->db->limit($data['length'], $data['start']);
         }
 
-        return $this->db->get('tblprintresi t');
+        // USE INDEX FOR ORDER BY (): lihat catatan di atas fungsi ini.
+        return $this->db->get('tblprintresi t USE INDEX FOR ORDER BY ()');
     }
 
     function get_total_data_receipt_process_tab0($data, $start_date, $end_date)
@@ -323,6 +348,7 @@ class Receipt_fcd extends CI_Model
     {
         if (!empty($data) && $data['order'] != null) {
             $this->db->order_by($data['order'], $data['dir'], FALSE);
+            $this->db->order_by('t2.id_printresi', 'ASC'); // pemecah seri, lihat tab0
         }
 
         if (!empty($data['search'])) {
@@ -358,7 +384,8 @@ class Receipt_fcd extends CI_Model
         ');
 
         $this->db->distinct();
-        $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi', 'left');
+        // USE INDEX FOR ORDER BY (): lihat catatan di atas get_data_receipt_process_tab0().
+        $this->db->join('tblprintresi t2 USE INDEX FOR ORDER BY ()', 't2.id_printresi = t.id_resi', 'left');
         $this->db->join('tblmarketplace t3', 't3.id_marketplace = t2.id_marketplace', 'left');
         $this->db->join('tblkurir t4', 't4.id_kurir = t2.id_kurir', 'left');
         $this->db->join('tblpegawai t5', 't5.kode_pegawai = t.yangambil_pegawai', 'left');
@@ -416,6 +443,7 @@ class Receipt_fcd extends CI_Model
     {
         if (!empty($data) && $data['order'] != null) {
             $this->db->order_by($data['order'], $data['dir'], FALSE);
+            $this->db->order_by('t2.id_printresi', 'ASC'); // pemecah seri, lihat tab0
         }
 
         if (!empty($data['search'])) {
@@ -452,17 +480,22 @@ class Receipt_fcd extends CI_Model
         ');
 
         $this->db->distinct();
-        $this->db->join('tblprintresi t2', 't2.id_printresi = t.id_resi', 'left');
+        // USE INDEX FOR ORDER BY (): lihat catatan di atas get_data_receipt_process_tab0().
+        $this->db->join('tblprintresi t2 USE INDEX FOR ORDER BY ()', 't2.id_printresi = t.id_resi', 'left');
         $this->db->join('tblresiambilbarang t3', 't3.id_resi = t2.id_printresi', 'left');
         $this->db->join('tblmarketplace t4', 't4.id_marketplace = t2.id_marketplace', 'left');
         $this->db->join('tblkurir t5', 't5.id_kurir = t2.id_kurir', 'left');
         $this->db->join('tblpegawai t6', 't6.kode_pegawai = t3.yangambil_pegawai', 'left');
         $this->db->join('tbluser t7', 't7.id_user = t.packer_pegawai', 'left');
-        $this->db->join('tblresikeluar t8', 't8.id_resi = t2.id_printresi', 'left');
 
         $this->db->where('t2.tanggal_printresi >=', $start_date);
         $this->db->where('t2.tanggal_printresi <=', $end_date);
-        $this->db->where('t8.id_resikeluar is null');
+        // NOT EXISTS, bukan LEFT JOIN tblresikeluar ... IS NULL. Sebagai anti-join,
+        // MariaDB 10.4 menaruh cek ini paling akhir, sesudah lookup ke
+        // tblresiambilbarang dan tblpacking (masing-masing ~2,5 juta baris) untuk
+        // setiap resi di rentang tanggal. Sebagai subquery ia langsung membuang resi
+        // yang sudah keluar begitu baris tblprintresi terbaca: 2,8 -> 1,1 dtk.
+        $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -499,11 +532,11 @@ class Receipt_fcd extends CI_Model
         $this->db->join('tblkurir t5', 't5.id_kurir = t2.id_kurir', 'left');
         $this->db->join('tblpegawai t6', 't6.kode_pegawai = t3.yangambil_pegawai', 'left');
         $this->db->join('tbluser t7', 't7.id_user = t.packer_pegawai', 'left');
-        $this->db->join('tblresikeluar t8', 't8.id_resi = t2.id_printresi', 'left');
 
         $this->db->where('t2.tanggal_printresi >=', $start_date);
         $this->db->where('t2.tanggal_printresi <=', $end_date);
-        $this->db->where('t8.id_resikeluar is null');
+        // Lihat catatan NOT EXISTS di get_data_receipt_process_tab2(): 2,1 -> 1,0 dtk.
+        $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
 
         $query = $this->db->select("COUNT(DISTINCT t2.noresi) AS num")->get("tblpacking t");
         $result = $query->row();
