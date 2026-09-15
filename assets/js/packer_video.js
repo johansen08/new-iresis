@@ -47,6 +47,10 @@
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
     // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
     var URI_MENU_WEBCAM  = 'packer/scan_packer_webcam';
+    // URI menu Scan Resi Packer biasa (tanpa video): jalur darurat kalau kamera
+    // di PC ini bermasalah. Tautannya hanya ditawarkan kalau menu itu memang
+    // ada di sidebar pengguna, jadi hak akses per role tetap berlaku.
+    var URI_MENU_BIASA   = 'packer/scan_packer';
     var JEDA_ALIH_HTTPS_MS = 2500; // beri waktu membaca pesan sebelum dialihkan
     // -----------------------------------------------------------------------
 
@@ -263,6 +267,42 @@
         if (panel) panel.style.display = tampil ? '' : 'none';
     }
 
+    // ------------------------------------------------------- jalur darurat
+
+    function tautanSidebarMenuBiasa() {
+        var semua = document.querySelectorAll('a.link');
+        for (var i = 0; i < semua.length; i++) {
+            if (semua[i].getAttribute('href') === URI_MENU_BIASA) return semua[i];
+        }
+        return null;
+    }
+
+    /**
+     * Potongan HTML "lanjutkan di menu biasa", atau '' kalau pengguna ini tidak
+     * punya menu itu. Dipasang di pesan kamera gagal/tidak didukung supaya
+     * packer tidak berhenti bekerja hanya karena kamera PC-nya bermasalah --
+     * packing lewat menu biasa tersimpan ke tabel yang sama, cuma tanpa video.
+     */
+    function htmlJalurDarurat() {
+        if (!tautanSidebarMenuBiasa()) return '';
+
+        return '<br><a href="#" class="pvp-menu-biasa" style="font-weight:700">' +
+            '&raquo; Lanjutkan packing di menu Scan Resi Packer (tanpa video)</a>';
+    }
+
+    function pasangKlikJalurDarurat() {
+        var tautan = el.info ? el.info.querySelector('.pvp-menu-biasa') : null;
+        if (!tautan) return;
+
+        tautan.addEventListener('click', function (e) {
+            e.preventDefault();
+            var sidebar = tautanSidebarMenuBiasa();
+            // Klik tautan sidebar aslinya supaya jalur navigasi SPA (plugins.js)
+            // dan breadcrumb-nya sama persis dengan klik manual.
+            if (sidebar) sidebar.click();
+        });
+    }
+
     // --------------------------------------------------------------- kamera
 
     function isiDaftarKamera() {
@@ -324,7 +364,9 @@
                 statusKamera = 'gagal';
                 setStatus('Kamera gagal: ' + (err.name || err.message), '#d9534f');
                 setInfo('<span style="color:#d9534f">Scan resi baru DITOLAK sampai kamera hidup. ' +
-                    'Izinkan akses kamera di browser, lalu buka ulang menu ini.</span>');
+                    'Izinkan akses kamera di browser, lalu buka ulang menu ini.</span>' +
+                    htmlJalurDarurat());
+                pasangKlikJalurDarurat();
                 throw err;
             });
     }
@@ -675,10 +717,12 @@
                     return;
                 }
 
-                setInfo(window.isSecureContext
+                setInfo((window.isSecureContext
                     ? 'Browser ini tidak mendukung perekaman kamera.'
                     : 'Perekaman butuh HTTPS. Buka aplikasi lewat https://' +
-                      window.location.host + ' atau localhost.');
+                      window.location.host + ' atau localhost.') +
+                    htmlJalurDarurat());
+                pasangKlikJalurDarurat();
                 return;
             }
 
