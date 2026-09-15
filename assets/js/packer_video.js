@@ -23,12 +23,14 @@
     }
 
     // --- Setelan yang paling mungkin perlu disesuaikan di lapangan ----------
-    // Diminta 1080p: browser memberi mode terdekat yang disanggupi webcam, jadi
-    // webcam 720p tetap jalan (di panel tampil peringatan resolusi di bawah).
-    var LEBAR_IDEAL      = 1920;
-    var TINGGI_IDEAL     = 1080;
+    // Diminta 720p untuk menekan beban penyimpanan: label resi/SKU masih terbaca
+    // dari jarak meja packing. Webcam 1080p akan memberi mode 720p-nya sendiri.
+    // Ukuran berkas ditentukan BITRATE_VIDEO, bukan resolusi -- kalau resolusi
+    // diubah, bitrate harus ikut disesuaikan.
+    var LEBAR_IDEAL      = 1280;
+    var TINGGI_IDEAL     = 720;
     var FPS_IDEAL        = 15;
-    var BITRATE_VIDEO    = 2500000; // ~19 MB per menit rekaman (~1,1 GB/jam per PC)
+    var BITRATE_VIDEO    = 1200000; // ~9 MB per menit rekaman (~540 MB/jam per PC)
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
@@ -42,7 +44,7 @@
     var MAKS_DURASI_DTK  = 5400;    // 90 menit
     var MAKS_PERCOBAAN   = 4;       // percobaan kirim ulang per potongan
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
-    var MAKS_ANTRIAN     = 30;      // potongan menunggu (~1 menit video, ~19 MB)
+    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~18 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
     // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
