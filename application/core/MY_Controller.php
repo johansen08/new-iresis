@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-14.1';
+    const BOOTSTRAP_VERSI = '2026-09-15.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1186,6 +1186,28 @@ class MY_Controller extends CI_Controller
                 'created'   => date('Y-m-d H:i:s'),
                 'createdby' => 1
             ]);
+        }
+
+        // Kolom finalisasi (remux WebM oleh ffmpeg agar punya durasi/cues) dan
+        // konversi MP4 atas permintaan CS. Keduanya dikerjakan Cron::finalisasi_video,
+        // bukan di request upload, jadi statusnya harus tersimpan di tabel.
+        // Baris lama otomatis BELUM -> ikut di-remux bertahap oleh cron.
+        if (!$this->db->field_exists('finalisasi', 'tblvideopacking')) {
+            $this->db->query("ALTER TABLE `tblvideopacking`
+                ADD COLUMN `finalisasi` ENUM('BELUM','PROSES','SELESAI','GAGAL') NOT NULL DEFAULT 'BELUM' AFTER `selesai_at`,
+                ADD COLUMN `finalisasi_percobaan` TINYINT(3) UNSIGNED NOT NULL DEFAULT 0 AFTER `finalisasi`,
+                ADD COLUMN `finalisasi_at` DATETIME DEFAULT NULL AFTER `finalisasi_percobaan`,
+                ADD COLUMN `finalisasi_pesan` VARCHAR(255) DEFAULT NULL AFTER `finalisasi_at`,
+                ADD COLUMN `mp4_status` ENUM('TIDAK','ANTRI','PROSES','SIAP','GAGAL') NOT NULL DEFAULT 'TIDAK' AFTER `finalisasi_pesan`,
+                ADD COLUMN `mp4_nama_file` VARCHAR(255) DEFAULT NULL AFTER `mp4_status`,
+                ADD COLUMN `mp4_ukuran_byte` BIGINT(20) NOT NULL DEFAULT 0 AFTER `mp4_nama_file`,
+                ADD COLUMN `mp4_percobaan` TINYINT(3) UNSIGNED NOT NULL DEFAULT 0 AFTER `mp4_ukuran_byte`,
+                ADD COLUMN `mp4_diminta_at` DATETIME DEFAULT NULL AFTER `mp4_percobaan`,
+                ADD COLUMN `mp4_diminta_oleh` INT(11) DEFAULT NULL AFTER `mp4_diminta_at`,
+                ADD COLUMN `mp4_selesai_at` DATETIME DEFAULT NULL AFTER `mp4_diminta_oleh`,
+                ADD COLUMN `mp4_pesan` VARCHAR(255) DEFAULT NULL AFTER `mp4_selesai_at`,
+                ADD KEY `idx_finalisasi` (`finalisasi`),
+                ADD KEY `idx_mp4_status` (`mp4_status`)");
         }
     }
 }
