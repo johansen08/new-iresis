@@ -23,10 +23,10 @@
     }
 
     // --- Setelan yang paling mungkin perlu disesuaikan di lapangan ----------
-    var LEBAR_IDEAL      = 640;
-    var TINGGI_IDEAL     = 480;
+    var LEBAR_IDEAL      = 1280;   // 720p: label resi/SKU terbaca dari jarak meja packing
+    var TINGGI_IDEAL     = 720;
     var FPS_IDEAL        = 15;
-    var BITRATE_VIDEO    = 400000;  // ~3 MB per menit rekaman
+    var BITRATE_VIDEO    = 1200000; // ~9 MB per menit rekaman (~540 MB/jam per PC)
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
@@ -40,7 +40,7 @@
     var MAKS_DURASI_DTK  = 5400;    // 90 menit
     var MAKS_PERCOBAAN   = 4;       // percobaan kirim ulang per potongan
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
-    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~7 MB)
+    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~18 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
     // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
@@ -176,6 +176,7 @@
             '<div class="pvp-body">' +
                 '<video class="pvp-video" muted autoplay playsinline></video>' +
                 '<div class="pvp-info">&nbsp;</div>' +
+                '<div class="pvp-resolusi"></div>' +
                 '<select class="pvp-kamera"></select>' +
             '</div>';
 
@@ -185,6 +186,7 @@
         el.dot     = panel.querySelector('.pvp-dot');
         el.video   = panel.querySelector('.pvp-video');
         el.info    = panel.querySelector('.pvp-info');
+        el.resolusi = panel.querySelector('.pvp-resolusi');
         el.kamera  = panel.querySelector('.pvp-kamera');
         el.body    = panel.querySelector('.pvp-body');
         el.toggle  = panel.querySelector('.pvp-toggle');
@@ -217,6 +219,42 @@
 
     function setInfo(teks) {
         if (el.info) el.info.innerHTML = teks || '&nbsp;';
+    }
+
+    /**
+     * Resolusi dan fps yang BENAR-BENAR diberikan kamera, bukan yang diminta.
+     * LEBAR_IDEAL/TINGGI_IDEAL hanya permintaan; webcam yang tidak sanggup
+     * diam-diam memberi resolusi terdekat, dan itu baru ketahuan di sini.
+     * Diberi warna peringatan kalau di bawah yang diminta supaya PC yang
+     * webcam-nya kurang bisa langsung dikenali dari panel.
+     */
+    function tampilkanResolusi() {
+        if (!el.resolusi) return;
+        if (!stream) {
+            el.resolusi.textContent = '';
+            return;
+        }
+
+        var track = stream.getVideoTracks()[0];
+        var set   = (track && track.getSettings) ? track.getSettings() : {};
+        // Beberapa browser lama tidak mengisi width/height di getSettings();
+        // ukuran frame yang sudah dimuat elemen <video> dipakai sebagai cadangan.
+        var lebar  = set.width  || (el.video && el.video.videoWidth)  || 0;
+        var tinggi = set.height || (el.video && el.video.videoHeight) || 0;
+        var fps    = set.frameRate ? Math.round(set.frameRate) : 0;
+
+        if (!lebar || !tinggi) {
+            el.resolusi.textContent = 'Resolusi: membaca...';
+            el.resolusi.style.color = '';
+            return;
+        }
+
+        var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '');
+        var kurang = lebar < LEBAR_IDEAL || tinggi < TINGGI_IDEAL;
+        el.resolusi.textContent = kurang
+            ? teks + ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)'
+            : teks;
+        el.resolusi.style.color = kurang ? '#f0ad4e' : '';
     }
 
     function tampilkanPanel(tampil) {
@@ -273,6 +311,10 @@
                 statusKamera = 'siap';
                 el.video.srcObject = s;
                 setStatus('Kamera siap', '#5cb85c');
+                tampilkanResolusi();
+                // Dibaca ulang setelah frame pertama masuk: getSettings() bisa
+                // masih kosong tepat setelah getUserMedia selesai.
+                el.video.addEventListener('loadedmetadata', tampilkanResolusi, { once: true });
                 isiDaftarKamera();
                 return s;
             })
@@ -291,6 +333,7 @@
         stream = null;
         statusKamera = 'belum';
         if (el.video) el.video.srcObject = null;
+        tampilkanResolusi();
     }
 
     // -------------------------------------------------------------- unggah
