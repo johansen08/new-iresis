@@ -176,6 +176,7 @@
             '<div class="pvp-body">' +
                 '<video class="pvp-video" muted autoplay playsinline></video>' +
                 '<div class="pvp-info">&nbsp;</div>' +
+                '<div class="pvp-resolusi"></div>' +
                 '<select class="pvp-kamera"></select>' +
             '</div>';
 
@@ -185,6 +186,7 @@
         el.dot     = panel.querySelector('.pvp-dot');
         el.video   = panel.querySelector('.pvp-video');
         el.info    = panel.querySelector('.pvp-info');
+        el.resolusi = panel.querySelector('.pvp-resolusi');
         el.kamera  = panel.querySelector('.pvp-kamera');
         el.body    = panel.querySelector('.pvp-body');
         el.toggle  = panel.querySelector('.pvp-toggle');
@@ -217,6 +219,42 @@
 
     function setInfo(teks) {
         if (el.info) el.info.innerHTML = teks || '&nbsp;';
+    }
+
+    /**
+     * Resolusi dan fps yang BENAR-BENAR diberikan kamera, bukan yang diminta.
+     * LEBAR_IDEAL/TINGGI_IDEAL hanya permintaan; webcam yang tidak sanggup
+     * diam-diam memberi resolusi terdekat, dan itu baru ketahuan di sini.
+     * Diberi warna peringatan kalau di bawah yang diminta supaya PC yang
+     * webcam-nya kurang bisa langsung dikenali dari panel.
+     */
+    function tampilkanResolusi() {
+        if (!el.resolusi) return;
+        if (!stream) {
+            el.resolusi.textContent = '';
+            return;
+        }
+
+        var track = stream.getVideoTracks()[0];
+        var set   = (track && track.getSettings) ? track.getSettings() : {};
+        // Beberapa browser lama tidak mengisi width/height di getSettings();
+        // ukuran frame yang sudah dimuat elemen <video> dipakai sebagai cadangan.
+        var lebar  = set.width  || (el.video && el.video.videoWidth)  || 0;
+        var tinggi = set.height || (el.video && el.video.videoHeight) || 0;
+        var fps    = set.frameRate ? Math.round(set.frameRate) : 0;
+
+        if (!lebar || !tinggi) {
+            el.resolusi.textContent = 'Resolusi: membaca...';
+            el.resolusi.style.color = '';
+            return;
+        }
+
+        var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '');
+        var kurang = lebar < LEBAR_IDEAL || tinggi < TINGGI_IDEAL;
+        el.resolusi.textContent = kurang
+            ? teks + ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)'
+            : teks;
+        el.resolusi.style.color = kurang ? '#f0ad4e' : '';
     }
 
     function tampilkanPanel(tampil) {
@@ -273,6 +311,10 @@
                 statusKamera = 'siap';
                 el.video.srcObject = s;
                 setStatus('Kamera siap', '#5cb85c');
+                tampilkanResolusi();
+                // Dibaca ulang setelah frame pertama masuk: getSettings() bisa
+                // masih kosong tepat setelah getUserMedia selesai.
+                el.video.addEventListener('loadedmetadata', tampilkanResolusi, { once: true });
                 isiDaftarKamera();
                 return s;
             })
@@ -291,6 +333,7 @@
         stream = null;
         statusKamera = 'belum';
         if (el.video) el.video.srcObject = null;
+        tampilkanResolusi();
     }
 
     // -------------------------------------------------------------- unggah
