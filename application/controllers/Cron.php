@@ -619,6 +619,125 @@ class Cron extends CI_Controller
         ]);
     }
 
+    /**
+     * Finalisasi rekaman video packing dengan ffmpeg. Dua pekerjaan:
+     *
+     *  1. Remux WebM yang sudah selesai/terputus supaya punya durasi dan cues
+     *     (keluaran MediaRecorder tidak punya keduanya -> player CS tidak tahu
+     *     panjang video dan seek-nya meleset). Tanpa encode ulang, hitungan detik.
+     *  2. Konversi ke MP4 H.264 untuk baris yang diminta CS lewat tombol
+     *     "Siapkan MP4" (WebM tidak bisa diputar di iPhone/WhatsApp). Ini berat
+     *     (~15 detik per menit video), jadi hanya satu transcode yang boleh
+     *     berjalan pada satu waktu di server.
+     *
+     * Aman dijadwalkan tiap menit walau proses sebelumnya belum selesai: klaim
+     * baris dilakukan atomik di model, jadi dua cron yang hidup bersamaan tidak
+     * mengerjakan berkas yang sama. Kalau ffmpeg tidak terpasang, cron hanya
+     * mencatat itu dan keluar -- rekaman tetap bisa diputar seperti biasa.
+     *
+     *   php index.php cron finalisasi_video
+     *   php index.php cron finalisasi_video 5   (maks. 5 remux per jalan)
+     */
+    public function finalisasi_video($maks_remux = null)
+    {
+        $this->load->model('video_packing_fcd');
+        $this->load->library('video_ffmpeg');
+
+        set_time_limit(0);
+
+        if (!$this->video_ffmpeg->tersedia()) {
+            $this->_log('cron_finalisasi_video', [
+                'success' => FALSE,
+                'pesan'   => 'ffmpeg tidak bisa dijalankan: ' . $this->video_ffmpeg->path_ffmpeg()
+                    . ' -- pasang ffmpeg atau isi ffmpeg_path di secrets.php',
+            ]);
+            return;
+        }
+
+        $maks_remux = (int) ($maks_remux !== null ? $maks_remux : $this->input->get('maks'));
+        if ($maks_remux <= 0) {
+            $maks_remux = 20;
+        }
+
+        $ringkas = ['remux_ok' => 0, 'remux_gagal' => 0, 'mp4_ok' => 0, 'mp4_gagal' => 0, 'mp4_dilewati' => FALSE];
+
+        // ---- 1. remux ---------------------------------------------------
+        for ($i = 0; $i < $maks_remux; $i++) {
+            $row = $this->video_packing_fcd->klaim_finalisasi();
+            if (!$row) {
+                break;
+            }
+
+            $path  = $this->video_packing_fcd->path_berkas($row);
+            $hasil = $this->video_ffmpeg->remux_webm($path);
+
+            if ($hasil['sukses']) {
+                $update = [
+                    'finalisasi'       => 'SELESAI',
+                    'finalisasi_at'    => date('Y-m-d H:i:s'),
+                    'finalisasi_pesan' => NULL,
+                    'ukuran_byte'      => (int) @filesize($path),
+                ];
+                // Durasi dari ffprobe lebih akurat daripada hitungan browser,
+                // apalagi untuk rekaman yang terputus di tengah.
+                if ($hasil['durasi'] > 0) {
+                    $update['durasi_detik'] = (int) round($hasil['durasi']);
+                }
+                $this->video_packing_fcd->update_by_id($row->id_videopacking, $update);
+                $ringkas['remux_ok']++;
+            } else {
+                // Berkas hilang tidak akan sembuh dengan diulang; selain itu
+                // (mis. sedang diputar CS) dicoba lagi sampai lima kali.
+                $percobaan = (int) $row->finalisasi_percobaan;
+                $menyerah  = !is_file($path) || $percobaan >= 5;
+
+                $this->video_packing_fcd->update_by_id($row->id_videopacking, [
+                    'finalisasi'       => $menyerah ? 'GAGAL' : 'BELUM',
+                    'finalisasi_pesan' => substr($hasil['pesan'], 0, 255),
+                ]);
+                $ringkas['remux_gagal']++;
+            }
+        }
+
+        // ---- 2. MP4 atas permintaan -------------------------------------
+        if ($this->video_packing_fcd->jumlah_mp4_proses() > 0) {
+            $ringkas['mp4_dilewati'] = TRUE;
+        } else {
+            $row = $this->video_packing_fcd->klaim_mp4();
+
+            if ($row) {
+                $sumber = $this->video_packing_fcd->path_berkas($row);
+                $nama   = $this->video_packing_fcd->nama_mp4_untuk($row);
+                $tujuan = $this->video_packing_fcd->root_upload()
+                    . Video_packing_fcd::SUBFOLDER_MP4 . '/' . $nama;
+
+                $hasil = $this->video_ffmpeg->ke_mp4($sumber, $tujuan);
+
+                if ($hasil['sukses']) {
+                    $this->video_packing_fcd->update_by_id($row->id_videopacking, [
+                        'mp4_status'      => 'SIAP',
+                        'mp4_nama_file'   => $nama,
+                        'mp4_ukuran_byte' => (int) $hasil['ukuran'],
+                        'mp4_selesai_at'  => date('Y-m-d H:i:s'),
+                        'mp4_pesan'       => NULL,
+                    ]);
+                    $ringkas['mp4_ok']++;
+                } else {
+                    $menyerah = !is_file($sumber) || (int) $row->mp4_percobaan >= 3;
+
+                    $this->video_packing_fcd->update_by_id($row->id_videopacking, [
+                        'mp4_status' => $menyerah ? 'GAGAL' : 'ANTRI',
+                        'mp4_pesan'  => substr($hasil['pesan'], 0, 255),
+                    ]);
+                    $ringkas['mp4_gagal']++;
+                }
+            }
+        }
+
+        $ringkas['success'] = ($ringkas['remux_gagal'] + $ringkas['mp4_gagal']) === 0;
+        $this->_log('cron_finalisasi_video', $ringkas);
+    }
+
     private function _is_text_output()
     {
         return $this->input->get('output') === 'text';

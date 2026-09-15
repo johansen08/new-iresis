@@ -2177,6 +2177,8 @@ class Cs extends MY_Controller
                 'durasi_detik'  => (int) $row->durasi_detik,
                 'ukuran_byte'   => (int) $row->ukuran_byte,
                 'status'        => $row->status,
+                'finalisasi'    => isset($row->finalisasi) ? $row->finalisasi : 'BELUM',
+                'mp4'           => $this->info_mp4($row),
             ];
         }
 
@@ -2226,13 +2228,119 @@ class Cs extends MY_Controller
             exit;
         }
 
+        $mime = !empty($row->mime_type) ? $row->mime_type : 'video/webm';
+
+        $this->alirkan_berkas($path, $mime, $row->nama_file, $this->input->get('unduh') ? 'attachment' : 'inline');
+    }
+
+    /**
+     * Keadaan MP4 satu rekaman untuk halaman CS.
+     *
+     * Permintaan yang terlalu lama mengantre (cron tidak jalan, ffmpeg tidak
+     * terpasang di server) ikut ditandai supaya CS tidak menunggu tanpa akhir --
+     * batasnya longgar karena antrian memang bisa panjang di belakang transcode
+     * video satu jam.
+     */
+    private function info_mp4($row)
+    {
+        $status = isset($row->mp4_status) ? $row->mp4_status : 'TIDAK';
+        $siap   = $this->video_packing_fcd->mp4_siap($row);
+
+        // SIAP tapi berkasnya sudah tidak ada (dibersihkan manual): tawarkan
+        // dibuat ulang, jangan tampilkan tautan unduh yang mati.
+        if ($status === 'SIAP' && !$siap) {
+            $status = 'TIDAK';
+        }
+
+        $menunggu_menit = 0;
+        if (($status === 'ANTRI' || $status === 'PROSES') && !empty($row->mp4_diminta_at)) {
+            $menunggu_menit = (int) floor((time() - strtotime($row->mp4_diminta_at)) / 60);
+        }
+
+        return [
+            'status'         => $status,
+            'url'            => $siap ? $this->video_packing_fcd->url_mp4($row) : '',
+            'ukuran_byte'    => $siap ? (int) $row->mp4_ukuran_byte : 0,
+            'menunggu_menit' => $menunggu_menit,
+            'terlalu_lama'   => $menunggu_menit > 60,
+            'pesan'          => $status === 'GAGAL' && !empty($row->mp4_pesan) ? $row->mp4_pesan : '',
+        ];
+    }
+
+    /**
+     * CS minta versi MP4 satu rekaman (tombol "Siapkan MP4").
+     *
+     * Konversinya tidak dikerjakan di sini -- transcode H.264 memakan ~15 detik
+     * per menit video, terlalu lama untuk satu request -- melainkan dimasukkan
+     * ke antrian yang digarap Cron::finalisasi_video. Halaman CS lalu memantau
+     * statusnya lewat get_video_packing.
+     */
+    public function minta_video_mp4($id = 0)
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $row = $this->video_packing_fcd->get_by_id($id);
+
+        if (!$row || $row->status === 'DIBATALKAN' || !is_file($this->video_packing_fcd->path_berkas($row))) {
+            $this->make_ajax_response(404, 'Rekaman tidak ditemukan.');
+        }
+
+        if ($row->status === 'MEREKAM') {
+            $this->make_ajax_response(400, 'Rekaman masih berjalan; MP4 baru bisa disiapkan setelah packing selesai.');
+        }
+
+        if ($this->video_packing_fcd->mp4_siap($row)) {
+            $this->make_ajax_response(200, 'MP4 sudah tersedia.', ['mp4' => $this->info_mp4($row)]);
+        }
+
+        $this->video_packing_fcd->minta_mp4($row->id_videopacking, $this->data['user']['id_user']);
+        $row = $this->video_packing_fcd->get_by_id($id);
+
+        $this->make_ajax_response(200, 'MP4 sedang disiapkan di server.', ['mp4' => $this->info_mp4($row)]);
+    }
+
+    /**
+     * Unduh hasil konversi MP4 (selalu sebagai attachment: tujuannya memang
+     * dikirim ke pelanggan lewat WhatsApp, bukan diputar di sini).
+     */
+    public function unduh_video_mp4($id = 0)
+    {
+        $row = $this->video_packing_fcd->get_by_id($id);
+
+        if (!$row || $row->status === 'DIBATALKAN' || !$this->video_packing_fcd->mp4_siap($row)) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('HTTP/1.1 404 Not Found');
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'MP4 belum tersedia untuk rekaman ini.';
+            exit;
+        }
+
+        $this->alirkan_berkas(
+            $this->video_packing_fcd->path_mp4($row),
+            'video/mp4',
+            $this->video_packing_fcd->nama_mp4_untuk($row),
+            'attachment'
+        );
+    }
+
+    /**
+     * Alirkan satu berkas video ke browser dengan dukungan Range, lalu exit.
+     *
+     * Dipakai putar_video_packing() (WebM, inline) dan unduh_video_mp4()
+     * (MP4, attachment). Pemanggil sudah memastikan berkasnya ada.
+     */
+    private function alirkan_berkas($path, $mime, $nama_unduh, $disposisi)
+    {
         $ukuran = filesize($path);
         $mulai  = 0;
         $akhir  = $ukuran - 1;
-        $mime   = !empty($row->mime_type) ? $row->mime_type : 'video/webm';
 
         // Output buffer CI dan apa pun yang tercetak sebelum ini dibuang: satu
-        // byte nyasar di depan data biner membuat WebM-nya tidak bisa diputar.
+        // byte nyasar di depan data biner membuat videonya tidak bisa diputar.
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
@@ -2267,8 +2375,7 @@ class Cs extends MY_Controller
             header('HTTP/1.1 200 OK');
         }
 
-        $nama_unduh = preg_replace('/[^A-Za-z0-9._-]/', '_', $row->nama_file);
-        $disposisi  = $this->input->get('unduh') ? 'attachment' : 'inline';
+        $nama_unduh = preg_replace('/[^A-Za-z0-9._-]/', '_', $nama_unduh);
 
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . ($akhir - $mulai + 1));
