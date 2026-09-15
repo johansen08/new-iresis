@@ -81,6 +81,42 @@ class Video_packing_fcd extends CI_Model
         return $this->root_upload() . $this->sub_path($row);
     }
 
+    /** Subfolder di bawah root tempat hasil konversi MP4 disimpan. */
+    const SUBFOLDER_MP4 = 'mp4';
+
+    /**
+     * Nama berkas MP4 untuk satu rekaman: nama WebM-nya dengan ekstensi .mp4.
+     * Bagian 2+ ikut terbawa (TESTCAM03-2.webm -> TESTCAM03-2.mp4).
+     */
+    public function nama_mp4_untuk($row)
+    {
+        return preg_replace('/\.webm$/i', '', (string) $row->nama_file) . '.mp4';
+    }
+
+    /**
+     * Path absolut hasil MP4. Dipisah ke subfolder mp4/ supaya folder utama
+     * tetap satu resi satu berkas WebM, dan supaya bersih-bersih MP4 (yang bisa
+     * dibuat ulang kapan saja) tidak perlu menyentuh rekaman aslinya.
+     */
+    public function path_mp4($row)
+    {
+        $nama = !empty($row->mp4_nama_file) ? $row->mp4_nama_file : $this->nama_mp4_untuk($row);
+
+        return $this->root_upload() . self::SUBFOLDER_MP4 . '/' . $nama;
+    }
+
+    /** Apakah MP4 untuk baris ini sudah jadi dan berkasnya memang ada. */
+    public function mp4_siap($row)
+    {
+        return isset($row->mp4_status) && $row->mp4_status === 'SIAP' && is_file($this->path_mp4($row));
+    }
+
+    /** URL unduh MP4 (Cs::unduh_video_mp4); dipakai tombol di halaman CS. */
+    public function url_mp4($row)
+    {
+        return base_url('cs/unduh-video-mp4/' . (int) $row->id_videopacking);
+    }
+
     public function get_by_id($id)
     {
         return $this->db->get_where('tblvideopacking', ['id_videopacking' => (int) $id])->row();
@@ -201,5 +237,141 @@ class Video_packing_fcd extends CI_Model
         $this->db->order_by('v.mulai_at', 'ASC');
 
         return $this->db->get()->result();
+    }
+
+    // ------------------------------------------------------------ finalisasi
+
+    /**
+     * Berapa lama status PROSES boleh bertahan sebelum dianggap ditinggalkan
+     * (cron mati di tengah ffmpeg) dan dikembalikan ke antrian. Harus lebih
+     * lama dari BATAS_DETIK_TRANSCODE di Video_ffmpeg.
+     */
+    const PROSES_BASI_MENIT = 90;
+
+    /**
+     * Ambil satu rekaman yang belum di-remux dan tandai PROSES -- atomik.
+     *
+     * Klaimnya lewat UPDATE bersyarat, bukan SELECT lalu UPDATE: cron dijadwalkan
+     * tiap menit dan transcode bisa lebih lama dari itu, jadi dua proses cron
+     * bisa hidup bersamaan; tanpa ini keduanya me-remux berkas yang sama dan
+     * saling menimpa. Hanya rekaman yang sudah selesai/terputus yang diambil --
+     * yang masih MEREKAM berkasnya masih terus bertambah.
+     *
+     * @return object|null Baris yang berhasil diklaim.
+     */
+    public function klaim_finalisasi()
+    {
+        $this->lepas_proses_basi('finalisasi', 'BELUM');
+
+        $kandidat = $this->db
+            ->select('id_videopacking')
+            ->where('finalisasi', 'BELUM')
+            ->where_in('status', ['SELESAI', 'TERPUTUS'])
+            ->order_by('selesai_at', 'ASC')
+            ->order_by('id_videopacking', 'ASC')
+            ->limit(1)
+            ->get('tblvideopacking')
+            ->row();
+
+        if (!$kandidat) {
+            return null;
+        }
+
+        $this->db
+            ->set('finalisasi', 'PROSES')
+            ->set('finalisasi_percobaan', 'finalisasi_percobaan + 1', FALSE)
+            ->set('finalisasi_at', date('Y-m-d H:i:s'))
+            ->where('id_videopacking', $kandidat->id_videopacking)
+            ->where('finalisasi', 'BELUM')
+            ->update('tblvideopacking');
+
+        return $this->db->affected_rows() > 0 ? $this->get_by_id($kandidat->id_videopacking) : null;
+    }
+
+    /**
+     * Ambil satu permintaan MP4 yang mengantre dan tandai PROSES -- atomik,
+     * alasannya sama dengan klaim_finalisasi(). Rekaman yang remux-nya sedang
+     * berjalan dilewati dulu: berkas sumbernya sebentar lagi diganti.
+     */
+    public function klaim_mp4()
+    {
+        $this->lepas_proses_basi('mp4_status', 'ANTRI');
+
+        $kandidat = $this->db
+            ->select('id_videopacking')
+            ->where('mp4_status', 'ANTRI')
+            ->where('finalisasi !=', 'PROSES')
+            ->where_in('status', ['SELESAI', 'TERPUTUS'])
+            ->order_by('mp4_diminta_at', 'ASC')
+            ->order_by('id_videopacking', 'ASC')
+            ->limit(1)
+            ->get('tblvideopacking')
+            ->row();
+
+        if (!$kandidat) {
+            return null;
+        }
+
+        $this->db
+            ->set('mp4_status', 'PROSES')
+            ->set('mp4_percobaan', 'mp4_percobaan + 1', FALSE)
+            ->where('id_videopacking', $kandidat->id_videopacking)
+            ->where('mp4_status', 'ANTRI')
+            ->update('tblvideopacking');
+
+        return $this->db->affected_rows() > 0 ? $this->get_by_id($kandidat->id_videopacking) : null;
+    }
+
+    /** Berapa transcode MP4 yang sedang berjalan (pembatas beban CPU server). */
+    public function jumlah_mp4_proses()
+    {
+        return (int) $this->db->where('mp4_status', 'PROSES')->count_all_results('tblvideopacking');
+    }
+
+    /**
+     * Kembalikan ke antrian baris yang terlalu lama di PROSES.
+     *
+     * finalisasi_at diisi saat klaim, jadi ambangnya langsung dari situ. Untuk
+     * MP4 tidak ada kolom waktu klaim -- mp4_diminta_at tidak berubah selama
+     * proses -- jadi ambangnya dihitung dari waktu permintaan ditambah
+     * kelonggaran antrian (permintaan bisa lama menunggu transcode lain).
+     */
+    private function lepas_proses_basi($kolom, $status_antri)
+    {
+        if ($kolom === 'finalisasi') {
+            $this->db->where('finalisasi_at <', date('Y-m-d H:i:s', time() - (self::PROSES_BASI_MENIT * 60)));
+        } else {
+            $this->db->where('mp4_diminta_at <', date('Y-m-d H:i:s', time() - (self::PROSES_BASI_MENIT * 120)));
+        }
+
+        $this->db->where($kolom, 'PROSES')->update('tblvideopacking', [$kolom => $status_antri]);
+    }
+
+    public function update_by_id($id, $data)
+    {
+        $this->db->where('id_videopacking', (int) $id)->update('tblvideopacking', $data);
+        return $this->db->affected_rows();
+    }
+
+    /**
+     * Catat permintaan MP4 dari CS. Hanya baris TIDAK/GAGAL yang boleh
+     * dimasukkan ulang ke antrian; yang sudah ANTRI/PROSES/SIAP dibiarkan.
+     *
+     * @return bool TRUE kalau baris berhasil dimasukkan ke antrian.
+     */
+    public function minta_mp4($id, $id_user)
+    {
+        $this->db
+            ->where('id_videopacking', (int) $id)
+            ->where_in('mp4_status', ['TIDAK', 'GAGAL'])
+            ->update('tblvideopacking', [
+                'mp4_status'       => 'ANTRI',
+                'mp4_percobaan'    => 0,
+                'mp4_pesan'        => NULL,
+                'mp4_diminta_at'   => date('Y-m-d H:i:s'),
+                'mp4_diminta_oleh' => $id_user ? (int) $id_user : NULL,
+            ]);
+
+        return $this->db->affected_rows() > 0;
     }
 }
