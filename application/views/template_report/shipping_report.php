@@ -26,11 +26,12 @@
   .cell-1sku   { background-color: #e8f8f5; text-align: center; }
   .cell-29sku  { background-color: #fdf2e9; text-align: center; }
   .cell-banyak { background-color: #fdedd8; text-align: center; }
-  .cell-total  { background-color: #eaeded; text-align: center; font-weight: bold; }
+  .cell-total  { background-color: #eaeded; text-align: center; font-weight: bold; mso-number-format: "\#\,\#\#0"; }
   .cell-kurir  { background-color: #ffffff; font-weight: bold; }
 
   /* Utility classes */
-  .tc { text-align: center; }
+  /* mso-number-format: Excel sendiri yang memberi pemisah ribuan sesuai lokal (3.515 / 3,515) */
+  .tc { text-align: center; mso-number-format: "\#\,\#\#0"; }
   .tr { text-align: right; }
   .bold { font-weight: bold; }
   .row-alt { background-color: #f9fbfd; }
@@ -55,6 +56,10 @@
   $t_1sku = isset($cat['total_1sku'])      ? (int)$cat['total_1sku']      : 0;
   $t_29   = isset($cat['total_2_9sku'])    ? (int)$cat['total_2_9sku']    : 0;
   $t_ban  = isset($cat['total_qty_banyak'])? (int)$cat['total_qty_banyak']: 0;
+  // Angka ditulis polos tanpa pemisah ribuan: Excel lokal Indonesia membaca
+  // "3,515" sebagai desimal 3,515. Pemisah ribuan diserahkan ke Excel lewat
+  // mso-number-format di CSS (.tc), jadi sel tetap numerik dan bisa dijumlah.
+  $num    = function($v) { return (int)$v; };
   $pct    = function($v, $t) { return $t > 0 ? round($v / $t * 100, 1) . '%' : '0%'; };
   $dates  = explode(' - ', $reportrange);
 ?>
@@ -76,7 +81,7 @@
   </tr>
   <tr>
     <td class="info-lbl">Total Pengiriman</td>
-    <td class="info-val" style="font-weight: bold; color: #1e3d59;"><?= number_format($gt) ?> paket</td>
+    <td class="info-val" style="font-weight: bold; color: #1e3d59;"><?= $num($gt) ?> paket</td>
   </tr>
 </table>
 
@@ -102,32 +107,32 @@
   <tbody>
     <tr>
       <td class="bold" style="background-color: #fcfcfc;">Grand Total Dikirim</td>
-      <td class="tc bold" style="background-color: #fcfcfc;"><?= number_format($gt) ?></td>
+      <td class="tc bold" style="background-color: #fcfcfc;"><?= $num($gt) ?></td>
       <td class="tc bold" style="background-color: #fcfcfc;">100%</td>
     </tr>
     <tr>
-      <td class="bold" style="color: #8e44ad; background-color: #f5eef8;">&#9733; 1 SKU 1 Qty Spesial (jalur 1_SKU picker/packer)</td>
-      <td class="tc cell-spec bold"><?= number_format($t_spes) ?></td>
+      <td class="bold" style="color: #8e44ad; background-color: #f5eef8;">1 SKU 1 Qty Spesial</td>
+      <td class="tc cell-spec bold"><?= $num($t_spes) ?></td>
       <td class="tc cell-spec pct"><?= $pct($t_spes, $gt) ?></td>
     </tr>
     <tr>
-      <td class="bold" style="color: #3949ab; background-color: #e8eaf6;">1 SKU 1 Qty Reguler (jalur biasa)</td>
-      <td class="tc cell-reg bold"><?= number_format($t_reg) ?></td>
+      <td class="bold" style="color: #3949ab; background-color: #e8eaf6;">1 SKU 1 Qty Reguler</td>
+      <td class="tc cell-reg bold"><?= $num($t_reg) ?></td>
       <td class="tc cell-reg pct"><?= $pct($t_reg, $gt) ?></td>
     </tr>
     <tr>
       <td style="color: #16a085; background-color: #e8f8f5;">1 SKU &amp; Qty 2-9</td>
-      <td class="tc cell-1sku"><?= number_format($t_1sku) ?></td>
+      <td class="tc cell-1sku"><?= $num($t_1sku) ?></td>
       <td class="tc cell-1sku pct"><?= $pct($t_1sku, $gt) ?></td>
     </tr>
     <tr>
       <td style="color: #d35400; background-color: #fdf2e9;">2-9 SKU &amp; Qty &le; 9</td>
-      <td class="tc cell-29sku"><?= number_format($t_29) ?></td>
+      <td class="tc cell-29sku"><?= $num($t_29) ?></td>
       <td class="tc cell-29sku pct"><?= $pct($t_29, $gt) ?></td>
     </tr>
     <tr>
       <td style="color: #c0392b; background-color: #fdedd8;">Qty Banyak (&gt; 9)</td>
-      <td class="tc cell-banyak"><?= number_format($t_ban) ?></td>
+      <td class="tc cell-banyak"><?= $num($t_ban) ?></td>
       <td class="tc cell-banyak pct"><?= $pct($t_ban, $gt) ?></td>
     </tr>
   </tbody>
@@ -176,22 +181,22 @@
     <tr class="<?= $rowAlt ?>">
       <td class="tc pct"><?= $i++ ?></td>
       <td class="cell-kurir"><?= htmlspecialchars($d['nama_kurir']) ?></td>
-      <td class="cell-total"><?= number_format($tot) ?></td>
-      <td class="cell-spec"><?= number_format($spes) ?> <span class="pct">(<?= $pct($spes, $tot) ?>)</span></td>
-      <td class="cell-reg"><?= number_format($reg) ?> <span class="pct">(<?= $pct($reg, $tot) ?>)</span></td>
-      <td class="cell-1sku"><?= number_format($s1sku) ?> <span class="pct">(<?= $pct($s1sku, $tot) ?>)</span></td>
-      <td class="cell-29sku"><?= number_format($s29) ?> <span class="pct">(<?= $pct($s29, $tot) ?>)</span></td>
-      <td class="cell-banyak"><?= number_format($sban) ?> <span class="pct">(<?= $pct($sban, $tot) ?>)</span></td>
+      <td class="cell-total"><?= $num($tot) ?></td>
+      <td class="cell-spec"><?= $num($spes) ?> <span class="pct">(<?= $pct($spes, $tot) ?>)</span></td>
+      <td class="cell-reg"><?= $num($reg) ?> <span class="pct">(<?= $pct($reg, $tot) ?>)</span></td>
+      <td class="cell-1sku"><?= $num($s1sku) ?> <span class="pct">(<?= $pct($s1sku, $tot) ?>)</span></td>
+      <td class="cell-29sku"><?= $num($s29) ?> <span class="pct">(<?= $pct($s29, $tot) ?>)</span></td>
+      <td class="cell-banyak"><?= $num($sban) ?> <span class="pct">(<?= $pct($sban, $tot) ?>)</span></td>
     </tr>
     <?php endforeach; ?>
     <tr class="foot-row">
       <td colspan="2" class="tr bold">TOTAL HARI INI</td>
-      <td class="tc bold"><?= number_format($gt) ?></td>
-      <td class="foot-spec"><?= number_format($t_spes) ?> <span class="pct">(<?= $pct($t_spes, $gt) ?>)</span></td>
-      <td class="foot-reg"><?= number_format($t_reg) ?> <span class="pct">(<?= $pct($t_reg, $gt) ?>)</span></td>
-      <td class="foot-1sku"><?= number_format($t_1sku) ?> <span class="pct">(<?= $pct($t_1sku, $gt) ?>)</span></td>
-      <td class="foot-29sk"><?= number_format($t_29) ?> <span class="pct">(<?= $pct($t_29, $gt) ?>)</span></td>
-      <td class="foot-ban"><?= number_format($t_ban) ?> <span class="pct">(<?= $pct($t_ban, $gt) ?>)</span></td>
+      <td class="tc bold"><?= $num($gt) ?></td>
+      <td class="foot-spec"><?= $num($t_spes) ?> <span class="pct">(<?= $pct($t_spes, $gt) ?>)</span></td>
+      <td class="foot-reg"><?= $num($t_reg) ?> <span class="pct">(<?= $pct($t_reg, $gt) ?>)</span></td>
+      <td class="foot-1sku"><?= $num($t_1sku) ?> <span class="pct">(<?= $pct($t_1sku, $gt) ?>)</span></td>
+      <td class="foot-29sk"><?= $num($t_29) ?> <span class="pct">(<?= $pct($t_29, $gt) ?>)</span></td>
+      <td class="foot-ban"><?= $num($t_ban) ?> <span class="pct">(<?= $pct($t_ban, $gt) ?>)</span></td>
     </tr>
   </tbody>
 </table>
