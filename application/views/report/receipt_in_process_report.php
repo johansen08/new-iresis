@@ -49,4 +49,39 @@
 
     return false;
   }
+
+  /**
+   * Mengganti pemicu pencarian bawaan DataTables dengan jeda (debounce).
+   *
+   * DataTables 1.10.2 hanya men-throttle 400 ms: huruf pertama langsung dikirim
+   * ke server, lalu setiap jeda mengetik memicu request baru. Di laporan
+   * server-side ini tiap request menjalankan query data + hitung total, jadi
+   * request baru dikirim setelah user berhenti mengetik, atau langsung saat Enter.
+   * @param {object} api     DataTables API (this.api() di initComplete)
+   * @param {string} tableId Selector tabel, mis. '#datatable-receipt-process-tab0'
+   */
+  function pasangPencarianTertunda(api, tableId) {
+    var jeda = 700;
+    var timer = null;
+
+    $(tableId + '_filter input')
+      .off('keyup.DT search.DT input.DT paste.DT cut.DT')
+      .on('keyup.DT input.DT paste.DT cut.DT', function(e) {
+        var el = this;
+        var cari = function() {
+          // Tabel bisa sudah dibuat ulang (klik Tampilkan) atau halaman sudah pindah.
+          if (!document.body.contains(el)) return;
+          if (api.search() !== el.value) {
+            api.search(el.value).draw();
+          }
+        };
+
+        clearTimeout(timer);
+        if (e.type === 'keyup' && e.keyCode === 13) {
+          cari();
+        } else {
+          timer = setTimeout(cari, jeda);
+        }
+      });
+  }
 </script>
