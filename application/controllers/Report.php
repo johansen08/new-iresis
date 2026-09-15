@@ -20,6 +20,11 @@ class Report extends MY_Controller
 
 	public function get_receipt_in_process_data_tab0()
 	{
+		// Endpoint ini hanya membaca session. Lepas kunci berkas session sekarang
+		// supaya request lain dari user yang sama (tab lain, ketikan pencarian,
+		// menu lain) tidak antre menunggu query laporan ini selesai.
+		session_write_close();
+
 		$start_date = $this->input->post('start_date');
 		$end_date = $this->input->post('end_date');
 
@@ -89,6 +94,8 @@ class Report extends MY_Controller
 
 	public function get_receipt_in_process_data_tab1()
 	{
+		session_write_close(); // lihat get_receipt_in_process_data_tab0()
+
 		$start_date = $this->input->post('start_date');
 		$end_date = $this->input->post('end_date');
 
@@ -163,6 +170,8 @@ class Report extends MY_Controller
 
 	public function get_receipt_in_process_data_tab2()
 	{
+		session_write_close(); // lihat get_receipt_in_process_data_tab0()
+
 		$start_date = $this->input->post('start_date');
 		$end_date = $this->input->post('end_date');
 
