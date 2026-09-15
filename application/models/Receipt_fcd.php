@@ -2534,11 +2534,14 @@ class Receipt_fcd extends CI_Model
      * Resi 1 SKU 1 Qty dipecah menurut jalur spesial saat diproses:
      *  - total_1sku1qty_spesial : di-pick dengan status 1_SKU_PICKER
      *                             (tblresiambilbarang) ATAU di-packing dengan
-     *                             status 1_SKU_PACKER (tblpacking)
+     *                             status 1_SKU_PACKER lewat sinkronisasi dari
+     *                             picker (tblpacking.keterangan = SYNC_FROM_PICKER)
      *  - total_1sku1qty_reguler : sisanya (status lain, kosong, belum ada data)
      * Dua sisi dipakai karena mode picker kadang jatuh ke NORMAL_PICKER di
      * tengah hari (13 Sep 2026: 404 resi jalur 1 SKU tercatat NORMAL_PICKER)
-     * padahal packer-nya tetap 1_SKU_PACKER -- salah satu sisi cukup.
+     * padahal packer-nya tetap 1_SKU_PACKER. Sisi packer hanya dipercaya untuk
+     * resi hasil sinkron, bukan scan manual: packer 1 SKU kadang men-scan resi
+     * jalur biasa saat modenya masih 1_SKU_PACKER (14 Sep 2026: 66 resi).
      * Resi jalur spesial yang isinya bukan 1 SKU 1 Qty tetap masuk kategori
      * qty/SKU-nya sendiri, jadi jumlah semua kategori tetap = total.
      * Dihitung COUNT(DISTINCT) karena tblpacking.id_resi tidak unik.
@@ -2550,11 +2553,12 @@ class Receipt_fcd extends CI_Model
                 COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
                 COUNT(DISTINCT rk.id_resi) AS total,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
-                                     AND (spp.kode_status = '1_SKU_PICKER' OR spk.kode_status = '1_SKU_PACKER')
+                                     AND (spp.kode_status = '1_SKU_PICKER'
+                                          OR (spk.kode_status = '1_SKU_PACKER' AND p.keterangan = 'SYNC_FROM_PICKER'))
                                     THEN rk.id_resi END) AS total_1sku1qty_spesial,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
                                      AND COALESCE(spp.kode_status, '') <> '1_SKU_PICKER'
-                                     AND COALESCE(spk.kode_status, '') <> '1_SKU_PACKER'
+                                     AND NOT (COALESCE(spk.kode_status, '') = '1_SKU_PACKER' AND COALESCE(p.keterangan, '') = 'SYNC_FROM_PICKER')
                                     THEN rk.id_resi END) AS total_1sku1qty_reguler,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN rk.id_resi END) AS total_1sku,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN rk.id_resi END) AS total_2_9sku,
@@ -2592,11 +2596,12 @@ class Receipt_fcd extends CI_Model
             SELECT
                 COUNT(DISTINCT rk.id_resi) AS grand_total,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
-                                     AND (spp.kode_status = '1_SKU_PICKER' OR spk.kode_status = '1_SKU_PACKER')
+                                     AND (spp.kode_status = '1_SKU_PICKER'
+                                          OR (spk.kode_status = '1_SKU_PACKER' AND p.keterangan = 'SYNC_FROM_PICKER'))
                                     THEN rk.id_resi END) AS total_1sku1qty_spesial,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
                                      AND COALESCE(spp.kode_status, '') <> '1_SKU_PICKER'
-                                     AND COALESCE(spk.kode_status, '') <> '1_SKU_PACKER'
+                                     AND NOT (COALESCE(spk.kode_status, '') = '1_SKU_PACKER' AND COALESCE(p.keterangan, '') = 'SYNC_FROM_PICKER')
                                     THEN rk.id_resi END) AS total_1sku1qty_reguler,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty BETWEEN 2 AND 9 THEN rk.id_resi END) AS total_1sku,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus BETWEEN 2 AND 9 AND agg.total_qty <= 9 THEN rk.id_resi END) AS total_2_9sku,
