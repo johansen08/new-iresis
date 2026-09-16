@@ -235,14 +235,28 @@ class Picker extends MY_Controller
 
         $this->db->insert('tblpickingsummarylog', $data);
 
+        // Bersihkan log lama di setiap simpan, bukan hanya saat tombol riwayat diklik.
+        // Sebelumnya pembersihan hanya ada di get_summary_logs() yang jarang dipanggil,
+        // sehingga tabel membengkak ~5 MB/hari (summary_data = JSON besar).
+        $this->bersihkan_summary_log_lama();
+
         $this->make_ajax_response(201, 'Log berhasil disimpan secara terpusat');
+    }
+
+    /**
+     * Hapus log summary picker yang lebih tua dari 24 jam (hanya itu yang pernah ditampilkan).
+     * Dibatasi LIMIT per panggilan supaya tidak pernah ada satu DELETE raksasa di jalur scan
+     * picker — kalau ada tumpukan lama, tabel terkuras bertahap di beberapa simpan berikutnya.
+     */
+    private function bersihkan_summary_log_lama($batas_baris = 100)
+    {
+        $this->db->where('timestamp <', date('Y-m-d H:i:s', strtotime('-24 hours')));
+        $this->db->delete('tblpickingsummarylog', '', $batas_baris);
     }
 
     public function get_summary_logs()
     {
-        // Cleanup logs older than 24 hours
-        $this->db->where('timestamp <', date('Y-m-d H:i:s', strtotime('-24 hours')));
-        $this->db->delete('tblpickingsummarylog');
+        $this->bersihkan_summary_log_lama();
 
         $this->db->select('t.*, p.nama_pegawai as picker_name, u.name as admin_name');
         $this->db->from('tblpickingsummarylog t');
