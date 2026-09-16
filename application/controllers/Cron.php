@@ -735,7 +735,13 @@ class Cron extends CI_Controller
         }
 
         $ringkas['success'] = ($ringkas['remux_gagal'] + $ringkas['mp4_gagal']) === 0;
-        $this->_log('cron_finalisasi_video', $ringkas);
+
+        // Cron ini jalan tiap menit; kalau tidak ada video yang disentuh, jangan
+        // tulis ke file log -- sebelumnya 1.440 baris "OK: {semua 0}" per hari
+        // memenuhi application/logs (~13 MB/bulan). Output ke layar tetap ada.
+        $ada_kerja = ($ringkas['remux_ok'] + $ringkas['remux_gagal']
+            + $ringkas['mp4_ok'] + $ringkas['mp4_gagal']) > 0;
+        $this->_log('cron_finalisasi_video', $ringkas, $ada_kerja);
     }
 
     private function _is_text_output()
@@ -743,13 +749,20 @@ class Cron extends CI_Controller
         return $this->input->get('output') === 'text';
     }
 
-    private function _log($task, $result)
+    /**
+     * Cetak ringkasan tugas cron ke layar dan (opsional) ke file log.
+     * Level 'error' dipakai karena log_threshold = 1 hanya meloloskan level itu.
+     * $tulis_file = FALSE untuk tugas yang berjalan sangat sering tanpa hasil.
+     */
+    private function _log($task, $result, $tulis_file = TRUE)
     {
         $status = (isset($result['success']) && $result['success']) ? 'OK' : 'FAIL';
         $detail = is_array($result) ? json_encode($result) : $result;
         $log_line = date('Y-m-d H:i:s') . " [{$task}] {$status}: {$detail}";
 
         echo $log_line . "\n";
-        log_message('error', $log_line);
+        if ($tulis_file || $status === 'FAIL') {
+            log_message('error', $log_line);
+        }
     }
 }
