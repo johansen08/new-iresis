@@ -80,7 +80,7 @@ $db['default'] = array(
 	'hostname' => iresis_secret('db_hostname', '127.0.0.1'),
 	'username' => iresis_secret('db_username', 'root'),
 	'password' => iresis_secret('db_password', ''),
-	'database' => iresis_secret('db_database', 'iresis-prod'),
+	'database' => iresis_secret('db_database', 'iresis_prod'),
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 
