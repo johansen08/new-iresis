@@ -627,27 +627,36 @@ class Cron extends CI_Controller
      *     panjang video dan seek-nya meleset). Tanpa encode ulang, hitungan detik.
      *  2. Konversi ke MP4 H.264 untuk baris yang diminta CS lewat tombol
      *     "Siapkan MP4" (WebM tidak bisa diputar di iPhone/WhatsApp). Ini berat
-     *     (~15 detik per menit video), jadi hanya satu transcode yang boleh
-     *     berjalan pada satu waktu di server.
+     *     (~13 detik per menit video di CPU server), jadi hanya satu transcode
+     *     yang boleh berjalan pada satu waktu -- dijaga kunci bernama MariaDB
+     *     (Video_packing_fcd::kunci_transcode_mp4), bukan hitungan baris PROSES.
+     *     Pemegang kunci menghabiskan seluruh antrian MP4 dalam satu jalan
+     *     (dulu satu berkas per menit, jadi tiga permintaan = tiga menit).
      *
-     * Aman dijadwalkan tiap menit walau proses sebelumnya belum selesai: klaim
-     * baris dilakukan atomik di model, jadi dua cron yang hidup bersamaan tidak
-     * mengerjakan berkas yang sama. Kalau ffmpeg tidak terpasang, cron hanya
+     * Dipanggil dari dua arah: task terjadwal tiap menit (mode 'semua') dan
+     * worker latar belakang yang dilepas Cs::minta_video_mp4 begitu CS menekan
+     * tombol (mode 'mp4', supaya permintaan tidak menunggu putaran cron dan
+     * antrian remux). Aman hidup bersamaan: klaim baris atomik di model dan
+     * transcode dipagari kunci. Kalau ffmpeg tidak terpasang, cron hanya
      * mencatat itu dan keluar -- rekaman tetap bisa diputar seperti biasa.
      *
-     *   php index.php cron finalisasi_video
-     *   php index.php cron finalisasi_video 5   (maks. 5 remux per jalan)
+     *   php index.php cron finalisasi_video               (remux + MP4)
+     *   php index.php cron finalisasi_video mp4           (hanya antrian MP4)
+     *   php index.php cron finalisasi_video remux 5       (maks. 5 remux, tanpa MP4)
      */
-    public function finalisasi_video($maks_remux = null)
+    public function finalisasi_video($mode = 'semua', $maks_remux = null)
     {
         $this->load->model('video_packing_fcd');
         $this->load->library('video_ffmpeg');
 
         set_time_limit(0);
 
+        $mode = in_array($mode, ['semua', 'remux', 'mp4'], TRUE) ? $mode : 'semua';
+
         if (!$this->video_ffmpeg->tersedia()) {
             $this->_log('cron_finalisasi_video', [
                 'success' => FALSE,
+                'mode'    => $mode,
                 'pesan'   => 'ffmpeg tidak bisa dijalankan: ' . $this->video_ffmpeg->path_ffmpeg()
                     . ' -- pasang ffmpeg atau isi ffmpeg_path di secrets.php',
             ]);
@@ -657,6 +666,9 @@ class Cron extends CI_Controller
         $maks_remux = (int) ($maks_remux !== null ? $maks_remux : $this->input->get('maks'));
         if ($maks_remux <= 0) {
             $maks_remux = 20;
+        }
+        if ($mode === 'mp4') {
+            $maks_remux = 0;
         }
 
         $ringkas = ['remux_ok' => 0, 'remux_gagal' => 0, 'mp4_ok' => 0, 'mp4_gagal' => 0, 'mp4_dilewati' => FALSE];
@@ -700,37 +712,31 @@ class Cron extends CI_Controller
         }
 
         // ---- 2. MP4 atas permintaan -------------------------------------
-        if ($this->video_packing_fcd->jumlah_mp4_proses() > 0) {
-            $ringkas['mp4_dilewati'] = TRUE;
-        } else {
-            $row = $this->video_packing_fcd->klaim_mp4();
+        if ($mode !== 'remux') {
+            // Tunggu sebentar kalau kunci sedang dipegang: pemegangnya mungkin
+            // sedang menutup putarannya (antrian kosong) dan sebentar lagi lepas,
+            // sehingga permintaan yang baru masuk tidak harus menunggu cron
+            // berikutnya. Kalau ia sedang mentranscode video panjang, menyerah
+            // saja -- ia akan mengambil antrian ini sendiri sesudahnya.
+            if (!$this->video_packing_fcd->kunci_transcode_mp4(self::TUNGGU_KUNCI_MP4_DETIK)) {
+                $ringkas['mp4_dilewati'] = TRUE;
+            } else {
+                $ringkas['mp4_dipulihkan'] = $this->video_packing_fcd->pulihkan_mp4_terlantar();
+                $mulai_antrian = time();
 
-            if ($row) {
-                $sumber = $this->video_packing_fcd->path_berkas($row);
-                $nama   = $this->video_packing_fcd->nama_mp4_untuk($row);
-                $tujuan = $this->video_packing_fcd->root_upload()
-                    . Video_packing_fcd::SUBFOLDER_MP4 . '/' . $nama;
+                // Habiskan antrian, tapi berhenti mengambil baris baru setelah
+                // anggaran waktu lewat: task terjadwal dibatasi 2 jam, dan satu
+                // transcode bisa sampai BATAS_DETIK_TRANSCODE (1 jam) sendiri.
+                while ((time() - $mulai_antrian) < self::ANGGARAN_ANTRIAN_MP4_DETIK) {
+                    $row = $this->video_packing_fcd->klaim_mp4();
+                    if (!$row) {
+                        break;
+                    }
 
-                $hasil = $this->video_ffmpeg->ke_mp4($sumber, $tujuan);
-
-                if ($hasil['sukses']) {
-                    $this->video_packing_fcd->update_by_id($row->id_videopacking, [
-                        'mp4_status'      => 'SIAP',
-                        'mp4_nama_file'   => $nama,
-                        'mp4_ukuran_byte' => (int) $hasil['ukuran'],
-                        'mp4_selesai_at'  => date('Y-m-d H:i:s'),
-                        'mp4_pesan'       => NULL,
-                    ]);
-                    $ringkas['mp4_ok']++;
-                } else {
-                    $menyerah = !is_file($sumber) || (int) $row->mp4_percobaan >= 3;
-
-                    $this->video_packing_fcd->update_by_id($row->id_videopacking, [
-                        'mp4_status' => $menyerah ? 'GAGAL' : 'ANTRI',
-                        'mp4_pesan'  => substr($hasil['pesan'], 0, 255),
-                    ]);
-                    $ringkas['mp4_gagal']++;
+                    $this->transcode_satu_mp4($row, $ringkas);
                 }
+
+                $this->video_packing_fcd->lepas_kunci_transcode_mp4();
             }
         }
 
@@ -741,7 +747,53 @@ class Cron extends CI_Controller
         // memenuhi application/logs (~13 MB/bulan). Output ke layar tetap ada.
         $ada_kerja = ($ringkas['remux_ok'] + $ringkas['remux_gagal']
             + $ringkas['mp4_ok'] + $ringkas['mp4_gagal']) > 0;
+        $ringkas['mode'] = $mode;
         $this->_log('cron_finalisasi_video', $ringkas, $ada_kerja);
+    }
+
+    /** Berapa lama menunggu kunci transcode MP4 yang sedang dipegang proses lain. */
+    const TUNGGU_KUNCI_MP4_DETIK = 5;
+
+    /**
+     * Setelah lewat ini, pemegang kunci tidak mengambil antrian MP4 baru lagi
+     * dan menyerahkannya ke putaran cron berikutnya. 50 menit + transcode
+     * terakhir maks. 60 menit masih di bawah batas 2 jam task terjadwal.
+     */
+    const ANGGARAN_ANTRIAN_MP4_DETIK = 50 * 60;
+
+    /**
+     * Transcode satu baris yang sudah diklaim (mp4_status = PROSES) dan catat
+     * hasilnya. Sumber yang hilang tidak akan sembuh dengan diulang; kegagalan
+     * lain dikembalikan ke antrian sampai tiga percobaan.
+     */
+    private function transcode_satu_mp4($row, array &$ringkas)
+    {
+        $sumber = $this->video_packing_fcd->path_berkas($row);
+        $nama   = $this->video_packing_fcd->nama_mp4_untuk($row);
+        $tujuan = $this->video_packing_fcd->root_upload()
+            . Video_packing_fcd::SUBFOLDER_MP4 . '/' . $nama;
+
+        $hasil = $this->video_ffmpeg->ke_mp4($sumber, $tujuan);
+
+        if ($hasil['sukses']) {
+            $this->video_packing_fcd->update_by_id($row->id_videopacking, [
+                'mp4_status'      => 'SIAP',
+                'mp4_nama_file'   => $nama,
+                'mp4_ukuran_byte' => (int) $hasil['ukuran'],
+                'mp4_selesai_at'  => date('Y-m-d H:i:s'),
+                'mp4_pesan'       => NULL,
+            ]);
+            $ringkas['mp4_ok']++;
+            return;
+        }
+
+        $menyerah = !is_file($sumber) || (int) $row->mp4_percobaan >= 3;
+
+        $this->video_packing_fcd->update_by_id($row->id_videopacking, [
+            'mp4_status' => $menyerah ? 'GAGAL' : 'ANTRI',
+            'mp4_pesan'  => substr($hasil['pesan'], 0, 255),
+        ]);
+        $ringkas['mp4_gagal']++;
     }
 
     private function _is_text_output()

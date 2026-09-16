@@ -287,5 +287,9 @@ Get-PSDrive C | Select-Object @{n='Terpakai_GB';e={[math]::Round($_.Used/1GB)}},
   `Resolusi: 1280×720 @ 15 fps`. Kalau oranye ("di bawah 1280×720"),
   webcam PC itu tidak sanggup 720p — catat PC-nya.
 - **CS**: Video Packing → cari resi yang sudah selesai → durasi tampil dan
-  slider bisa dilompat; tombol **Siapkan MP4** → dalam 1–3 menit berubah
-  jadi **Unduh MP4**.
+  slider bisa dilompat; tombol **Siapkan MP4** → untuk video packing biasa
+  (di bawah 1 menit) berubah jadi **Unduh MP4** dalam ±5–20 detik; video
+  panjang butuh ±13 detik per menit rekaman. Kalau selalu baru selesai pada
+  menit berikutnya, worker latar belakang tidak bisa dilepas dari Apache —
+  cek `application/logs/` untuk baris `minta_video_mp4: php.exe tidak
+  ditemukan` dan isi `php_cli_path` di `secrets.php`.
