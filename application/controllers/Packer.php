@@ -274,14 +274,19 @@ class Packer extends MY_Controller
 	 * harus bertahan melewati reload maupun tab yang mati, karena rekamannya
 	 * ikut bergantung pada siklus itu.
 	 *
-	 * Untuk sementara halaman ini khusus webmaster (hakakses = 1). Penjagaan
+	 * Halaman ini dibuka untuk webmaster (1) dan client packer (4) -- daftar
+	 * role-nya dikunci di ROLE_BOLEH_WEBCAM dan harus sejalan dengan hak akses
+	 * menu yang ditanam MY_Controller::run_menu_scan_packer_webcam(). Penjagaan
 	 * ditaruh di controller juga, bukan hanya di menu, karena URL-nya bisa
 	 * dibuka langsung. Penolakannya lewat show() supaya responsnya tetap JSON
 	 * yang valid -- show_404() mengirim halaman HTML dan merusak parsing SPA.
 	 */
+	const ROLE_BOLEH_WEBCAM = [1, 4];
+
 	public function scan_packer_webcam()
 	{
-		if (empty($this->data['user']['hakakses']) || $this->data['user']['hakakses'] != 1) {
+		if (empty($this->data['user']['hakakses'])
+			|| !in_array((int) $this->data['user']['hakakses'], self::ROLE_BOLEH_WEBCAM, TRUE)) {
 			$this->show(['akses_ditolak' => TRUE], 'packer/scan_packer_webcam');
 			return;
 		}

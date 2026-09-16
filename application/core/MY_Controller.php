@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-15.1';
+    const BOOTSTRAP_VERSI = '2026-09-16.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1044,12 +1044,13 @@ class MY_Controller extends CI_Controller
      * sendiri-sendiri -- controller dan view-nya pun sengaja tidak dipakai
      * bersama.
      *
-     * Hak aksesnya SENGAJA cuma webmaster (roleid 1) selama fiturnya masih uji
-     * coba, jadi jangan disamakan dengan hak akses menu Scan Resi Packer
-     * (menuid 25) yang dipegang hampir semua role.
+     * Hak aksesnya: webmaster (roleid 1) sejak uji coba, lalu client packer
+     * (roleid 4) sejak 2026-09-16. Jangan disamakan dengan hak akses menu Scan
+     * Resi Packer (menuid 25) yang dipegang hampir semua role.
      *
-     * Kalau nanti sudah dibuka untuk role lain, tambahkan roleid-nya di sini dan
-     * naikkan BOOTSTRAP_VERSI -- jangan menghapus baris roleaccess yang ada.
+     * Kalau dibuka untuk role lain lagi, tambahkan roleid-nya di $role_boleh
+     * DAN di Packer::ROLE_BOLEH_WEBCAM (penjaga di controller), lalu naikkan
+     * BOOTSTRAP_VERSI -- jangan menghapus baris roleaccess yang ada.
      */
     protected function run_menu_scan_packer_webcam()
     {
@@ -1082,14 +1083,17 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        $akses_ada = $this->db->get_where('roleaccess', ['roleid' => 1, 'menuid' => $menu_id])->row();
-        if (!$akses_ada) {
-            $this->db->insert('roleaccess', [
-                'roleid'    => 1,
-                'menuid'    => $menu_id,
-                'created'   => date('Y-m-d H:i:s'),
-                'createdby' => 1
-            ]);
+        $role_boleh = [1, 4];
+        foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
         }
     }
 
