@@ -2270,10 +2270,12 @@ class Cs extends MY_Controller
     /**
      * CS minta versi MP4 satu rekaman (tombol "Siapkan MP4").
      *
-     * Konversinya tidak dikerjakan di sini -- transcode H.264 memakan ~15 detik
+     * Konversinya tidak dikerjakan di sini -- transcode H.264 memakan ~13 detik
      * per menit video, terlalu lama untuk satu request -- melainkan dimasukkan
-     * ke antrian yang digarap Cron::finalisasi_video. Halaman CS lalu memantau
-     * statusnya lewat get_video_packing.
+     * ke antrian yang digarap Cron::finalisasi_video, lalu worker-nya langsung
+     * dilepas di latar belakang supaya tidak menunggu putaran cron berikutnya
+     * (dulu rata-rata 30 detik menunggu untuk video yang encode-nya 3 detik).
+     * Halaman CS lalu memantau statusnya lewat get_video_packing.
      */
     public function minta_video_mp4($id = 0)
     {
@@ -2295,10 +2297,89 @@ class Cs extends MY_Controller
             $this->make_ajax_response(200, 'MP4 sudah tersedia.', ['mp4' => $this->info_mp4($row)]);
         }
 
-        $this->video_packing_fcd->minta_mp4($row->id_videopacking, $this->data['user']['id_user']);
+        if ($this->video_packing_fcd->minta_mp4($row->id_videopacking, $this->data['user']['id_user'])) {
+            $this->picu_worker_mp4();
+        }
         $row = $this->video_packing_fcd->get_by_id($id);
 
         $this->make_ajax_response(200, 'MP4 sedang disiapkan di server.', ['mp4' => $this->info_mp4($row)]);
+    }
+
+    /**
+     * Lepas `php index.php cron finalisasi_video mp4` di latar belakang tanpa
+     * menunggu, supaya antrian MP4 mulai digarap dalam hitungan detik.
+     *
+     * Ini hanya percepatan: kalau php.exe tidak ditemukan atau proses gagal
+     * dilepas, permintaan tetap tersimpan sebagai ANTRI dan diambil task
+     * terjadwal pada menit berikutnya seperti sebelumnya. Proses anak aman
+     * hidup bersamaan dengan cron -- transcode dipagari kunci MariaDB.
+     *
+     * Keluaran worker ditambahkan ke log yang sama dengan cron_finalisasi_video.bat.
+     * Handle proses sengaja tidak di-proc_close(): di Windows itu menunggu anak
+     * selesai, sedangkan PHP membebaskan handle-nya sendiri di akhir request
+     * tanpa membunuh anaknya.
+     */
+    private function picu_worker_mp4()
+    {
+        $php = $this->path_php_cli();
+        if ($php === '') {
+            log_message('error', 'minta_video_mp4: php.exe tidak ditemukan, MP4 menunggu cron berikutnya.');
+            return;
+        }
+
+        $folder_log = FCPATH . 'logs';
+        if (!is_dir($folder_log)) {
+            @mkdir($folder_log, 0777, TRUE);
+        }
+        $log = @fopen($folder_log . '/cron_finalisasi_video.log', 'a');
+
+        $spek = [
+            0 => ['pipe', 'r'],
+            1 => $log ?: ['pipe', 'w'],
+            2 => $log ?: ['pipe', 'w'],
+        ];
+
+        $proses = @proc_open(
+            [$php, FCPATH . 'index.php', 'cron', 'finalisasi_video', 'mp4'],
+            $spek,
+            $pipa,
+            FCPATH,
+            null,
+            ['bypass_shell' => TRUE]
+        );
+
+        if (!is_resource($proses)) {
+            log_message('error', 'minta_video_mp4: worker MP4 tidak bisa dilepas, menunggu cron berikutnya.');
+            return;
+        }
+
+        foreach ($pipa as $p) {
+            fclose($p);
+        }
+    }
+
+    /**
+     * Lokasi php.exe untuk melepas worker. Di bawah Apache, PHP_BINARY menunjuk
+     * ke httpd.exe dan PHP_BINDIR ke C:\php bawaan build, jadi keduanya tidak
+     * bisa dipakai; yang andal adalah folder induk extension_dir (C:\xampp\php\ext).
+     * Bisa ditimpa lewat `php_cli_path` di secrets.php.
+     */
+    private function path_php_cli()
+    {
+        $kandidat = [
+            (string) iresis_secret('php_cli_path', ''),
+            dirname((string) ini_get('extension_dir')) . '/php.exe',
+            PHP_BINDIR . '/php.exe',
+        ];
+
+        foreach ($kandidat as $path) {
+            $path = str_replace('\\', '/', trim($path));
+            if ($path !== '' && is_file($path)) {
+                return $path;
+            }
+        }
+
+        return '';
     }
 
     /**

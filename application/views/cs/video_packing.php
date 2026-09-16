@@ -42,10 +42,15 @@
   (function () {
     var urlCari     = <?= json_encode(base_url('cs/get-video-packing')) ?>;
     var urlMintaMp4 = <?= json_encode(base_url('cs/minta-video-mp4')) ?>;
-    // Jeda pemantauan antrian MP4. Transcode memakan ~15 detik per menit
-    // video, jadi tidak ada gunanya menanyakan lebih sering dari ini.
-    var JEDA_PANTAU_MP4_MS = 10000;
+    // Jeda pemantauan antrian MP4. Worker mulai bekerja dalam hitungan detik
+    // setelah tombol ditekan dan video packing umumnya pendek (encode ~13 detik
+    // per menit video), jadi menit pertama dipantau rapat; setelah itu
+    // dilonggarkan karena yang tersisa pasti video panjang atau antrian.
+    var JEDA_PANTAU_MP4_AWAL_MS  = 3000;
+    var JEDA_PANTAU_MP4_LAMA_MS  = 10000;
+    var BATAS_PANTAU_RAPAT_MS    = 60000;
     var pemantauMp4 = null;
+    var pemantauMulai = 0;
     var noresiAktif = '';
 
     function escapeHtml(teks) {
@@ -83,8 +88,8 @@
     }
 
     // Bagian MP4 di bawah setiap video. WebM tidak bisa diputar di iPhone dan
-    // tidak diterima WhatsApp, jadi CS bisa minta versi MP4 -- dibuat di server
-    // oleh cron, bukan saat tombol ditekan, karena konversinya lama.
+    // tidak diterima WhatsApp, jadi CS bisa minta versi MP4 -- dibuat oleh
+    // worker di server, bukan di dalam request tombol, karena konversinya lama.
     function gambarMp4(v) {
       var mp4 = v.mp4 || { status: 'TIDAK' };
       var id  = 'vp-mp4-' + v.id;
@@ -150,7 +155,17 @@
         clearTimeout(pemantauMp4);
         pemantauMp4 = null;
       }
-      if (!aktif) return;
+      if (!aktif) {
+        pemantauMulai = 0;
+        return;
+      }
+
+      if (!pemantauMulai) {
+        pemantauMulai = Date.now();
+      }
+      var jeda = (Date.now() - pemantauMulai) < BATAS_PANTAU_RAPAT_MS
+        ? JEDA_PANTAU_MP4_AWAL_MS
+        : JEDA_PANTAU_MP4_LAMA_MS;
 
       pemantauMp4 = setTimeout(function () {
         pemantauMp4 = null;
@@ -171,7 +186,7 @@
             aturPemantauMp4(true);
           }
         });
-      }, JEDA_PANTAU_MP4_MS);
+      }, jeda);
     }
 
     function pesan(tipe, teks) {

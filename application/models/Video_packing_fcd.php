@@ -242,9 +242,9 @@ class Video_packing_fcd extends CI_Model
     // ------------------------------------------------------------ finalisasi
 
     /**
-     * Berapa lama status PROSES boleh bertahan sebelum dianggap ditinggalkan
-     * (cron mati di tengah ffmpeg) dan dikembalikan ke antrian. Harus lebih
-     * lama dari BATAS_DETIK_TRANSCODE di Video_ffmpeg.
+     * Berapa lama status PROSES remux boleh bertahan sebelum dianggap
+     * ditinggalkan (cron mati di tengah ffmpeg) dan dikembalikan ke antrian.
+     * (Antrian MP4 tidak memakai ambang waktu -- lihat pulihkan_mp4_terlantar().)
      */
     const PROSES_BASI_MENIT = 90;
 
@@ -288,15 +288,67 @@ class Video_packing_fcd extends CI_Model
         return $this->db->affected_rows() > 0 ? $this->get_by_id($kandidat->id_videopacking) : null;
     }
 
+    /** Nama kunci MariaDB (GET_LOCK) yang dipegang proses yang sedang transcode MP4. */
+    const KUNCI_TRANSCODE_MP4 = 'iresis_video_packing_transcode_mp4';
+
+    /**
+     * Pegang kunci "satu transcode MP4 pada satu waktu" di server.
+     *
+     * Transcode boleh dipicu dari dua arah -- cron tiap menit dan worker yang
+     * dilepas Cs::minta_video_mp4 begitu CS menekan tombol -- jadi pembatasnya
+     * tidak bisa lagi mengandalkan hitungan baris PROSES: dua proses yang
+     * memeriksa bersamaan sama-sama melihat nol. Kunci bernama MariaDB melekat
+     * pada koneksi, jadi otomatis lepas kalau proses pemegangnya mati di
+     * tengah ffmpeg; tidak ada status "terkunci selamanya" yang harus dipulihkan.
+     *
+     * @param  int  $tunggu_detik Berapa lama menunggu kalau kunci sedang dipegang.
+     * @return bool TRUE kalau kunci berhasil dipegang.
+     */
+    public function kunci_transcode_mp4($tunggu_detik = 0)
+    {
+        $row = $this->db->query(
+            'SELECT GET_LOCK(?, ?) AS dapat',
+            [self::KUNCI_TRANSCODE_MP4, (int) $tunggu_detik]
+        )->row();
+
+        return $row && (int) $row->dapat === 1;
+    }
+
+    public function lepas_kunci_transcode_mp4()
+    {
+        $this->db->query('SELECT RELEASE_LOCK(?)', [self::KUNCI_TRANSCODE_MP4]);
+    }
+
+    /**
+     * Kembalikan ke antrian baris MP4 yang ditinggalkan proses yang mati.
+     *
+     * Hanya boleh dipanggil oleh pemegang kunci_transcode_mp4(): selama kunci
+     * dipegang tidak ada transcode lain yang hidup, jadi setiap baris yang
+     * masih PROSES pasti sisa proses yang terhenti (task dibunuh, PC restart).
+     * Sebelumnya baris seperti ini memblokir seluruh antrian sampai tiga jam.
+     *
+     * @return int Jumlah baris yang dipulihkan.
+     */
+    public function pulihkan_mp4_terlantar()
+    {
+        $this->db
+            ->where('mp4_status', 'PROSES')
+            ->update('tblvideopacking', [
+                'mp4_status' => 'ANTRI',
+                'mp4_pesan'  => 'Proses sebelumnya terhenti di tengah; diulang.',
+            ]);
+
+        return $this->db->affected_rows();
+    }
+
     /**
      * Ambil satu permintaan MP4 yang mengantre dan tandai PROSES -- atomik,
      * alasannya sama dengan klaim_finalisasi(). Rekaman yang remux-nya sedang
      * berjalan dilewati dulu: berkas sumbernya sebentar lagi diganti.
+     * Pemanggil harus sudah memegang kunci_transcode_mp4().
      */
     public function klaim_mp4()
     {
-        $this->lepas_proses_basi('mp4_status', 'ANTRI');
-
         $kandidat = $this->db
             ->select('id_videopacking')
             ->where('mp4_status', 'ANTRI')
@@ -322,29 +374,16 @@ class Video_packing_fcd extends CI_Model
         return $this->db->affected_rows() > 0 ? $this->get_by_id($kandidat->id_videopacking) : null;
     }
 
-    /** Berapa transcode MP4 yang sedang berjalan (pembatas beban CPU server). */
-    public function jumlah_mp4_proses()
-    {
-        return (int) $this->db->where('mp4_status', 'PROSES')->count_all_results('tblvideopacking');
-    }
-
     /**
-     * Kembalikan ke antrian baris yang terlalu lama di PROSES.
-     *
-     * finalisasi_at diisi saat klaim, jadi ambangnya langsung dari situ. Untuk
-     * MP4 tidak ada kolom waktu klaim -- mp4_diminta_at tidak berubah selama
-     * proses -- jadi ambangnya dihitung dari waktu permintaan ditambah
-     * kelonggaran antrian (permintaan bisa lama menunggu transcode lain).
+     * Kembalikan ke antrian baris remux yang terlalu lama di PROSES.
+     * finalisasi_at diisi saat klaim, jadi ambangnya langsung dari situ.
      */
     private function lepas_proses_basi($kolom, $status_antri)
     {
-        if ($kolom === 'finalisasi') {
-            $this->db->where('finalisasi_at <', date('Y-m-d H:i:s', time() - (self::PROSES_BASI_MENIT * 60)));
-        } else {
-            $this->db->where('mp4_diminta_at <', date('Y-m-d H:i:s', time() - (self::PROSES_BASI_MENIT * 120)));
-        }
-
-        $this->db->where($kolom, 'PROSES')->update('tblvideopacking', [$kolom => $status_antri]);
+        $this->db
+            ->where('finalisasi_at <', date('Y-m-d H:i:s', time() - (self::PROSES_BASI_MENIT * 60)))
+            ->where($kolom, 'PROSES')
+            ->update('tblvideopacking', [$kolom => $status_antri]);
     }
 
     public function update_by_id($id, $data)
