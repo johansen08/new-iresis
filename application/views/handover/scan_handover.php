@@ -131,6 +131,10 @@
               playAudio('audio-error');
           } else if (exceptionCode === 'NOT_PICKED' || exceptionCode === 'NOT_PACKED') {
               playAudio('audio-fail');
+          } else if (exceptionCode === 'NOT_FOUND') {
+              // Resi tidak ada di sistem: ucapan "tidak ditemukan", sama dengan
+              // halaman scan lain. Dulu ikut audio-alert bersama error lain-lain.
+              playAudio('audio-tidak-ditemukan');
           } else {
               playAudio('audio-alert');
           }
@@ -164,8 +168,8 @@
             // Problematic order status - User says ERROR
             playAudio('audio-error');
         } else if (exceptionCode === 'NOT_FOUND') {
-            // Receipt not found
-            playAudio('audio-alert');
+            // Resi tidak ada di sistem: ucapan "tidak ditemukan"
+            playAudio('audio-tidak-ditemukan');
         } else {
             // Other errors
             playAudio('audio-alert');

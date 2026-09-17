@@ -260,16 +260,24 @@
 	<audio id="audio-double" src="<?= base_url('assets/audio/suaradouble.mp3') ?>" preload="auto"></audio>
 	<audio id="audio-cancel" src="<?= base_url('assets/audio/suaracancel.mp3') ?>" preload="auto"></audio>
 	<!--
-		Empat berkas di bawah ini suara ORANG, bukan nada. Isinya kalimat pendek
-		("sudah packing", "paket double", "sudah scan", "cancel") supaya operator
-		tahu penyebab gagalnya tanpa harus membaca layar. Berbeda dari berkas di
-		atas, suara ini TIDAK BOLEH dipotong di tengah -- lihat BATAS_SUARA.
+		Lima berkas di bawah ini suara ORANG, bukan nada. Isinya kalimat pendek
+		("sudah packing", "paket double", "sudah scan", "cancel", "tidak
+		ditemukan") supaya operator tahu penyebab gagalnya tanpa harus membaca
+		layar. Berbeda dari berkas di atas, suara ini TIDAK BOLEH dipotong di
+		tengah -- lihat BATAS_SUARA.
 		Formatnya m4a (AAC): didukung Chrome, Edge, Firefox, dan Safari.
+
+		audio-tidak-ditemukan dipakai SEMUA halaman scan resi (picker, packer,
+		HO, receipt, retur, resi team, inbound) untuk satu penyebab: nomor resi
+		tidak ada di tblprintresi. Dulu kasus ini ikut nada salah umum
+		(WRONG/alert/fail, beda-beda tiap halaman), jadi operator tidak bisa
+		membedakan "salah scan barcode" dari penolakan lain.
 	-->
 	<audio id="audio-sudah-packing" src="<?= base_url('assets/audio/sudah-packing.m4a') ?>" preload="auto"></audio>
 	<audio id="audio-paket-double" src="<?= base_url('assets/audio/paket-double.m4a') ?>" preload="auto"></audio>
 	<audio id="audio-sudah-scan" src="<?= base_url('assets/audio/sudah-scan.m4a') ?>" preload="auto"></audio>
 	<audio id="audio-cancel-order" src="<?= base_url('assets/audio/cancel-order.m4a') ?>" preload="auto"></audio>
+	<audio id="audio-tidak-ditemukan" src="<?= base_url('assets/audio/tidak-ditemukan.m4a') ?>" preload="auto"></audio>
 	<!-- END PRELOADS -->
 
 	<!-- START PEMUTAR SUARA SCAN -->
@@ -319,10 +327,13 @@
 			// (berkas 1,856 s), paket-double 1,783 s, sudah-scan 2,049 s,
 			// cancel-order 1,982 s. Hening di awal cuma ~0,1 s, tidak perlu
 			// dilompati seperti audio-cancel.
+			// tidak-ditemukan: berkas 1,408 s dan bunyi sampai akhir (ffmpeg
+			// silencedetect -40 dB hanya menemukan hening 0,096 s di awal).
 			'audio-sudah-packing': 1950,
 			'audio-paket-double':  1900,
 			'audio-sudah-scan':    2150,
-			'audio-cancel-order':  2100
+			'audio-cancel-order':  2100,
+			'audio-tidak-ditemukan': 1500
 		};
 		var BATAS_UMUM = 700;
 

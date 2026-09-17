@@ -60,6 +60,37 @@
     }
   }
 
+  // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
+  // pola sama dengan halaman Scan Picker. Resi tidak ditemukan dapat ucapan
+  // sendiri supaya salah scan barcode terbedakan dari penolakan lain.
+  function playScanErrorAudio(message, exceptionCode) {
+    switch (exceptionCode) {
+      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');       return;
+      case 'NOT_FOUND':       playAudio('audio-tidak-ditemukan');  return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order');     return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');             return;
+    }
+
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
+  function tampilkanGagal(form, pesan, exceptionCode) {
+    $("#span_latest_receipt").text(form.noresi.value);
+    $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+    $("#p_latest_receipt_message").text(pesan || "Gagal memproses data");
+
+    playScanErrorAudio(pesan, exceptionCode);
+
+    form.noresi.value = "";
+    form.noresi.disabled = false;
+    form.noresi.focus();
+  }
+
   var jvalidate = $("#form_scan_pending_picker").validate({
     ignore: [],
     rules: {
@@ -82,6 +113,16 @@
         success: function(data) {},
         error: function(data) {},
       }).done(function(response) {
+        // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di
+        // body, jadi penolakan server (resi tidak ditemukan, double, batal)
+        // mendarat di sini, bukan di .fail(). Dulu blok ini langsung memutar
+        // suara sukses tanpa memeriksa code -- semua penolakan berbunyi sukses.
+        if (!response || (response.code !== 200 && response.code !== 201)) {
+          var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
+          tampilkanGagal(form, response && response.message, kode);
+          return;
+        }
+
         $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
         $("#span_latest_receipt").text(form.noresi.value);
         $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan Picker");
@@ -93,17 +134,12 @@
         form.noresi.disabled = false;
         form.noresi.focus();
       }).fail(function(error) {
-        var response = JSON.parse(error.responseText);
+        // Hanya error jaringan / respons yang tidak terbaca yang sampai ke sini.
+        var response = {};
+        try { response = JSON.parse(error.responseText); } catch (e) {}
+        var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
 
-        $("#span_latest_receipt").text(form.noresi.value);
-        $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
-        $("#p_latest_receipt_message").text(response.message);
-
-        playAudio('audio-wrong');
-
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+        tampilkanGagal(form, response.message || "Gagal menghubungi server", kode);
       });
       return false; // required to block normal submit since you used ajax
     }

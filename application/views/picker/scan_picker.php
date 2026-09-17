@@ -192,15 +192,16 @@
   //
   // Empat penyebab, empat suara yang tidak bisa tertukar di telinga:
   //   ALREADY_PICKED  -> ucapan "sudah scan"
-  //   NOT_FOUND       -> nada WRONG (patokan lama operator untuk resi salah)
+  //   NOT_FOUND       -> ucapan "tidak ditemukan" (dulu nada WRONG, sama
+  //                      dengan nada salah umum, jadi tidak terbedakan)
   //   ORDER_CANCELED  -> ucapan "cancel"
   //   ORDER_COMPLETED -> nada fail
   function playScanErrorAudio(message, exceptionCode) {
     switch (exceptionCode) {
-      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');   return;
-      case 'NOT_FOUND':       playAudio('audio-wrong');        return;
-      case 'ORDER_CANCELED':  playAudio('audio-cancel-order'); return;
-      case 'ORDER_COMPLETED': playAudio('audio-fail');         return;
+      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');       return;
+      case 'NOT_FOUND':       playAudio('audio-tidak-ditemukan');  return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order');     return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');             return;
     }
 
     // Tanpa kode -- error jaringan, timeout, atau respons yang tidak terbaca.
@@ -213,7 +214,7 @@
                teks.includes('SUDAH DI PICK') || teks.includes('SUDAH DI-PICK')) {
       playAudio('audio-sudah-scan');
     } else if (teks.includes('TIDAK DITEMUKAN')) {
-      playAudio('audio-wrong');
+      playAudio('audio-tidak-ditemukan');
     } else {
       playAudio('audio-alert');
     }

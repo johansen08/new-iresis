@@ -67,18 +67,19 @@
   // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
   // bukan dari teks pesannya -- pola sama dengan halaman Scan Picker.
   //   NOT_PICKED      -> nada WRONG, resi belum punya nama picker untuk dikoreksi
-  //   NOT_FOUND       -> nada WRONG (patokan lama operator untuk resi salah)
+  //   NOT_FOUND       -> ucapan "tidak ditemukan"
   //   ORDER_CANCELED  -> ucapan "cancel"
   //   ORDER_COMPLETED -> nada fail
-  // NOT_PICKED sengaja disamakan dengan NOT_FOUND: dua-duanya berarti resi itu
-  // tidak bisa diproses di sini dan operator harus mengeceknya, jadi cukup satu
-  // nada salah yang sudah mereka kenal.
+  // Dulu NOT_PICKED dan NOT_FOUND sama-sama nada WRONG. Sekarang dipisah:
+  // resi yang belum punya nama picker masih bisa dibereskan lewat menu Scan
+  // Picker, sedangkan resi yang tidak ada di sistem berarti salah scan
+  // barcode -- tindakannya beda, suaranya harus beda.
   function playScanErrorAudio(message, exceptionCode) {
     switch (exceptionCode) {
-      case 'NOT_PICKED':      playAudio('audio-wrong');        return;
-      case 'NOT_FOUND':       playAudio('audio-wrong');        return;
-      case 'ORDER_CANCELED':  playAudio('audio-cancel-order'); return;
-      case 'ORDER_COMPLETED': playAudio('audio-fail');         return;
+      case 'NOT_PICKED':      playAudio('audio-wrong');            return;
+      case 'NOT_FOUND':       playAudio('audio-tidak-ditemukan');  return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order');     return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');             return;
     }
 
     // Tanpa kode -- error jaringan, timeout, atau respons yang tidak terbaca.
@@ -86,7 +87,9 @@
 
     if (teks.includes('CANCEL') || teks.includes('BATAL')) {
       playAudio('audio-cancel-order');
-    } else if (teks.includes('BELUM MEMILIKI NAMA PICKER') || teks.includes('TIDAK DITEMUKAN')) {
+    } else if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else if (teks.includes('BELUM MEMILIKI NAMA PICKER')) {
       playAudio('audio-wrong');
     } else {
       playAudio('audio-alert');

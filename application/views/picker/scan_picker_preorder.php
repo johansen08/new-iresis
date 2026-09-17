@@ -97,6 +97,25 @@
     }
   }
 
+  // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
+  // pola sama dengan halaman Scan Picker. Resi tidak ditemukan dapat ucapan
+  // sendiri supaya salah scan barcode terbedakan dari penolakan lain.
+  function playScanErrorAudio(message, exceptionCode) {
+    switch (exceptionCode) {
+      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');       return;
+      case 'NOT_FOUND':       playAudio('audio-tidak-ditemukan');  return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order');     return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');             return;
+    }
+
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
   function processQueue() {
     if (isProcessing || requestQueue.length === 0) {
       return;
@@ -153,12 +172,34 @@
       // Increment counter immediately
       total_scan.value = Number(total_scan.value) + 1;
 
+      // Penolakan server dan error jaringan sama-sama lewat sini.
+      function tampilkanGagal(pesan, exceptionCode) {
+        // Rollback counter on error
+        total_scan.value = Number(total_scan.value) - 1;
+
+        $("#span_latest_receipt").text(noresiValue);
+        $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+        $("#p_latest_receipt_message").text(pesan || "Gagal memproses data");
+
+        playScanErrorAudio(pesan, exceptionCode);
+      }
+
       // Tambahkan ke queue
       requestQueue.push({
         url: form.action,
         data: Object.fromEntries(formData),
         noresiValue: noresiValue,
         success: function(data) {
+          // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di
+          // body, jadi penolakan server (resi tidak ditemukan, double, batal)
+          // mendarat di sini, bukan di error(). Dulu blok ini langsung memutar
+          // suara sukses tanpa memeriksa code -- semua penolakan berbunyi sukses.
+          if (!data || (data.code !== 200 && data.code !== 201)) {
+            var kode = (data && data.data) ? data.data.EXCEPTION_CODE : '';
+            tampilkanGagal(data && data.message, kode);
+            return;
+          }
+
           // Success feedback
           $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
           $("#span_latest_receipt").text(noresiValue);
@@ -168,23 +209,16 @@
           playAudio('audio-alexis');
         },
         error: function(xhr, status, error) {
-          // Error feedback
+          // Hanya error jaringan / respons yang tidak terbaca yang sampai ke sini.
           var response = {};
           try {
             response = JSON.parse(xhr.responseText);
           } catch (e) {
             response.message = "Terjadi kesalahan pada server";
           }
+          var kode = (response && response.data) ? response.data.EXCEPTION_CODE : '';
 
-          // Rollback counter on error
-          total_scan.value = Number(total_scan.value) - 1;
-
-          $("#span_latest_receipt").text(noresiValue);
-          $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
-          $("#p_latest_receipt_message").text(response.message);
-
-          // Play error sound
-          playAudio('audio-wrong');
+          tampilkanGagal(response.message, kode);
         }
       });
 
