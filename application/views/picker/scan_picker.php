@@ -115,7 +115,11 @@
         <h3 style="text-align: center; margin: 0 0 10px 0;">PICKING SUMMARY</h3>
         <p style="margin: 0;">Picker : <span id="print-picker-name"></span></p>
         <p style="margin: 0;">Waktu  : <span id="print-time"></span></p>
-        <p style="margin: 0; margin-bottom: 10px;">Total Resi: <span id="print-resi-count">0</span></p>
+        <p style="margin: 0;">Total Resi: <span id="print-resi-count">0</span></p>
+        <!-- Total Qty ikut dicetak: pada status 1_SKU_PICKER satu resi bisa
+             berisi qty > 1, kalau picker berpatokan ke Total Resi saja barang
+             yang diambil bisa kurang. -->
+        <p style="margin: 0; margin-bottom: 10px; font-weight: bold; font-size: 16px;">Total Qty : <span id="print-qty-count">0</span> <span style="font-weight: normal; font-size: 14px;">(<span id="print-sku-count">0</span> SKU)</span></p>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <thead>
                 <tr style="border-bottom: 1px solid #000; border-top: 1px solid #000;">
@@ -364,7 +368,9 @@
           return b.qty - a.qty;
       });
 
+      var printTotalQty = 0;
       items.forEach(function(item) {
+          printTotalQty += item.qty;
           var displayRak = item.rak === 'NO_RAK' ? '-' : item.rak;
           var tr = '<tr style="border-bottom: 1px dashed #ccc;">' +
               '<td style="padding: 5px 0;">' + displayRak + '</td>' +
@@ -373,6 +379,10 @@
           '</tr>';
           $printTbody.append(tr);
       });
+
+      // Total Qty & jumlah SKU di header cetak (sama dengan angka di alert biru)
+      $('#print-qty-count').text(printTotalQty);
+      $('#print-sku-count').text(items.length);
 
       var printContents = document.getElementById('print-area').innerHTML;
       
