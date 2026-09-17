@@ -1,4 +1,16 @@
 RewriteEngine On
+
+# Jangan tampilkan daftar isi folder (sebelumnya /scripts/, /logs/, dsb. bisa dijelajah).
+Options -Indexes
+
+# Yang boleh diakses langsung dari browser hanya index.php, assets/, dan favicon.ico.
+# Folder repo/dev/log dan file konfigurasi/skrip di root ditolak (403) --
+# 17 Sep 2026 ditemukan kredensial di scripts/ dan seluruh .git bisa diunduh lewat HTTP.
+RewriteRule ^\. - [F,L]
+RewriteRule ^(scripts|docs|dev_tools|logs|sql_migrations|vendor)(/|$) - [F,L]
+RewriteRule ^[^/]+\.(md|bat|ps1|sql|py|json|lock|xml|log|txt)$ - [F,L]
+
+# Sisanya: URL tanpa file/folder nyata diteruskan ke CodeIgniter.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?/$1 [L]
