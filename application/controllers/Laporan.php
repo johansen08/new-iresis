@@ -303,20 +303,6 @@ class Laporan extends MY_Controller
         $this->load->view('laporan/export_tracking_picker', $data);
     }
 
-    public function send_wa_ekspedisi_urgent()
-    {
-        $this->load->library('wa_gateway');
-
-        $msg = $this->laporan_fcd->format_wa_ekspedisi_urgent();
-        $result = $this->wa_gateway->send_to_group($msg);
-
-        if (isset($result['error']) && $result['error']) {
-            $this->make_ajax_response(500, 'Gagal kirim WA: ' . ($result['message'] ?? 'Unknown error'));
-        } else {
-            $this->make_ajax_response(200, 'Laporan ekspedisi urgent berhasil dikirim ke WhatsApp.');
-        }
-    }
-
     // ── AJAX DATA ENDPOINTS ──────────────────────────────────
 
     public function get_data_totalan_picker()
@@ -524,45 +510,5 @@ class Laporan extends MY_Controller
         $id = $this->input->post('id');
         $this->laporan_fcd->delete_target($id);
         $this->make_ajax_response(200, 'Target berhasil dihapus.');
-    }
-
-    // ── WHATSAPP TRIGGERS ────────────────────────────────────
-
-    public function send_wa_sisa_resi()
-    {
-        $this->load->library('wa_gateway');
-
-        $msg = $this->laporan_fcd->format_wa_sisa_resi();
-        $result = $this->wa_gateway->send_to_group($msg);
-
-        if (isset($result['error']) && $result['error']) {
-            $this->make_ajax_response(500, 'Gagal kirim WA: ' . ($result['message'] ?? 'Unknown error'));
-        } else {
-            $this->make_ajax_response(200, 'Laporan sisa resi berhasil dikirim ke WhatsApp.');
-        }
-    }
-
-    public function send_wa_paket_keluar()
-    {
-        $this->load->library('wa_gateway');
-
-        $msg = $this->laporan_fcd->format_wa_paket_keluar();
-        $result = $this->wa_gateway->send_to_group($msg);
-
-        if (isset($result['error']) && $result['error']) {
-            $this->make_ajax_response(500, 'Gagal kirim WA: ' . ($result['message'] ?? 'Unknown error'));
-        } else {
-            $this->make_ajax_response(200, 'Rekap paket keluar berhasil dikirim ke WhatsApp.');
-        }
-    }
-
-    // ── WA STATUS CHECK ──────────────────────────────────────
-
-    public function wa_status()
-    {
-        $this->load->library('wa_gateway');
-        $status = $this->wa_gateway->get_status();
-        echo json_encode($status);
-        exit();
     }
 }

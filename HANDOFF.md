@@ -37,8 +37,6 @@ Detail lengkap per-controller ada di `docs/ANALISIS_PROGRAM.md`; skema tabel di 
 
 ## 3. Integrasi Eksternal
 
-**WhatsApp Gateway** (`application/libraries/Wa_gateway.php`, config `application/config/whatsapp.php`): gateway Node.js lokal (`localhost:3000`), mengirim notifikasi ke grup `TIM OPERASIONAL`. Dipicu dari `Cron.php` (`sisa_resi`, `paket_keluar`, `control_pengiriman`, `ekspedisi_urgent`) dan dari tombol menu Laporan.
-
 **Jubelio** (marketplace/ERP eksternal): tidak ada API publik yang stabil untuk download laporan — laporan Excel di-generate lewat **Telerik Report Server** yang hanya bisa dipicu dari flow "Cetak" di aplikasi, sehingga download murni via HTTP API gagal (404). Solusinya browser automation. Lihat memory [jubelio-retur-download-telerik-blocker](../.claude-memory) dan `docs/AUTO_UPLOAD_RESI.md` / `docs/AUTO_UPLOAD_RETUR_JUBELIO.md`.
 
 Script Python terkait (folder `scripts/`):
@@ -59,8 +57,8 @@ Script Python terkait (folder `scripts/`):
 
 ## 5. Cron Jobs (token-protected, via `Cron.php`)
 
-Semua endpoint butuh `?token=<CRON_TOKEN>` (nilai sama dengan token WA gateway) atau dijalankan via CLI:
-- `cron/sisa_resi`, `cron/paket_keluar`, `cron/rts_check`, `cron/control_pengiriman`, `cron/ekspedisi_urgent` — notifikasi WA terjadwal.
+Semua endpoint butuh `?token=<cron_token di secrets.php>` atau dijalankan via CLI:
+- `cron/finalisasi_video`, `cron/tutup_video_menggantung` — pemeliharaan video packing (task scheduler).
 - `cron/auto_upload_resi`, `cron/auto_upload_retur_jubelio` — endpoint upload yang dipanggil script Python di atas.
 
 ## 6. Menjalankan Project

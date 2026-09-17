@@ -13,11 +13,6 @@
               <small>Total Sisa Resi (cutoff <?= $cutoff ?>)</small>
             </div>
           </div>
-          <div class="col-md-9 text-right" style="padding-top:10px">
-            <button type="button" class="btn btn-success btn-sm" id="btn-wa-sisa-resi">
-              <i class="fa fa-whatsapp"></i> Kirim ke WhatsApp
-            </button>
-          </div>
         </div>
 
         <table class="table table-striped table-bordered">
@@ -51,22 +46,3 @@
   </div>
 </div>
 
-<script>
-$(document).off('click', '#btn-wa-sisa-resi').on('click', '#btn-wa-sisa-resi', function() {
-  var btn = $(this);
-  btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Mengirim...');
-
-  $.post('laporan/send-wa-sisa-resi', function(res) {
-    var data = (typeof res === 'string') ? JSON.parse(res) : res;
-    if (data.code === 200) {
-      noty({ text: data.message, type: 'success', timeout: 3000 });
-    } else {
-      noty({ text: data.message, type: 'error', timeout: 5000 });
-    }
-  }).fail(function() {
-    noty({ text: 'Gagal menghubungi server.', type: 'error', timeout: 5000 });
-  }).always(function() {
-    btn.prop('disabled', false).html('<i class="fa fa-whatsapp"></i> Kirim ke WhatsApp');
-  });
-});
-</script>
