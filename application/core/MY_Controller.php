@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-17.2';
+    const BOOTSTRAP_VERSI = '2026-09-17.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -91,6 +91,7 @@ class MY_Controller extends CI_Controller
         $this->run_batal_scan_packer_migration();
         $this->run_video_packing_migration();
         $this->run_nonaktifkan_menu_ngrok();
+        $this->run_nonaktifkan_menu_tanpa_route();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1224,6 +1225,19 @@ class MY_Controller extends CI_Controller
     protected function run_nonaktifkan_menu_ngrok()
     {
         $this->db->where('uri', 'ngrok_control')
+                 ->where('isactive', 1)
+                 ->update('menu', ['isactive' => 0]);
+    }
+
+    /**
+     * Menu yang uri-nya tidak punya controller maupun route (klik = 404):
+     * id 135 "Dashboard Operasional Harian" (dashboard-harian) dan
+     * id 136 "Master Jadwal Kerja" (jadwal-kerja). Disembunyikan 17 Sep 2026;
+     * roleaccess dibiarkan supaya tinggal diaktifkan lagi kalau fiturnya dibuat.
+     */
+    protected function run_nonaktifkan_menu_tanpa_route()
+    {
+        $this->db->where_in('uri', ['dashboard-harian', 'jadwal-kerja'])
                  ->where('isactive', 1)
                  ->update('menu', ['isactive' => 0]);
     }
