@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-16.1';
+    const BOOTSTRAP_VERSI = '2026-09-17.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -90,6 +90,7 @@ class MY_Controller extends CI_Controller
         $this->run_menu_scan_packer_webcam();
         $this->run_batal_scan_packer_migration();
         $this->run_video_packing_migration();
+        $this->run_nonaktifkan_menu_ngrok();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1213,5 +1214,17 @@ class MY_Controller extends CI_Controller
                 ADD KEY `idx_finalisasi` (`finalisasi`),
                 ADD KEY `idx_mp4_status` (`mp4_status`)");
         }
+    }
+
+    /**
+     * Controller Ngrok_control dihapus 17 Sep 2026 (ngrok tidak dipakai lagi,
+     * akses LAN sudah lewat HTTPS Apache). Baris menunya disembunyikan, bukan
+     * dihapus, dan roleaccess dibiarkan -- konsisten dengan migrasi lain.
+     */
+    protected function run_nonaktifkan_menu_ngrok()
+    {
+        $this->db->where('uri', 'ngrok_control')
+                 ->where('isactive', 1)
+                 ->update('menu', ['isactive' => 0]);
     }
 }

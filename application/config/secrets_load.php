@@ -6,7 +6,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Nilai asli disimpan di application/config/secrets.php yang TIDAK ikut
  * di-commit (lihat .gitignore). File config biasa (database.php,
- * whatsapp.php, pusher.php) memanggil iresis_secret() untuk membacanya,
+ * pusher.php) memanggil iresis_secret() untuk membacanya,
  * sehingga tidak ada kredensial yang masuk ke repo.
  *
  * Deploy di mesin baru: salin secrets.php.example menjadi secrets.php

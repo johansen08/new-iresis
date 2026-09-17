@@ -20,7 +20,7 @@ cd C:\xampp\htdocs\new-iresis
 Pull mengganti berkas PHP saat Apache masih melayani request. Lakukan saat
 tidak ada packer yang sedang merekam video (menu Scan Resi Packer Webcam)
 dan tidak ada upload Excel besar yang sedang berjalan — misalnya sebelum
-shift pagi atau setelah `cron_laporan_sore` selesai.
+shift pagi atau sesudah jam operasional.
 
 ### A.2 Backup database dulu
 

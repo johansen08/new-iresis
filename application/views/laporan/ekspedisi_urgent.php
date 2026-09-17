@@ -10,11 +10,6 @@
           <div class="col-md-6">
             <p class="text-muted" style="margin-bottom:0">Data 2 hari kebelakang &mdash; resi yang belum selesai proses</p>
           </div>
-          <div class="col-md-6 text-right">
-            <button type="button" class="btn btn-success btn-sm" id="btn-wa-ekspedisi-urgent">
-              <i class="fa fa-whatsapp"></i> Kirim ke WhatsApp
-            </button>
-          </div>
         </div>
 
         <table class="table table-striped table-bordered" id="tbl-ekspedisi-urgent">
@@ -146,21 +141,4 @@ $(document).off('click', '.btn-detail-urgent').on('click', '.btn-detail-urgent',
   $('#modal-detail-urgent').modal('show');
 });
 
-$(document).off('click', '#btn-wa-ekspedisi-urgent').on('click', '#btn-wa-ekspedisi-urgent', function() {
-  var btn = $(this);
-  btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Mengirim...');
-
-  $.post('laporan/send-wa-ekspedisi-urgent', function(res) {
-    var data = (typeof res === 'string') ? JSON.parse(res) : res;
-    if (data.code === 200) {
-      noty({ text: data.message, type: 'success', timeout: 3000 });
-    } else {
-      noty({ text: data.message, type: 'error', timeout: 5000 });
-    }
-  }).fail(function() {
-    noty({ text: 'Gagal menghubungi server.', type: 'error', timeout: 5000 });
-  }).always(function() {
-    btn.prop('disabled', false).html('<i class="fa fa-whatsapp"></i> Kirim ke WhatsApp');
-  });
-});
 </script>

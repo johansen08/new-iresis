@@ -468,10 +468,6 @@ $route['finance/denda']             = 'finance/denda';
 $route['finance/bulk_status']       = 'finance/bulk_status';
 $route['finance/bulk_acc']          = 'finance/bulk_acc';
 
-$route['ngrok_control'] = 'ngrok_control';
-$route['ngrok_control/get_status'] = 'ngrok_control/get_status';
-$route['ngrok_control/save_token'] = 'ngrok_control/save_token';
-
 
 // LAPORAN OPERASIONAL
 $route['laporan/totalan-picker']            = 'laporan/totalan_picker';
@@ -491,12 +487,8 @@ $route['laporan/export-rekap-packer']       = 'laporan/export_rekap_packer';
 $route['laporan/export-rekap-paket-keluar'] = 'laporan/export_rekap_paket_keluar';
 $route['laporan/save-target']               = 'laporan/save_target';
 $route['laporan/delete-target']             = 'laporan/delete_target';
-$route['laporan/send-wa-sisa-resi']         = 'laporan/send_wa_sisa_resi';
-$route['laporan/send-wa-paket-keluar']      = 'laporan/send_wa_paket_keluar';
-$route['laporan/wa-status']                 = 'laporan/wa_status';
 $route['laporan/ekspedisi-urgent']          = 'laporan/ekspedisi_urgent';
 $route['laporan/get-data-ekspedisi-urgent-detail'] = 'laporan/get_data_ekspedisi_urgent_detail';
-$route['laporan/send-wa-ekspedisi-urgent']  = 'laporan/send_wa_ekspedisi_urgent';
 $route['laporan/tracking-picker']           = 'laporan/tracking_picker';
 $route['laporan/get-data-tracking-picker']  = 'laporan/get_data_tracking_picker';
 $route['laporan/get-data-tracking-picker-detail'] = 'laporan/get_data_tracking_picker_detail';

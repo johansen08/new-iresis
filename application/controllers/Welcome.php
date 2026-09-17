@@ -119,46 +119,4 @@ class Welcome extends MY_Controller
 			echo json_encode(['status' => 'error']);
 		}
 	}
-
-	public function check_ngrok_status()
-	{
-		$url = 'http://localhost:4040/api/tunnels';
-		$ch = @curl_init($url);
-		if ($ch) {
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($ch, CURLOPT_TIMEOUT, 2);
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-			$response = @curl_exec($ch);
-			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-			curl_close($ch);
-
-			if ($httpCode == 200 && !empty($response)) {
-				$data = json_decode($response, true);
-				if (!empty($data['tunnels'])) {
-					// Cari tunnel yang menggunakan http/https
-					$public_url = '-';
-					foreach ($data['tunnels'] as $tunnel) {
-						if ($tunnel['proto'] == 'https') {
-							$public_url = $tunnel['public_url'];
-							break;
-						}
-						$public_url = $tunnel['public_url'];
-					}
-					
-					echo json_encode([
-						'status' => 'online',
-						'url' => $public_url,
-						'message' => 'Ngrok is active'
-					]);
-					return;
-				}
-			}
-		}
-
-		echo json_encode([
-			'status' => 'offline',
-			'url' => '-',
-			'message' => 'Ngrok is not running'
-		]);
-	}
 }

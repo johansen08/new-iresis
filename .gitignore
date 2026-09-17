@@ -19,20 +19,15 @@ scripts/sniff_out/
 scripts/.env
 scripts/jubelio_credentials.py
 
-# Kredensial aplikasi (DB, WA gateway, Pusher)
+# Kredensial aplikasi (DB, Pusher)
 # Template yang ikut di-commit: application/config/secrets.php.example
 application/config/secrets.php
 scripts/secrets_local.py
-scratch/wa-gateway/secrets.json
 
 # Bytecode Python: jubelio_credentials.pyc tetap memuat kredensial
 # walau file .py-nya sudah di-ignore
 __pycache__/
 *.py[cod]
-
-# Sesi login WhatsApp Web (setara kredensial akun WA, ~916 MB)
-scratch/wa-gateway/.wwebjs_auth/
-scratch/wa-gateway/.wwebjs_cache/
 
 # ============================================================
 #  Output runtime & file yang dihasilkan aplikasi
@@ -56,7 +51,6 @@ assets/img/users/*
 # ============================================================
 #  Binary pihak ketiga & dependency
 # ============================================================
-ngrok.exe
 node_modules/
 
 # ============================================================
@@ -64,13 +58,7 @@ node_modules/
 # ============================================================
 dev_tools/
 
-scratch/*
-!scratch/wa-gateway/
-scratch/wa-gateway/*
-!scratch/wa-gateway/package.json
-!scratch/wa-gateway/package-lock.json
-!scratch/wa-gateway/server.js
-!scratch/wa-gateway/secrets.example.json
+scratch/
 
 # Script debug/investigasi sekali pakai di root
 /test_*.php

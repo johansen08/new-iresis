@@ -70,7 +70,7 @@ Task Scheduler
   upload manual `Retur::upload_jubelio`)
 - Insert via `retur_fcd->insert_jubelio_batch($rows, $batch_id, null)`
 - Return JSON `{"success": true/false, "message": "...", "inserted":.., "updated":.., "matched":..}`
-- Diamankan token `?token=<wa_api_token>` (dicek di constructor `Cron`)
+- Diamankan token `?token=<cron_token>` (dicek di constructor `Cron`)
 
 ### 3. Model — `application/models/Retur_fcd.php`
 
@@ -103,9 +103,9 @@ schtasks /create /tn "IRESIS Upload Retur Jubelio" /tr "C:\MP\run_upload_retur_j
 ## Token Autentikasi
 
 ```
-<lihat wa_api_token di application/config/secrets.php>
+<lihat cron_token di application/config/secrets.php>
 ```
-Dikonfigurasi di `application/config/whatsapp.php` → key `wa_api_token`
+Dibaca constructor `Cron` lewat `iresis_secret('cron_token')`
 (token yang sama dengan `auto_upload_resi`).
 
 ---
@@ -138,4 +138,4 @@ Dikonfigurasi di `application/config/whatsapp.php` → key `wa_api_token`
 | `application/controllers/Cron.php` | Endpoint `auto_upload_retur_jubelio()` |
 | `application/controllers/Retur.php` | Upload manual `upload_jubelio()` |
 | `application/models/Retur_fcd.php` | `parse_jubelio_spreadsheet()` + `insert_jubelio_batch()` |
-| `application/config/whatsapp.php` | Token cron |
+| `application/config/secrets.php` | Token cron (`cron_token`) |

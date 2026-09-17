@@ -24,15 +24,15 @@ C:/xampp/php/php.exe -l application/controllers/Retur.php
 composer install
 ```
 
-Aplikasi berjalan di Apache XAMPP pada port **8080** (port ini di-hardcode di `Cron.php`): `http://localhost:8080/new-iresis/`. Login pakai akun dari tabel `tbluser`.
+Aplikasi berjalan di Apache XAMPP pada port **80** (dan 443 untuk LAN HTTPS): `http://localhost/new-iresis/`. Login pakai akun dari tabel `tbluser`.
 
 ```bash
 "C:/xampp/mysql/bin/mysql.exe" -u root -e "SHOW DATABASES;"
 ```
 
 ```bash
-# Endpoint cron — butuh token (= nilai `wa_api_token` di secrets.php), atau bebas token via CLI
-curl -s "http://localhost:8080/new-iresis/index.php/cron/sisa_resi?token=$IRESIS_CRON_TOKEN"
+# Endpoint cron — lewat HTTP butuh ?token= (= nilai `cron_token` di secrets.php); lewat CLI bebas token
+C:/xampp/php/php.exe index.php cron finalisasi_video mp4
 ```
 
 Script diagnostik sekali pakai **tidak di-commit** — `.gitignore` sudah membuang `dev_tools/`, `scratch/`, dan pola root seperti `check_*.php`, `describe_*.php`, `dump_db*.php`, `debug_*.php`. Taruh script investigasi di sana, bukan di `application/`.
@@ -74,14 +74,14 @@ Alur bisnis inti: **Receipt → Picking → Packing → Handover → Shipped**, 
 
 ### Kredensial
 
-Tidak ada kredensial di file config. `application/config/secrets.php` (gitignored) mengembalikan array, dibaca lewat `iresis_secret('nama')` dari `secrets_load.php`; `database.php`, `whatsapp.php`, dan `pusher.php` memanggil fungsi itu. Mesin baru: salin `secrets.php.example` → `secrets.php`. Aplikasi `exit()` dengan pesan jelas kalau file atau key-nya belum ada.
+Tidak ada kredensial di file config. `application/config/secrets.php` (gitignored) mengembalikan array, dibaca lewat `iresis_secret('nama')` dari `secrets_load.php`; `database.php`, `pusher.php`, dan constructor `Cron` memanggil fungsi itu. Mesin baru: salin `secrets.php.example` → `secrets.php`. Aplikasi `exit()` dengan pesan jelas kalau file atau key-nya belum ada.
 
 ### Integrasi eksternal
 
-- **WhatsApp**: `libraries/Wa_gateway.php` → gateway Node.js di `localhost:3000` (sumbernya di `scratch/wa-gateway/`), kirim ke grup operasional. Dipicu `Cron.php` dan tombol di menu Laporan.
 - **Pusher** (notifikasi realtime): `models/Notification.php::send()` → `libraries/Pusher_lib.php`.
 - **Jubelio**: tidak ada API stabil untuk unduh laporan (Telerik Report Server hanya bisa dipicu dari flow "Cetak" di UI-nya), jadi jalurnya browser automation Python di `scripts/*.py` yang lalu POST ke endpoint `cron/auto_upload_*`. Lihat `docs/AUTO_UPLOAD_RESI.md` dan `docs/AUTO_UPLOAD_RETUR_JUBELIO.md`.
-- **`Cron.php`**: auth via `?token=` yang dicocokkan ke `wa_api_token`, atau bebas token saat `is_cli()`. Beberapa method memanggil `render_*`-nya sendiri lewat HTTP ke `http://localhost:8080/new-iresis/...` yang **hardcoded** — kalau port atau base path berubah, cron laporan ikut rusak.
+- **`Cron.php`**: auth via `?token=` yang dicocokkan ke `cron_token` di secrets, atau bebas token saat `is_cli()`. Isinya sekarang hanya `auto_upload_*` (dipanggil `scripts/*.py`), `check_resi_status`, `fix_resi_detail`, `tutup_video_menggantung`, dan `finalisasi_video` (task scheduler, tiap menit).
+- **WhatsApp gateway & ngrok sudah dihapus** (17 Sep 2026, commit di branch `chore/hapus-wa-gateway-ngrok`). Kalau perlu lagi, sumbernya ada di git history sebelum commit itu.
 
 ## Standar coding (ringkas dari `docs/DEVELOPMENT_STANDARDS.md`)
 

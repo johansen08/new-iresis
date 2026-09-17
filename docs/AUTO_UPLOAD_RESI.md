@@ -211,9 +211,9 @@ Kredensial Jubelio (dipakai semua script `jubelio_*` dan `auto_upload_resi*.py`)
 
 Endpoint cron diamankan dengan token:
 ```
-<lihat wa_api_token di application/config/secrets.php>
+<lihat cron_token di application/config/secrets.php>
 ```
-Dikonfigurasi di `application/config/whatsapp.php` → key `wa_api_token`.
+Dibaca constructor `Cron` lewat `iresis_secret('cron_token')`.
 
 ---
 
@@ -228,5 +228,5 @@ Dikonfigurasi di `application/config/whatsapp.php` → key `wa_api_token`.
 | `C:\MP\run_upload_resi_api.bat` | BAT launcher v2 |
 | `application/controllers/Cron.php` | Endpoint `auto_upload_resi()`, `auto_upload_resi_api()`, `check_resi_status()` |
 | `application/models/Receipt_fcd.php` | Logic insert ke DB (`insert_receipt`, `get_completed_noresi`) |
-| `application/config/whatsapp.php` | Token cron |
+| `application/config/secrets.php` | Token cron (`cron_token`) |
 | `C:\MP\log_upload_resi.txt` / `log_upload_resi_api.txt` | Log output harian |
