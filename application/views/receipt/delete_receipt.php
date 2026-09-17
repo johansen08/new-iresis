@@ -46,6 +46,31 @@
       el.play();
     }
   }
+
+  // delete-receipt-action tidak mengirim EXCEPTION_CODE, jadi penyebab gagal
+  // dibaca dari kalimat pesannya. Resi tidak ditemukan dapat ucapan sendiri
+  // supaya salah scan barcode terbedakan dari penolakan lain.
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
+  function tampilkanGagal(form, pesan) {
+    $("#span_delete_receipt").text(form.noresi.value);
+    $("#div_container_deleted_receipt").removeClass("tile-default").addClass("tile-danger");
+    $("#p_latest_receipt_message").text(pesan || "Gagal memproses data");
+
+    playScanErrorAudio(pesan);
+
+    form.noresi.value = "";
+    form.noresi.disabled = false;
+    form.noresi.focus();
+  }
+
   $("#noresi").focus();
   var jvalidate = $("#form_delete_resi").validate({
     ignore: [],
@@ -66,6 +91,15 @@
         success: function(data) {},
         error: function(data) {},
       }).done(function(response) {
+        // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di
+        // body, jadi penolakan server (resi tidak ditemukan) mendarat di sini,
+        // bukan di .fail(). Dulu blok ini langsung memutar suara sukses tanpa
+        // memeriksa code -- resi yang tidak ada pun berbunyi "sudah dihapus".
+        if (!response || (response.code !== 200 && response.code !== 201)) {
+          tampilkanGagal(form, response && response.message);
+          return;
+        }
+
         $("#span_delete_receipt").text(form.noresi.value);
         $("#div_container_deleted_receipt").removeClass("tile-danger").addClass("tile-default");
         $("#p_latest_receipt_message").text("Nomor resi yang sudah dihapus");
@@ -76,17 +110,11 @@
         form.noresi.disabled = false;
         form.noresi.focus();
       }).fail(function(error) {
-        var response = JSON.parse(error.responseText);
+        // Hanya error jaringan / respons yang tidak terbaca yang sampai ke sini.
+        var response = {};
+        try { response = JSON.parse(error.responseText); } catch (e) {}
 
-        $("#span_delete_receipt").text(form.noresi.value);
-        $("#div_container_deleted_receipt").removeClass("tile-default").addClass("tile-danger");
-        $("#p_latest_receipt_message").text(response.message);
-
-        playAudio('audio-wrong');
-
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+        tampilkanGagal(form, response.message || "Gagal menghubungi server");
       });
       return false; // required to block normal submit since you used ajax
     }

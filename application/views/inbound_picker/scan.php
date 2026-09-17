@@ -126,7 +126,10 @@ $(function() {
                     $('#total-scan-count').text(resp.data.total_scan);
                     noty({text: 'Resi ' + noresi + ' berhasil discan.', layout: 'topRight', type: 'success', timeout: 1500});
                 } else {
-                    playSound('error');
+                    // save_scan tidak mengirim EXCEPTION_CODE, jadi resi tidak
+                    // ditemukan dikenali dari kalimat pesannya.
+                    var teks = (resp.message || '').toUpperCase();
+                    playSound(teks.indexOf('TIDAK DITEMUKAN') !== -1 ? 'tidak_ditemukan' : 'error');
                     noty({text: resp.message, layout: 'topRight', type: 'error', timeout: 3000});
                 }
             },
@@ -205,8 +208,12 @@ $(function() {
         });
     });
 
+    // type: 'success' | 'error' | 'tidak_ditemukan' (ucapan "tidak ditemukan",
+    // sama dengan halaman scan lain).
     function playSound(type) {
-        var id = (type == 'success') ? 'audio-alert' : 'audio-fail';
+        var id = 'audio-fail';
+        if (type == 'success') id = 'audio-alert';
+        else if (type == 'tidak_ditemukan') id = 'audio-tidak-ditemukan';
 
         // suaraScan memotong durasi dan mereset posisi, jadi scan beruntun
         // tidak menunggu suara scan sebelumnya selesai.

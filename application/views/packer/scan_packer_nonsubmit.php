@@ -244,19 +244,25 @@
                        playAudio('audio-wrong');
                        showError(response.message || "Sudah di-scan sebelumnya.");
                   } else {
-                       // Other error
-                        playAudio('audio-wrong');
-                        showError(response.message || "Gagal memproses data!");
+                       // Penolakan server (resi tidak ditemukan, sudah packing,
+                       // batal) mendarat di sini: make_ajax_response() SELALU
+                       // membalas HTTP 200 dan menaruh status di body, jadi
+                       // callback error di bawah tidak pernah kebagian. Dulu
+                       // logika pemilihan suaranya hanya ada di sana, sehingga
+                       // semua penolakan di sini berbunyi audio-wrong.
+                       var kodeGagal = (response && response.data) ? response.data.EXCEPTION_CODE : '';
+                       playScanErrorAudio(kodeGagal);
+                       showError((response && response.message) || "Gagal memproses data!");
                   }
 
                   // Clear input and focus
                   $('#noresi').val('').focus();
               },
               error: function(xhr, status, error) {
-                  // Handle Error
+                  // Hanya error jaringan / respons yang tidak terbaca yang sampai ke sini.
                   let errorMsg = "Terjadi kesalahan koneksi.";
                   let exceptionCode = '';
-                  
+
                   try {
                       const resp = JSON.parse(xhr.responseText);
                       if(resp.message) errorMsg = resp.message;
@@ -265,22 +271,8 @@
                       console.log("Error parsing error response", e);
                   }
 
-                  // Sound logic based on exception code.
-                  // Dulu ketiga cabang ini sama-sama memutar audio-wrong, jadi
-                  // operator QC tahu scan-nya gagal tapi tidak tahu kenapa --
-                  // harus baca modal error dulu. Sekarang penyebabnya diucapkan.
-                  if (exceptionCode === 'ALREADY_PACKED') {
-                      playAudio('audio-sudah-packing');
-                  } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
-                      playAudio('audio-cancel-order');
-                  } else if (exceptionCode === 'NOT_PICKED') {
-                      // Lost Scan - User says FAIL
-                      playAudio('audio-wrong');
-                  } else {
-                      // Fallback
-                      playAudio('audio-wrong');
-                  }
-                  
+                  playScanErrorAudio(exceptionCode);
+
                   showError(errorMsg);
                   
                   // Sort of clear input to allow retry, or keep it to let user correct it? 
@@ -310,6 +302,23 @@
           if (audio) {
               audio.currentTime = 0;
               audio.play().catch(e => console.log("Audio play failed", e));
+          }
+      }
+
+      // Suara gagal dipilih dari EXCEPTION_CODE yang dikirim
+      // Packer_fcd::save_packer_nonsubmit(). Dulu semua cabang memutar
+      // audio-wrong, jadi operator QC tahu scan-nya gagal tapi tidak tahu
+      // kenapa -- harus baca modal error dulu. Sekarang penyebabnya diucapkan.
+      function playScanErrorAudio(exceptionCode) {
+          if (exceptionCode === 'ALREADY_PACKED') {
+              playAudio('audio-sudah-packing');
+          } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
+              playAudio('audio-cancel-order');
+          } else if (exceptionCode === 'NOT_FOUND') {
+              playAudio('audio-tidak-ditemukan');
+          } else {
+              // NOT_PICKED (lost scan) dan penyebab lain: nada salah umum.
+              playAudio('audio-wrong');
           }
       }
 

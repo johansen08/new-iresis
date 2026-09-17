@@ -424,9 +424,17 @@ $(document).ready(function() {
                     $("#p_latest_receipt_message_terima").text(response.message || "Terjadi kesalahan");
                 }
 
-                // Play failure sounds
-                playAudio('audio-wrong');
-                
+                // Play failure sounds.
+                // save_terima_retur() menggabungkan alasan tiap resi jadi satu
+                // kalimat ("Tidak ada resi yang berhasil diproses. Resi X tidak
+                // ditemukan"), jadi penyebabnya dibaca dari teks. Resi tidak
+                // ditemukan dapat ucapan sendiri; double tetap nada lama + double.
+                if (!isDouble && msg.indexOf('tidak ditemukan') !== -1) {
+                    playAudio('audio-tidak-ditemukan');
+                } else {
+                    playAudio('audio-wrong');
+                }
+
                 if (isDouble) {
                     // Jeda 500 ms supaya suara salah dan suara double terdengar
                     // terpisah, bukan menumpuk jadi satu bunyi.
@@ -534,9 +542,15 @@ $(document).ready(function() {
                     });
                 } else if (response.status === 'error') {
                     $tbody.html('<tr><td colspan="7" class="text-center text-danger">Error: ' + (response.message || 'Unknown error') + '</td></tr>');
-                    // Resi ditolak (mis. belum discan Terima Retur): bunyikan
-                    // suara salah supaya operator tidak lanjut scan berikutnya.
-                    playAudio('audio-wrong');
+                    // Resi ditolak: bunyikan suara salah supaya operator tidak
+                    // lanjut scan berikutnya. "Noresi tidak ditemukan." dari
+                    // _cek_boleh_buka_retur() dapat ucapan sendiri; penolakan
+                    // lain (belum discan Terima Retur, salah menu) nada lama.
+                    if ((response.message || '').toLowerCase().indexOf('tidak ditemukan') !== -1) {
+                        playAudio('audio-tidak-ditemukan');
+                    } else {
+                        playAudio('audio-wrong');
+                    }
                 } else {
                     $tbody.html('<tr><td colspan="7" class="text-center">Data tidak ditemukan untuk resi ini.</td></tr>');
                     playAudio('audio-wrong');

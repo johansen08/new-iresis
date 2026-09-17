@@ -72,6 +72,31 @@
       el.play();
     }
   }
+
+  // save-reprint-receipt tidak mengirim EXCEPTION_CODE, jadi penyebab gagal
+  // dibaca dari kalimat pesannya. Resi tidak ditemukan dapat ucapan sendiri
+  // supaya salah scan barcode terbedakan dari "sudah diambil".
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
+  function tampilkanGagal(form, pesan) {
+    $("#span_latest_receipt").text(form.noresi.value);
+    $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+    $("#p_latest_receipt_message").text(pesan || "Gagal memproses data");
+
+    playScanErrorAudio(pesan);
+
+    form.noresi.value = "";
+    form.noresi.disabled = false;
+    form.noresi.focus();
+  }
+
   var jvalidate = $("#form_scan_resi").validate({
     ignore: [],
     rules: {
@@ -100,23 +125,30 @@
         success: function(data) {},
         error: function(data) {},
       }).done(function(response) {
+        // make_ajax_response() SELALU membalas HTTP 200 dan menaruh status di
+        // body, jadi penolakan server (resi tidak ditemukan, sudah diambil)
+        // mendarat di sini, bukan di .fail(). Dulu blok ini langsung memutar
+        // suara sukses tanpa memeriksa code -- semua penolakan berbunyi sukses.
+        if (!response || (response.code !== 200 && response.code !== 201)) {
+          tampilkanGagal(form, response && response.message);
+          return;
+        }
+
         $("#span_latest_receipt").text(form.noresi.value);
         $("#div_container_latest_receipt").removeClass("tile-danger").addClass("tile-default");
+        $("#p_latest_receipt_message").text("Nomor resi terakhir yang sudah di-scan");
 
         playAudio('audio-alexis');
 
         form.noresi.value = "";
         form.noresi.disabled = false;
         form.noresi.focus();
-      }).fail(function(response) {
-        $("#span_latest_receipt").text(form.noresi.value);
-        $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
+      }).fail(function(error) {
+        // Hanya error jaringan / respons yang tidak terbaca yang sampai ke sini.
+        var response = {};
+        try { response = JSON.parse(error.responseText); } catch (e) {}
 
-        playAudio('audio-wrong');
-
-        form.noresi.value = "";
-        form.noresi.disabled = false;
-        form.noresi.focus();
+        tampilkanGagal(form, response.message || "Gagal menghubungi server");
       });
       return false; // required to block normal submit since you used ajax
     }

@@ -819,10 +819,15 @@
       // penyebab paling sering -- resi sudah di-packing dan pesanan sudah
       // dibatalkan -- menuntut tindakan yang berbeda dari operator.
       // exception_code-nya dikirim handle_double_scan_state() di Packer.php.
+      // NOT_FOUND datang dari packer/detail-resi (scan pertama) maupun
+      // packer/save-packer (scan kedua) -- dua-duanya ucapan "tidak ditemukan"
+      // supaya salah scan barcode terbedakan dari kegagalan lain.
       if (exceptionCode === 'ALREADY_PACKED') {
         audioId = 'audio-sudah-packing';
       } else if (exceptionCode === 'ORDER_CANCELED' || exceptionCode === 'ORDER_COMPLETED') {
         audioId = 'audio-cancel-order';
+      } else if (exceptionCode === 'NOT_FOUND') {
+        audioId = 'audio-tidak-ditemukan';
       } else {
         audioId = 'audio-fail';
       }

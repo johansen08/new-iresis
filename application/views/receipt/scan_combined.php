@@ -172,7 +172,11 @@
   function playScanErrorAudio(message) {
     var teks = (message || "").toUpperCase();
 
-    if (teks.includes('CANCEL') || teks.includes('BATAL')) {
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      // "Nomor resi/picklist tidak ditemukan": ucapan "tidak ditemukan",
+      // sama dengan halaman scan lain.
+      playStandardAudio('audio-tidak-ditemukan');
+    } else if (teks.includes('CANCEL') || teks.includes('BATAL')) {
       playStandardAudio('audio-cancel-order');
     } else if (teks.includes('SUDAH') || teks.includes('COMPLETED')) {
       playStandardAudio('audio-sudah-scan');

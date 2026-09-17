@@ -143,6 +143,25 @@
     }
   }
 
+  // Penyebab gagal dibaca dari EXCEPTION_CODE yang dikirim Picking_fcd::save(),
+  // pola sama dengan halaman Scan Picker. Resi tidak ditemukan dapat ucapan
+  // sendiri supaya salah scan barcode terbedakan dari penolakan lain.
+  function playScanErrorAudio(message, exceptionCode) {
+    switch (exceptionCode) {
+      case 'ALREADY_PICKED':  playAudio('audio-sudah-scan');       return;
+      case 'NOT_FOUND':       playAudio('audio-tidak-ditemukan');  return;
+      case 'ORDER_CANCELED':  playAudio('audio-cancel-order');     return;
+      case 'ORDER_COMPLETED': playAudio('audio-fail');             return;
+    }
+
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
   function updateSummaryTable() {
     var $tbody = $('#summary-tbody');
     $tbody.empty();
@@ -369,8 +388,7 @@
             $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
             $("#p_latest_receipt_message").text(msg);
 
-            // Play error sound (Wrong)
-            playAudio('audio-wrong');
+            playScanErrorAudio(msg, (data && data.data) ? data.data.EXCEPTION_CODE : '');
           }
         },
         error: function(xhr, status, error) {
@@ -389,8 +407,7 @@
           $("#div_container_latest_receipt").removeClass("tile-default").addClass("tile-danger");
           $("#p_latest_receipt_message").text(response.message);
 
-          // Play error sound (Wrong)
-          playAudio('audio-wrong');
+          playScanErrorAudio(response.message, (response && response.data) ? response.data.EXCEPTION_CODE : '');
         }
       });
 

@@ -68,6 +68,19 @@
       el.play();
     }
   }
+
+  // save_scan_preorder() tidak mengirim EXCEPTION_CODE, jadi penyebab gagal
+  // dibaca dari kalimat pesannya. Resi tidak ditemukan dapat ucapan sendiri
+  // supaya salah scan barcode terbedakan dari penolakan lain.
+  function playScanErrorAudio(message) {
+    var teks = (message || "").toUpperCase();
+    if (teks.includes('TIDAK DITEMUKAN')) {
+      playAudio('audio-tidak-ditemukan');
+    } else {
+      playAudio('audio-wrong');
+    }
+  }
+
   $("#noresi").focus();
 
   var requestQueue = [];
@@ -122,17 +135,17 @@
         } else {
             $("#div_container_latest_receipt").removeClass("tile-success").addClass("tile-danger");
             $("#p_latest_receipt_message").text(data.message);
-            playAudio('audio-wrong');
+            playScanErrorAudio(data.message);
         }
       },
       error: function(xhr) {
         var msg = "Gagal memproses data";
         if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
-        
+
         $("#span_latest_receipt").text(noresi);
         $("#div_container_latest_receipt").removeClass("tile-success").addClass("tile-danger");
         $("#p_latest_receipt_message").text(msg);
-        playAudio('audio-wrong');
+        playScanErrorAudio(msg);
       }
     });
 

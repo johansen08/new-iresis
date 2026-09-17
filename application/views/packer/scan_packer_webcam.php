@@ -1236,6 +1236,8 @@
         audioId = 'audio-sudah-packing';
       } else if (kodeAlasan === 'ORDER_CANCELED' || kodeAlasan === 'ORDER_COMPLETED') {
         audioId = 'audio-cancel-order';
+      } else if (kodeAlasan === 'NOT_FOUND') {
+        audioId = 'audio-tidak-ditemukan';
       } else {
         audioId = 'audio-fail';
       }
@@ -1255,8 +1257,12 @@
       }
     } else if (status === 'resi_sudah_selesai') {
       audioId = 'audio-sudah-packing';
-    } else if (status === 'resi_tidak_dikenal'
-               || status === 'kamera_belum_siap' || status === 'sesi_tidak_aktif') {
+    } else if (status === 'resi_tidak_dikenal') {
+      // Resi tidak ada di tblprintresi (penjaga (5) di
+      // handle_double_scan_state_webcam): hampir pasti yang discan bukan
+      // barcode resi. Ucapan "tidak ditemukan" sama dengan halaman scan lain.
+      audioId = 'audio-tidak-ditemukan';
+    } else if (status === 'kamera_belum_siap' || status === 'sesi_tidak_aktif') {
       audioId = 'audio-error';
     }
 

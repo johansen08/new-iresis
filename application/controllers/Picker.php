@@ -360,7 +360,10 @@ class Picker extends MY_Controller
         $save = $this->picking_fcd->save($picking, $this->data['user']);
 
         if (isset($save['error'])) {
-            $this->make_ajax_response($save['code'], $save['message']);
+            // EXCEPTION_CODE ikut dikirim supaya halaman scan bisa memilih suara
+            // sesuai penyebabnya (resi tidak ditemukan vs double vs batal), pola
+            // sama dengan save_scan_picker().
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? []);
         }
 
         // Get item details for summary
@@ -481,7 +484,9 @@ class Picker extends MY_Controller
         $save = $this->picking_fcd->save($picking, $this->data['user']);
 
         if (isset($save['error'])) {
-            $this->make_ajax_response($save['code'], $save['message']);
+            // EXCEPTION_CODE ikut dikirim supaya scan_picker_preorder.php bisa
+            // memilih suara sesuai penyebabnya, pola sama dengan save_scan_picker().
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? []);
         }
 
         if ($save['affected_rows'] > 0) {
@@ -626,7 +631,9 @@ class Picker extends MY_Controller
         $save = $this->picking_fcd->save($picking, $this->data['user']);
 
         if (isset($save['error'])) {
-            $this->make_ajax_response($save['code'], $save['message']);
+            // EXCEPTION_CODE ikut dikirim supaya pending_picker.php bisa memilih
+            // suara sesuai penyebabnya, pola sama dengan save_scan_picker().
+            $this->make_ajax_response($save['code'], $save['message'], $save['data'] ?? []);
         }
 
         if ($save['affected_rows'] > 0) {

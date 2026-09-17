@@ -276,7 +276,8 @@ $(document).ready(function () {
             kelas   : 'tidak-ada',
             verdict : '❓ RESI TIDAK DITEMUKAN',
             manual  : true,
-            audio   : 'audio-wrong'
+            // Ucapan "tidak ditemukan", sama dengan halaman scan lain.
+            audio   : 'audio-tidak-ditemukan'
         }
     };
 
