@@ -98,4 +98,6 @@ Remote `origin` = `https://github.com/johansen08/new-iresis.git` (sejak 2026-09-
 
 ## Risiko yang sudah diketahui (jangan dianggap temuan baru)
 
-Password user MD5 tanpa salt; `csrf_protection` dan `global_xss_filtering` keduanya `FALSE` di `config.php`; `enable_hooks` `FALSE` sehingga `application/hooks/performance_tracking.php` tidak aktif; kredensial Jubelio masih hardcoded di `scripts/*.py`. `README.md` kosong. Konteks lengkapnya di `HANDOFF.md` §4.
+Password user MD5 tanpa salt; `csrf_protection` dan `global_xss_filtering` keduanya `FALSE` di `config.php`; `enable_hooks` `FALSE`. `README.md` kosong. Konteks lengkapnya di `HANDOFF.md` §4.
+
+`.htaccess` root adalah **whitelist**: hanya `index.php`, `assets/`, dan `favicon.ico` yang boleh diakses langsung dari browser; `.git`, `scripts/`, `docs/`, `dev_tools/`, `logs/`, `sql_migrations/`, `vendor/`, dan file root ber-ekstensi md/bat/ps1/sql/py/json/lock/xml/log/txt dijawab 403 (sejak 17 Sep 2026 — sebelumnya kredensial di `scripts/` dan seluruh `.git` bisa diunduh dari LAN). File yang memang harus bisa diunduh user taruh di bawah `assets/`.
