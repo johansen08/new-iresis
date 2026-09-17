@@ -27,7 +27,7 @@ Alur inti: **Receipt (resi masuk) → Picking → Packing → Handover → Shipp
 | Inbound | `Inbound.php`, `Inbound_picker.php` | `Surat_jalan_fcd.php` | `surat_jalan_tp` |
 | Finance | `Finance.php` | `Denda.php`, `Receipt_fcd.php` | `pergantian_barang`, `denda` |
 | Restock (reverse logistics) | `Restock.php` | `Restock_fcd.php` | `tblretur_display_batch(_detail)` |
-| CS | `Cs.php` | berbagai `_fcd` | `tblkurangan_picker`, `tblmasalah_picker`, `tblretur_komplain` |
+| CS | `Cs.php`, `Masalah_picker_new.php` (Daftar Masalah Picker New, terpisah dari yang lama) | berbagai `_fcd`, `Masalah_picker_new_fcd.php` | `tblkurangan_picker`, `tblmasalahpicker`, `tblmasalahpicker_proses(_item)`, `tblretur_komplain` |
 | Monitoring | `Monitoring.php`, `Packer_monitoring.php` | `Packer_monitoring_fcd.php` | — |
 | KPI | `Kpi_reports.php` | `Kpi_fcd.php`, `Target_kpi_fcd.php` | `tblkpi`, `tbltargetkpi`, `tblstatusperforma` |
 | SKU/Master data | `Sku.php`, `Sku_special.php`, `User.php`, `Menu.php`, `Access.php` | `Sku_fcd.php`, dll | `tblsku`, `tbllokasi`, `tbluser`, `tblmenu`, `tblroleaccess` |
