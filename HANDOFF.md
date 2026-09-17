@@ -30,7 +30,7 @@ Alur inti: **Receipt (resi masuk) → Picking → Packing → Handover → Shipp
 | CS | `Cs.php` | berbagai `_fcd` | `tblkurangan_picker`, `tblmasalah_picker`, `tblretur_komplain` |
 | Monitoring | `Monitoring.php`, `Packer_monitoring.php` | `Packer_monitoring_fcd.php` | — |
 | KPI | `Kpi_reports.php` | `Kpi_fcd.php`, `Target_kpi_fcd.php` | `tblkpi`, `tbltargetkpi`, `tblstatusperforma` |
-| SKU/Master data | `Sku.php`, `Sku_special.php`, `Location.php`, `User.php`, `Menu.php`, `Access.php` | `Sku_fcd.php`, dll | `tblsku`, `tbllokasi`, `tbluser`, `tblmenu`, `tblroleaccess` |
+| SKU/Master data | `Sku.php`, `Sku_special.php`, `User.php`, `Menu.php`, `Access.php` | `Sku_fcd.php`, dll | `tblsku`, `tbllokasi`, `tbluser`, `tblmenu`, `tblroleaccess` |
 | Cron/scheduler | `Cron.php` | — | token-protected endpoints |
 
 Detail lengkap per-controller ada di `docs/ANALISIS_PROGRAM.md`; skema tabel di `docs/DATABASE_STRUCTURE.md`; diagram alur di `docs/WORKFLOW_DIAGRAM.md`.
