@@ -468,10 +468,6 @@ $route['finance/denda']             = 'finance/denda';
 $route['finance/bulk_status']       = 'finance/bulk_status';
 $route['finance/bulk_acc']          = 'finance/bulk_acc';
 
-$route['ngrok_control'] = 'ngrok_control';
-$route['ngrok_control/get_status'] = 'ngrok_control/get_status';
-$route['ngrok_control/save_token'] = 'ngrok_control/save_token';
-
 
 // LAPORAN OPERASIONAL
 $route['laporan/totalan-picker']            = 'laporan/totalan_picker';

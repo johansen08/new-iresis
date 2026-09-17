@@ -63,51 +63,6 @@
             display: block !important;
             border-radius: 50% !important;
         }
-        /* Ngrok Indicator Styles */
-        .ngrok-indicator {
-            display: flex;
-            align-items: center;
-            padding: 0 15px;
-            height: 50px;
-            border-left: 1px solid rgba(255,255,255,0.1);
-            color: #fff;
-            font-size: 12px;
-            font-family: 'Inter', sans-serif;
-        }
-        .ngrok-status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-            display: inline-block;
-        }
-        .ngrok-status-online {
-            background-color: #22c55e;
-            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
-        }
-        .ngrok-status-offline {
-            background-color: #ef4444;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-        }
-        .ngrok-url {
-            margin-left: 5px;
-            font-weight: 600;
-            color: #60a5fa;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .ngrok-url:hover {
-            text-decoration: underline;
-        }
-        .ngrok-refresh {
-            margin-left: 10px;
-            cursor: pointer;
-            color: #94a3b8;
-            transition: color 0.2s;
-        }
-        .ngrok-refresh:hover {
-            color: #fff;
-        }
     </style>
 </head>
 
@@ -235,17 +190,6 @@
 					</div>
 				</li>
 				<!-- END NOTIFICATION -->
-
-				<!-- NGROK STATUS -->
-				<li class="pull-right">
-					<div class="ngrok-indicator">
-						<span id="ngrok-dot" class="ngrok-status-dot ngrok-status-offline"></span>
-						<span id="ngrok-text">Ngrok: Offline</span>
-						<a id="ngrok-link" href="#" target="_blank" class="ngrok-url" style="display:none;">Copy URL</a>
-						<i id="ngrok-refresh-btn" class="fa fa-refresh ngrok-refresh" title="Refresh Ngrok Status"></i>
-					</div>
-				</li>
-				<!-- END NGROK STATUS -->
 
 				<!-- SIGN OUT -->
 				<li class="xn-icon-button pull-right">
@@ -887,72 +831,10 @@
             } else if (text.includes('USER') || text.includes('ADMIN') || text.includes('SETTING') || text.includes('MASTER')) {
                 $(this).css('border-left', '5px solid #64748b');
                 $icon.css('color', '#64748b');
-            } else if (text.includes('MONITORING') || text.includes('NGROK')) {
+            } else if (text.includes('MONITORING')) {
                 $(this).css('border-left', '5px solid #8b5cf6');
                 $icon.css('color', '#8b5cf6');
             }
-        });
-
-        // Ngrok Status Polling
-        function checkNgrok() {
-            var $dot = $('#ngrok-dot');
-            var $text = $('#ngrok-text');
-            var $link = $('#ngrok-link');
-            var $refresh = $('#ngrok-refresh-btn');
-
-            $refresh.addClass('fa-spin');
-
-            $.ajax({
-                url: "<?= base_url('welcome/check_ngrok_status') ?>",
-                type: "GET",
-                dataType: "json",
-                global: false, // Prevent global AJAX error handling (red box)
-                success: function(resp) {
-                    $refresh.removeClass('fa-spin');
-                    if (resp.status === 'online') {
-                        $dot.removeClass('ngrok-status-offline').addClass('ngrok-status-online');
-                        $text.text('Ngrok: Online');
-                        $link.attr('href', resp.url).text(resp.url).show();
-                    } else {
-                        $dot.removeClass('ngrok-status-online').addClass('ngrok-status-offline');
-                        $text.text('Ngrok: Offline');
-                        $link.hide();
-                    }
-                },
-                error: function() {
-                    $refresh.removeClass('fa-spin');
-                    $dot.removeClass('ngrok-status-online').addClass('ngrok-status-offline');
-                    $text.text('Ngrok: Offline');
-                    $link.hide();
-                }
-            });
-        }
-
-        // Initial check
-        checkNgrok();
-
-        // Check every 60 seconds
-        setInterval(checkNgrok, 60000);
-
-        // Manual refresh
-        $('#ngrok-refresh-btn').click(function() {
-            checkNgrok();
-        });
-
-        // Copy URL on click
-        $('#ngrok-link').click(function(e) {
-            e.preventDefault();
-            var url = $(this).attr('href');
-            navigator.clipboard.writeText(url).then(function() {
-                if (typeof noty !== "undefined") {
-                    noty({
-                        text: 'URL copied to clipboard!',
-                        layout: 'topRight',
-                        type: 'success',
-                        timeout: 2000
-                    });
-                }
-            });
         });
     });
     </script>
