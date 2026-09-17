@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-17.6';
+    const BOOTSTRAP_VERSI = '2026-09-17.7';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1256,14 +1256,14 @@ class MY_Controller extends CI_Controller
      * supaya slip bisa dicetak ulang persis meski data induknya berubah atau
      * dihapus lewat Laporan Masalah Picker (Restock).
      *
-     * Hak akses: HANYA Tim CS, yaitu webmaster (1), admin (2), dan tim retur
-     * (6) -- tidak ada role "CS" tersendiri di tblhakakses. Daftarnya dikunci
-     * juga di Masalah_picker_new::ROLE_BOLEH dan keduanya harus sejalan.
-     * Versi pertama migrasi ini (2026-09-17.5) sempat menyalin pemegang menu
-     * lama sehingga client packer (4) dan client orders (11) ikut dapat baris
-     * roleaccess; baris itu tidak dihapus di sini (aturan proyek: tanpa
-     * DELETE) melainkan dicabut lewat menu Access, dan controller-nya sendiri
-     * menolak role di luar daftar.
+     * Hak akses: disamakan dengan pemegang menu lama "Daftar Masalah Picker"
+     * per 17 Sep 2026 -- webmaster (1), admin (2), client packer (4), tim
+     * retur (6), client orders (11) -- tetapi sebagai daftar tetap, bukan
+     * disalin saat migrasi jalan, supaya perubahan hak akses menu lama di
+     * kemudian hari tidak diam-diam ikut ke menu ini. Daftar yang sama dikunci
+     * di Masalah_picker_new::ROLE_BOLEH (penjaga di controller); keduanya
+     * harus sejalan. Tidak ada role "CS" tersendiri di tblhakakses; akun CS
+     * tersebar di 1, 2, 6.
      */
     protected function run_masalah_picker_new_migration()
     {
@@ -1322,7 +1322,7 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        $role_boleh = [1, 2, 6];
+        $role_boleh = [1, 2, 4, 6, 11];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
