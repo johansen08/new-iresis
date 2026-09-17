@@ -23,21 +23,22 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Masalah_picker_new extends MY_Controller
 {
     /**
-     * Role yang boleh membuka menu ini: hanya Tim CS. Tidak ada role "CS"
-     * tersendiri di tblhakakses -- akun CS tersebar di webmaster (1), admin
-     * (2), dan tim retur (6). Client packer (4) sengaja TIDAK termasuk:
-     * packer melaporkan masalah lewat Scan Resi Packer, yang memprosesnya CS.
+     * Role yang boleh membuka menu ini -- disamakan dengan pemegang menu lama
+     * "Daftar Masalah Picker" (menuid 52) per 17 Sep 2026: webmaster (1),
+     * admin (2), client packer (4), tim retur (6), client orders (11). Tidak
+     * ada role "CS" tersendiri di tblhakakses; akun CS tersebar di 1, 2, 6.
+     * Client packer ikut karena menu lamanya juga terbuka untuk mereka.
      *
      * Daftar ini harus sejalan dengan hak akses menu yang ditanam
      * MY_Controller::run_masalah_picker_new_migration(). Penjagaan ditaruh di
      * controller juga karena URL-nya bisa dibuka langsung.
      */
-    const ROLE_BOLEH = [1, 2, 6];
+    const ROLE_BOLEH = [1, 2, 4, 6, 11];
 
     function __construct()
     {
         parent::__construct();
-        $this->tolak_bukan_cs();
+        $this->tolak_role_tanpa_akses();
         $this->load->model('masalah_picker_new_fcd');
         $this->load->model('Notification');
     }
@@ -47,7 +48,7 @@ class Masalah_picker_new extends MY_Controller
      * penanda akses_ditolak (show_404 mengirim HTML dan merusak SPA), untuk
      * endpoint data lewat make_ajax_response.
      */
-    private function tolak_bukan_cs()
+    private function tolak_role_tanpa_akses()
     {
         $role = isset($this->data['user']['hakakses']) ? (int) $this->data['user']['hakakses'] : 0;
         if (in_array($role, self::ROLE_BOLEH, TRUE)) {
@@ -66,7 +67,7 @@ class Masalah_picker_new extends MY_Controller
             exit();
         }
 
-        $this->make_ajax_response(403, 'Menu Daftar Masalah Picker New hanya untuk Tim CS.');
+        $this->make_ajax_response(403, 'Role Anda tidak punya akses ke menu Daftar Masalah Picker New.');
     }
 
     private function rentang_default()

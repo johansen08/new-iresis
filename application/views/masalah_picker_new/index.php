@@ -8,8 +8,7 @@ if (!empty($akses_ditolak)) : ?>
     <div class="panel-heading"><h3 class="panel-title"><strong>Daftar Masalah Picker New</strong></h3></div>
     <div class="panel-body">
       <div class="alert alert-danger" style="margin-bottom:0;">
-        <i class="fa fa-lock"></i> Menu ini hanya untuk <strong>Tim CS</strong>. Akun Anda tidak punya akses.
-        Packer melaporkan masalah lewat menu <em>Scan Resi Packer</em>; pemrosesannya dilakukan CS.
+        <i class="fa fa-lock"></i> Role akun Anda tidak punya akses ke menu ini. Hak aksesnya sama dengan menu <em>Daftar Masalah Picker</em> yang lama; minta admin membukanya lewat menu Access.
       </div>
     </div>
   </div>
