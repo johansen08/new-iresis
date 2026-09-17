@@ -22,11 +22,51 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Masalah_picker_new extends MY_Controller
 {
+    /**
+     * Role yang boleh membuka menu ini: hanya Tim CS. Tidak ada role "CS"
+     * tersendiri di tblhakakses -- akun CS tersebar di webmaster (1), admin
+     * (2), dan tim retur (6). Client packer (4) sengaja TIDAK termasuk:
+     * packer melaporkan masalah lewat Scan Resi Packer, yang memprosesnya CS.
+     *
+     * Daftar ini harus sejalan dengan hak akses menu yang ditanam
+     * MY_Controller::run_masalah_picker_new_migration(). Penjagaan ditaruh di
+     * controller juga karena URL-nya bisa dibuka langsung.
+     */
+    const ROLE_BOLEH = [1, 2, 6];
+
     function __construct()
     {
         parent::__construct();
+        $this->tolak_bukan_cs();
         $this->load->model('masalah_picker_new_fcd');
         $this->load->model('Notification');
+    }
+
+    /**
+     * Penolakannya tetap JSON valid: untuk halaman lewat show() dengan
+     * penanda akses_ditolak (show_404 mengirim HTML dan merusak SPA), untuk
+     * endpoint data lewat make_ajax_response.
+     */
+    private function tolak_bukan_cs()
+    {
+        $role = isset($this->data['user']['hakakses']) ? (int) $this->data['user']['hakakses'] : 0;
+        if (in_array($role, self::ROLE_BOLEH, TRUE)) {
+            return;
+        }
+
+        if ($this->router->method === 'index') {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('Content-Type: application/json');
+            echo json_encode([
+                'view'    => $this->load->view('masalah_picker_new/index', ['akses_ditolak' => TRUE], TRUE),
+                'message' => null,
+            ]);
+            exit();
+        }
+
+        $this->make_ajax_response(403, 'Menu Daftar Masalah Picker New hanya untuk Tim CS.');
     }
 
     private function rentang_default()

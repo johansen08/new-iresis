@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-17.5';
+    const BOOTSTRAP_VERSI = '2026-09-17.6';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1256,9 +1256,14 @@ class MY_Controller extends CI_Controller
      * supaya slip bisa dicetak ulang persis meski data induknya berubah atau
      * dihapus lewat Laporan Masalah Picker (Restock).
      *
-     * Hak akses: disalin dari role pemegang menu lama saat migrasi jalan,
-     * jadi siapa pun yang bisa membuka versi lama otomatis bisa membuka yang
-     * baru. Role baru cukup ditambahkan lewat roleaccess seperti biasa.
+     * Hak akses: HANYA Tim CS, yaitu webmaster (1), admin (2), dan tim retur
+     * (6) -- tidak ada role "CS" tersendiri di tblhakakses. Daftarnya dikunci
+     * juga di Masalah_picker_new::ROLE_BOLEH dan keduanya harus sejalan.
+     * Versi pertama migrasi ini (2026-09-17.5) sempat menyalin pemegang menu
+     * lama sehingga client packer (4) dan client orders (11) ikut dapat baris
+     * roleaccess; baris itu tidak dihapus di sini (aturan proyek: tanpa
+     * DELETE) melainkan dicabut lewat menu Access, dan controller-nya sendiri
+     * menolak role di luar daftar.
      */
     protected function run_masalah_picker_new_migration()
     {
@@ -1317,13 +1322,8 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        $role_boleh = [1];
-        if ($menu_lama) {
-            foreach ($this->db->get_where('roleaccess', ['menuid' => $menu_lama->id])->result() as $ra) {
-                $role_boleh[] = (int) $ra->roleid;
-            }
-        }
-        foreach (array_unique($role_boleh) as $roleid) {
+        $role_boleh = [1, 2, 6];
+        foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [

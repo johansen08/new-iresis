@@ -2,6 +2,20 @@
 // View menu TIM CS -> Daftar Masalah Picker New. Dimuat lewat AJAX (SPA) oleh
 // plugins.js, jadi semua handler diikat ke #mpn-root supaya ikut hilang saat
 // pengguna pindah menu -- bukan ke document, yang membuat handler menumpuk.
+if (!empty($akses_ditolak)) : ?>
+<div class="row"><div class="col-md-12">
+  <div class="panel panel-default">
+    <div class="panel-heading"><h3 class="panel-title"><strong>Daftar Masalah Picker New</strong></h3></div>
+    <div class="panel-body">
+      <div class="alert alert-danger" style="margin-bottom:0;">
+        <i class="fa fa-lock"></i> Menu ini hanya untuk <strong>Tim CS</strong>. Akun Anda tidak punya akses.
+        Packer melaporkan masalah lewat menu <em>Scan Resi Packer</em>; pemrosesannya dilakukan CS.
+      </div>
+    </div>
+  </div>
+</div></div>
+<?php return; endif;
+
 $rentang_default = date('Y-m-d 00:00:00') . ' - ' . date('Y-m-d 23:59:59');
 $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
 ?>
