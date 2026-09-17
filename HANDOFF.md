@@ -40,10 +40,10 @@ Detail lengkap per-controller ada di `docs/ANALISIS_PROGRAM.md`; skema tabel di 
 **Jubelio** (marketplace/ERP eksternal): tidak ada API publik yang stabil untuk download laporan — laporan Excel di-generate lewat **Telerik Report Server** yang hanya bisa dipicu dari flow "Cetak" di aplikasi, sehingga download murni via HTTP API gagal (404). Solusinya browser automation. Lihat memory [jubelio-retur-download-telerik-blocker](../.claude-memory) dan `docs/AUTO_UPLOAD_RESI.md` / `docs/AUTO_UPLOAD_RETUR_JUBELIO.md`.
 
 Script Python terkait (folder `scripts/`):
-- `sniff_jubelio.py` — reverse-engineer network call Jubelio.
+- `arsip/sniff_jubelio.py` — reverse-engineer network call Jubelio (selesai, diarsipkan).
 - `auto_upload_resi.py` — download laporan resi dari Jubelio (browser automation) → upload ke `cron/auto_upload_resi?token=...`.
 - `auto_upload_retur_jubelio.py` — sama untuk retur → `cron/auto_upload_retur_jubelio?token=...`.
-- `jubelio_api_probe.py`, `auto_upload_sku.py` — probing/upload SKU tambahan.
+- `auto_upload_sku.py` — upload SKU; `arsip/jubelio_api_probe.py` — probing API (selesai, diarsipkan).
 
 ⚠️ Kredensial Jubelio & token cron **hardcoded di script Python** — harus dipindah ke env var sebelum deploy produksi lain.
 

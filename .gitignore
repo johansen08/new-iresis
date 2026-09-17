@@ -6,14 +6,12 @@
 # Izin lokal Claude Code — entrinya bisa memuat cuplikan perintah berisi token
 .claude/settings.local.json
 /vendor/
-composer.lock
-composer.json
 
 # ============================================================
 #  KREDENSIAL — jangan pernah di-commit
 # ============================================================
 # Sniffer output (berisi token & cookie login)
-scripts/sniff_out/
+**/sniff_out/
 
 # Kredensial Jubelio untuk script otomasi
 scripts/.env
@@ -43,8 +41,7 @@ debug_output.txt
 # Hasil upload user saat aplikasi berjalan
 assets/uploads/
 
-# Dump data operasional (Excel rekonsiliasi, dsb)
-SUNTIK DATA RETUR/
+# Foto profil user (hasil upload)
 assets/img/users/*
 !assets/img/users/avatar.jpg
 

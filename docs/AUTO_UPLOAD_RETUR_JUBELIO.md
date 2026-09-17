@@ -11,7 +11,7 @@ s/d hari ini**), lalu mengunggahnya ke SIRESI. Menggantikan langkah manual
 
 ## Kenapa pakai browser, bukan API murni?
 
-Saat investigasi (via `scripts/sniff_jubelio.py`) ditemukan:
+Saat investigasi (via `scripts/arsip/sniff_jubelio.py`) ditemukan:
 
 | Bagian | Bisa via API? | Keterangan |
 |--------|---------------|------------|
@@ -134,7 +134,7 @@ Dibaca constructor `Cron` lewat `iresis_secret('cron_token')`
 | File | Fungsi |
 |------|--------|
 | `scripts/auto_upload_retur_jubelio.py` | Script Python utama |
-| `scripts/sniff_jubelio.py` | Perekam jaringan (dipakai saat reverse-engineer API) |
+| `scripts/arsip/sniff_jubelio.py` | Perekam jaringan (dipakai saat reverse-engineer API; sudah diarsipkan) |
 | `application/controllers/Cron.php` | Endpoint `auto_upload_retur_jubelio()` |
 | `application/controllers/Retur.php` | Upload manual `upload_jubelio()` |
 | `application/models/Retur_fcd.php` | `parse_jubelio_spreadsheet()` + `insert_jubelio_batch()` |

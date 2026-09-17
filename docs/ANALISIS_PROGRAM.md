@@ -326,8 +326,7 @@ Base controller dengan:
 6. Akses via browser
 
 ### **Scripts**
-- `beverra-siresi-windows.bat` - Setup untuk Windows
-- `beverra-siresi-linux.sh` - Setup untuk Linux
+- `scripts/arsip/beverra-siresi-*.{bat,sh}` - Launcher generasi lama (kedaluwarsa, diarsipkan)
 
 ---
 
