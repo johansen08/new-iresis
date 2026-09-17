@@ -26,7 +26,7 @@ class Packer extends MY_Controller
      * diterima, resi tertutup tanpa pernah dipacking dan videonya cuma berisi
      * beberapa detik kosong.
      */
-    const MIN_JEDA_SCAN_DETIK = 12;
+    const MIN_JEDA_SCAN_DETIK = 5;
 
     /**
      * Batas jumlah bagian rekaman untuk satu resi.
