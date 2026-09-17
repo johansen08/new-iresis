@@ -62,17 +62,60 @@ class Qc_return_fcd extends CI_Model
 
     function get_sku_suggestions($search)
     {
-        $this->db->select('id_sku as id, id_sku as text, no_rak');
+        $this->db->select('id_sku, nama_sku, no_rak');
         $this->db->from('tblsku');
         $this->db->like('id_sku', $search);
+        $this->db->order_by('id_sku');
         $this->db->limit(10);
         return $this->db->get()->result_array();
     }
 
-    function get_sku_detail($sku)
+    /**
+     * Cari satu SKU dari teks yang diketik user (boleh tidak lengkap, huruf besar/kecil bebas).
+     * Urutan pencocokan:
+     *   1. persis sama     : "BM-AKS28-2"
+     *   2. mengandung teks : "aks28-2" -> hanya BM-AKS28-2 yang cocok
+     *   3. akhiran sama    : "aks28-1" -> mengandung 6 SKU (-1, -10, -11, ...), tapi yang berakhiran "-1" cuma BM-AKS28-1
+     *
+     * Hasil:
+     *   ['status' => 'ok',        'sku' => baris tblsku]
+     *   ['status' => 'ambigu',    'kandidat' => [baris, ...]]  -> lebih dari satu, user harus pilih
+     *   ['status' => 'tidak_ada']
+     */
+    function cari_sku($teks)
     {
-        $this->db->where('id_sku', $sku);
-        return $this->db->get('tblsku')->row_array();
+        $teks = trim((string) $teks);
+        if ($teks === '') {
+            return array('status' => 'tidak_ada');
+        }
+
+        // 1. Persis sama (kolasi id_sku sudah case-insensitive)
+        $this->db->select('id_sku, nama_sku, no_rak');
+        $this->db->where('id_sku', $teks);
+        $row = $this->db->get('tblsku')->row_array();
+        if ($row) {
+            return array('status' => 'ok', 'sku' => $row);
+        }
+
+        // 2. Mengandung teks
+        $kandidat = $this->get_sku_suggestions($teks);
+        if (count($kandidat) === 0) {
+            return array('status' => 'tidak_ada');
+        }
+        if (count($kandidat) === 1) {
+            return array('status' => 'ok', 'sku' => $kandidat[0]);
+        }
+
+        // 3. Banyak kandidat: ambil yang akhirannya persis sama, asal cuma satu
+        $this->db->select('id_sku, nama_sku, no_rak');
+        $this->db->like('id_sku', $teks, 'before');
+        $this->db->limit(2);
+        $akhiran = $this->db->get('tblsku')->result_array();
+        if (count($akhiran) === 1) {
+            return array('status' => 'ok', 'sku' => $akhiran[0]);
+        }
+
+        return array('status' => 'ambigu', 'kandidat' => $kandidat);
     }
 
     function get_data_export($start_date, $end_date, $status = null, $kondisi = null)

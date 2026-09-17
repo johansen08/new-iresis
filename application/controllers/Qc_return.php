@@ -156,24 +156,19 @@ class Qc_return extends MY_Controller
         exit();
     }
 
+    // Saran SKU saat mengetik (dropdown). Balasan: {code, message, data: {results: [{id_sku, nama_sku, no_rak}, ...]}}
     public function get_sku_suggestions()
     {
-        $search = $this->input->get('q');
-        $suggestions = $this->qc_return_fcd->get_sku_suggestions($search);
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: application/json');
-        echo json_encode(array('results' => $suggestions));
-        exit();
+        $search = trim((string) $this->input->get('q'));
+        $suggestions = $search === '' ? array() : $this->qc_return_fcd->get_sku_suggestions($search);
+        $this->make_ajax_response(200, 'ok', array('results' => $suggestions));
     }
 
+    // Tebak satu SKU dari teks (Enter / pindah field). Balasan data: lihat Qc_return_fcd::cari_sku()
     public function get_sku_detail()
     {
-        $sku = $this->input->post('sku');
-        $detail = $this->qc_return_fcd->get_sku_detail($sku);
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: application/json');
-        echo json_encode($detail);
-        exit();
+        $hasil = $this->qc_return_fcd->cari_sku($this->input->post('sku'));
+        $this->make_ajax_response(200, 'ok', $hasil);
     }
 
     public function export_to_excel()
