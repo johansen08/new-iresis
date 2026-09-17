@@ -169,7 +169,7 @@ class Cron extends CI_Controller
     /**
      * PERBAIKAN SEKALI-JALAN: memperbaiki qty (jumlah) & no_rak pada
      * tbldetailprintresi yang rusak akibat bug run auto_upload_resi_api
-     * 2026-07-04. Dipanggil oleh scripts/fix_resi_detail_20260704.py.
+     * 2026-07-04. Dipanggil oleh scripts/arsip/fix_resi_detail_20260704.py.
      * NON-DESTRUKTIF: tidak menyentuh header/picklist/status.
      * Body: {"corrections":[{"noresi":..,"items":[{"sku":..,"qty":int},..]},..]}
      */
