@@ -139,9 +139,10 @@ iresis-dev/
 ### 10. **Customer Service (CS)**
 - **Laporan Kurangan Picker**: Laporan item kurang
 - **Retur Complain**: Manajemen komplain
-- **Masalah Picker**: Tracking masalah picker
+- **Masalah Picker**: Tracking masalah picker (versi lama, `cs/masalah-picker`)
+- **Daftar Masalah Picker New** (`masalah-picker-new`, controller `Masalah_picker_new.php` + model `Masalah_picker_new_fcd.php`, sejak 17 Sep 2026): proses semua masalah pending sekaligus dan cetak slip per picker — picker terdeteksi otomatis dari `tblresiambilbarang`, nama packer ikut tercetak, LEBIH AMBIL diproses tanpa cetak, baris slip urut rak lantai 1-2-3. Tiap proses tercatat di `tblmasalahpicker_proses(_item)` untuk cetak ulang. Berdiri sendiri dari menu lama supaya yang lama tetap bisa dipakai.
 
-**Controller**: `Cs.php`
+**Controller**: `Cs.php`, `Masalah_picker_new.php`
 
 ---
 

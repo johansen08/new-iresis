@@ -319,6 +319,16 @@ $route['cs/get-user-list-kurangan'] = 'cs/get_user_list_kurangan';
 $route['cs/save-proses-kurangan'] = 'cs/save_proses_kurangan';
 $route['cs/action-kurangan-picker'] = 'cs/action_kurangan_picker';
 
+// TIM CS -> Daftar Masalah Picker New (controller terpisah dari Cs.php;
+// versi lama cs/masalah-picker di atas tetap dipakai sebagai cadangan)
+$route['masalah-picker-new'] = 'masalah_picker_new/index';
+$route['masalah-picker-new/get-data'] = 'masalah_picker_new/get_data';
+$route['masalah-picker-new/get-detail'] = 'masalah_picker_new/get_detail';
+$route['masalah-picker-new/preview-proses'] = 'masalah_picker_new/preview_proses';
+$route['masalah-picker-new/proses-cetak'] = 'masalah_picker_new/proses_cetak';
+$route['masalah-picker-new/riwayat-cetak'] = 'masalah_picker_new/riwayat_cetak';
+$route['masalah-picker-new/data-cetak-ulang'] = 'masalah_picker_new/data_cetak_ulang';
+
 $route['cs/complain-management'] = 'cs/complain_management';
 $route['cs/complain-management/get-data'] = 'cs/get_complain_management_data';
 $route['cs/complain-management/detail/(:num)'] = 'cs/get_complain_management_detail/$1';

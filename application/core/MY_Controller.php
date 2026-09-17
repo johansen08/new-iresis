@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-17.3';
+    const BOOTSTRAP_VERSI = '2026-09-17.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -92,6 +92,7 @@ class MY_Controller extends CI_Controller
         $this->run_video_packing_migration();
         $this->run_nonaktifkan_menu_ngrok();
         $this->run_nonaktifkan_menu_tanpa_route();
+        $this->run_masalah_picker_new_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1240,5 +1241,98 @@ class MY_Controller extends CI_Controller
         $this->db->where_in('uri', ['dashboard-harian', 'jadwal-kerja'])
                  ->where('isactive', 1)
                  ->update('menu', ['isactive' => 0]);
+    }
+
+    /**
+     * Menu TIM CS -> "Daftar Masalah Picker New" + tabel riwayat prosesnya.
+     *
+     * Versi baru berdiri sendiri (controller Masalah_picker_new, model, view,
+     * route) supaya menu lama "Daftar Masalah Picker" (cs/masalah-picker)
+     * tetap utuh sebagai cadangan. Sumber datanya tetap tblmasalahpicker.
+     *
+     * tblmasalahpicker_proses mencatat tiap klik "Proses & Cetak" (siapa,
+     * kapan, berapa picker/item); _item menyimpan snapshot tiap baris yang
+     * ikut diproses -- termasuk picker yang terdeteksi, packer, dan no rak --
+     * supaya slip bisa dicetak ulang persis meski data induknya berubah atau
+     * dihapus lewat Laporan Masalah Picker (Restock).
+     *
+     * Hak akses: disalin dari role pemegang menu lama saat migrasi jalan,
+     * jadi siapa pun yang bisa membuka versi lama otomatis bisa membuka yang
+     * baru. Role baru cukup ditambahkan lewat roleaccess seperti biasa.
+     */
+    protected function run_masalah_picker_new_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblmasalahpicker_proses` (
+          `id_proses` int(11) NOT NULL AUTO_INCREMENT,
+          `waktu_proses` datetime NOT NULL,
+          `id_user` int(11) NOT NULL,
+          `nama_user` varchar(100) DEFAULT NULL,
+          `jumlah_picker` int(11) NOT NULL DEFAULT 0,
+          `jumlah_item` int(11) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`id_proses`),
+          KEY `idx_waktu_proses` (`waktu_proses`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblmasalahpicker_proses_item` (
+          `id_proses_item` int(11) NOT NULL AUTO_INCREMENT,
+          `id_proses` int(11) NOT NULL,
+          `id_masalahpicker` int(11) NOT NULL,
+          `kode_picker` int(11) DEFAULT NULL,
+          `nama_picker` varchar(255) DEFAULT NULL,
+          `nama_packer` varchar(255) DEFAULT NULL,
+          `noresi` varchar(100) DEFAULT NULL,
+          `sku` varchar(100) DEFAULT NULL,
+          `nama_barang` varchar(255) DEFAULT NULL,
+          `sku_salah` varchar(100) DEFAULT NULL,
+          `qty_bermasalah` int(11) NOT NULL DEFAULT 0,
+          `no_rak` varchar(100) DEFAULT NULL,
+          `id_typemasalah` int(11) DEFAULT NULL,
+          `type_masalah` varchar(100) DEFAULT NULL,
+          `dicetak` tinyint(1) NOT NULL DEFAULT 1,
+          PRIMARY KEY (`id_proses_item`),
+          KEY `idx_id_proses` (`id_proses`),
+          KEY `idx_id_masalahpicker` (`id_masalahpicker`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $uri_baru = 'masalah-picker-new';
+        $uri_lama = 'cs/masalah-picker';
+
+        $menu_lama = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri_lama])->row();
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri_baru])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Daftar Masalah Picker New',
+                'parentid'  => $menu_lama ? $menu_lama->parentid : 51,
+                'uri'       => $uri_baru,
+                'icon'      => 'fa fa-print',
+                'sortorder' => $menu_lama ? ((int) $menu_lama->sortorder + 1) : 1,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1];
+        if ($menu_lama) {
+            foreach ($this->db->get_where('roleaccess', ['menuid' => $menu_lama->id])->result() as $ra) {
+                $role_boleh[] = (int) $ra->roleid;
+            }
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
     }
 }
