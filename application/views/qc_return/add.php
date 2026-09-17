@@ -13,6 +13,7 @@
                             <div id="sku_results" class="list-group" style="position: absolute; width: 93%; z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
                             <small id="sku_nama_display" style="color: #27ae60; font-weight: bold; display: none;"><i class="fa fa-check-circle"></i> <span id="sku_nama_text"></span></small>
                             <small id="sku_not_found" style="color: #e74c3c; display: none;"><i class="fa fa-times-circle"></i> SKU tidak ditemukan</small>
+                            <small id="sku_ambigu" style="color: #f39c12; display: none;"><i class="fa fa-exclamation-circle"></i> Ada beberapa SKU yang cocok, lengkapi kodenya atau pilih dari daftar</small>
                         </div>
                     </div>
                     <div class="form-group">
@@ -100,50 +101,129 @@
 <script type="text/javascript">
 $(document).ready(function() {
     var timer;
-    var skuSelectedFromDropdown = false; // flag: cegah blur override klik dropdown
+    var skuTerkonfirmasi = ''; // id_sku lengkap yang terakhir berhasil dipilih
+    var sedangCari = false;    // ada request tebak-SKU yang belum selesai
 
-    // ==================== FUNGSI FETCH DETAIL SKU ====================
-    function fetchSkuDetail(skuVal) {
-        if (!skuVal) return;
+    var $sku   = $('#sku_autocomplete');
+    var $rak   = $('#no_rak_input');
+    var $qty   = $('input[name="qty"]');
+    var $hasil = $('#sku_results');
+
+    function sembunyikanStatus() {
+        $('#sku_nama_display, #sku_not_found, #sku_ambigu').hide();
+    }
+
+    // SKU yang diketik tidak lagi cocok dengan yang terpilih -> rak & konfirmasi jadi basi
+    function kosongkanSku() {
+        skuTerkonfirmasi = '';
+        $rak.val('');
+        sembunyikanStatus();
+    }
+
+    // Terapkan SKU terpilih: isi kolom SKU dengan kode lengkap + No Rak, tampilkan nama sebagai konfirmasi
+    function pilihSku(row, pindahKeQty) {
+        skuTerkonfirmasi = row.id_sku;
+        $sku.val(row.id_sku);
+        $rak.val(row.no_rak || '');
+        sembunyikanStatus();
+        $('#sku_nama_text').text(row.nama_sku || row.id_sku);
+        $('#sku_nama_display').show();
+        $hasil.hide().empty();
+        if (pindahKeQty) {
+            $qty.focus();
+        }
+    }
+
+    // Render daftar kandidat ke dropdown (dipakai saat mengetik dan saat hasil tebakan ambigu)
+    function tampilkanKandidat(list) {
+        $hasil.empty();
+        if (!list || !list.length) {
+            $hasil.hide();
+            return;
+        }
+        $.each(list, function(i, item) {
+            var $item = $('<a href="javascript:void(0)" class="list-group-item sku-item"></a>')
+                .data('row', item)
+                .append($('<strong></strong>').text(item.id_sku));
+            if (item.no_rak) {
+                $item.append('   ').append($('<span class="label label-success"></span>').text('Rak: ' + item.no_rak));
+            }
+            $hasil.append($item);
+        });
+        $hasil.show();
+    }
+
+    // ==================== TEBAK SKU DARI TEKS (Enter / pindah field) ====================
+    // Server yang memutuskan: cocok persis -> mengandung teks -> akhiran sama. "aks28-2" langsung jadi BM-AKS28-2.
+    function cariSku(teks, pindahKeQty) {
+        teks = $.trim(teks);
+        if (!teks) {
+            kosongkanSku();
+            return;
+        }
+        sedangCari = true;
         $('#rak_loading').show();
-        $('#sku_nama_display').hide();
-        $('#sku_not_found').hide();
+        sembunyikanStatus();
         $.ajax({
             url: '<?= base_url('qc_return/get_sku_detail') ?>',
             type: 'POST',
-            data: { sku: skuVal },
+            data: { sku: teks },
             dataType: 'JSON',
             success: function(res) {
-                $('#rak_loading').hide();
-                if (res && res.id_sku) {
-                    // Isi No Rak otomatis
-                    $('#no_rak_input').val(res.no_rak || '');
-                    // Tampilkan nama SKU sebagai konfirmasi
-                    $('#sku_nama_text').text(res.nama_sku || res.id_sku);
-                    $('#sku_nama_display').show();
-                    $('#sku_not_found').hide();
+                var d = (res && res.data) ? res.data : {};
+                if (d.status === 'ok' && d.sku) {
+                    pilihSku(d.sku, pindahKeQty);
+                } else if (d.status === 'ambigu') {
+                    // Lebih dari satu SKU cocok: biarkan user memilih dari dropdown (kalau kursor masih di kolom SKU)
+                    kosongkanSku();
+                    $('#sku_ambigu').show();
+                    if ($sku.is(':focus')) {
+                        tampilkanKandidat(d.kandidat);
+                    }
                 } else {
-                    $('#no_rak_input').val('');
-                    $('#sku_nama_display').hide();
+                    kosongkanSku();
                     $('#sku_not_found').show();
                 }
             },
             error: function() {
+                kosongkanSku();
+                $('#sku_not_found').show();
+            },
+            complete: function() {
+                sedangCari = false;
                 $('#rak_loading').hide();
             }
         });
     }
 
+    // ==================== ENTER: PILIH SKU, JANGAN SUBMIT FORM ====================
+    $sku.on('keydown', function(e) {
+        if (e.which !== 13) return;
+        e.preventDefault(); // Enter di kolom SKU bukan submit form
+        clearTimeout(timer);
+        $hasil.hide();
+        var q = $.trim($(this).val());
+        if (q && q === skuTerkonfirmasi) {
+            $qty.focus(); // sudah terpilih, tinggal lanjut ke Quantity
+            return;
+        }
+        cariSku(q, true);
+    });
+
     // ==================== AUTOCOMPLETE SAAT KETIK ====================
-    $('#sku_autocomplete').on('keyup', function(e) {
-        var q = $(this).val().trim();
+    $sku.on('keyup', function(e) {
+        // Enter sudah ditangani di keydown; tombol navigasi/modifier tidak mengubah teks
+        if (e.which === 13 || e.which === 9 || (e.which >= 16 && e.which <= 18) || (e.which >= 37 && e.which <= 40)) return;
+        if (e.which === 27) { // Esc: tutup dropdown
+            $hasil.hide();
+            return;
+        }
+
+        var q = $.trim($(this).val());
         clearTimeout(timer);
 
-        // Tekan Enter langsung fetch detail SKU
-        if (e.which === 13) {
-            $('#sku_results').hide();
-            fetchSkuDetail(q);
-            return;
+        if (q !== skuTerkonfirmasi) {
+            kosongkanSku();
         }
 
         if (q.length >= 2) {
@@ -154,61 +234,35 @@ $(document).ready(function() {
                     data: { q: q },
                     dataType: 'JSON',
                     success: function(res) {
-                        var html = '';
-                        if (res.results.length > 0) {
-                            $.each(res.results, function(i, item) {
-                                html += '<a href="javascript:void(0)" class="list-group-item sku-item" data-sku="'+item.id+'" data-rak="'+(item.no_rak || '')+'" data-nama="'+(item.text || '')+'">';
-                                html += '<strong>'+item.id+'</strong>';
-                                if (item.no_rak) {
-                                    html += ' &nbsp; <span class="label label-success">Rak: '+item.no_rak+'</span>';
-                                }
-                                html += '</a>';
-                            });
-                            $('#sku_results').html(html).show();
-                        } else {
-                            $('#sku_results').hide();
-                        }
+                        // Abaikan balasan yang datang setelah teks berubah
+                        if ($.trim($sku.val()) !== q) return;
+                        tampilkanKandidat(res && res.data ? res.data.results : []);
                     }
                 });
             }, 300);
         } else {
-            $('#sku_results').hide();
-            $('#sku_nama_display').hide();
-            $('#sku_not_found').hide();
-            $('#no_rak_input').val('');
+            $hasil.hide();
         }
     });
 
     // ==================== KLIK ITEM AUTOCOMPLETE ====================
+    // mousedown di-preventDefault supaya kolom SKU tidak blur duluan (blur akan memicu cariSku dengan teks mentah)
+    $(document).on('mousedown', '.sku-item', function(e) {
+        e.preventDefault();
+    });
     $(document).on('click', '.sku-item', function() {
-        var sku  = $(this).data('sku');
-        var rak  = $(this).data('rak');
-        var nama = $(this).data('nama');
-        skuSelectedFromDropdown = true; // tandai: dipilih dari dropdown
-        $('#sku_autocomplete').val(sku);
-        $('#no_rak_input').val(rak);
-        $('#sku_nama_text').text(nama || sku);
-        $('#sku_nama_display').show();
-        $('#sku_not_found').hide();
-        $('#sku_results').hide();
-        // Jika rak kosong di dropdown, tetap fetch detail untuk memastikan
-        if (!rak) {
-            fetchSkuDetail(sku);
+        var row = $(this).data('row');
+        if (row) {
+            pilihSku(row, true);
         }
     });
 
-    // ==================== BLUR: AUTO FETCH SAAT PINDAH FIELD ====================
-    $('#sku_autocomplete').on('blur', function() {
-        // Jika dipilih dari dropdown, skip blur handler (blur terpicu sebelum click selesai)
-        if (skuSelectedFromDropdown) {
-            skuSelectedFromDropdown = false; // reset flag
-            return;
-        }
-        var q = $(this).val().trim();
-        if (q.length > 0) {
-            setTimeout(function() {
-                fetchSkuDetail(q);
-            }, 150);
+    // ==================== BLUR: TEBAK SKU SAAT PINDAH FIELD ====================
+    $sku.on('blur', function() {
+        if (sedangCari) return;
+        var q = $.trim($(this).val());
+        if (q && q !== skuTerkonfirmasi) {
+            cariSku(q, false);
         }
     });
 
