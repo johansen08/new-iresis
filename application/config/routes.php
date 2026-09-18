@@ -329,6 +329,12 @@ $route['masalah-picker-new/proses-cetak'] = 'masalah_picker_new/proses_cetak';
 $route['masalah-picker-new/riwayat-cetak'] = 'masalah_picker_new/riwayat_cetak';
 $route['masalah-picker-new/data-cetak-ulang'] = 'masalah_picker_new/data_cetak_ulang';
 
+// TIM HO -> Scan Paket NDD New (berdampingan dengan scan_logistic yang lama)
+$route['scan-paket-ndd-new'] = 'scan_paket_ndd_new/index';
+$route['scan-paket-ndd-new/save'] = 'scan_paket_ndd_new/save';
+$route['scan-paket-ndd-new/cek-lost-scan'] = 'scan_paket_ndd_new/cek_lost_scan';
+$route['scan-paket-ndd-new/simpan-lost-scan'] = 'scan_paket_ndd_new/simpan_lost_scan';
+
 $route['cs/complain-management'] = 'cs/complain_management';
 $route['cs/complain-management/get-data'] = 'cs/get_complain_management_data';
 $route['cs/complain-management/detail/(:num)'] = 'cs/get_complain_management_detail/$1';
