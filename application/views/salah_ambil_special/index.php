@@ -138,37 +138,72 @@ if (!empty($akses_ditolak)) : ?>
   // ---------- live search SKU ----------
   // Saran dari master tblsku muncul saat mengetik, supaya kode yang dikunci
   // pasti ada di database (kode SKU panjang seperti 3100A3100B rawan typo).
-  // Menu saran ditempel ke #sas-root agar ikut hilang saat pindah menu.
-  function pasangAutocomplete($input, $info, $berikutnya) {
-    $input.autocomplete({
-      source: URL.cariSku,
-      appendTo: '#sas-root',
-      minLength: 1,
-      delay: 150,
-      select: function (event, ui) {
-        $input.val(ui.item.value);
-        $info.text(infoSku(ui.item));
-        // Pilih dari saran -> langsung ke field berikutnya / tombol kunci.
-        setTimeout(function () { $berikutnya.focus(); }, 0);
-        return false;
-      },
-      focus: function () { return false; } // jangan timpa ketikan saat panah naik-turun
-    });
-    // Ketikan berubah setelah memilih saran -> keterangan lama tidak berlaku lagi.
-    $input.on('input', function () { $info.text(''); });
-  }
-  pasangAutocomplete($('#sas-sku-benar'), $('#sas-info-benar'), $('#sas-sku-salah'));
-  pasangAutocomplete($('#sas-sku-salah'), $('#sas-info-salah'), $('#sas-btn-kunci'));
+  // Dropdown dibuat sendiri: jquery-ui.min.js di proyek ini build ringkas
+  // (core, widget, mouse, position, efek) TANPA widget autocomplete/menu.
+  function pasangSaran($input, $info, $berikutnya) {
+    var $saran = $('<ul class="sas-saran hidden"></ul>').insertAfter($input);
+    var item = [], aktif = -1, timer = null, requestTerakhir = 0;
 
-  // Enter di field pertama (tanpa saran yang sedang disorot) pindah ke field
-  // kedua, bukan submit form dengan SKU terambil masih kosong.
-  $root.on('keydown', '#sas-sku-benar', function (e) {
-    if (e.key !== 'Enter') { return; }
-    var ac = $(this).autocomplete('instance');
-    if (ac && ac.menu.active) { return; } // biar autocomplete yang memilih saran
-    e.preventDefault();
-    $('#sas-sku-salah').focus();
-  });
+    function tutup() { $saran.addClass('hidden').empty(); item = []; aktif = -1; }
+    function sorot(i) {
+      aktif = i;
+      $saran.children().removeClass('aktif').eq(i).addClass('aktif');
+    }
+    function pilih(i) {
+      if (!item[i]) { return; }
+      $input.val(item[i].value);
+      $info.text(infoSku(item[i]));
+      tutup();
+      $berikutnya.focus();
+    }
+    function render() {
+      $saran.empty();
+      if (item.length === 0) { tutup(); return; }
+      $.each(item, function (i, it) {
+        $saran.append('<li data-i="' + i + '"><strong>' + esc(it.value) + '</strong> — ' +
+          esc(it.nama_sku || '-') + ' <span class="text-muted">(rak ' + esc(it.no_rak || '-') + ')</span></li>');
+      });
+      $saran.removeClass('hidden');
+      sorot(0);
+    }
+    function cari() {
+      var term = $input.val().trim();
+      if (term === '' || $input.prop('readonly')) { tutup(); return; }
+      var nomorRequest = ++requestTerakhir;
+      $.getJSON(URL.cariSku, { term: term })
+        .done(function (data) {
+          if (nomorRequest !== requestTerakhir) { return; } // balasan lama, abaikan
+          item = $.isArray(data) ? data : [];
+          render();
+        })
+        .fail(function () { tutup(); });
+    }
+
+    $input.on('input', function () {
+      $info.text(''); // ketikan berubah -> keterangan lama tidak berlaku
+      clearTimeout(timer);
+      timer = setTimeout(cari, 150);
+    });
+    $input.on('keydown', function (e) {
+      var terbuka = !$saran.hasClass('hidden');
+      if (e.key === 'ArrowDown' && terbuka) { e.preventDefault(); sorot(Math.min(aktif + 1, item.length - 1)); }
+      else if (e.key === 'ArrowUp' && terbuka) { e.preventDefault(); sorot(Math.max(aktif - 1, 0)); }
+      else if (e.key === 'Escape' && terbuka) { e.preventDefault(); tutup(); }
+      else if (e.key === 'Enter') {
+        // Enter: pilih saran yang disorot; kalau tidak ada saran, pindah ke
+        // field berikutnya -- jangan submit form dengan field kedua kosong.
+        e.preventDefault();
+        if (terbuka && aktif >= 0) { pilih(aktif); } else { $berikutnya.focus(); }
+      }
+    });
+    $saran.on('mousedown', 'li', function (e) {
+      e.preventDefault(); // jangan blur input sebelum pilih
+      pilih(Number($(this).data('i')));
+    });
+    $input.on('blur', function () { setTimeout(tutup, 150); });
+  }
+  pasangSaran($('#sas-sku-benar'), $('#sas-info-benar'), $('#sas-sku-salah'));
+  pasangSaran($('#sas-sku-salah'), $('#sas-info-salah'), $('#sas-btn-kunci'));
 
   // ---------- kunci SKU ----------
   $root.on('submit', '#sas-form-sku', function (e) {
@@ -284,17 +319,15 @@ if (!empty($akses_ditolak)) : ?>
 <style>
   #sas-table td { vertical-align: middle; }
   #sas-noresi { font-size: 20px; }
-  /* Menu saran jQuery UI: harus di atas panel & scroll kalau panjang */
-  #sas-root .ui-autocomplete {
-    z-index: 99999 !important;
-    max-height: 260px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    font-size: 13px;
-    background: #fff;
-    border: 1px solid #d1d5db;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  /* Dropdown saran SKU (buatan sendiri, lihat pasangSaran) */
+  .sas-saran {
+    position: absolute; left: 15px; right: 15px; z-index: 99999;
+    margin: 0; padding: 0; list-style: none;
+    max-height: 260px; overflow-y: auto; font-size: 13px;
+    background: #fff; border: 1px solid #d1d5db; box-shadow: 0 6px 12px rgba(0,0,0,0.15);
   }
-  #sas-root .ui-menu-item-wrapper { padding: 6px 10px !important; }
-  #sas-root .ui-state-active { background: #337ab7 !important; color: #fff !important; border: 1px solid #337ab7 !important; }
+  .sas-saran li { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+  .sas-saran li:hover, .sas-saran li.aktif { background: #337ab7; color: #fff; }
+  .sas-saran li.aktif .text-muted, .sas-saran li:hover .text-muted { color: #dbe7f3; }
+  #sas-form-sku .col-md-3 { position: relative; }
 </style>
