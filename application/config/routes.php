@@ -335,6 +335,11 @@ $route['masalah-picker-new/proses-cetak'] = 'masalah_picker_new/proses_cetak';
 $route['masalah-picker-new/riwayat-cetak'] = 'masalah_picker_new/riwayat_cetak';
 $route['masalah-picker-new/data-cetak-ulang'] = 'masalah_picker_new/data_cetak_ulang';
 
+// Menu TIM PACKER -> Salah Ambil Special (controller Salah_ambil_special)
+$route['salah-ambil-special'] = 'salah_ambil_special/index';
+$route['salah-ambil-special/cek-sku'] = 'salah_ambil_special/cek_sku';
+$route['salah-ambil-special/scan-resi'] = 'salah_ambil_special/scan_resi';
+
 // TIM HO -> Scan Paket NDD New (berdampingan dengan scan_logistic yang lama)
 $route['scan-paket-ndd-new'] = 'scan_paket_ndd_new/index';
 $route['scan-paket-ndd-new/save'] = 'scan_paket_ndd_new/save';
