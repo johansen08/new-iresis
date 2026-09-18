@@ -310,6 +310,23 @@ Urutan penyelesaian resi belum-picker: tim picker *Tambahkan Picker* →
 packer scan ulang → HO scan ulang. Urutan itu dijaga penjaga `NOT_PICKED`
 / `NOT_PACKED` yang sudah ada di tiap menu, bukan status baru.
 
+### C.0 WAJIB SEKALI: riwayat git ditulis ulang — pakai reset, bukan pull
+
+Pada 18 Sep 2026 seluruh riwayat `origin/master` ditulis ulang (baris
+`Co-Authored-By` dibuang dari pesan commit; isi kode, author, dan tanggal
+tidak berubah). Akibatnya `git pull` di PC produksi akan **gagal atau
+membuat merge ganda**. Untuk rilis ini, ganti langkah A.5 dengan:
+
+```powershell
+git fetch origin
+git status --short          # harus kosong (A.3); kalau ada perubahan lokal, stash dulu
+git reset --hard origin/master
+git log --oneline -3        # commit teratas harus 'Merge branch ...' rilis 18 Sep 2026
+```
+
+Ini aman karena PC produksi tidak pernah membuat commit sendiri (hanya
+menarik). Setelah ini, rilis berikutnya kembali memakai `git pull` biasa.
+
 ### C.1 Perubahan database — semuanya otomatis lewat migrasi
 
 `BOOTSTRAP_VERSI` naik ke **`2026-09-18.3`**. Pada request pertama setelah
