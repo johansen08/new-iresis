@@ -32,7 +32,7 @@ Menu ini memangkas itu menjadi: isi dua SKU sekali, lalu scan 30 resi berturut-t
 
 ## 4. Alur layar
 
-1. **Buka menu** → panel dengan dua input teks: `SKU seharusnya`, `SKU terambil`, tombol **Kunci & Mulai Scan**. Field nomor resi masih disabled.
+1. **Buka menu** → panel dengan dua input teks: `SKU seharusnya`, `SKU terambil`, tombol **Kunci & Mulai Scan**. Field nomor resi masih disabled. Kedua field punya **live search** (tambahan 18 Sep 2026 saat uji): ketik ≥1 karakter → `GET salah-ambil-special/cari-sku?term=` → dropdown saran `KODE — rak X` (maks 15, cocok berdasarkan kode saja, yang diawali ketikan di atas). Dropdown dibuat sendiri di view karena build `jquery-ui.min.js` proyek tidak memuat widget autocomplete. Memilih saran mengisi kode persis dari `tblsku`, menampilkan nama + rak di bawah field, dan memindahkan fokus ke field berikutnya.
 2. **Kunci** → POST `salah-ambil-special/cek-sku` `{sku_benar, sku_salah}`. Server: keduanya wajib terisi, ada di `tblsku` (`id_sku`), dan tidak sama. Balasan berisi `nama_sku` + `no_rak` masing-masing; JS menampilkannya di bawah field sebagai konfirmasi visual, mengunci kedua field (readonly), mengaktifkan field resi, dan memindahkan fokus ke sana. Kalau gagal → pesan di bawah field, `audio-fail`.
 3. **Scan resi** (Enter di field resi) → POST `salah-ambil-special/scan-resi` `{noresi, sku_benar, sku_salah}`. Balasan `code 201` (tercatat) atau `4xx` (ditolak + alasan). JS menambah baris di **atas** tabel sesi: `#`, no. resi, hasil (label hijau "Tercatat" / merah "Ditolak: <alasan>"), jam. Counter `Tercatat: n | Ditolak: m` di heading. Bunyi `audio-alert` untuk tercatat, `audio-fail` untuk ditolak. Field resi dikosongkan dan difokuskan lagi.
 4. **Antrean request**: scan diproses satu per satu di JS (queue; request berikutnya baru dikirim setelah yang sebelumnya selesai) supaya scanner cepat tidak memicu dua insert bersamaan dan urutan baris di tabel sesi sesuai urutan scan. Field resi tetap bisa diketik selama antrean berjalan.
@@ -85,12 +85,12 @@ Setelah tersimpan, baris langsung tampil di Daftar Masalah Picker (lama & New): 
 ## 7. File
 
 Baru:
-- `application/controllers/Salah_ambil_special.php` — `index()`, `cek_sku()`, `scan_resi()`, penjaga role.
+- `application/controllers/Salah_ambil_special.php` — `index()`, `cari_sku()`, `cek_sku()`, `scan_resi()`, penjaga role.
 - `application/models/Salah_ambil_special_fcd.php` — `cari_sku($kode)`, `resi_terbaru($noresi)`, `detail_resi($id_printresi)`, `sudah_packing($id)`, `picker_resi($id)` (null kalau belum di-scan ambil), `laporan_ada($id, $sku)`, `simpan_salah_ambil(array $data)`.
 - `application/views/salah_ambil_special/index.php` — panel SKU, panel scan, tabel sesi, JS (queue scan, audio, fokus).
 
 Diubah:
-- `application/config/routes.php` — `salah-ambil-special`, `salah-ambil-special/cek-sku`, `salah-ambil-special/scan-resi`.
+- `application/config/routes.php` — `salah-ambil-special`, `salah-ambil-special/cari-sku`, `salah-ambil-special/cek-sku`, `salah-ambil-special/scan-resi`.
 - `application/core/MY_Controller.php` — `run_salah_ambil_special_migration()` dipanggil dari `jalankan_bootstrap_sekali()`, `BOOTSTRAP_VERSI = '2026-09-18.4'`.
 - `docs/ANALISIS_PROGRAM.md` — satu paragraf di bagian Packer.
 

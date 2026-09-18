@@ -68,7 +68,7 @@ iresis-dev/
 - **Save Packer**: Simpan data packing
 - **Masalah Picker**: Report masalah dari picker
 - **Search Packer**: Pencarian data packing
-- **Salah Ambil Special** (`salah-ambil-special`, controller `Salah_ambil_special.php` + model `Salah_ambil_special_fcd.php`, sejak 18 Sep 2026): untuk batch resi spesial (tepat 1 SKU / 1 qty) yang salah diambil picker. Packer mengisi "SKU seharusnya" dan "SKU terambil" sekali, lalu men-scan semua resi berantai; tiap resi yang lolos validasi (resi ada, 1 SKU/1 qty, SKU cocok, belum packing, sudah di-picker, belum pernah dilaporkan) langsung jadi baris SALAH AMBIL di `tblmasalahpicker` — bentuknya sama dengan hasil modal Masalah Picker, jadi Daftar Masalah Picker/KPI tidak berubah. Role 1 & 4. Tidak ada fitur batal; spec di `docs/superpowers/specs/2026-09-18-salah-ambil-special-design.md`.
+- **Salah Ambil Special** (`salah-ambil-special`, controller `Salah_ambil_special.php` + model `Salah_ambil_special_fcd.php`, sejak 18 Sep 2026): untuk batch resi spesial (tepat 1 SKU / 1 qty) yang salah diambil picker. Packer mengisi "SKU seharusnya" dan "SKU terambil" sekali (field ber-live-search ke `tblsku`), lalu men-scan semua resi berantai; tiap resi yang lolos validasi (resi ada, 1 SKU/1 qty, SKU cocok, belum packing, sudah di-picker, belum pernah dilaporkan) langsung jadi baris SALAH AMBIL di `tblmasalahpicker` — bentuknya sama dengan hasil modal Masalah Picker, jadi Daftar Masalah Picker/KPI tidak berubah. Role 1 & 4. Tidak ada fitur batal; spec di `docs/superpowers/specs/2026-09-18-salah-ambil-special-design.md`.
 
 **Controller**: `Packer.php`  
 **Model**: `Packer_fcd.php`
