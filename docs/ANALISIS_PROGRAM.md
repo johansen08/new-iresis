@@ -144,6 +144,26 @@ iresis-dev/
 
 **Controller**: `Cs.php`, `Masalah_picker_new.php`
 
+### 11. **Lost Scan (Packer & Picker)** — sejak 18 Sep 2026
+Penanganan paket yang lolos tanpa di-scan picker/packer, dicatat **di meja
+tempat paket ditemukan**, tanpa pindah menu:
+- **Scan Paket NDD New** (TIM HO, `scan-paket-ndd-new`): saat resi ditolak
+  *belum packing* / *belum picker*, panel pilih packer muncul di bawah kartu
+  status → catat Lost Scan Packer; *belum picker* juga otomatis dilaporkan ke
+  antrean tim picker. Berdampingan dengan Scan Paket NDD lama.
+- **Scan Resi Packer (Webcam)**: popup *belum di-picker* punya tombol **Lapor
+  Lost Scan Picker** (tanpa memilih picker, tanpa rekaman).
+- **Laporan Lost Scan Picker** (TIM PICKER, `lost-scan-picker`): antrean
+  resi belum-picker; **Tambahkan Picker** membuat baris picking atas nama
+  picker (tanpa KPI) + catatan lost scan PICKER → packer scan ulang → HO.
+
+**Controller**: `Scan_paket_ndd_new.php`, `Lost_scan_picker.php`, `Packer.php`
+**Model**: `Scan_paket_ndd_new_fcd.php`, `Lost_scan_picker_fcd.php`
+**Tabel**: `tbllostscanpacker`, `tbllostscanpicker_pending`
+
+Alur, kondisi, skenario, dan keputusan desainnya lengkap di
+[`LOST_SCAN.md`](LOST_SCAN.md).
+
 ---
 
 ## 🔐 Sistem Autentikasi & Keamanan
@@ -211,6 +231,9 @@ iresis-dev/
    ↓
 5. SHIPPED (Status: Terkirim)
 ```
+
+Paket yang lolos tanpa scan di tahap 2/3 ditolak di tahap berikutnya dan
+ditangani lewat alur lost scan — lihat [`LOST_SCAN.md`](LOST_SCAN.md).
 
 ### **Workflow Retur**
 

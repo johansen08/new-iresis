@@ -70,7 +70,7 @@ Menu disimpan di tabel `menu`/`tblmenu` dengan `uri` + `parentid`, hak akses di 
 
 39 controller, 41 model (13 controller mati bawaan template lama — email blast, webhook, verification, dsb. — dihapus 17 Sep 2026; kalau butuh, ada di git history sebelum branch `chore/bersih-bersih-kode-mati`). Model utama per domain bersuffix **`_fcd`** (`Retur_fcd`, `Receipt_fcd`, …), di-load di constructor controller. `Status_performa` dan `Picker_performance` berfungsi tapi tidak ada di menu — hanya via URL langsung. Controller terbesar: `Retur.php` (3088 baris), `Report.php`, `Cs.php`, `Accounting.php` — perubahan di sana perlu hati-hati karena banyak method berbagi tabel retur yang sama.
 
-Alur bisnis inti: **Receipt → Picking → Packing → Handover → Shipped**, dengan jalur paralel **Retur → Buka Retur → QC/Repair/Reject → Restock/Display → Finance/Accounting**. Peta lengkap area → controller → model → tabel ada di `HANDOFF.md` §2; detail per-controller di `docs/ANALISIS_PROGRAM.md`, skema tabel di `docs/DATABASE_STRUCTURE.md`, diagram alur di `docs/WORKFLOW_DIAGRAM.md`.
+Alur bisnis inti: **Receipt → Picking → Packing → Handover → Shipped**, dengan jalur paralel **Retur → Buka Retur → QC/Repair/Reject → Restock/Display → Finance/Accounting**. Peta lengkap area → controller → model → tabel ada di `HANDOFF.md` §2; detail per-controller di `docs/ANALISIS_PROGRAM.md`, skema tabel di `docs/DATABASE_STRUCTURE.md`, diagram alur di `docs/WORKFLOW_DIAGRAM.md`, alur lost scan lintas meja (HO → packer → tim picker) di `docs/LOST_SCAN.md`.
 
 ### Kredensial
 
