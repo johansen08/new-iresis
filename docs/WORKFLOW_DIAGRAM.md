@@ -281,6 +281,49 @@
 
 ---
 
+## 🔄 Workflow Lost Scan (Packer & Picker)
+
+Paket yang sampai di meja HO/packer tanpa pernah di-scan picker/packer.
+Rincian kondisi, skenario, dan keputusan desain: [`LOST_SCAN.md`](LOST_SCAN.md).
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    WORKFLOW LOST SCAN                            │
+└─────────────────────────────────────────────────────────────────┘
+
+HO scan (Scan Paket NDD New)                Packer scan (Webcam)
+   │                                             │
+   ├─→ ditolak NOT_PACKED                        └─→ ditolak NOT_PICKED
+   │   └─→ panel: pilih packer                       └─→ popup: Lapor Lost Scan Picker
+   │       └─→ tbllostscanpacker PACKER                  └─→ antrean (sumber PACKER)
+   │           └─→ paket ke packer → scan biasa              (kamera tidak merekam)
+   │
+   └─→ ditolak NOT_PICKED
+       └─→ panel: pilih packer
+           ├─→ tbllostscanpacker PACKER
+           └─→ antrean (sumber HO)
+                     │
+                     ▼
+        TIM PICKER → Laporan Lost Scan Picker (tab Pending)
+           └─→ Tambahkan Picker
+               ├─→ tblresiambilbarang atas nama picker ('LOST SCAN PICKER', tanpa KPI)
+               ├─→ tbllostscanpacker PICKER
+               ├─→ antrean → SELESAI  (SELESAI_LUAR bila picking sudah ada dari SCAN COMBINED)
+               └─→ notifikasi ke packer
+                     │
+                     ▼
+        Packer scan ulang → tblpacking (video + KPI asli)
+                     │
+                     ▼
+        HO scan ulang → tblresikeluar / tblscan_ndd
+
+Penjaga yang memaksa urutan (sudah ada sebelumnya):
+  Packer_fcd::periksa_kelayakan_packing  → tolak tanpa picking
+  Scan_logistic_fcd::save_scan           → tolak tanpa picking / tanpa packing
+```
+
+---
+
 ## 📊 Status Flow Diagram
 
 ```
@@ -391,6 +434,11 @@ RETUR STATUS FLOW:
 
 ### Handover
 - `POST /handover/save-handover` - Simpan handover
+
+### Lost Scan (lihat `LOST_SCAN.md` §9)
+- `POST /scan-paket-ndd-new/save` · `/cek-lost-scan` · `/simpan-lost-scan` · `/lapor-picker`
+- `POST /packer/lapor-lost-scan-picker`
+- `POST /lost-scan-picker/get-data` · `/tambah-picker`
 
 ### Retur
 - `POST /retur/save-retur` - Simpan retur
