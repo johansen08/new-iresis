@@ -172,6 +172,36 @@ class Scan_paket_ndd_new extends MY_Controller
         $this->make_ajax_response(200, NOTHING_TO_SAVE);
     }
 
+    /**
+     * Laporkan resi belum-picker ke antrean tim picker tanpa mencatat packer
+     * lagi -- dipakai saat packer sudah tercatat (mis. lewat menu lama) tapi
+     * resi belum ada di antrean. Sumber laporan = HO, karena memang di sini
+     * ditemukannya.
+     */
+    public function lapor_picker()
+    {
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $noresi = trim((string) $this->input->post('noresi'));
+        if ($noresi === '') {
+            $this->make_ajax_response(400, 'Nomor resi kosong');
+        }
+
+        $lapor = $this->lost_scan_picker_fcd->lapor($noresi, 'HO', $this->data['user']);
+        $data  = [
+            'lapor_picker'   => $lapor['status'],
+            'antrean_picker' => $this->ringkas_pending($lapor['pending']),
+        ];
+
+        if ($lapor['status'] === 'DIBUAT') {
+            $this->make_ajax_response(201, 'Resi ' . $noresi . ' dilaporkan ke tim picker', $data);
+        }
+
+        $this->make_ajax_response(400, $lapor['message'], $data);
+    }
+
     /** Kolom antrean picker yang ditampilkan panel; null bila tidak ada. */
     private function ringkas_pending($pending)
     {

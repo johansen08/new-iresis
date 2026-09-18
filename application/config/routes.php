@@ -339,6 +339,7 @@ $route['scan-paket-ndd-new'] = 'scan_paket_ndd_new/index';
 $route['scan-paket-ndd-new/save'] = 'scan_paket_ndd_new/save';
 $route['scan-paket-ndd-new/cek-lost-scan'] = 'scan_paket_ndd_new/cek_lost_scan';
 $route['scan-paket-ndd-new/simpan-lost-scan'] = 'scan_paket_ndd_new/simpan_lost_scan';
+$route['scan-paket-ndd-new/lapor-picker'] = 'scan_paket_ndd_new/lapor_picker';
 
 $route['cs/complain-management'] = 'cs/complain_management';
 $route['cs/complain-management/get-data'] = 'cs/get_complain_management_data';

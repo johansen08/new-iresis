@@ -94,13 +94,15 @@
                             <button type="button" class="btn btn-default btn-sm" id="ls_tutup"><i class="fa fa-times"></i> Tutup (Esc)</button>
                         </div>
 
+                        <!-- Status antrean tim picker: berlaku untuk kedua mode di bawah -->
+                        <p id="ls_antrean_picker" style="display: none; margin: 0 0 10px; padding: 8px 10px; background: #fdecea; border-left: 4px solid #dc3545; color: #721c24; font-weight: 600;">
+                            <i class="fa fa-hourglass-half"></i> <span id="ls_antrean_teks"></span>
+                        </p>
+
                         <div id="ls_mode_simpan">
                             <p style="color: #666; margin-bottom: 10px;" id="ls_teks_alasan">
                                 Resi belum di-packing. Pilih packer yang lupa scan, lalu tekan <b>Enter</b> / klik Simpan.
                                 Resi ini <b>tidak</b> masuk HO -- scan ulang setelah packer selesai.
-                            </p>
-                            <p id="ls_antrean_picker" style="display: none; margin: 0 0 10px; padding: 8px 10px; background: #fdecea; border-left: 4px solid #dc3545; color: #721c24; font-weight: 600;">
-                                <i class="fa fa-hourglass-half"></i> <span id="ls_antrean_teks"></span>
                             </p>
                             <div style="display: flex; gap: 10px; align-items: flex-start;">
                                 <div style="flex: 1;">
@@ -127,6 +129,14 @@
                             <p style="font-weight: 600; color: #155724; margin: 0; font-size: 1.05rem;">
                                 <i class="fa fa-check-circle"></i> <span id="ls_info_teks"></span>
                             </p>
+                            <!-- Belum di-picker tapi belum ada di antrean tim picker (mis. PACKER
+                                 dicatat lewat menu lama): tetap bisa dilaporkan dari sini. -->
+                            <div id="ls_lapor_wrap" style="display: none; margin-top: 10px;">
+                                <button type="button" class="btn btn-danger" id="ls_lapor_picker" style="font-weight: 700;">
+                                    <i class="fa fa-bullhorn"></i> Laporkan ke Tim Picker
+                                </button>
+                                <span class="text-muted" style="margin-left: 8px;">resi belum di-picker dan belum ada di antrean tim picker</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -436,6 +446,7 @@ $(document).ready(function() {
     // disimpan atau ditutup. NOT_PACKED untuk resi lain mengganti isi panel.
     var lsResi = null;
     var lsBelumPicker = false; // true = ditolak NOT_PICKED, ikut lapor ke tim picker
+    var lsAdaAntrean = false;  // true = resi sudah ada di antrean tim picker (PENDING)
     var lsAdaSelectpicker = (typeof $.fn.selectpicker === 'function');
     if (lsAdaSelectpicker) {
         $("#ls_packer").selectpicker({ liveSearch: true, size: 8 });
@@ -458,9 +469,11 @@ $(document).ready(function() {
 
         lsResi = noresi;
         lsBelumPicker = !!belumPicker;
+        lsAdaAntrean = false;
         $("#ls_noresi").text(noresi);
         $("#ls_teks_alasan").html(lsBelumPicker ? TEKS_BELUM_PICKER : TEKS_BELUM_PACKING);
         $("#ls_antrean_picker").hide();
+        $("#ls_lapor_wrap").hide();
         setModeSimpan();
         $("#panel_lost_scan").show();
         fokusPacker();
@@ -479,6 +492,7 @@ $(document).ready(function() {
                 if (r.data.sudah_dicatat) {
                     setModeInfo(r.data.catatan);
                 }
+                perbaruiTombolLapor();
             }
         });
     }
@@ -493,7 +507,46 @@ $(document).ready(function() {
             ') pada ' + waktu + ' -- menunggu picker ditentukan.'
         );
         $("#ls_antrean_picker").show();
+        lsAdaAntrean = true;
     }
+
+    // Tombol "Laporkan ke Tim Picker" hanya saat: ditolak belum di-picker,
+    // panel dalam mode info (packer sudah tercatat), dan belum ada di antrean.
+    function perbaruiTombolLapor() {
+        var tampil = lsBelumPicker && !lsAdaAntrean && $("#ls_mode_info").is(":visible");
+        $("#ls_lapor_wrap").toggle(tampil);
+        if (tampil) $("#ls_lapor_picker").prop("disabled", false).focus();
+    }
+
+    function laporKeTimPicker() {
+        if (!lsResi) return;
+        var resi = lsResi;
+        $("#ls_lapor_picker").prop("disabled", true);
+        $.ajax({
+            url: "scan-paket-ndd-new/lapor-picker",
+            type: "POST",
+            data: { noresi: resi },
+            dataType: "json",
+            success: function(r) {
+                if (lsResi !== resi) return;
+                if (r.code === 201 || (r.data && r.data.antrean_picker)) {
+                    noty({ text: r.message, layout: 'topRight', type: (r.code === 201 ? 'success' : 'warning'), timeout: 4000 });
+                    if (r.code === 201) pushHistory(resi, 'DILAPORKAN KE TIM PICKER', true, null);
+                    if (r.data && r.data.antrean_picker) tampilkanAntreanPicker(r.data.antrean_picker);
+                    perbaruiTombolLapor();
+                } else {
+                    noty({ text: r.message || 'Gagal melapor', layout: 'topRight', type: 'error', timeout: 3000 });
+                    $("#ls_lapor_picker").prop("disabled", false);
+                }
+            },
+            error: function() {
+                noty({ text: 'Kesalahan sistem saat melapor ke tim picker', layout: 'topRight', type: 'error', timeout: 3000 });
+                $("#ls_lapor_picker").prop("disabled", false);
+            }
+        });
+    }
+
+    $("#ls_lapor_picker").on('click', laporKeTimPicker);
 
     function setModeSimpan() {
         $("#ls_mode_info").hide();
@@ -531,6 +584,7 @@ $(document).ready(function() {
     function tutupPanelLostScan() {
         lsResi = null;
         lsBelumPicker = false;
+        lsAdaAntrean = false;
         $("#panel_lost_scan").hide();
         $("#noresi").focus();
     }
@@ -569,6 +623,7 @@ $(document).ready(function() {
                 } else if (r.data && r.data.sudah_dicatat) {
                     noty({ text: r.message, layout: 'topRight', type: 'warning', timeout: 3000 });
                     setModeInfo(r.data.catatan);
+                    perbaruiTombolLapor();
                 } else {
                     noty({ text: r.message || 'Gagal menyimpan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
                     $("#ls_simpan").prop("disabled", false);
