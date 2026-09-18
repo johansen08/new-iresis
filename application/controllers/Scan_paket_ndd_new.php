@@ -16,6 +16,13 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * pindah ke menu Lost Scan Packer/Picker lalu mengetik ulang resi. Resi itu
  * sendiri tetap TIDAK masuk HO/NDD; di-scan ulang setelah packer
  * menyelesaikan packing (alur sama dengan sekarang).
+ *
+ * Saat ditolak karena belum di-picker (NOT_PICKED), packer DAN picker
+ * sama-sama tidak scan (packer menembus penjaga NOT_PICKED di menunya).
+ * Panel yang sama muncul: packer tetap wajib dipilih dan dicatat sebagai
+ * lost scan PACKER, lalu resi otomatis dilaporkan ke antrean tim picker
+ * (Lost_scan_picker_fcd::lapor) -- tim picker yang menentukan picker-nya,
+ * baru packer bisa scan ulang, lalu HO.
  */
 class Scan_paket_ndd_new extends MY_Controller
 {
@@ -25,6 +32,7 @@ class Scan_paket_ndd_new extends MY_Controller
         $this->load->model('scan_logistic_fcd');
         $this->load->model('lost_scan_packer_fcd');
         $this->load->model('scan_paket_ndd_new_fcd');
+        $this->load->model('lost_scan_picker_fcd');
     }
 
     public function index()
@@ -96,8 +104,9 @@ class Scan_paket_ndd_new extends MY_Controller
         $catatan = $this->scan_paket_ndd_new_fcd->cari_lost_scan($noresi);
 
         $this->make_ajax_response(200, $catatan ? 'Sudah pernah dicatat' : 'Belum pernah dicatat', [
-            'sudah_dicatat' => (bool) $catatan,
-            'catatan'       => $this->ringkas_catatan($catatan),
+            'sudah_dicatat'  => (bool) $catatan,
+            'catatan'        => $this->ringkas_catatan($catatan),
+            'antrean_picker' => $this->ringkas_pending($this->lost_scan_picker_fcd->cari_pending($noresi)),
         ]);
     }
 
@@ -114,6 +123,7 @@ class Scan_paket_ndd_new extends MY_Controller
 
         $noresi       = trim((string) $this->input->post('noresi'));
         $nama_petugas = trim((string) $this->input->post('nama_petugas'));
+        $belum_picker = ($this->input->post('belum_picker') === '1');
 
         if ($noresi === '') {
             $this->make_ajax_response(400, 'Nomor resi kosong');
@@ -137,13 +147,43 @@ class Scan_paket_ndd_new extends MY_Controller
         }
 
         if ($save > 0) {
-            $this->make_ajax_response(201, 'Lost scan packer berhasil dicatat', [
-                'noresi'      => $noresi,
-                'nama_packer' => $nama_petugas,
-            ]);
+            $data = [
+                'noresi'         => $noresi,
+                'nama_packer'    => $nama_petugas,
+                'antrean_picker' => null,
+            ];
+            $pesan = 'Lost scan packer berhasil dicatat';
+
+            // Belum di-picker: sekaligus masukkan ke antrean tim picker.
+            // Kegagalan di sini tidak membatalkan catatan packer yang sudah
+            // tersimpan -- statusnya dikirim apa adanya supaya petugas tahu.
+            if ($belum_picker) {
+                $lapor = $this->lost_scan_picker_fcd->lapor($noresi, 'HO', $this->data['user']);
+                $data['lapor_picker']   = $lapor['status'];
+                $data['antrean_picker'] = $this->ringkas_pending($lapor['pending']);
+                $pesan .= ($lapor['status'] === 'DIBUAT')
+                    ? ' dan dilaporkan ke tim picker'
+                    : ' (' . $lapor['message'] . ')';
+            }
+
+            $this->make_ajax_response(201, $pesan, $data);
         }
 
         $this->make_ajax_response(200, NOTHING_TO_SAVE);
+    }
+
+    /** Kolom antrean picker yang ditampilkan panel; null bila tidak ada. */
+    private function ringkas_pending($pending)
+    {
+        if (empty($pending)) {
+            return null;
+        }
+
+        return [
+            'sumber'       => $pending['sumber'],
+            'nama_pelapor' => $pending['nama_pelapor'],
+            'waktu_lapor'  => $pending['waktu_lapor'],
+        ];
     }
 
     /** Ambil hanya kolom yang ditampilkan panel; null bila tidak ada catatan. */

@@ -95,3 +95,19 @@ petugas tetap bisa memakai **Scan Paket NDD** yang lama.
 7. Data dummy: resi berawalan `DUMMY-NDDNEW-` di `tblprintresi` +
    `tblresiambilbarang` (sudah picker, belum packing) untuk uji coba, dibuat
    lewat script di `dev_tools/` (tidak di-commit).
+
+## Tambahan tahap C (18 Sep 2026, disetujui)
+
+Panel packer juga muncul saat scan ditolak **`NOT_PICKED`**: packer tetap
+wajib dipilih (packer menembus penjaga belum-picker di menunya, jadi ikut
+lost scan) dan dicatat sebagai `tbllostscanpacker` PACKER. Saat disimpan,
+controller mengirim `belum_picker=1` dan server sekaligus memanggil
+`Lost_scan_picker_fcd::lapor($noresi, 'HO', $user)` -- resi masuk antrean
+**TIM PICKER → Laporan Lost Scan Picker** (spec
+`2026-09-18-lost-scan-picker-tahap-a-design.md`). Petugas HO tidak memilih
+picker; tim picker yang menentukan. Urutan selanjutnya dijaga penjaga yang
+ada: tim picker Tambahkan Picker → packer scan ulang → HO scan ulang.
+
+`cek-lost-scan` ikut mengembalikan `antrean_picker` (pelapor, sumber,
+waktu) agar panel menampilkan "sudah dilaporkan, menunggu tim picker" dan
+tidak melapor ganda (`lapor()` juga menolak PENDING ganda).
