@@ -48,6 +48,11 @@
    ├─→ Masalah Picker
    │   └─→ Report masalah dari picker
    │
+   ├─→ Salah Ambil Special (batch resi 1 SKU/1 qty salah ambil)
+   │   ├─→ Input: SKU seharusnya + SKU terambil (sekali), lalu scan resi berantai
+   │   ├─→ Validasi: resi ada, 1 SKU/1 qty, SKU cocok, belum packing, sudah picker, belum dilaporkan
+   │   └─→ Save: tblmasalahpicker (SALAH AMBIL) → lihat SALAH_AMBIL_SPECIAL.md
+   │
    └─→ Search Packer
        └─→ Cari data packing
 
@@ -324,6 +329,45 @@ Penjaga yang memaksa urutan (sudah ada sebelumnya):
 
 ---
 
+## 🔄 Workflow Salah Ambil Special (Packer)
+
+Batch resi spesial (tepat 1 SKU / qty 1) yang salah diambil picker,
+dilaporkan sekaligus tanpa mengulang modal Masalah Picker per resi.
+Rincian kondisi, skenario, dan keputusan desain: [`SALAH_AMBIL_SPECIAL.md`](SALAH_AMBIL_SPECIAL.md).
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 WORKFLOW SALAH AMBIL SPECIAL                     │
+└─────────────────────────────────────────────────────────────────┘
+
+TIM PACKER → Salah Ambil Special
+   │
+   ├─→ Isi SKU seharusnya + SKU terambil (live search ke tblsku)
+   │   └─→ Kunci & Mulai Scan → cek-sku: terisi, beda, ada di tblsku
+   │
+   ├─→ Scan resi (berantai, diantre satu per satu)
+   │   └─→ scan-resi: 7 validasi berurutan
+   │       ├─→ gagal  → baris MERAH + alasan, bunyi gagal, tidak ada tulisan
+   │       └─→ lolos  → INSERT tblmasalahpicker (tipe 4 SALAH AMBIL, status 0)
+   │                    baris HIJAU, bunyi sukses
+   │
+   └─→ Ganti SKU → buka kunci, tabel sesi kosong (data tetap di DB)
+                     │
+                     ▼
+TIM CS → Daftar Masalah Picker New (tanpa perubahan)
+   └─→ Proses & Cetak → slip per picker "SALAH AMBIL (terambil <sku_salah>)"
+                     │
+                     ▼
+Picker menukar barang → packer scan biasa
+
+Validasi scan-resi (berhenti di kegagalan pertama):
+  #1 pasangan SKU dicek ulang  #2 resi ada  #3 tepat 1 SKU / qty 1
+  #4 SKU resi = SKU seharusnya #5 belum packing  #6 sudah di-picker
+  #7 belum pernah dilaporkan (status apa pun) — #7 + INSERT satu transaksi, resi FOR UPDATE
+```
+
+---
+
 ## 📊 Status Flow Diagram
 
 ```
@@ -434,6 +478,11 @@ RETUR STATUS FLOW:
 
 ### Handover
 - `POST /handover/save-handover` - Simpan handover
+
+### Salah Ambil Special (lihat `SALAH_AMBIL_SPECIAL.md` §9)
+- `GET /salah-ambil-special/cari-sku?term=` - Saran SKU (live search)
+- `POST /salah-ambil-special/cek-sku` - Validasi pasangan SKU (kunci)
+- `POST /salah-ambil-special/scan-resi` - Satu scan resi → tblmasalahpicker
 
 ### Lost Scan (lihat `LOST_SCAN.md` §9)
 - `POST /scan-paket-ndd-new/save` · `/cek-lost-scan` · `/simpan-lost-scan` · `/lapor-picker`

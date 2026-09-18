@@ -76,6 +76,7 @@ Semua endpoint butuh `?token=<cron_token di secrets.php>` atau dijalankan via CL
 - [`docs/DATABASE_STRUCTURE.md`](docs/DATABASE_STRUCTURE.md) — skema tabel.
 - [`docs/WORKFLOW_DIAGRAM.md`](docs/WORKFLOW_DIAGRAM.md) — diagram alur bisnis.
 - [`docs/LOST_SCAN.md`](docs/LOST_SCAN.md) — alur lost scan packer/picker lintas meja HO → packer → tim picker (kondisi, skenario, keputusan desain, endpoint).
+- [`docs/SALAH_AMBIL_SPECIAL.md`](docs/SALAH_AMBIL_SPECIAL.md) — alur menu packer Salah Ambil Special: batch resi 1 SKU/1 qty salah ambil → tblmasalahpicker (validasi 7 lapis, skenario, keputusan desain, endpoint).
 - [`docs/DEVELOPMENT_STANDARDS.md`](docs/DEVELOPMENT_STANDARDS.md) — coding standard.
 - [`docs/AUTO_UPLOAD_RESI.md`](docs/AUTO_UPLOAD_RESI.md), [`docs/AUTO_UPLOAD_RETUR_JUBELIO.md`](docs/AUTO_UPLOAD_RETUR_JUBELIO.md) — setup automasi Jubelio.
 - [`docs/PANDUAN_PULL_PRODUKSI.md`](docs/PANDUAN_PULL_PRODUKSI.md) — prosedur `git pull` di PC produksi (backup, migrasi, verifikasi, rollback) + langkah tambahan per rilis.
