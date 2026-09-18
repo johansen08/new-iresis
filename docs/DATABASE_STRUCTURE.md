@@ -38,23 +38,44 @@
 - status_performa_id (FK → tblmasterstatusperforma)
 ```
 
-#### 4. **tblpacker** - Data Packing
+#### 4. **tblpacking** - Data Packing
 ```sql
-- id_packer (PK)
-- id_resi (FK → tblprintresi)
-- tanggal_packer
-- admin_pegawai (FK → tbluser)
-- nama_komputer
-- status_performa_id (FK → tblmasterstatusperforma)
+- id_packing (PK)
+- tanggal_packing (INDEX)
+- id_resi (FK → tblprintresi, INDEX)
+- packer_pegawai (FK → tbluser.id_user)          -- akun packer, BUKAN tblpegawai
+- status_performa_id (FK → tblmasterstatusperforma, NULL)
+- keterangan                                     -- nama komputer packer ("(Combined)" untuk SCAN COMBINED)
+- video_path (NULL)                              -- rekaman webcam packing
 ```
+Ditulis `Packer_fcd::save()` / `save_packer_nonsubmit()` dan
+`Resi_team_fcd::save_combined_scan()`. Nama lama `tblpacker` di dokumen ini
+tidak pernah ada; yang ada dengan awalan itu hanya `tblpacker_sessions` dan
+`tblpacker_performance_logs` (monitoring packer).
 
-#### 5. **tblhandover** - Data Handover
+#### 5. **tblresikeluar** - Data Handover / Scan Resi Keluar (HO)
 ```sql
-- id_handover (PK)
-- id_resi (FK → tblprintresi)
-- tanggal_handover
-- admin_pegawai (FK → tbluser)
+- id_resikeluar (PK)
+- tanggal_resikeluar (INDEX)
+- id_resi (FK → tblprintresi, INDEX)   -- belum UNIQUE, lihat dev_tools/optimasi_scan_ho.sql
+- id_pegawai (FK → tbluser.id_user)    -- petugas HO yang scan
+- sudah_cetak
+- tanggal_cetak
 ```
+Ditulis `Handover_fcd` (menu Scan Resi Keluar) dan `Scan_logistic_fcd::save_scan()`
+(Scan Paket NDD / NDD New). Nama lama `tblhandover` di dokumen ini tidak
+pernah ada.
+
+#### 5a. **tblscan_ndd** - Scan Paket NDD
+```sql
+- id_scan_ndd (PK)
+- id_resi (FK → tblprintresi, UNIQUE)
+- tanggal_scan (INDEX)
+- id_pegawai (FK → tbluser.id_user)
+- keterangan
+```
+Diisi bersamaan dengan `tblresikeluar` saat mode HO+NDD di Scan Paket NDD;
+kurir Shopee tidak pernah masuk ke sini.
 
 #### 6. **tblretur** - Data Retur
 ```sql
@@ -299,8 +320,9 @@ ulang.
 tbluser
   ├─→ tblprintresi (created_by)
   ├─→ tblresiambilbarang (admin_pegawai)
-  ├─→ tblpacker (admin_pegawai)
-  ├─→ tblhandover (admin_pegawai)
+  ├─→ tblpacking (packer_pegawai)
+  ├─→ tblresikeluar (id_pegawai)
+  ├─→ tblscan_ndd (id_pegawai)
   ├─→ tblstatusperforma (id_user)
   ├─→ tblkpi (id_user)
   ├─→ tbltargetkpi (id_user)
@@ -310,8 +332,9 @@ tbluser
 tblprintresi
   ├─→ tbldetailprintresi (id_resi)
   ├─→ tblresiambilbarang (id_resi)
-  ├─→ tblpacker (id_resi)
-  ├─→ tblhandover (id_resi)
+  ├─→ tblpacking (id_resi)
+  ├─→ tblresikeluar (id_resi)
+  ├─→ tblscan_ndd (id_resi)
   ├─→ tbllostscanpicker_pending (id_printresi)
   └─→ tblmarketplace (id_marketplace)
   └─→ tblkurir (id_kurir)
@@ -326,7 +349,7 @@ tblmasterstatusperforma
   ├─→ tblkpi (id_statusperforma)
   ├─→ tbltargetkpi (id_statusperforma)
   ├─→ tblresiambilbarang (status_performa_id)
-  └─→ tblpacker (status_performa_id)
+  └─→ tblpacking (status_performa_id)
 
 tblpegawai
   ├─→ tblnamaambilbarang (id_pegawai)
@@ -374,10 +397,10 @@ Methods:
 #### **Packer_fcd.php**
 ```php
 Methods:
-- save($packer, $user) - Save packing data
-- get_total_scan_user($user_id) - Get total scan per user
-- get_picker_detail_for_packer($noresi) - Get picker info for packer
-- get_packer_by_date($date, $user_id) - Get packer by date
+- periksa_kelayakan_packing($noresi) - Penjaga: ada, belum batal/selesai, sudah picker, belum packing
+- save($packer, $user) / save_packer_nonsubmit() - Insert tblpacking + reset pending picker (+ KPI, monitoring di luar transaksi)
+- info_packing($noresi) - Siapa & kapan resi di-packing
+- get_total_scan_user($user_id) - Total scan per user
 ```
 
 #### **Kpi_fcd.php**
@@ -449,8 +472,9 @@ CREATE INDEX idx_picking_resi ON tblresiambilbarang(id_resi);
 CREATE INDEX idx_picking_user ON tblresiambilbarang(admin_pegawai);
 CREATE INDEX idx_picking_date ON tblresiambilbarang(tanggal_resiambilbarang);
 
-CREATE INDEX idx_packer_resi ON tblpacker(id_resi);
-CREATE INDEX idx_packer_user ON tblpacker(admin_pegawai);
+-- tblpacking sudah punya: id_resi, idx_packing_date_user(tanggal_packing, packer_pegawai),
+-- idx_packing_id_date(id_resi, tanggal_packing), idx_packing_pegawai(packer_pegawai)
+-- tblresikeluar: id_resi belum UNIQUE (skrip di dev_tools/optimasi_scan_ho.sql)
 
 CREATE INDEX idx_kpi_user_date ON tblkpi(id_user, tanggal);
 CREATE INDEX idx_kpi_status ON tblkpi(id_statusperforma);
@@ -473,15 +497,14 @@ CREATE INDEX idx_status_user_date ON tblstatusperforma(id_user, tanggal);
 7. Commit/Rollback
 ```
 
-### **Packing Transaction**
+### **Packing Transaction** (`Packer_fcd::save`)
 ```php
-1. Start Transaction
-2. Check receipt exists
-3. Check receipt is picked
-4. Check duplicate packing
-5. Insert packing record
-6. Update receipt status
-7. Commit/Rollback
+1. periksa_kelayakan_packing: resi ada, tidak batal/selesai, sudah picker, belum packing
+2. db_debug = FALSE, trans_start
+3. Insert tblpacking (packer_pegawai = id_user, keterangan = nama komputer)
+4. Update tblresiambilbarang.pending = '' (reset pending picker)
+5. trans_complete (gagal -> SAVE_FAILED)
+6. Di luar transaksi: log KPI packer + log performa (packer_monitoring)
 ```
 
 ---
