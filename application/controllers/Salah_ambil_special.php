@@ -64,6 +64,34 @@ class Salah_ambil_special extends MY_Controller
         $this->show([], 'salah_ambil_special/index');
     }
 
+    /**
+     * Live search field SKU (jQuery UI autocomplete, GET ?term=). Balasannya
+     * array polos {label, value, nama_sku, no_rak} -- bukan bentuk
+     * make_ajax_response -- karena widget autocomplete membaca array langsung.
+     */
+    public function cari_sku()
+    {
+        $term = trim((string) $this->input->get('term'));
+        $hasil = [];
+        if ($term !== '') {
+            foreach ($this->salah_ambil_special_fcd->cari_sku_mirip($term, 15) as $row) {
+                $hasil[] = [
+                    'label'    => $row['id_sku'] . ' — ' . ($row['nama_sku'] ?: '-') . ' (rak ' . ($row['no_rak'] ?: '-') . ')',
+                    'value'    => $row['id_sku'],
+                    'nama_sku' => $row['nama_sku'],
+                    'no_rak'   => $row['no_rak'],
+                ];
+            }
+        }
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        echo json_encode($hasil);
+        exit();
+    }
+
     /** Tombol "Kunci & Mulai Scan": validasi pasangan SKU dan kembalikan nama barang + rak untuk konfirmasi visual. */
     public function cek_sku()
     {

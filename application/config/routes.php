@@ -337,6 +337,7 @@ $route['masalah-picker-new/data-cetak-ulang'] = 'masalah_picker_new/data_cetak_u
 
 // Menu TIM PACKER -> Salah Ambil Special (controller Salah_ambil_special)
 $route['salah-ambil-special'] = 'salah_ambil_special/index';
+$route['salah-ambil-special/cari-sku'] = 'salah_ambil_special/cari_sku';
 $route['salah-ambil-special/cek-sku'] = 'salah_ambil_special/cek_sku';
 $route['salah-ambil-special/scan-resi'] = 'salah_ambil_special/scan_resi';
 

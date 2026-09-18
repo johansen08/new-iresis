@@ -96,8 +96,9 @@ if (!empty($akses_ditolak)) : ?>
 (function () {
   var $root = $('#sas-root');
   var URL = {
-    cekSku: 'salah-ambil-special/cek-sku',
-    scan:   'salah-ambil-special/scan-resi'
+    cariSku: 'salah-ambil-special/cari-sku',
+    cekSku:  'salah-ambil-special/cek-sku',
+    scan:    'salah-ambil-special/scan-resi'
   };
   var BARIS_KOSONG = '<tr id="sas-kosong"><td colspan="5" class="text-muted text-center">Belum ada scan</td></tr>';
 
@@ -133,6 +134,41 @@ if (!empty($akses_ditolak)) : ?>
     $('#sas-pesan-sku').removeClass('hidden').text(pesan);
     bunyi('audio-fail');
   }
+
+  // ---------- live search SKU ----------
+  // Saran dari master tblsku muncul saat mengetik, supaya kode yang dikunci
+  // pasti ada di database (kode SKU panjang seperti 3100A3100B rawan typo).
+  // Menu saran ditempel ke #sas-root agar ikut hilang saat pindah menu.
+  function pasangAutocomplete($input, $info, $berikutnya) {
+    $input.autocomplete({
+      source: URL.cariSku,
+      appendTo: '#sas-root',
+      minLength: 1,
+      delay: 150,
+      select: function (event, ui) {
+        $input.val(ui.item.value);
+        $info.text(infoSku(ui.item));
+        // Pilih dari saran -> langsung ke field berikutnya / tombol kunci.
+        setTimeout(function () { $berikutnya.focus(); }, 0);
+        return false;
+      },
+      focus: function () { return false; } // jangan timpa ketikan saat panah naik-turun
+    });
+    // Ketikan berubah setelah memilih saran -> keterangan lama tidak berlaku lagi.
+    $input.on('input', function () { $info.text(''); });
+  }
+  pasangAutocomplete($('#sas-sku-benar'), $('#sas-info-benar'), $('#sas-sku-salah'));
+  pasangAutocomplete($('#sas-sku-salah'), $('#sas-info-salah'), $('#sas-btn-kunci'));
+
+  // Enter di field pertama (tanpa saran yang sedang disorot) pindah ke field
+  // kedua, bukan submit form dengan SKU terambil masih kosong.
+  $root.on('keydown', '#sas-sku-benar', function (e) {
+    if (e.key !== 'Enter') { return; }
+    var ac = $(this).autocomplete('instance');
+    if (ac && ac.menu.active) { return; } // biar autocomplete yang memilih saran
+    e.preventDefault();
+    $('#sas-sku-salah').focus();
+  });
 
   // ---------- kunci SKU ----------
   $root.on('submit', '#sas-form-sku', function (e) {
@@ -248,4 +284,17 @@ if (!empty($akses_ditolak)) : ?>
 <style>
   #sas-table td { vertical-align: middle; }
   #sas-noresi { font-size: 20px; }
+  /* Menu saran jQuery UI: harus di atas panel & scroll kalau panjang */
+  #sas-root .ui-autocomplete {
+    z-index: 99999 !important;
+    max-height: 260px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    font-size: 13px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  }
+  #sas-root .ui-menu-item-wrapper { padding: 6px 10px !important; }
+  #sas-root .ui-state-active { background: #337ab7 !important; color: #fff !important; border: 1px solid #337ab7 !important; }
 </style>
