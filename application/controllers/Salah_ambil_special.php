@@ -65,9 +65,9 @@ class Salah_ambil_special extends MY_Controller
     }
 
     /**
-     * Live search field SKU (jQuery UI autocomplete, GET ?term=). Balasannya
+     * Live search field SKU (dropdown saran di view, GET ?term=). Balasannya
      * array polos {label, value, nama_sku, no_rak} -- bukan bentuk
-     * make_ajax_response -- karena widget autocomplete membaca array langsung.
+     * make_ajax_response -- supaya JS tinggal memetakan daftarnya.
      */
     public function cari_sku()
     {
