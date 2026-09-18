@@ -414,3 +414,103 @@ aktif semuanya terhubung ke `tblpegawai`; Master Picker aktif 65; tidak ada
 `noresi` di `tbllostscanpacker` yang punya lebih dari satu `lost_type`.
 Perbedaan DB lokal vs produksi hanya index tambahan di lokal (hasil script
 optimasi) — tidak berpengaruh pada kode.
+
+---
+
+## D. Langkah tambahan rilis 18 September 2026 sore (`d17297e..8a42420`)
+
+Isi rilis: menu **TIM PACKER → Salah Ambil Special** — untuk batch resi
+spesial (tepat 1 SKU / qty 1) yang salah diambil picker. Packer mengisi
+"SKU seharusnya" dan "SKU terambil" sekali (field ber-live-search ke master
+SKU), lalu men-scan semua resi berantai; tiap resi yang lolos validasi
+langsung tercatat di `tblmasalahpicker` sebagai SALAH AMBIL, sama persis
+dengan hasil modal Masalah Picker di Scan Resi Packer. Daftar Masalah Picker
+(lama & New), KPI picker, dan Error Recap membacanya tanpa perubahan.
+
+| Commit | Perubahan |
+|---|---|
+| `8a42420` (merge) | Controller `Salah_ambil_special.php`, model `Salah_ambil_special_fcd.php`, view `salah_ambil_special/index.php`, 4 route, migrasi menu di `MY_Controller.php`, dokumen spec/plan di `docs/superpowers/` |
+
+Riwayat git **tidak** ditulis ulang pada rilis ini — kembali pakai `git pull`
+biasa (A.5). Prosedur C.0 hanya berlaku sekali untuk rilis sebelumnya; kalau
+PC produksi belum pernah menjalankan C.0, lakukan C.0 dulu, rilis ini ikut
+tertarik di dalamnya.
+
+### D.1 Perubahan database — hanya menu + hak akses, otomatis lewat migrasi
+
+`BOOTSTRAP_VERSI` naik ke **`2026-09-18.4`**. Pada request pertama setelah
+pull (A.7) aplikasi menjalankan `MY_Controller::run_salah_ambil_special_migration()`:
+
+| Objek | Perubahan |
+|---|---|
+| `menu` | 1 baris baru: **Salah Ambil Special** (`uri` `salah-ambil-special`, icon `fa fa-exchange`, `sortorder` 12, induk = induk menu `packer/scan_packer` yaitu grup TIM PACKER) |
+| `roleaccess` | menu itu → role **1** (webmaster) dan **4** (client packer) — sama dengan Scan Resi Packer (Webcam) |
+
+**Tidak ada tabel baru, tidak ada kolom baru, tidak ada tabel lama yang
+diubah.** Tidak ada SQL manual. Migrasi idempoten: menu/akses yang sudah ada
+tidak dibuat dua kali.
+
+Data yang **ditulis saat fitur dipakai**: satu baris `tblmasalahpicker` per
+resi yang lolos (`sku` = SKU seharusnya, `sku_salah` = SKU terambil, `qty` 1,
+`qty_bermasalah` 1, `id_typemasalah` 4, `status` 0, `created_by` = user
+packer). Resi yang ditolak tidak menulis apa pun.
+
+Kolom yang dibaca kode dan harus ada di produksi (semuanya sudah dipakai
+menu lain, jadi tidak ada asumsi baru): `tblsku.id_sku/nama_sku/no_rak`,
+`tblprintresi.noresi/created_at`, `tbldetailprintresi.id_resi/sku/jumlah/id_detail_resi`,
+`tblpacking.id_resi`, `tblresiambilbarang.id_resi/yangambil_pegawai`,
+`tblpegawai.kode_pegawai/nama_pegawai`, `tbluser.id_pegawai/name`.
+
+### D.2 Verifikasi migrasi
+
+Setelah logout/login (A.7):
+
+```powershell
+Get-Content application\cache\bootstrap_migrasi.txt
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "SELECT m.id, m.name, m.uri, m.parentid, m.isactive, GROUP_CONCAT(r.roleid ORDER BY r.roleid) AS roles FROM menu m LEFT JOIN roleaccess r ON r.menuid = m.id WHERE m.uri = 'salah-ambil-special' GROUP BY m.id;"
+```
+
+Harus tampil: penanda `2026-09-18.4`; **satu** baris menu dengan `roles`
+`1,4` dan `parentid` sama dengan menu `packer/scan_packer`. Kalau kosong,
+versi bootstrap belum terpicu — ulangi A.7. Kalau ada dua baris dengan `uri`
+sama (bootstrap sempat jalan dua kali serentak), nonaktifkan yang `id`-nya
+lebih besar: `UPDATE menu SET isactive = 0 WHERE id = <id besar>`.
+
+### D.3 Verifikasi di sisi pengguna
+
+Login sebagai **packer** (role 4) setelah logout/login:
+
+1. TIM PACKER → **Salah Ambil Special** tampil setelah Scan Resi Packer
+   (Webcam). Klik → halaman tampil tanpa reload, kursor di field "SKU
+   seharusnya".
+2. Ketik 2–3 huruf awal kode SKU → dropdown saran `KODE — rak X` muncul;
+   pilih → nama barang + rak tampil di bawah field, fokus pindah ke field
+   kedua. Isi SKU terambil (beda dari yang pertama) → **Kunci & Mulai Scan**
+   → field terkunci, field resi aktif.
+3. Scan resi nyata yang **bukan** 1 SKU/1 qty → baris merah "Bukan resi
+   spesial (...)", bunyi gagal, tidak ada data tersimpan. Ini cukup sebagai
+   uji asap; jangan scan resi yang benar-benar salah ambil hanya untuk uji,
+   karena akan masuk antrean CS.
+4. Role selain 1/4 (mis. tim retur) tidak melihat menu; URL langsung
+   dibalas panel "Role akun Anda tidak punya akses".
+
+Yang perlu disampaikan ke packer: menu ini **hanya** untuk batch resi 1 SKU /
+1 qty yang salah ambil; resi campuran tetap lewat modal Masalah Picker di
+Scan Resi Packer. Baris merah = ditolak beserta alasannya, tidak tersimpan.
+Tidak ada tombol batal — kalau salah scan resi yang lolos, laporkan ke CS
+lewat Daftar Masalah Picker.
+
+### D.4 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Baris menu + `roleaccess` **tetap ada** setelah rollback kode
+(menu akan 404 karena controller-nya tidak ada). Untuk menyembunyikannya
+tanpa menghapus:
+
+```powershell
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "UPDATE menu SET isactive = 0 WHERE uri = 'salah-ambil-special';"
+```
+
+Saat kode dipasang lagi, kembalikan `isactive = 1` manual — migrasi hanya
+membuat menu yang belum ada. Baris `tblmasalahpicker` yang sudah ditulis
+fitur ini adalah laporan salah ambil sungguhan; biarkan CS memprosesnya
+seperti biasa.
