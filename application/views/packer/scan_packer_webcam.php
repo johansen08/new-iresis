@@ -366,6 +366,11 @@
             <div class="panel-body">
               <p id="tolakScanMessage" style="font-size: 18px; margin: 15px 0;"></p>
               <p id="tolakScanCountdown" style="font-size: 15px; font-weight: bold; color: #8a6d3b;">&nbsp;</p>
+              <!-- Hanya untuk penolakan "belum di-picker": laporkan ke antrean tim picker.
+                   Packer tidak memilih picker; tim picker yang menentukan. -->
+              <button type="button" class="btn btn-danger" id="tolakScanLaporPicker" style="display: none; margin-right: 8px; font-weight: 700;">
+                <i class="fa fa-bullhorn"></i> Lapor Lost Scan Picker
+              </button>
               <button type="button" class="btn btn-default" id="tolakScanTutup">Tutup</button>
             </div>
           </div>
@@ -750,6 +755,7 @@
     });
 
     $('#tolakScanTutup').on('click', tutupPopupTolak);
+    $('#tolakScanLaporPicker').on('click', laporLostScanPicker);
 
     // Kesiapan kamera dilaporkan pada saat scan, bukan pada saat halaman dimuat:
     // kamera bisa saja baru selesai dibuka -- atau justru dicabut -- di antara
@@ -989,6 +995,14 @@
     $('#tolakScanIcon').attr('class', 'fa ' + gaya.ikon);
     $('#tolakScanHeader').css('background-color', gaya.warna);
     $('#tolakScanMessage').text(feedback.message);
+
+    // Tombol lapor hanya saat server bilang resi belum di-picker DAN belum
+    // ada di antrean tim picker.
+    $('#tolakScanLaporPicker')
+      .toggle(!!feedback.lapor_picker)
+      .prop('disabled', false)
+      .data('noresi', feedback.noresi || '');
+
     $('#tolakScanModal').fadeIn();
 
     hentikanJedaPacking();
@@ -1011,6 +1025,58 @@
       $('#tolakScanModal').fadeOut();
       window.timerTutupPopupTolak = null;
     }, DURASI_POPUP_TOLAK_MS);
+  }
+
+  /**
+   * Lapor Lost Scan Picker (popup "belum di-picker"). Resi masuk antrean TIM
+   * PICKER -> Laporan Lost Scan Picker; packer menahan paketnya sampai tim
+   * picker menentukan picker, lalu scan ulang. Tidak ada rekaman yang perlu
+   * dibuang: siklus scan tidak pernah dibuka untuk resi yang ditolak di sini.
+   */
+  function laporLostScanPicker() {
+    var $btn = $('#tolakScanLaporPicker');
+    var noresi = $btn.data('noresi');
+    if (!noresi) return;
+
+    $btn.prop('disabled', true);
+
+    $.ajax({
+      url: 'packer/lapor-lost-scan-picker',
+      type: 'POST',
+      dataType: 'json',
+      data: { noresi: noresi },
+      success: function (r) {
+        var d = r.data || {};
+        if (r.code === 201) {
+          noty({ text: r.message, layout: 'topRight', type: 'success', timeout: 4000 });
+          $('#tolakScanMessage').text('Resi ' + noresi + ' sudah dilaporkan ke tim picker. '
+            + 'Tahan paketnya; tunggu picker ditentukan, lalu scan ulang.');
+          $btn.hide();
+          playAudio('audio-alert');
+        } else if (d.antrean_picker) {
+          noty({ text: r.message, layout: 'topRight', type: 'warning', timeout: 4000 });
+          $('#tolakScanMessage').text('Resi ' + noresi + ' sudah ada di antrean tim picker (dilaporkan oleh '
+            + (d.antrean_picker.nama_pelapor || '-') + ', ' + (d.antrean_picker.sumber || '-') + '). Tahan paketnya.');
+          $btn.hide();
+        } else {
+          noty({ text: r.message || 'Gagal melapor', layout: 'topRight', type: 'error', timeout: 4000 });
+          $btn.prop('disabled', false);
+        }
+
+        // Siklus scan atas nama resi ini ditutup di server; kalau bilah
+        // "menunggu scan kedua" masih tampil, sembunyikan.
+        if (d.siklus_ditutup) {
+          $('#bar-scan-aktif').closest('.panel-body').hide();
+          if (window.PackerVideo && typeof window.PackerVideo.batalkan === 'function') {
+            window.PackerVideo.batalkan(videoBatalUrl);
+          }
+        }
+      },
+      error: function () {
+        noty({ text: 'Kesalahan sistem saat melapor ke tim picker', layout: 'topRight', type: 'error', timeout: 4000 });
+        $btn.prop('disabled', false);
+      }
+    });
   }
 
   /**

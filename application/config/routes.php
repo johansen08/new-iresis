@@ -106,6 +106,7 @@ $route['packer/upload-video-packing'] = 'packer/upload_video_packing';
 $route['packer/batalkan-video-packing'] = 'packer/batalkan_video_packing';
 $route['packer/batal-scan'] = 'packer/batal_scan';
 $route['packer/tutup-batas-rekam'] = 'packer/tutup_batas_rekam';
+$route['packer/lapor-lost-scan-picker'] = 'packer/lapor_lost_scan_picker';
 $route['packer/get-data-packer'] = 'packer/get_data_packer';
 $route['packer/get-scan-packer-data/(:any)'] = 'packer/get_scan_packer_data/$1';
 $route['packer/masalah-picker-save'] = 'packer/masalah_picker_save';
@@ -333,6 +334,13 @@ $route['masalah-picker-new/preview-proses'] = 'masalah_picker_new/preview_proses
 $route['masalah-picker-new/proses-cetak'] = 'masalah_picker_new/proses_cetak';
 $route['masalah-picker-new/riwayat-cetak'] = 'masalah_picker_new/riwayat_cetak';
 $route['masalah-picker-new/data-cetak-ulang'] = 'masalah_picker_new/data_cetak_ulang';
+
+// TIM HO -> Scan Paket NDD New (berdampingan dengan scan_logistic yang lama)
+$route['scan-paket-ndd-new'] = 'scan_paket_ndd_new/index';
+$route['scan-paket-ndd-new/save'] = 'scan_paket_ndd_new/save';
+$route['scan-paket-ndd-new/cek-lost-scan'] = 'scan_paket_ndd_new/cek_lost_scan';
+$route['scan-paket-ndd-new/simpan-lost-scan'] = 'scan_paket_ndd_new/simpan_lost_scan';
+$route['scan-paket-ndd-new/lapor-picker'] = 'scan_paket_ndd_new/lapor_picker';
 
 $route['cs/complain-management'] = 'cs/complain_management';
 $route['cs/complain-management/get-data'] = 'cs/get_complain_management_data';

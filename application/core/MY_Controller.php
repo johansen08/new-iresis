@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-18.2';
+    const BOOTSTRAP_VERSI = '2026-09-18.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -94,6 +94,7 @@ class MY_Controller extends CI_Controller
         $this->run_nonaktifkan_menu_tanpa_route();
         $this->run_masalah_picker_new_migration();
         $this->run_lost_scan_picker_migration();
+        $this->run_scan_paket_ndd_new_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1392,6 +1393,57 @@ class MY_Controller extends CI_Controller
         }
 
         $role_boleh = [1, 2, 6];
+        foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM HO -> "Scan Paket NDD New".
+     *
+     * Versi baru berdiri sendiri (controller Scan_paket_ndd_new, model, view,
+     * route) di samping menu lama "Scan Paket NDD" (scan_logistic) yang tetap
+     * aktif sebagai cadangan. Tidak ada tabel baru: lost scan tetap ditulis
+     * ke tbllostscanpacker lewat model lama.
+     *
+     * Hak akses: disamakan dengan pemegang menu lama per 18 Sep 2026 --
+     * webmaster (1), admin (2), ho (5) -- sebagai daftar tetap, bukan disalin
+     * saat migrasi jalan (alasan yang sama dengan run_masalah_picker_new_migration).
+     */
+    protected function run_scan_paket_ndd_new_migration()
+    {
+        $uri_baru = 'scan-paket-ndd-new';
+        $uri_lama = 'scan_logistic';
+
+        $menu_lama = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri_lama])->row();
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri_baru])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Scan Paket NDD New',
+                'parentid'  => $menu_lama ? $menu_lama->parentid : 27,
+                'uri'       => $uri_baru,
+                'icon'      => $menu_lama ? $menu_lama->icon : 'fa fa-bolt',
+                'sortorder' => $menu_lama ? ((int) $menu_lama->sortorder + 1) : 11,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1, 2, 5];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {

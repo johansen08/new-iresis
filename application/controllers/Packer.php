@@ -1048,6 +1048,50 @@ class Packer extends MY_Controller
     }
 
     /**
+     * Tombol "Lapor Lost Scan Picker" di popup NOT_PICKED halaman webcam.
+     *
+     * Hanya melaporkan resi ke antrean tim picker (sumber PACKER); packer
+     * tidak memilih picker. Siklus scan atas nama resi ini -- kalau ada --
+     * ditutup supaya tidak ada rekaman yang menggantung menunggu scan kedua.
+     */
+    public function lapor_lost_scan_picker()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+        if (empty($this->data['user']['hakakses'])
+            || !in_array((int) $this->data['user']['hakakses'], self::ROLE_BOLEH_WEBCAM, TRUE)) {
+            $this->make_ajax_response(403, 'Role Anda tidak punya akses ke menu ini.');
+        }
+
+        $noresi = trim((string) $this->input->post('noresi'));
+        if ($noresi === '') {
+            $this->make_ajax_response(400, 'Nomor resi kosong');
+        }
+
+        $this->load->model('lost_scan_picker_fcd');
+        $lapor = $this->lost_scan_picker_fcd->lapor($noresi, 'PACKER', $this->data['user']);
+
+        $siklus_ditutup = $this->tutup_siklus_scan($noresi);
+
+        $data = [
+            'lapor_picker'   => $lapor['status'],
+            'siklus_ditutup' => $siklus_ditutup,
+            'antrean_picker' => $lapor['pending'] ? [
+                'sumber'       => $lapor['pending']['sumber'],
+                'nama_pelapor' => $lapor['pending']['nama_pelapor'],
+                'waktu_lapor'  => $lapor['pending']['waktu_lapor'],
+            ] : NULL,
+        ];
+
+        if ($lapor['status'] === 'DIBUAT') {
+            $this->make_ajax_response(201, 'Resi ' . $noresi . ' dilaporkan ke tim picker. Tahan paketnya sampai picker ditentukan.', $data);
+        }
+
+        $this->make_ajax_response(400, $lapor['message'], $data);
+    }
+
+    /**
      * Tutup resi karena rekamannya sudah mencapai batas durasi.
      *
      * Begitu kamera berhenti, resi tidak boleh dibiarkan menggantung: bilahnya
@@ -1274,6 +1318,45 @@ class Packer extends MY_Controller
         // discan memang bukan barcode resi.
         if ($kode === 'NOT_FOUND') {
             return NULL;
+        }
+
+        // Belum di-picker: bukan dilaporkan lisan ke CS, tapi lewat tombol
+        // "Lapor Lost Scan Picker" di popup (Packer::lapor_lost_scan_picker) ->
+        // masuk antrean TIM PICKER -> Laporan Lost Scan Picker. Tim picker yang
+        // menentukan picker-nya; baru setelah itu resi ini bisa discan ulang.
+        // Siklus scan tidak pernah dibuka untuk resi yang ditolak di sini, jadi
+        // tidak ada rekaman video yang dimulai.
+        if ($kode === 'NOT_PICKED') {
+            $this->load->model('lost_scan_picker_fcd');
+            $antrean = $this->lost_scan_picker_fcd->cari_pending($noresi);
+
+            if ($antrean) {
+                $pesan = 'Resi ' . $noresi . ' belum di-picker dan SUDAH dilaporkan ke tim picker oleh '
+                    . ($antrean['nama_pelapor'] ?: '-') . ' (' . $antrean['sumber'] . ') pada '
+                    . date('d/m/Y H:i', strtotime($antrean['waktu_lapor']))
+                    . '. Tahan paketnya; tunggu tim picker menentukan picker, lalu scan ulang.';
+            } else {
+                $pesan = 'Resi ' . $noresi . ' belum di-picker. Jangan dipacking dulu -- '
+                    . 'tekan Lapor Lost Scan Picker, tahan paketnya, tunggu tim picker menentukan picker, lalu scan ulang.';
+            }
+
+            return [
+                'feedback' => [
+                    'status'         => 'resi_tidak_layak',
+                    'type'           => 'error',
+                    'message'        => $pesan,
+                    'kode_alasan'    => $kode,
+                    'noresi'         => $noresi,
+                    'lapor_picker'   => $antrean ? FALSE : TRUE,
+                    'antrean_picker' => $antrean ? [
+                        'sumber'       => $antrean['sumber'],
+                        'nama_pelapor' => $antrean['nama_pelapor'],
+                        'waktu_lapor'  => $antrean['waktu_lapor'],
+                    ] : NULL,
+                    'auto_saved'     => false,
+                ],
+                'resi_tampil' => '',
+            ];
         }
 
         return [
