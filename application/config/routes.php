@@ -106,6 +106,7 @@ $route['packer/upload-video-packing'] = 'packer/upload_video_packing';
 $route['packer/batalkan-video-packing'] = 'packer/batalkan_video_packing';
 $route['packer/batal-scan'] = 'packer/batal_scan';
 $route['packer/tutup-batas-rekam'] = 'packer/tutup_batas_rekam';
+$route['packer/lapor-lost-scan-picker'] = 'packer/lapor_lost_scan_picker';
 $route['packer/get-data-packer'] = 'packer/get_data_packer';
 $route['packer/get-scan-packer-data/(:any)'] = 'packer/get_scan_packer_data/$1';
 $route['packer/masalah-picker-save'] = 'packer/masalah_picker_save';
