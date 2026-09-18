@@ -193,6 +193,23 @@ class Receipt_fcd extends CI_Model
     }
 
     /**
+     * Data satu resi berdasarkan id_printresi untuk label cetak
+     * (Receipt::print_label, dibuka otomatis setelah Scan Resi manual).
+     * Kolom yang dipilih mengikuti kebutuhan view receipt/print_label.
+     */
+    function get_detail_by_id($id_resi)
+    {
+        $this->db->select('t.id_printresi, t.noresi, t.toko, t.nomorpicklist, t.tanggal_printresi
+            , t2.nama_marketplace, t7.nama_kurir');
+        $this->db->join('tblmarketplace t2', 't2.id_marketplace = t.id_marketplace', 'left');
+        $this->db->join('tblkurir t7', 't7.id_kurir = t.id_kurir', 'left');
+        $this->db->where('t.id_printresi', (int) $id_resi);
+        $this->db->limit(1);
+
+        return $this->db->get('tblprintresi t');
+    }
+
+    /**
      * Resolusi nomor resi dari hasil scan/input.
      * Mendukung input berupa nomor resi maupun nomor pesanan.
      */
