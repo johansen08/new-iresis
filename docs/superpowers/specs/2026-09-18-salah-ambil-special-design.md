@@ -57,7 +57,7 @@ Server memeriksa berurutan dan berhenti di kegagalan pertama. Semua balasan lewa
 
 Catatan:
 - Kalau `noresi` punya lebih dari satu `id_printresi` (cetak ulang), dipakai `id_printresi` terbaru — konsisten dengan `Packer::detail_resi()` yang mengambil `rows[0]` setelah `ORDER BY pr.created_at DESC`.
-- `noresi` di-`trim()`; SKU di-`trim()` + `strtoupper()` sebelum dicocokkan (kode SKU di `tblsku` huruf besar).
+- `noresi` dan kedua SKU di-`trim()`. SKU dicocokkan ke `tblsku` lewat query (mengikuti collation tabel), dan yang dipakai selanjutnya adalah ejaan `id_sku` dari `tblsku`, bukan ketikan user; perbandingan SKU resi vs SKU seharusnya memakai `strcasecmp()`.
 
 ## 6. Penyimpanan
 
@@ -90,7 +90,7 @@ Baru:
 - `application/views/salah_ambil_special/index.php` — panel SKU, panel scan, tabel sesi, JS (queue scan, audio, fokus).
 
 Diubah:
-- `application/config/routes.php` — `salah-ambil-special`, `salah-ambil-special/cek-sku`, `salah-ambil-special/scan-resi` (plus ejaan underscore).
+- `application/config/routes.php` — `salah-ambil-special`, `salah-ambil-special/cek-sku`, `salah-ambil-special/scan-resi`.
 - `application/core/MY_Controller.php` — `run_salah_ambil_special_migration()` dipanggil dari `jalankan_bootstrap_sekali()`, `BOOTSTRAP_VERSI = '2026-09-18.4'`.
 - `docs/ANALISIS_PROGRAM.md` — satu paragraf di bagian Packer.
 
