@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-17.7';
+    const BOOTSTRAP_VERSI = '2026-09-18.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -93,6 +93,7 @@ class MY_Controller extends CI_Controller
         $this->run_nonaktifkan_menu_ngrok();
         $this->run_nonaktifkan_menu_tanpa_route();
         $this->run_masalah_picker_new_migration();
+        $this->run_lost_scan_picker_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1323,6 +1324,74 @@ class MY_Controller extends CI_Controller
         }
 
         $role_boleh = [1, 2, 4, 6, 11];
+        foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Tabel antrean + menu TIM PICKER -> "Laporan Lost Scan Picker".
+     *
+     * Resi yang ditolak karena belum di-picker dilaporkan packer/HO ke antrean
+     * ini; tim picker menentukan picker-nya lewat tombol Tambahkan Picker
+     * (Lost_scan_picker_fcd::tambah_picker) -- baru setelah itu packer bisa
+     * scan ulang, lalu HO. SKU/qty/rak tidak disimpan, dibaca dari
+     * tbldetailprintresi saat tampil.
+     *
+     * Hak akses: webmaster (1), admin (2), tim retur (6) -- pola menu TIM
+     * PICKER yang menulis atas nama orang lain (SCAN COMBINED, Master Picker,
+     * Resi Pending). Daftar tetap; harus sejalan dengan
+     * Lost_scan_picker::ROLE_BOLEH.
+     */
+    protected function run_lost_scan_picker_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tbllostscanpicker_pending` (
+          `id_pending` int(11) NOT NULL AUTO_INCREMENT,
+          `id_printresi` bigint(20) NOT NULL,
+          `noresi` varchar(100) NOT NULL,
+          `sumber` enum('PACKER','HO') NOT NULL DEFAULT 'PACKER',
+          `dilaporkan_oleh` int(11) NOT NULL,
+          `waktu_lapor` datetime NOT NULL,
+          `status` enum('PENDING','SELESAI','SELESAI_LUAR') NOT NULL DEFAULT 'PENDING',
+          `kode_picker` int(11) DEFAULT NULL,
+          `diproses_oleh` int(11) DEFAULT NULL,
+          `waktu_proses` datetime DEFAULT NULL,
+          `id_resiambilbarang` int(11) DEFAULT NULL,
+          `id_lostscanpacker` int(11) DEFAULT NULL,
+          PRIMARY KEY (`id_pending`),
+          KEY `idx_noresi_status` (`noresi`, `status`),
+          KEY `idx_status_waktu` (`status`, `waktu_lapor`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $uri = 'lost-scan-picker';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Laporan Lost Scan Picker',
+                'parentid'  => 19,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-user-times',
+                'sortorder' => 26, // tepat setelah SCAN COMBINED (25)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1, 2, 6];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
