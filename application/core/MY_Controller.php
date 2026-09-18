@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-18.3';
+    const BOOTSTRAP_VERSI = '2026-09-18.4';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -95,6 +95,7 @@ class MY_Controller extends CI_Controller
         $this->run_masalah_picker_new_migration();
         $this->run_lost_scan_picker_migration();
         $this->run_scan_paket_ndd_new_migration();
+        $this->run_salah_ambil_special_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1446,6 +1447,58 @@ class MY_Controller extends CI_Controller
         }
 
         $role_boleh = [1, 2, 5];
+        foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PACKER -> "Salah Ambil Special" (controller Salah_ambil_special).
+     *
+     * Untuk batch resi spesial (1 SKU / 1 qty) yang salah diambil picker:
+     * dua SKU diisi sekali, semua resi discan berantai, tiap resi langsung
+     * jadi baris SALAH AMBIL di tblmasalahpicker. Tidak ada tabel baru.
+     *
+     * Hak akses disamakan dengan Scan Resi Packer (Webcam): webmaster (1) dan
+     * client packer (4). Daftar yang sama dikunci di
+     * Salah_ambil_special::ROLE_BOLEH; keduanya harus sejalan.
+     */
+    protected function run_salah_ambil_special_migration()
+    {
+        $uri = 'salah-ambil-special';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            // Induknya diambil dari menu Scan Resi Packer supaya ikut pindah kalau
+            // grup TIM PACKER pernah ditata ulang; 24 hanya cadangan.
+            $menu_asal = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'packer/scan_packer'])->row();
+            $parent_id = $menu_asal ? $menu_asal->parentid : 24;
+
+            $this->db->insert('menu', [
+                'name'      => 'Salah Ambil Special',
+                'parentid'  => $parent_id,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-exchange',
+                'sortorder' => 12,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1, 4];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
