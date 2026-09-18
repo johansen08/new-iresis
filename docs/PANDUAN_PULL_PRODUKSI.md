@@ -1,8 +1,8 @@
 # Panduan Pull ke PC Produksi
 
 Panduan menarik perubahan dari GitHub (`origin/master`) ke PC produksi IRESIS.
-Bagian A berlaku untuk **setiap** pull; Bagian B adalah langkah tambahan untuk
-rilis tertentu yang butuh lebih dari sekadar `git pull`.
+Bagian A berlaku untuk **setiap** pull; Bagian B dan seterusnya adalah langkah
+tambahan untuk rilis tertentu yang butuh lebih dari sekadar `git pull`.
 
 Semua perintah dijalankan di **PowerShell** pada PC produksi, dari folder
 `C:\xampp\htdocs\new-iresis`.
@@ -293,3 +293,97 @@ Get-PSDrive C | Select-Object @{n='Terpakai_GB';e={[math]::Round($_.Used/1GB)}},
   menit berikutnya, worker latar belakang tidak bisa dilepas dari Apache —
   cek `application/logs/` untuk baris `minta_video_mp4: php.exe tidak
   ditemukan` dan isi `php_cli_path` di `secrets.php`.
+
+---
+
+## C. Langkah tambahan rilis 18 September 2026 (`cb1a1f3..9a904ee`)
+
+Isi rilis: alur **lost scan** yang terhubung antar meja.
+
+| Commit | Perubahan |
+|---|---|
+| `e79c4cc` (merge) | **TIM PICKER → Laporan Lost Scan Picker** — antrean resi belum-picker; tombol *Tambahkan Picker* membuat baris picking atas nama picker pilihan tim picker |
+| `9a904ee` (merge) | **TIM HO → Scan Paket NDD New** — halaman scan baru berdampingan dengan Scan Paket NDD lama; saat resi belum packing/belum picker, panel pilih packer muncul di bawah kartu status (catat Lost Scan Packer tanpa pindah menu); belum picker → otomatis dilaporkan ke tim picker |
+| `59045b1` | **Scan Resi Packer (Webcam)** — popup "belum di-picker" mendapat tombol *Lapor Lost Scan Picker* |
+
+Urutan penyelesaian resi belum-picker: tim picker *Tambahkan Picker* →
+packer scan ulang → HO scan ulang. Urutan itu dijaga penjaga `NOT_PICKED`
+/ `NOT_PACKED` yang sudah ada di tiap menu, bukan status baru.
+
+### C.1 Perubahan database — semuanya otomatis lewat migrasi
+
+`BOOTSTRAP_VERSI` naik ke **`2026-09-18.3`**. Pada request pertama setelah
+pull (lihat A.7) aplikasi menjalankan:
+
+| Objek | Perubahan | Sumber |
+|---|---|---|
+| `tbllostscanpicker_pending` | **Tabel baru** (`CREATE TABLE IF NOT EXISTS`): antrean laporan resi belum-picker — `noresi`, `sumber` (PACKER/HO), `dilaporkan_oleh`, `waktu_lapor`, `status` (PENDING/SELESAI/SELESAI_LUAR), `kode_picker`, `diproses_oleh`, `waktu_proses`, `id_resiambilbarang`, `id_lostscanpacker` | `MY_Controller::run_lost_scan_picker_migration()` |
+| `menu` | 2 baris baru: **Laporan Lost Scan Picker** (`uri` `lost-scan-picker`, induk TIM PICKER, urutan setelah SCAN COMBINED) dan **Scan Paket NDD New** (`uri` `scan-paket-ndd-new`, induk TIM HO, tepat setelah Scan Paket NDD) | kedua migrasi |
+| `roleaccess` | Laporan Lost Scan Picker → role 1, 2, 6 (webmaster, admin, tim retur); Scan Paket NDD New → role 1, 2, 5 (webmaster, admin, ho) | kedua migrasi |
+
+**Tidak ada tabel lama yang diubah strukturnya** (`tbllostscanpacker`,
+`tblresiambilbarang`, `tblpacking`, `tblprintresi` tetap). Tidak ada SQL
+yang perlu dijalankan manual. Migrasi aman diulang (idempoten): tabel/menu/
+akses yang sudah ada tidak dibuat dua kali.
+
+Data yang **ditulis saat fitur dipakai** (bukan saat migrasi):
+
+- `tbllostscanpacker` — baris `PACKER` dari Scan Paket NDD New, baris
+  `PICKER` saat tim picker menekan *Tambahkan Picker* (nama picker baru
+  diketahui saat itu). Laporan Lost Scan lama membacanya tanpa perubahan.
+- `tblresiambilbarang` — baris picking susulan atas nama picker, ditandai
+  `nama_komputer = 'LOST SCAN PICKER'`, `pending = ''`, status performa
+  picker hari itu (fallback `NORMAL_PICKER`). **KPI picker tidak dicatat.**
+- `notifications` — kategori `GENERAL`, "Resi X sudah ditambahkan picker",
+  agar packer tahu resi boleh discan ulang.
+
+### C.2 Pastikan folder cache ada (sekali saja)
+
+Penanda migrasi ditulis ke `application/cache/bootstrap_migrasi.txt`. Folder
+`application/cache/` **tidak ikut git** (`.gitignore`). Kalau tidak ada,
+migrasi tetap jalan tapi **berulang di setiap request** (lambat, ±100 query
++ DDL per scan). Cek dan buat:
+
+```powershell
+if (-not (Test-Path application\cache)) { New-Item -ItemType Directory application\cache | Out-Null }
+```
+
+### C.3 Verifikasi migrasi
+
+Setelah logout/login (A.7):
+
+```powershell
+Get-Content application\cache\bootstrap_migrasi.txt
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "SHOW TABLES LIKE 'tbllostscanpicker_pending'; SELECT m.id, m.name, m.uri, GROUP_CONCAT(r.roleid ORDER BY r.roleid) AS roles FROM menu m LEFT JOIN roleaccess r ON r.menuid = m.id WHERE m.uri IN ('lost-scan-picker','scan-paket-ndd-new') GROUP BY m.id;"
+```
+
+Harus tampil: penanda `2026-09-18.3`; satu tabel; dua baris menu dengan
+`roles` `1,2,6` (lost-scan-picker) dan `1,2,5` (scan-paket-ndd-new). Kalau
+kosong, versi bootstrap belum terpicu — ulangi A.7.
+
+### C.4 Verifikasi di sisi pengguna
+
+- **HO** (role ho): menu TIM HO → **Scan Paket NDD New** tampil di bawah
+  Scan Paket NDD. Scan resi yang belum packing → kartu merah + panel
+  "Lost Scan Packer" di bawahnya dengan dropdown packer. Menu lama tetap
+  bisa dipakai sebagai cadangan.
+- **Packer** (Scan Resi Packer Webcam): scan resi belum-picker → popup
+  "Jangan Dipacking" dengan tombol merah **Lapor Lost Scan Picker**; kamera
+  tidak mulai merekam.
+- **Tim picker** (webmaster/admin/tim retur): TIM PICKER → **Laporan Lost
+  Scan Picker**, tab Pending menampilkan laporan dari packer/HO lengkap
+  dengan SKU/qty/rak; *Tambahkan Picker* → baris pindah ke tab Selesai.
+- Pengguna yang masih login perlu logout/login agar menu baru tampil.
+
+### C.5 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Tabel `tbllostscanpicker_pending` dan dua baris menu **tetap
+ada** setelah rollback kode (menu akan menampilkan 404 karena controller-nya
+tidak ada). Kalau ingin menyembunyikannya sementara tanpa menghapus data:
+
+```powershell
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "UPDATE menu SET isactive = 0 WHERE uri IN ('lost-scan-picker','scan-paket-ndd-new');"
+```
+
+Saat kode dipasang lagi, `isactive` perlu dikembalikan ke 1 secara manual —
+migrasi hanya membuat menu yang belum ada, tidak mengaktifkan ulang.

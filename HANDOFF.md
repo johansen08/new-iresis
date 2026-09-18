@@ -18,9 +18,9 @@ Alur inti: **Receipt (resi masuk) → Picking → Packing → Handover → Shipp
 | Area | Controller kunci | Model kunci | Tabel utama |
 |---|---|---|---|
 | Receipt/Resi | `Receipt.php` | `Receipt_fcd.php` | `tblprintresi`, `tbldetailprintresi` |
-| Picking | `Picker.php`, `Resi_team.php` | `Picking_fcd.php` | `tblresiambilbarang` |
+| Picking | `Picker.php`, `Resi_team.php`, `Lost_scan_picker.php` (Laporan Lost Scan Picker: antrean resi belum-picker, tombol Tambahkan Picker) | `Picking_fcd.php`, `Lost_scan_picker_fcd.php` | `tblresiambilbarang`, `tbllostscanpicker_pending` |
 | Packing | `Packer.php`, `Packer_monitoring.php` | `Packer_fcd.php`, `Packer_monitoring_fcd.php` | `tblpacking`, `tblpacker_monitoring` |
-| Handover | `Handover.php` | `Handover_fcd.php` | `tblhandover` |
+| Handover / HO | `Handover.php`, `Scan_logistic.php` (Scan Paket NDD), `Scan_paket_ndd_new.php` (versi baru: panel lost scan packer + lapor ke tim picker), `Lost_scan_packer.php` | `Handover_fcd.php`, `Scan_logistic_fcd.php`, `Scan_paket_ndd_new_fcd.php`, `Lost_scan_packer_fcd.php` | `tblresikeluar`, `tblscan_ndd`, `tbllostscanpacker` |
 | Retur | `Retur.php` | `Retur_fcd.php`, `Buka_retur.php` | `tblresiretur`, `tblbukaretur` |
 | QC/Purchasing | `Purchasing_qc.php` (QC/Reject/Repair) | `Pengembalian_qc.php`, `Purchasing_reject.php`, `Purchasing_repair.php` | `tblpengembalian_qc`, `tblpurchasing_reject`, `tblpurchasing_repair` |
 | Accounting | `Accounting.php` | `Buka_retur.php`, `Surat_jalan_fcd.php` | `tblbukaretur`, `surat_jalan_tp` |
