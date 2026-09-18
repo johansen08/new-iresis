@@ -54,6 +54,33 @@ Ditulis `Packer_fcd::save()` / `save_packer_nonsubmit()` dan
 tidak pernah ada; yang ada dengan awalan itu hanya `tblpacker_sessions` dan
 `tblpacker_performance_logs` (monitoring packer).
 
+#### 4a. **tblmasalahpicker** - Laporan Masalah Picker (dari meja packer)
+```sql
+- id_masalahpicker (PK)
+- id_printresi (FK → tblprintresi)
+- noresi
+- sku                    -- SKU di resi (yang seharusnya)
+- qty (DEFAULT 1)        -- qty SKU itu di resi
+- id_typemasalah (FK → tbltypemasalah: 1 TIDAK AMBIL, 2 LEBIH AMBIL, 3 KURANG AMBIL, 4 SALAH AMBIL, 5 REJECT DISPLAY)
+- qty_bermasalah (DEFAULT 1)
+- sku_salah (NULL)       -- hanya tipe 4: SKU yang keliru terambil, dicetak di slip "(terambil …)"
+- status (DEFAULT 0)     -- 0 pending, 1 sudah diproses CS
+- created_by (FK → tbluser)  -- packer pelapor
+- created
+- updated_by (NULL), updated (NULL)
+```
+Ditulis oleh: modal **Masalah Picker** di Scan Resi Packer / Webcam
+(`Packer_fcd::save_masalah_picker()` — meng-UPDATE baris lama untuk
+`id_printresi`+`sku` yang sama dan mereset `status` ke 0) dan menu
+**Salah Ambil Special** (`Salah_ambil_special_fcd::simpan_salah_ambil()` —
+hanya INSERT tipe 4, menolak kalau sudah ada baris untuk `id_printresi`+`sku`
+status apa pun; lihat `SALAH_AMBIL_SPECIAL.md`). Dibaca oleh Daftar Masalah
+Picker (lama `Cs.php` & New `Masalah_picker_new.php`, `status = 0`), Restock
+(`status = 1`), KPI picker (`Kpi_reports.php`), Error Recap, Laporan —
+tiga yang terakhir **tanpa filter status**. Picker tidak disimpan di sini:
+dideteksi dari `tblresiambilbarang.yangambil_pegawai` saat ditampilkan.
+Tidak ada UNIQUE pada `(id_printresi, sku)`.
+
 #### 5. **tblresikeluar** - Data Handover / Scan Resi Keluar (HO)
 ```sql
 - id_resikeluar (PK)

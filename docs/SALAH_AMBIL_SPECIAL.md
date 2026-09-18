@@ -216,7 +216,9 @@ Catatan:
 
 Tidak ada tabel/kolom baru. Resi yang ditolak tidak menulis apa pun. Yang
 dibaca: `tblsku`, `tblprintresi`, `tbldetailprintresi`, `tblpacking`,
-`tblresiambilbarang`, `tblpegawai`, `tbluser`.
+`tblresiambilbarang`, `tblpegawai`, `tbluser`. Skema `tblmasalahpicker`:
+`DATABASE_STRUCTURE.md` §4a. Cadangan SQL manual untuk menu + akses (kalau
+migrasi otomatis tidak terpicu): `sql_migrations/salah_ambil_special_menu.sql`.
 
 ## 8. Skenario ringkas
 
