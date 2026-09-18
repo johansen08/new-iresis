@@ -448,7 +448,13 @@ pull (A.7) aplikasi menjalankan `MY_Controller::run_salah_ambil_special_migratio
 
 **Tidak ada tabel baru, tidak ada kolom baru, tidak ada tabel lama yang
 diubah.** Tidak ada SQL manual. Migrasi idempoten: menu/akses yang sudah ada
-tidak dibuat dua kali.
+tidak dibuat dua kali. Cadangan kalau migrasi otomatis tidak terpicu (D.2
+kosong padahal A.7 sudah diulang): `sql_migrations/salah_ambil_special_menu.sql`
+berisi INSERT yang sama, aman diulang:
+
+```powershell
+Get-Content sql_migrations\salah_ambil_special_menu.sql -Raw | & C:\xampp\mysql\bin\mysql.exe -u root -t iresis_prod
+```
 
 Data yang **ditulis saat fitur dipakai**: satu baris `tblmasalahpicker` per
 resi yang lolos (`sku` = SKU seharusnya, `sku_salah` = SKU terambil, `qty` 1,
