@@ -160,8 +160,9 @@ if (!empty($akses_ditolak)) : ?>
       $saran.empty();
       if (item.length === 0) { tutup(); return; }
       $.each(item, function (i, it) {
-        $saran.append('<li data-i="' + i + '"><strong>' + esc(it.value) + '</strong> — ' +
-          esc(it.nama_sku || '-') + ' <span class="text-muted">(rak ' + esc(it.no_rak || '-') + ')</span></li>');
+        // Cukup kode + rak: nama produk panjang membuat daftar sulit dipindai.
+        $saran.append('<li data-i="' + i + '"><strong>' + esc(it.value) + '</strong>' +
+          ' <span class="text-muted">— rak ' + esc(it.no_rak || '-') + '</span></li>');
       });
       $saran.removeClass('hidden');
       sorot(0);

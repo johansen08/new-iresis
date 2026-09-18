@@ -76,7 +76,7 @@ class Salah_ambil_special extends MY_Controller
         if ($term !== '') {
             foreach ($this->salah_ambil_special_fcd->cari_sku_mirip($term, 15) as $row) {
                 $hasil[] = [
-                    'label'    => $row['id_sku'] . ' — ' . ($row['nama_sku'] ?: '-') . ' (rak ' . ($row['no_rak'] ?: '-') . ')',
+                    'label'    => $row['id_sku'] . ' — rak ' . ($row['no_rak'] ?: '-'),
                     'value'    => $row['id_sku'],
                     'nama_sku' => $row['nama_sku'],
                     'no_rak'   => $row['no_rak'],

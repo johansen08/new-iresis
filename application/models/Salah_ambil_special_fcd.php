@@ -28,8 +28,9 @@ class Salah_ambil_special_fcd extends CI_Model
     }
 
     /**
-     * Saran live search untuk field SKU: kode yang DIAWALI ketikan didahulukan,
-     * lalu kode/nama yang mengandung ketikan. Dibatasi supaya dropdown ringkas.
+     * Saran live search untuk field SKU: hanya mencocokkan KODE (bukan nama
+     * produk, karena dropdown pun hanya menampilkan kode + rak); kode yang
+     * DIAWALI ketikan didahulukan. Dibatasi supaya dropdown ringkas.
      */
     public function cari_sku_mirip($term, $limit = 15)
     {
@@ -37,10 +38,10 @@ class Salah_ambil_special_fcd extends CI_Model
         $term_isi  = '%' . $this->db->escape_like_str($term) . '%';
         $sql = "SELECT id_sku, nama_sku, no_rak
                 FROM tblsku
-                WHERE id_sku LIKE ? ESCAPE '!' OR nama_sku LIKE ? ESCAPE '!'
+                WHERE id_sku LIKE ? ESCAPE '!'
                 ORDER BY (id_sku LIKE ? ESCAPE '!') DESC, id_sku ASC
                 LIMIT " . (int) $limit;
-        return $this->db->query($sql, [$term_isi, $term_isi, $term_awal])->result_array();
+        return $this->db->query($sql, [$term_isi, $term_awal])->result_array();
     }
 
     /**
