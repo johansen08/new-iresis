@@ -131,6 +131,11 @@ $route['lost_scan_packer/save'] = 'lost_scan_packer/save';
 $route['lost_scan_packer/get_lost_scan_data'] = 'lost_scan_packer/get_lost_scan_data';
 $route['lost_scan_packer/export_excel'] = 'lost_scan_packer/export_excel';
 
+// TIM PICKER -> Laporan Lost Scan Picker (antrean resi belum di-picker)
+$route['lost-scan-picker'] = 'lost_scan_picker/index';
+$route['lost-scan-picker/get-data'] = 'lost_scan_picker/get_data';
+$route['lost-scan-picker/tambah-picker'] = 'lost_scan_picker/tambah_picker';
+
 $route['retur/scan-retur'] = 'retur/scan_retur';
 $route['retur/update-retur'] = 'retur/update_retur';
 $route['retur/update-retur-komplain'] = 'retur/update_retur_komplain';
