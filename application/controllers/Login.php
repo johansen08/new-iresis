@@ -26,8 +26,17 @@ class Login extends CI_Controller
             $grouped_status_performa[$status['role']][] = $status;
         }
 
+        // MY_Controller::set_message() menyimpan flashdata 'message' sebagai
+        // array {title, message, type}. Kalau sesi habis tepat setelah simpan
+        // data, array itu ikut sampai ke halaman login dan view meng-echo-nya
+        // langsung -> "Array to string conversion" di login.php.
+        $message = $this->session->flashdata('message');
+        if (is_array($message)) {
+            $message = isset($message['message']) ? $message['message'] : '';
+        }
+
         $data = array(
-            'message' => $this->session->flashdata('message'),
+            'message' => $message,
             'machine_name' => $this->input->get('machine_name'),
             'list_pk' => $this->login_fcd->get_pk()->result_array(),
             'list_status_performa' => $grouped_status_performa
