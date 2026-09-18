@@ -1433,7 +1433,9 @@ class MY_Controller extends CI_Controller
                 'parentid'  => $menu_lama ? $menu_lama->parentid : 27,
                 'uri'       => $uri_baru,
                 'icon'      => $menu_lama ? $menu_lama->icon : 'fa fa-bolt',
-                'sortorder' => $menu_lama ? ((int) $menu_lama->sortorder + 1) : 11,
+                // +2, bukan +1: Laporan Paket NDD sudah memakai sortorder lama+1 (11),
+                // jadi menu baru duduk tepat di bawahnya, tidak berebut urutan.
+                'sortorder' => $menu_lama ? ((int) $menu_lama->sortorder + 2) : 12,
                 'isactive'  => 1,
                 'createdby' => 1,
                 'created'   => date('Y-m-d H:i:s')

@@ -318,7 +318,7 @@ pull (lihat A.7) aplikasi menjalankan:
 | Objek | Perubahan | Sumber |
 |---|---|---|
 | `tbllostscanpicker_pending` | **Tabel baru** (`CREATE TABLE IF NOT EXISTS`): antrean laporan resi belum-picker — `noresi`, `sumber` (PACKER/HO), `dilaporkan_oleh`, `waktu_lapor`, `status` (PENDING/SELESAI/SELESAI_LUAR), `kode_picker`, `diproses_oleh`, `waktu_proses`, `id_resiambilbarang`, `id_lostscanpacker` | `MY_Controller::run_lost_scan_picker_migration()` |
-| `menu` | 2 baris baru: **Laporan Lost Scan Picker** (`uri` `lost-scan-picker`, induk TIM PICKER, urutan setelah SCAN COMBINED) dan **Scan Paket NDD New** (`uri` `scan-paket-ndd-new`, induk TIM HO, tepat setelah Scan Paket NDD) | kedua migrasi |
+| `menu` | 2 baris baru: **Laporan Lost Scan Picker** (`uri` `lost-scan-picker`, induk TIM PICKER, urutan setelah SCAN COMBINED) dan **Scan Paket NDD New** (`uri` `scan-paket-ndd-new`, induk TIM HO, setelah Laporan Paket NDD) | kedua migrasi |
 | `roleaccess` | Laporan Lost Scan Picker → role 1, 2, 6 (webmaster, admin, tim retur); Scan Paket NDD New → role 1, 2, 5 (webmaster, admin, ho) | kedua migrasi |
 
 **Tidak ada tabel lama yang diubah strukturnya** (`tbllostscanpacker`,
@@ -387,3 +387,13 @@ tidak ada). Kalau ingin menyembunyikannya sementara tanpa menghapus data:
 
 Saat kode dipasang lagi, `isactive` perlu dikembalikan ke 1 secara manual —
 migrasi hanya membuat menu yang belum ada, tidak mengaktifkan ulang.
+
+### C.6 Hasil pemeriksaan skema produksi (18 Sep 2026, sebelum pull)
+
+Skema `iresis_prod` di 192.168.3.55 (MariaDB 10.4.32) diperiksa read-only
+terhadap asumsi kode rilis ini: semua tabel/kolom/enum/role/menu induk yang
+dipakai ada dan sesuai; `tbllostscanpicker_pending` belum ada; 15 akun packer
+aktif semuanya terhubung ke `tblpegawai`; Master Picker aktif 65; tidak ada
+`noresi` di `tbllostscanpacker` yang punya lebih dari satu `lost_type`.
+Perbedaan DB lokal vs produksi hanya index tambahan di lokal (hasil script
+optimasi) — tidak berpengaruh pada kode.

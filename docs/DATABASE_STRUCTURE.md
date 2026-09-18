@@ -11,8 +11,9 @@
 - id_marketplace (FK → tblmarketplace)
 - id_kurir (FK → tblkurir)
 - nomorpicklist
+- batal (varchar: '' = tidak batal, '1' = batal — penjaga membandingkan string)
 - tanggal_printresi
-- status_pesanan (NEW, PICKED, PACKED, HANDOVER, SHIPPED, COMPLETED, CANCELED)
+- status_pesanan (nilai nyata di produksi: PROCESSING, SHIPPED, COMPLETED, CANCELED, RETURNED, REQUEST_CANCEL, NULL — status dari marketplace, BUKAN tahapan gudang; tahapan gudang dibaca dari ada/tidaknya baris di tblresiambilbarang/tblpacking/tblresikeluar)
 - created_by (FK → tbluser)
 - created_at
 ```
@@ -472,9 +473,15 @@ CREATE INDEX idx_picking_resi ON tblresiambilbarang(id_resi);
 CREATE INDEX idx_picking_user ON tblresiambilbarang(admin_pegawai);
 CREATE INDEX idx_picking_date ON tblresiambilbarang(tanggal_resiambilbarang);
 
--- tblpacking sudah punya: id_resi, idx_packing_date_user(tanggal_packing, packer_pegawai),
--- idx_packing_id_date(id_resi, tanggal_packing), idx_packing_pegawai(packer_pegawai)
--- tblresikeluar: id_resi belum UNIQUE (skrip di dev_tools/optimasi_scan_ho.sql)
+-- Diverifikasi ke iresis_prod 18 Sep 2026:
+-- tblpacking     : idx_packing_date_user(tanggal_packing, packer_pegawai),
+--                  idx_packing_id_date(id_resi, tanggal_packing), idx_packing_pegawai(packer_pegawai),
+--                  idx_packing_status(status_performa_id). Tidak ada index tunggal id_resi
+--                  (yang ada di DB lokal berasal dari script optimasi, bukan produksi).
+-- tblresikeluar  : idx_resikeluar_resi(id_resi) NON-unique, idx_resikeluar_date, idx_resikeluar_pegawai
+-- tblscan_ndd    : uq_scan_ndd_resi(id_resi) UNIQUE, idx_tanggal, idx_scan_ndd_pegawai_tgl
+-- tblresiambilbarang: id_resi UNIQUE
+-- tbllostscanpacker : idx_lostscan_date(created_at)
 
 CREATE INDEX idx_kpi_user_date ON tblkpi(id_user, tanggal);
 CREATE INDEX idx_kpi_status ON tblkpi(id_statusperforma);
