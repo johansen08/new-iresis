@@ -242,6 +242,57 @@
 
 ---
 
+### **Lost Scan Tables**
+
+Dipakai alur lost scan antar meja (rilis 18 Sep 2026, lihat
+`docs/superpowers/specs/2026-09-18-lost-scan-picker-tahap-a-design.md`).
+
+#### 21. **tbllostscanpacker** - Catatan Lost Scan (Packer/Picker/HO)
+```sql
+- id_lostscanpacker (PK)
+- noresi
+- lost_type (ENUM: PICKER, PACKER, HO)
+- nama_packer          -- nama pegawai yang lupa scan (tblpegawai.nama_pegawai), apa pun lost_type-nya
+- status_resi          -- status_pesanan resi saat dicatat
+- kurir                -- nama_kurir saat dicatat
+- created_at (INDEX)
+- created_by (FK → tbluser)  -- pelapor
+```
+Ditulis oleh: menu Lost Scan Packer/Picker/HO (lama), Scan Paket NDD New
+(baris `PACKER`), dan `Lost_scan_picker_fcd::tambah_picker()` (baris
+`PICKER`, dibuat saat tim picker menentukan picker — bukan saat lapor).
+Model lama `Lost_scan_packer_fcd::save()` menolak duplikat per `noresi`
+saja; jalur baru mengecek per `(noresi, lost_type)`.
+
+#### 22. **tbllostscanpicker_pending** - Antrean Resi Belum Di-picker
+```sql
+- id_pending (PK)
+- id_printresi (FK → tblprintresi)
+- noresi
+- sumber (ENUM: PACKER, HO)            -- meja yang melapor
+- dilaporkan_oleh (FK → tbluser)
+- waktu_lapor
+- status (ENUM: PENDING, SELESAI, SELESAI_LUAR)
+- kode_picker (FK → tblpegawai.kode_pegawai, NULL)   -- diisi saat diproses
+- diproses_oleh (FK → tbluser, NULL)
+- waktu_proses (NULL)
+- id_resiambilbarang (FK → tblresiambilbarang, NULL) -- baris picking yang dibuat
+- id_lostscanpacker (FK → tbllostscanpacker, NULL)   -- baris PICKER yang dibuat
+- INDEX (noresi, status), INDEX (status, waktu_lapor)
+```
+Dibuat migrasi `MY_Controller::run_lost_scan_picker_migration()`
+(`BOOTSTRAP_VERSI` 2026-09-18.x). Satu resi hanya punya satu baris
+`PENDING` (dijaga `Lost_scan_picker_fcd::lapor()`). `SELESAI_LUAR` = baris
+picking ternyata sudah dibuat di luar alur (mis. SCAN COMBINED), laporan
+ditutup tanpa menulis picking/lost scan. SKU/qty/no rak tidak disimpan —
+dibaca dari `tbldetailprintresi` saat tampil.
+
+Alur: Packer (webcam) / HO (Scan Paket NDD New) → `lapor()` → PENDING →
+tim picker *Tambahkan Picker* → `tambah_picker()` → insert
+`tblresiambilbarang` (`nama_komputer = 'LOST SCAN PICKER'`, tanpa KPI) +
+insert `tbllostscanpacker` PICKER → SELESAI → packer scan ulang → HO scan
+ulang.
+
 ## 🔗 Relationship Diagram
 
 ```
@@ -252,15 +303,23 @@ tbluser
   ├─→ tblhandover (admin_pegawai)
   ├─→ tblstatusperforma (id_user)
   ├─→ tblkpi (id_user)
-  └─→ tbltargetkpi (id_user)
+  ├─→ tbltargetkpi (id_user)
+  ├─→ tbllostscanpacker (created_by)
+  └─→ tbllostscanpicker_pending (dilaporkan_oleh, diproses_oleh)
 
 tblprintresi
   ├─→ tbldetailprintresi (id_resi)
   ├─→ tblresiambilbarang (id_resi)
   ├─→ tblpacker (id_resi)
   ├─→ tblhandover (id_resi)
+  ├─→ tbllostscanpicker_pending (id_printresi)
   └─→ tblmarketplace (id_marketplace)
   └─→ tblkurir (id_kurir)
+
+tbllostscanpicker_pending
+  ├─→ tblresiambilbarang (id_resiambilbarang)  -- picking susulan yang dibuat
+  ├─→ tbllostscanpacker (id_lostscanpacker)    -- baris PICKER yang dibuat
+  └─→ tblpegawai (kode_picker)
 
 tblmasterstatusperforma
   ├─→ tblstatusperforma (id_statusperforma)
@@ -271,7 +330,8 @@ tblmasterstatusperforma
 
 tblpegawai
   ├─→ tblnamaambilbarang (id_pegawai)
-  └─→ tblresiambilbarang (yangambil_pegawai)
+  ├─→ tblresiambilbarang (yangambil_pegawai)
+  └─→ tbllostscanpicker_pending (kode_picker)
 
 tblmenu
   ├─→ tblmenu (parent_id) - Self reference
