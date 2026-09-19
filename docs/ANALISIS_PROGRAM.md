@@ -157,6 +157,8 @@ tempat paket ditemukan**, tanpa pindah menu:
 - **Laporan Lost Scan Picker** (TIM PICKER, `lost-scan-picker`): antrean
   resi belum-picker; **Tambahkan Picker** membuat baris picking atas nama
   picker (tanpa KPI) + catatan lost scan PICKER → packer scan ulang → HO.
+  Halaman menyegarkan diri tiap 30 dtk, ada kartu ringkasan antrean dan
+  pewarnaan baris yang sudah lama menunggu (`LOST_SCAN.md` §5.5).
 
 **Controller**: `Scan_paket_ndd_new.php`, `Lost_scan_picker.php`, `Packer.php`
 **Model**: `Scan_paket_ndd_new_fcd.php`, `Lost_scan_picker_fcd.php`

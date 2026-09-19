@@ -309,7 +309,7 @@ HO scan (Scan Paket NDD New)                Packer scan (Webcam)
            └─→ antrean (sumber HO)
                      │
                      ▼
-        TIM PICKER → Laporan Lost Scan Picker (tab Pending)
+        TIM PICKER → Laporan Lost Scan Picker (tab Menunggu Picker)
            └─→ Tambahkan Picker
                ├─→ tblresiambilbarang atas nama picker ('LOST SCAN PICKER', tanpa KPI)
                ├─→ tbllostscanpacker PICKER

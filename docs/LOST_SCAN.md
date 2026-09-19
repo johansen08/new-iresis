@@ -1,8 +1,9 @@
 # Alur Lost Scan (Packer & Picker)
 
-Rilis 18 September 2026 (`cb1a1f3..9a904ee`). Dokumen ini satu-satunya
-rujukan alur lost scan; `ANALISIS_PROGRAM.md` dan `WORKFLOW_DIAGRAM.md` hanya
-menunjuk ke sini.
+Rilis 18 September 2026 (`cb1a1f3..9a904ee`); tampilan menu Laporan Lost
+Scan Picker dirapikan 19 September 2026 (`ab4f78e`, lihat §5.5). Dokumen ini
+satu-satunya rujukan alur lost scan; `ANALISIS_PROGRAM.md` dan
+`WORKFLOW_DIAGRAM.md` hanya menunjuk ke sini.
 
 ## 1. Masalah yang diselesaikan
 
@@ -33,7 +34,7 @@ penjaga yang sudah ada — tim picker → packer scan ulang → HO scan ulang.
 | HO | TIM HO → **Scan Paket NDD New** (`scan-paket-ndd-new`) | `NOT_PACKED` | Pilih packer di panel bawah kartu status → catat lost scan PACKER | Meloloskan resi ke HO |
 | HO | sama | `NOT_PICKED` | Pilih packer → catat PACKER **dan** otomatis lapor ke antrean tim picker (sumber HO) | Memilih picker |
 | Packer | TIM PACKER → **Scan Resi Packer (Webcam)** | `NOT_PICKED` | Tombol **Lapor Lost Scan Picker** di popup → masuk antrean (sumber PACKER); tahan paket | Memilih picker; merekam video |
-| Tim picker | TIM PICKER → **Laporan Lost Scan Picker** (`lost-scan-picker`) | — | Tab Pending → **Tambahkan Picker** → pilih picker dari Master Picker | Membuat packing |
+| Tim picker | TIM PICKER → **Laporan Lost Scan Picker** (`lost-scan-picker`) | — | Tab **Menunggu Picker** → **Tambahkan Picker** → pilih picker dari Master Picker (kerjakan yang paling lama menunggu dulu) | Membuat packing |
 
 Menu lama (Scan Paket NDD, Lost Scan Packer/Picker/HO, Laporan Lost Scan)
 tetap ada dan tidak berubah — cadangan kalau menu baru bermasalah.
@@ -131,8 +132,31 @@ Satu transaksi, `db_debug` dimatikan sementara, `SELECT … FOR UPDATE`:
 | Update pending → `SELESAI` | `SAVE_FAILED` |
 | Setelah commit: `Notification::send()` kategori `GENERAL` | dicatat ke log, tidak membatalkan |
 
-Tombol **Tandai Selesai** muncul di tab Pending untuk baris yang resinya
-sudah punya picking; memanggil endpoint yang sama tanpa `kode_picker`.
+Tombol **Tandai Selesai** muncul di tab Menunggu Picker untuk baris yang resinya
+sudah punya picking; setelah konfirmasi (modal), memanggil endpoint yang sama
+tanpa `kode_picker`.
+
+### 5.5 Laporan Lost Scan Picker — tampilan (rev. 19 Sep 2026, `ab4f78e`)
+
+Halaman dirancang untuk **dibiarkan terbuka** di meja tim picker: antrean
+menyegarkan diri, yang lama menonjol, satu klik untuk memproses.
+
+| Bagian | Isi |
+|---|---|
+| Strip alur | 4 langkah (Packer/HO lapor → **Tim picker tentukan picker** → Packer scan ulang → HO scan ulang); langkah 2 disorot sebagai posisi menu ini |
+| Kartu ringkasan | *Menunggu picker*, *Dilaporkan packer*, *Dilaporkan HO*, *Paling lama menunggu* (+ "N resi > 30 mnt"). Warna kartu terakhir: hijau < 30 mnt, kuning ≥ 30 mnt, merah ≥ 2 jam. Diperbarui setiap tabel dimuat, dari `ringkasan_pending()` |
+| Tab **Menunggu Picker** [badge] | Semua baris PENDING tanpa filter tanggal. Kolom: No · Waktu Lapor (+ badge usia `12 mnt` / `1 jam 5 mnt` / `2 hari`) · No Resi · Dilaporkan oleh (badge HO/PACKER + nama) · Item (**rak** di depan, lalu SKU × qty, nama) · Aksi |
+| Warna baris | ≥ 30 menit latar kuning (`lsp-lama`), ≥ 2 jam merah (`lsp-sangat-lama`). Ambangnya dihitung di server (`data-menit` pada badge usia) dan dibaca `createdRow` |
+| Segarkan | Otomatis tiap 30 detik (checkbox, default nyala) + tombol ↻ di heading panel + jam "diperbarui HH:mm:ss". Otomatis **dijeda** saat ada modal terbuka, tab Menunggu Picker tidak aktif, atau tab browser disembunyikan; timer berhenti sendiri begitu `#lsp-root` lepas dari DOM (pindah menu SPA) |
+| Tab **Sudah Diproses** | SELESAI / SELESAI_LUAR dalam rentang `waktu_proses` (daterangepicker, default hari ini). Kolom tambahan: Picker · Diproses oleh (+ waktu) · Status |
+| Modal Tambahkan Picker | No resi besar, konteks laporan (pelapor + sumber, waktu lapor, lama menunggu, jumlah item — dari atribut `data-*` tombol, tanpa request tambahan), daftar item, dropdown picker ber-live-search (Master Picker aktif, ~65 nama) yang terbuka otomatis; Enter setelah memilih = simpan |
+| Modal Tandai Selesai | Konfirmasi Bootstrap (bukan `confirm()` browser) yang menjelaskan laporan ditutup tanpa memilih picker; fokus langsung ke tombol Ya |
+| Antrean kosong | Ikon centang hijau + "Antrean kosong -- tidak ada resi yang menunggu picker" |
+
+Kalau laporan ternyata sudah diproses orang lain (`SUDAH_DIPROSES`), notifikasi
+merah tampil, tabel disegarkan, dan modal ditutup. Teks DataTables (cari,
+paginasi, info) berbahasa Indonesia; semua CSS diawali `#lsp-root` supaya
+tidak bocor ke halaman lain di SPA.
 
 ## 6. Keputusan desain (jangan diubah tanpa membaca ini)
 
@@ -174,7 +198,7 @@ Skema kolom: `DATABASE_STRUCTURE.md` §21–22.
 | B | HO scan, "belum di-picker" | panel → pilih packer → PACKER dicatat + antrean (HO) → paket ditahan → tim picker Tambahkan Picker → packer scan ulang → HO scan ulang |
 | C | Packer webcam scan, "belum di-picker" | popup → Lapor → antrean (PACKER) → paket ditahan (tanpa rekaman) → tim picker → packer scan ulang → HO |
 | D | Resi sudah di antrean, discan lagi di HO/packer | HO: kotak merah "menunggu tim picker"; packer: popup tanpa tombol. Tidak ada laporan ganda |
-| E | Admin memakai SCAN COMBINED untuk resi yang ada di antrean | tab Pending menandai "sudah di-picker di luar alur" → Tandai Selesai → `SELESAI_LUAR`, tanpa baris PICKER baru |
+| E | Admin memakai SCAN COMBINED untuk resi yang ada di antrean | tab Menunggu Picker menandai "sudah di-picker di luar alur" → Tandai Selesai (konfirmasi modal) → `SELESAI_LUAR`, tanpa baris PICKER baru |
 | F | Dua orang memproses baris yang sama | `FOR UPDATE`: yang kedua dapat "sudah diproses oleh X", tabel disegarkan |
 | G | Pesanan batal saat diproses | ditolak `ORDER_CANCELED`, baris tetap PENDING untuk keputusan manual |
 
@@ -196,7 +220,7 @@ mengikuti `Packer::ROLE_BOLEH_WEBCAM` (1, 4).
 | `scan-paket-ndd-new/simpan-lost-scan` | catat PACKER; `belum_picker=1` → juga `lapor()` sumber HO |
 | `scan-paket-ndd-new/lapor-picker` | `lapor()` sumber HO tanpa mencatat packer |
 | `packer/lapor-lost-scan-picker` | `lapor()` sumber PACKER + tutup siklus scan resi itu |
-| `lost-scan-picker/get-data` | DataTables tab `pending` / `selesai` (+ `jumlah_pending`) |
+| `lost-scan-picker/get-data` | DataTables tab `pending` / `selesai` (+ `ringkasan`: `total`, `dari_packer`, `dari_ho`, `tertua`, `tertua_menit`, `lebih_30_menit` — dari `ringkasan_pending()`) |
 | `lost-scan-picker/tambah-picker` | `tambah_picker()`; tanpa `kode_picker` = Tandai Selesai |
 
 ## 10. File terkait
