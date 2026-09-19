@@ -67,6 +67,7 @@ $route['receipt/delete-list-receipt-data/(:any)'] = 'receipt/delete_list_receipt
 $route['receipt/delete-receipt-action'] = 'receipt/delete_receipt_action';
 $route['receipt/save-reprint-receipt'] = 'receipt/save_reprint_receipt';
 $route['receipt/upload-receipt-action'] = 'receipt/upload_receipt_action';
+$route['receipt/upload-receipt-progress'] = 'receipt/upload_receipt_progress';
 
 $route['receipt/upload-sku'] = 'sku/upload_sku';
 $route['sku/upload-sku'] = 'sku/upload_sku';

@@ -75,14 +75,11 @@ class Cron extends CI_Controller
                 throw new \Exception('File tidak ditemukan atau error upload');
             }
 
+            // Pembaca streaming (~1-3 dtk per 20rb baris), fallback otomatis ke
+            // PhpSpreadsheet untuk .xls -- hasilnya identik dengan toArray() lama.
             $file = $_FILES['receiptFile']['tmp_name'];
-            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader(
-                \PhpOffice\PhpSpreadsheet\IOFactory::identify($file)
-            );
-            $reader->setReadDataOnly(true);
-            $spreadsheet = $reader->load($file);
-            $sheet = $spreadsheet->getActiveSheet();
-            $dataRaw = $sheet->toArray(null, true, true, true);
+            $this->load->library('xlsx_cepat');
+            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'W');
 
             $this->load->model('receipt_fcd');
             $result = $this->receipt_fcd->insert_receipt($dataRaw, null);

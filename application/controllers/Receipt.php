@@ -1,8 +1,6 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
-use PhpOffice\PhpSpreadsheet\IOFactory;
-
 class Receipt extends MY_Controller
 {
     function __construct()
@@ -331,130 +329,223 @@ class Receipt extends MY_Controller
         $this->show();
     }
 
+    /**
+     * Menerima file laporan penjualan Jubelio (.xlsx/.xls) lalu mengimpornya.
+     *
+     * Alurnya:
+     *  1. validasi file + token progres dari browser
+     *  2. LEPAS KUNCI SESSION (session_write_close). Driver session 'files'
+     *     mengunci berkas session selama request berjalan, jadi tanpa ini
+     *     request lain dari user yang sama (termasuk polling progres) ikut
+     *     menggantung sampai impor selesai -- itulah sebabnya indikator
+     *     progres lama tidak pernah bergerak.
+     *  3. baca file lewat Xlsx_cepat (fallback PhpSpreadsheet), impor lewat
+     *     Receipt_fcd::insert_receipt() sambil menulis progres ke berkas
+     *     application/cache/upload_resi/<token>.json
+     *  4. balas JSON. Hasil akhir juga ditulis ke berkas progres, jadi kalau
+     *     koneksi browser putus di tengah jalan, UI tetap bisa menampilkan
+     *     hasilnya lewat upload_receipt_progress().
+     */
     public function upload_receipt_action()
     {
         if ($this->input->method() !== 'post') {
             $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
         }
 
+        // post_max_size terlampaui -> PHP mengosongkan $_FILES dan $_POST tanpa pesan
+        $panjang_body = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+        if (empty($_FILES) && $panjang_body > 0 && $panjang_body > $this->ke_byte(ini_get('post_max_size'))) {
+            $this->make_ajax_response(400, 'File terlalu besar. Batas maksimal server: ' . ini_get('post_max_size'));
+        }
+
         if (!isset($_FILES['receiptFile'])) {
-            $this->make_ajax_response(400, "Tidak ada file yang dipilih");
+            $this->make_ajax_response(400, 'Tidak ada file yang dipilih');
         }
 
-        if ($_FILES['receiptFile']['error'] != 0) {
-            $err = $_FILES['receiptFile']['error'];
+        $err = (int)$_FILES['receiptFile']['error'];
+        if ($err !== UPLOAD_ERR_OK) {
             $msg = "Gagal mengunggah file. Kode error: $err";
-            if ($err == 1 || $err == 2) $msg = "File terlalu besar. Batas maksimal server: " . ini_get('upload_max_filesize');
-            if ($err == 3) $msg = "File hanya terunggah sebagian.";
-            if ($err == 4) $msg = "Tidak ada file yang diunggah.";
-            $this->make_ajax_response(500, $msg);
+            if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) $msg = 'File terlalu besar. Batas maksimal server: ' . ini_get('upload_max_filesize');
+            if ($err === UPLOAD_ERR_PARTIAL) $msg = 'File hanya terunggah sebagian, coba unggah ulang.';
+            if ($err === UPLOAD_ERR_NO_FILE) $msg = 'Tidak ada file yang diunggah.';
+            $this->make_ajax_response(400, $msg);
         }
 
-        // Set proper limits for large file processing
-        ini_set('memory_limit', '3072M'); // Increase memory limit
-        ini_set('max_execution_time', 0); // Remove execution time limit
-        // Buffer output to catch any unwanted echoes or warnings
-        ob_start();
+        $nama_file = $_FILES['receiptFile']['name'];
+        $ekstensi  = strtolower(pathinfo($nama_file, PATHINFO_EXTENSION));
+        if (!in_array($ekstensi, ['xlsx', 'xls'], true)) {
+            $this->make_ajax_response(400, "Format file .$ekstensi tidak didukung. Unggah file .xlsx atau .xls dari Jubelio.");
+        }
 
-        // Log the start of processing
-        log_message('info', 'Starting Excel upload processing for user: ' . ($this->data['user']['id_user'] ?? 'unknown'));
+        $token = $this->input->post('token');
+        if (!is_string($token) || !preg_match('/^[A-Za-z0-9]{8,40}$/', $token)) {
+            $token = bin2hex(random_bytes(8));
+        }
+
+        $user_id = $this->data['user']['id_user'] ?? null;
+        $file    = $_FILES['receiptFile']['tmp_name'];
+        $ukuran  = (int)$_FILES['receiptFile']['size'];
+
+        ini_set('memory_limit', '3072M');
+        ini_set('max_execution_time', 0);
+        set_time_limit(0);
+        // Jangan hentikan impor di tengah transaksi hanya karena browser
+        // menutup koneksi; hasilnya tetap tercatat di berkas progres.
+        ignore_user_abort(true);
+
+        // Lepas kunci session (lihat docblock). Setelah ini jangan menulis session.
+        session_write_close();
+
+        $this->bersihkan_progres_lama();
+        $this->tulis_progres($token, 'proses', 'baca', 'File diterima (' . $this->format_ukuran($ukuran) . '), membaca isi Excel...', 5);
+
+        // Kalau PHP mati fatal (mis. kehabisan memori) di tengah jalan, tandai
+        // gagal supaya UI tidak menunggu selamanya.
+        register_shutdown_function(function () use ($token) {
+            $e = error_get_last();
+            if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                $progres = $this->baca_progres($token);
+                if (($progres['status'] ?? '') === 'proses') {
+                    $this->tulis_progres($token, 'gagal', 'error', 'Proses berhenti karena error server: ' . $e['message'], null);
+                }
+            }
+        });
 
         try {
-            // Set proper limits for large file processing (from v9)
-            ini_set('memory_limit', '3072M');
-            ini_set('max_execution_time', 0);
-            set_time_limit(0);
+            $mulai = microtime(true);
 
-            $user_id = $this->data['user']['id_user'] ?? null;
-            $file = $_FILES['receiptFile']['tmp_name'];
-
-            // Identify and load the Excel file (supports both XLS and XLSX)
-            $reader = IOFactory::createReader(IOFactory::identify($file));
-            $reader->setReadDataOnly(true);
-            $spreadsheet = $reader->load($file);
-            $sheet = $spreadsheet->getActiveSheet();
-
-            // Get all rows with Excel-style column keys (A, B, C, etc.)
-            $dataRaw = $sheet->toArray(null, true, true, true);
-
-            // Log row count
+            $this->load->library('xlsx_cepat');
+            $jalur = null;
+            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'W', $jalur);
             $rowCount = count($dataRaw);
-            log_message('info', "Processing Excel file with {$rowCount} rows");
+            $lama_baca = round(microtime(true) - $mulai, 1);
 
-            // Show progress for large files
-            if ($rowCount > 1000) {
-                // Set a session flag to indicate processing
-                $this->session->set_userdata('upload_processing', true);
-                $this->session->set_userdata('upload_start_time', time());
-                $this->session->set_userdata('upload_row_count', $rowCount);
+            log_message('info', "Upload resi [$token] user $user_id: $nama_file, $rowCount baris dibaca via $jalur dalam {$lama_baca}s");
+
+            $this->tulis_progres($token, 'proses', 'olah', number_format($rowCount, 0, ',', '.') . " baris terbaca ({$lama_baca} dtk), mulai mengimpor...", 15);
+
+            $lapor = function (string $tahap, string $pesan, ?int $persen) use ($token) {
+                $this->tulis_progres($token, 'proses', $tahap, $pesan, $persen);
+            };
+            $result = $this->receipt_fcd->insert_receipt($dataRaw, $user_id, $lapor);
+            unset($dataRaw);
+
+            $durasi = round(microtime(true) - $mulai, 1);
+
+            // insert_receipt mengembalikan string "Error ..." bila transaksi gagal
+            if (strpos($result, 'Error') === 0) {
+                throw new Exception($result);
             }
 
-            // Proses insert
-            $result = $this->receipt_fcd->insert_receipt($dataRaw, $user_id);
+            $ringkasan = "$result | Waktu: {$durasi} dtk";
+            log_message('info', "Upload resi [$token] selesai: $ringkasan");
+            $this->tulis_progres($token, 'selesai', 'selesai', $ringkasan, 100, $ringkasan);
 
-            // Clear processing flag
-            $this->session->unset_userdata('upload_processing');
-            $this->session->unset_userdata('upload_start_time');
-            $this->session->unset_userdata('upload_row_count');
+            $this->make_ajax_response(201, $ringkasan, ['token' => $token, 'durasi' => $durasi, 'baris' => $rowCount]);
 
-            // Log completion
-            log_message('info', "Excel upload completed: {$result}");
+        } catch (\Throwable $e) {
+            $error_message = 'Upload gagal: ' . $e->getMessage();
+            log_message('error', "Upload resi [$token] gagal: " . $e->getMessage());
+            $this->tulis_progres($token, 'gagal', 'error', $error_message, null);
 
-            // Set session flashdata for notification on next page load
-            $this->session->set_flashdata('noty_message', [
-                'text' => $result,
-                'type' => 'success'
-            ]);
-
-            // Cleaning buffer before sending response
-            if (ob_get_length()) ob_clean(); 
-
-            $this->make_ajax_response(201, $result);
-
-        } catch (Exception $e) {
-            // Clear processing flag on error
-            $this->session->unset_userdata('upload_processing');
-            $this->session->unset_userdata('upload_start_time');
-            $this->session->unset_userdata('upload_row_count');
-
-            $error_message = "Error processing Excel file: " . $e->getMessage();
-            log_message('error', $error_message);
-
-            $this->session->set_flashdata('noty_message', [
-                'text' => $error_message,
-                'type' => 'error'
-            ]);
-
-            // Cleaning buffer before sending error response
-            if (ob_get_length()) ob_clean();
-
-            $this->make_ajax_response(500, $error_message);
-        } finally {
-            // Flush and stop buffering
-            if (ob_get_length()) ob_end_flush();
+            $this->make_ajax_response(500, $error_message, ['token' => $token]);
         }
     }
 
-    // Add a method to check upload progress
-    public function check_upload_progress()
+    /**
+     * Dipanggil berkala oleh halaman Upload Resi (GET ?token=...) untuk
+     * menampilkan tahap impor yang sedang berjalan, dan mengambil hasil akhir
+     * bila koneksi upload-nya sempat putus.
+     */
+    public function upload_receipt_progress()
     {
-        $processing = $this->session->userdata('upload_processing');
-        $start_time = $this->session->userdata('upload_start_time');
-        $row_count = $this->session->userdata('upload_row_count');
-
-        if ($processing && $start_time) {
-            $elapsed = time() - $start_time;
-            $response = [
-                'processing' => true,
-                'elapsed_time' => $elapsed,
-                'row_count' => $row_count,
-                'estimated_time' => round($row_count / 100) // Rough estimate: 100 rows per second
-            ];
-        } else {
-            $response = ['processing' => false];
+        $token = $this->input->get('token');
+        if (!is_string($token) || !preg_match('/^[A-Za-z0-9]{8,40}$/', $token)) {
+            $this->make_ajax_response(400, 'Token progres tidak valid');
         }
 
-        echo json_encode($response);
+        $progres = $this->baca_progres($token);
+        if ($progres === null) {
+            $this->make_ajax_response(404, 'Belum ada catatan progres untuk token ini', ['status' => 'tidak_ada']);
+        }
+
+        $this->make_ajax_response(200, $progres['pesan'] ?? '', $progres);
+    }
+
+    // ---- Helper berkas progres upload -------------------------------------
+
+    private function folder_progres(): string
+    {
+        $dir = APPPATH . 'cache/upload_resi';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        return $dir;
+    }
+
+    private function path_progres(string $token): string
+    {
+        return $this->folder_progres() . DIRECTORY_SEPARATOR . $token . '.json';
+    }
+
+    private function tulis_progres(string $token, string $status, string $tahap, string $pesan, ?int $persen, ?string $hasil = null): void
+    {
+        $lama = $this->baca_progres($token) ?: [];
+        $data = [
+            'status'     => $status,   // proses | selesai | gagal
+            'tahap'      => $tahap,
+            'pesan'      => $pesan,
+            'persen'     => $persen ?? ($lama['persen'] ?? null),
+            'hasil'      => $hasil ?? ($lama['hasil'] ?? null),
+            'mulai'      => $lama['mulai'] ?? time(),
+            'diperbarui' => time(),
+        ];
+        // Tulis ke berkas sementara lalu rename supaya pembaca tidak pernah
+        // mendapat JSON setengah jadi.
+        $path = $this->path_progres($token);
+        $tmp  = $path . '.' . getmypid() . '.tmp';
+        if (@file_put_contents($tmp, json_encode($data)) !== false) {
+            @rename($tmp, $path);
+        }
+    }
+
+    private function baca_progres(string $token): ?array
+    {
+        $path = $this->path_progres($token);
+        if (!is_file($path)) return null;
+        $isi = @file_get_contents($path);
+        $data = $isi ? json_decode($isi, true) : null;
+        return is_array($data) ? $data : null;
+    }
+
+    /** Buang berkas progres yang lebih tua dari 1 hari. */
+    private function bersihkan_progres_lama(): void
+    {
+        $batas = time() - 86400;
+        foreach (glob($this->folder_progres() . DIRECTORY_SEPARATOR . '*.json') ?: [] as $f) {
+            if (@filemtime($f) < $batas) @unlink($f);
+        }
+    }
+
+    /** "500M" / "2G" -> byte */
+    private function ke_byte(string $nilai): int
+    {
+        $nilai = trim($nilai);
+        $satuan = strtolower(substr($nilai, -1));
+        $angka = (int)$nilai;
+        switch ($satuan) {
+            case 'g': return $angka * 1073741824;
+            case 'm': return $angka * 1048576;
+            case 'k': return $angka * 1024;
+            default:  return $angka;
+        }
+    }
+
+    private function format_ukuran(int $byte): string
+    {
+        if ($byte >= 1048576) return number_format($byte / 1048576, 1, ',', '.') . ' MB';
+        if ($byte >= 1024) return number_format($byte / 1024, 0, ',', '.') . ' KB';
+        return $byte . ' B';
     }
 
     public function scan_combined()
