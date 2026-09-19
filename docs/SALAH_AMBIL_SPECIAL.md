@@ -71,7 +71,7 @@ campuran atau kasus satuan.
         │ #2 noresi ada di tblprintresi (cetak ulang → id terbaru)       │
         │ #3 tepat 1 baris detail & total qty 1                          │
         │ #4 sku detail = SKU seharusnya                                 │
-        │ #5 tidak ada di tblpacking                                     │
+        │ #5 (dihapus 19 Sep 2026: resi sudah packing tetap boleh)       │
         │ #6 ada di tblresiambilbarang (picker terdeteksi)               │
         │ #7 belum ada tblmasalahpicker untuk (id_printresi, sku)        │
         └────────────────┬──────────────────────────┬────────────────────┘
@@ -139,7 +139,7 @@ yang merusak JSON SPA.
 | 2 | `resi_terbaru(noresi)` NULL | 404 | Resi tidak ditemukan |
 | 3 | `count(detail) != 1` atau `sum(jumlah) != 1` | 422 | Bukan resi spesial (n SKU, qty m) |
 | 4 | `strcasecmp(detail.sku, sku_benar) != 0` | 422 | SKU resi X, bukan Y |
-| 5 | `sudah_packing()` | 409 | Resi sudah di-packing |
+| 5 | ~~belum di-packing~~ — **dihapus 19 Sep 2026** (lihat catatan) | — | — |
 | 6 | `picker_resi()` NULL | 422 | Resi belum di-scan ambil picker |
 | 7 | `laporan_ada()` (status apa pun) | 409 | Sudah dilaporkan (pending) / (sudah diproses CS) |
 | — | `trans_status()` FALSE | 500 | Gagal menyimpan, coba lagi |
@@ -149,6 +149,11 @@ Catatan:
 
 - **#1 diulang tiap scan**: field readonly tetap bisa diubah lewat devtools;
   server tidak memercayai nilai dari browser.
+- **#5 dihapus (19 Sep 2026)**: resi spesial biasanya sudah berstatus
+  packing (ada di `tblpacking`) saat sampai ke meja packer — packer tinggal
+  mengemas tanpa scan ulang — sehingga salah ambil justru ketahuan pada tahap
+  itu. Menolak resi yang sudah packing membuat menu ini tidak bisa dipakai
+  untuk kasus utamanya. Nomor validasi lain sengaja tidak digeser.
 - **#2**: `noresi` yang dicetak ulang punya beberapa `id_printresi`; dipakai
   yang terbaru (`created_at DESC, id_printresi DESC`) — sama dengan
   `Packer::detail_resi()`.
@@ -184,9 +189,11 @@ Catatan:
    tetapi tetap diminta sebagai penjaga batch: resi nyasar yang ikut terscan
    ditolak (#4), bukan diam-diam tercatat. SKU terambil wajib karena itulah
    yang dicetak di slip; tanpa itu slip hanya bertuliskan "SALAH AMBIL".
-2. **Tolak, jangan toleransi.** Semua kondisi #3–#7 menolak. Menu ini khusus
-   resi spesial; resi campuran, resi yang sudah packing, resi tanpa picker,
-   dan resi yang sudah dilaporkan (status apa pun) diarahkan ke jalur biasa.
+2. **Tolak, jangan toleransi.** Kondisi #3, #4, #6, #7 menolak. Menu ini
+   khusus resi spesial; resi campuran, resi tanpa picker, dan resi yang sudah
+   dilaporkan (status apa pun) diarahkan ke jalur biasa. Resi yang **sudah
+   packing tidak ditolak** (sejak 19 Sep 2026) — itu justru kondisi normal
+   saat resi sampai ke packer.
 3. **Tidak memakai `Packer_fcd::save_masalah_picker()`.** Fungsi itu
    meng-UPDATE baris lama dan mereset `status` ke 0 — bertentangan dengan #7.
    Model baru hanya INSERT.
@@ -215,7 +222,7 @@ Catatan:
 | `menu`, `roleaccess` | migrasi `run_salah_ambil_special_migration()` (sekali, `BOOTSTRAP_VERSI 2026-09-18.4`) | menu `salah-ambil-special` di grup TIM PACKER, role 1 & 4 |
 
 Tidak ada tabel/kolom baru. Resi yang ditolak tidak menulis apa pun. Yang
-dibaca: `tblsku`, `tblprintresi`, `tbldetailprintresi`, `tblpacking`,
+dibaca: `tblsku`, `tblprintresi`, `tbldetailprintresi`,
 `tblresiambilbarang`, `tblpegawai`, `tbluser`. Skema `tblmasalahpicker`:
 `DATABASE_STRUCTURE.md` §4a. Cadangan SQL manual untuk menu + akses (kalau
 migrasi otomatis tidak terpicu): `sql_migrations/salah_ambil_special_menu.sql`.
@@ -228,7 +235,7 @@ migrasi otomatis tidak terpicu): `sql_migrations/salah_ambil_special_menu.sql`.
 | B | Resi BSBI-6 ikut terscan di batch itu | merah "SKU resi BSBI-6, bukan BSBI-4", tidak tersimpan |
 | C | Scanner menembak dua kali resi yang sama | kedua merah "Sudah dilaporkan (pending)"; satu baris di DB |
 | D | Resi campuran (2 SKU) ikut terscan | merah "Bukan resi spesial (2 SKU, qty 2)" → laporkan lewat modal Masalah Picker |
-| E | Resi sudah dipacking | merah "Resi sudah di-packing" — dicurigai salah scan |
+| E | Resi sudah dipacking | **tetap tercatat** (hijau) — sejak 19 Sep 2026; sebelumnya ditolak |
 | F | Resi belum pernah di-scan picker | merah "Resi belum di-scan ambil picker" → jalur lost scan / picker dulu |
 | G | Resi sudah pernah dilaporkan & diproses CS | merah "Sudah dilaporkan (sudah diproses CS)" — kalau memang salah ambil lagi, lewat modal Masalah Picker |
 | H | Ketik kode SKU yang tidak ada | Kunci ditolak "tidak ada di master SKU"; gunakan saran dropdown |
@@ -253,7 +260,7 @@ migrasi otomatis tidak terpicu): `sql_migrations/salah_ambil_special_menu.sql`.
 | Lapisan | File |
 |---|---|
 | Controller | `application/controllers/Salah_ambil_special.php` |
-| Model | `application/models/Salah_ambil_special_fcd.php` (`cari_sku`, `cari_sku_mirip`, `resi_terbaru`, `detail_resi`, `sudah_packing`, `picker_resi`, `laporan_ada`, `kunci_resi`, `simpan_salah_ambil`) |
+| Model | `application/models/Salah_ambil_special_fcd.php` (`cari_sku`, `cari_sku_mirip`, `resi_terbaru`, `detail_resi`, `picker_resi`, `laporan_ada`, `kunci_resi`, `simpan_salah_ambil`) |
 | View | `application/views/salah_ambil_special/index.php` |
 | Route | `application/config/routes.php` (4 baris `salah-ambil-special*`) |
 | Migrasi | `application/core/MY_Controller.php` — `run_salah_ambil_special_migration()`, `BOOTSTRAP_VERSI` `2026-09-18.4` |
@@ -266,8 +273,8 @@ migrasi otomatis tidak terpicu): `sql_migrations/salah_ambil_special_menu.sql`.
 Tidak ada test suite; `php -l` + uji manual. Script data dummy
 `dev_tools/dummy_salah_ambil_special.sql` (gitignored, hanya `INSERT`, dijaga
 `NOT EXISTS`) membuat 9 resi `DUMMYSAS_*` yang menutup semua skenario:
-`OK_1..3` (valid), `2SKU`, `QTY2`, `SKULAIN`, `PACKED`, `BELUMPICK`,
-`DILAPORKAN`. SKU-nya diambil dari 3 kode nyata pertama di `tblsku` yang
+`OK_1..3` (valid), `2SKU`, `QTY2`, `SKULAIN`, `PACKED` (sejak 19 Sep 2026
+harus **lolos**), `BELUMPICK`, `DILAPORKAN`. SKU-nya diambil dari 3 kode nyata pertama di `tblsku` yang
 punya rak dan dicetak di akhir script. Jalankan dari PowerShell:
 
 ```powershell

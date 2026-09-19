@@ -156,10 +156,11 @@ class Salah_ambil_special extends MY_Controller
             $this->make_ajax_response(422, 'SKU resi ' . $sku_resi . ', bukan ' . $sku_benar);
         }
 
-        // #5 belum di-packing
-        if ($this->salah_ambil_special_fcd->sudah_packing($id_printresi)) {
-            $this->make_ajax_response(409, 'Resi sudah di-packing');
-        }
+        // Resi yang sudah ada di tblpacking TIDAK ditolak (19 Sep 2026): resi
+        // spesial biasanya sudah berstatus packing saat sampai ke meja packer
+        // -- packer tinggal mengemas tanpa scan ulang -- sehingga salah ambil
+        // justru ketahuan pada tahap itu. Nomor validasi di bawah tetap #6/#7
+        // supaya sejalan dengan tabel di docs/SALAH_AMBIL_SPECIAL.md.
 
         // #6 sudah di-scan ambil picker (supaya CS tahu picker mana)
         $picker = $this->salah_ambil_special_fcd->picker_resi($id_printresi);

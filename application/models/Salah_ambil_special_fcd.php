@@ -71,11 +71,6 @@ class Salah_ambil_special_fcd extends CI_Model
             ->result_array();
     }
 
-    public function sudah_packing($id_printresi)
-    {
-        return $this->db->where('id_resi', $id_printresi)->count_all_results('tblpacking') > 0;
-    }
-
     /**
      * Picker yang scan ambil resi ini: kode pegawai + nama (tblpegawai, cadangan
      * tbluser.name). NULL kalau resi belum pernah di-scan ambil -- CS tidak
