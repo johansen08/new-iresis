@@ -237,14 +237,17 @@
             pesanTahapTerakhir = '';
             $log.empty();
 
+            // FormData WAJIB dibuat sebelum kunciForm(): kontrol yang disabled
+            // tidak ikut diserialisasi, jadi kalau dibalik $_FILES di server kosong
+            // dan muncul "Tidak ada file yang dipilih".
+            var formData = new FormData(form);
+            var sudahPolling = false;
+
             kunciForm(true);
             setBar(0, 'info');
             setStatus('proses', 'Upload sedang diproses', 'Mengunggah ' + (f ? f.name + ' (' + formatUkuran(f.size) + ')' : 'file') + ' ke server...');
             catatTahap('Mengunggah file ke server...');
             notif('<strong><i class="fa fa-spinner fa-spin"></i> Upload sedang diproses</strong><br/>Jangan tutup halaman ini sampai selesai.', 'information', 5000);
-
-            var formData = new FormData(form);
-            var sudahPolling = false;
 
             // Jaga-jaga kalau browser tidak memicu event progress unggah sama
             // sekali (file kecil): mulai polling 3 detik setelah submit.
