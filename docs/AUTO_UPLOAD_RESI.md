@@ -52,17 +52,62 @@ Task Scheduler
 ### 2. Endpoint PHP — `application/controllers/Cron.php` → `auto_upload_resi()`
 
 - Menerima file `receiptFile` (multipart upload)
-- Baca xlsx menggunakan PhpSpreadsheet
+- Baca xlsx lewat `application/libraries/Xlsx_cepat.php` (lihat bagian
+  "Pembaca xlsx" di bawah), fallback otomatis ke PhpSpreadsheet untuk `.xls`
 - Panggil `receipt_fcd->insert_receipt($dataRaw, null)`
 - Return JSON `{"success": true/false, "message": "..."}`
 - Memory limit: 3072M, no execution timeout
 
 ### 3. Model — `application/models/Receipt_fcd.php`
 
-Fungsi `insert_receipt()` memproses data xlsx baris per baris:
+Fungsi `insert_receipt($rows, $user_id, $lapor = null)` memproses data xlsx baris per baris:
 - Skip header dan baris kosong
-- Upsert data ke tabel `tblprintresi` berdasarkan nomor resi
+- Upsert data ke tabel `tblprintresi` berdasarkan nomor resi: resi baru
+  di-`insert_batch` 500/query, resi lama yang statusnya berubah
+  di-`update_batch` 200/query (dulu satu `UPDATE` per resi)
 - Mapping kolom xlsx → kolom database
+- `db_debug` dimatikan selama impor supaya error query tidak mencetak halaman
+  HTML CI; pesan error DB dilampirkan ke hasil "Error ..."
+- Parameter ketiga `$lapor` (opsional) adalah callback
+  `fn(string $tahap, string $pesan, ?int $persen)` yang dipanggil di tiap
+  tahap — dipakai menu Upload Resi untuk menulis berkas progres
+
+### Pembaca xlsx — `application/libraries/Xlsx_cepat.php`
+
+PhpSpreadsheet membuat objek `Cell` untuk tiap sel, sehingga file 20 ribu
+baris butuh ~20 detik dan ~270 MB hanya untuk dibaca. `Xlsx_cepat` membaca
+`xl/worksheets/sheetN.xml` + `sharedStrings.xml` secara streaming (ZipArchive +
+XMLReader) dalam ~2,5 detik / ~50 MB, dan hasilnya **identik** dengan
+`Worksheet::toArray(null, true, true, true)` untuk kolom A..W (diuji 20.001
+baris × 23 kolom, 0 perbedaan). Selalu lembar pertama, sama seperti
+PhpSpreadsheet dalam mode `readDataOnly`.
+
+```php
+$this->load->library('xlsx_cepat');
+$rows = $this->xlsx_cepat->baca_dengan_fallback($path, 'W', $jalur); // $jalur = 'cepat' | 'phpspreadsheet'
+```
+
+### Menu Upload Resi (manual) — `Receipt::upload_receipt_action()`
+
+Menu **Tim Resi → Upload Resi** memakai model yang sama. Alur khususnya:
+
+1. Browser mengirim `token` acak bersama file. Bar progres 0–10 % = transfer
+   file (`xhr.upload.progress`), sisanya tahap server.
+2. Server memanggil `session_write_close()` sebelum mulai membaca file.
+   Driver session `files` mengunci berkas session selama request, jadi tanpa
+   ini **semua** request lain dari user yang sama (termasuk polling progres)
+   menggantung sampai impor selesai.
+3. Tahap impor ditulis ke `application/cache/upload_resi/<token>.json`
+   (`status`: `proses` | `selesai` | `gagal`, `tahap`, `pesan`, `persen`,
+   `hasil`). Browser mem-poll `receipt/upload-receipt-progress?token=…` tiap
+   1,5 detik. Berkas > 1 hari dibuang saat upload berikutnya.
+4. `ignore_user_abort(true)` + `register_shutdown_function`: kalau koneksi
+   browser putus, impor tetap selesai dan hasilnya tercatat di berkas progres;
+   kalau PHP mati fatal (kehabisan memori), berkas ditandai `gagal` supaya UI
+   tidak menunggu selamanya.
+5. Respons akhir lewat `make_ajax_response()` (HTTP 200, `code` 201 sukses /
+   400–500 gagal). Jika AJAX-nya gagal (timeout/koneksi), UI memakai berkas
+   progres sebagai sumber kebenaran sebelum menyatakan gagal.
 
 ### 4. BAT Runner — `C:\MP\run_upload_resi.bat`
 

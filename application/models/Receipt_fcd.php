@@ -1342,14 +1342,33 @@ class Receipt_fcd extends CI_Model
         ];
     }
 
-    function insert_receipt(array $receiptData, ?string $user_id = null) {
+    /**
+     * Impor baris laporan penjualan Jubelio (key kolom A..W) ke tblprintresi +
+     * tbldetailprintresi. Dipakai menu Upload Resi, Cron::auto_upload_resi, dan
+     * Cron::auto_upload_resi_api.
+     *
+     * @param array         $receiptData Baris ala Worksheet::toArray(null,true,true,true)
+     * @param string|null   $user_id     admin_pegawai / created_by
+     * @param callable|null $lapor       Opsional: fn(string $tahap, string $pesan, ?int $persen)
+     *                                   dipanggil di tiap tahap agar UI bisa menampilkan progres
+     * @return string       Ringkasan hasil, atau pesan "Error ..." bila gagal
+     */
+    function insert_receipt(array $receiptData, ?string $user_id = null, ?callable $lapor = null) {
         if (empty($receiptData)) return "No data provided";
+
+        $lapor = $lapor ?: function () {};
 
         $batch_size = 500;
         $total_success_insert = 0;
         $total_skip_insert = 0;
         $total_duplicate_skip = 0;
         $total_skip_update_same_status = 0; // Track skipped updates
+
+        // Matikan db_debug selama impor: kalau ada query gagal, CI jangan
+        // mencetak halaman HTML error (merusak respons JSON) -- cukup kembalikan
+        // FALSE lalu kita baca $this->db->error() sendiri.
+        $db_debug_awal = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
 
         // Start transaction
         $this->db->trans_start();
@@ -1449,6 +1468,7 @@ class Receipt_fcd extends CI_Model
             $update_candidates = [];
             $existing_status_map = [];
             $noresi_list = array_filter(array_unique(array_column($receiptData, 'B')));
+            $lapor('cek', 'Memeriksa ' . number_format(count($noresi_list), 0, ',', '.') . ' nomor resi yang sudah ada di database...', 20);
             if (!empty($noresi_list)) {
                 // Process in smaller chunks to avoid regex compilation errors
                 $chunk_size = 1000; // Process 1000 noresi at a time
@@ -1482,6 +1502,8 @@ class Receipt_fcd extends CI_Model
             $batch_detail_map = [];
             $batch_update_map = [];
             $total_updated = 0;
+
+            $lapor('olah', 'Mengolah ' . number_format(count($receiptData), 0, ',', '.') . ' baris data...', 30);
 
             foreach ($receiptData as $row) {
                 $noresi             = $row['B'] ?? '';
@@ -1645,12 +1667,18 @@ class Receipt_fcd extends CI_Model
             }
 
             // Insert Headers in batches
-            if (!empty($batch_header_map)) {
+            $jumlah_header = count($batch_header_map);
+            if ($jumlah_header > 0) {
                 $header_chunks = array_chunk(array_values($batch_header_map), $batch_size);
+                $sudah = 0;
                 foreach ($header_chunks as $chunk) {
-                    $this->db->insert_batch('tblprintresi', $chunk);
+                    if ($this->db->insert_batch('tblprintresi', $chunk) === FALSE) {
+                        throw new Exception('Gagal menyimpan header resi: ' . $this->pesan_error_db());
+                    }
+                    $sudah += count($chunk);
+                    $lapor('simpan', 'Menyimpan resi baru ' . number_format($sudah, 0, ',', '.') . ' / ' . number_format($jumlah_header, 0, ',', '.') . '...', 40 + (int)(25 * $sudah / $jumlah_header));
                 }
-                $total_success_insert += count($batch_header_map);
+                $total_success_insert += $jumlah_header;
             }
 
             // Get inserted header IDs for detail insertion - handle large datasets properly
@@ -1715,120 +1743,67 @@ class Receipt_fcd extends CI_Model
                 }
 
                 // Insert Details in batches
-                if (!empty($detail_rows)) {
+                $jumlah_detail = count($detail_rows);
+                if ($jumlah_detail > 0) {
                     $detail_chunks = array_chunk($detail_rows, $batch_size);
+                    $sudah = 0;
                     foreach ($detail_chunks as $chunk) {
-                        $this->db->insert_batch('tbldetailprintresi', $chunk);
+                        if ($this->db->insert_batch('tbldetailprintresi', $chunk) === FALSE) {
+                            throw new Exception('Gagal menyimpan detail resi: ' . $this->pesan_error_db());
+                        }
+                        $sudah += count($chunk);
+                        $lapor('simpan', 'Menyimpan detail SKU ' . number_format($sudah, 0, ',', '.') . ' / ' . number_format($jumlah_detail, 0, ',', '.') . '...', 65 + (int)(15 * $sudah / $jumlah_detail));
                     }
                 }
             }
 
-            // Update records that were marked for update
-            if (!empty($batch_update_map)) {
-                foreach ($batch_update_map as $noresi => $update_data) {
-                    $this->db->where('id_printresi', $update_data['id_printresi']);
-                    $this->db->update('tblprintresi', $update_data);
-                    $total_updated++;
+            // Update resi lama yang statusnya berubah. Dulu satu query UPDATE per
+            // resi (ribuan round-trip saat file H-3 diunggah ulang); sekarang
+            // update_batch = satu UPDATE ... CASE WHEN per 200 resi. Kolom yang
+            // tidak ada di sebuah baris (mis. nomorpicklist) jatuh ke ELSE dan
+            // tetap bernilai lama.
+            $jumlah_update = count($batch_update_map);
+            if ($jumlah_update > 0) {
+                $sudah = 0;
+                foreach (array_chunk(array_values($batch_update_map), 200) as $chunk) {
+                    if ($this->db->update_batch('tblprintresi', $chunk, 'id_printresi') === FALSE) {
+                        throw new Exception('Gagal memperbarui status resi: ' . $this->pesan_error_db());
+                    }
+                    $sudah += count($chunk);
+                    $lapor('update', 'Memperbarui status resi ' . number_format($sudah, 0, ',', '.') . ' / ' . number_format($jumlah_update, 0, ',', '.') . '...', 80 + (int)(15 * $sudah / $jumlah_update));
                 }
+                $total_updated = $jumlah_update;
             }
 
             // Complete transaction
+            $lapor('commit', 'Menyelesaikan transaksi database...', 96);
             $this->db->trans_complete();
 
             if ($this->db->trans_status() === FALSE) {
-                throw new Exception('Transaction failed');
+                throw new Exception('Transaksi database gagal: ' . $this->pesan_error_db());
             }
+
+            $this->db->db_debug = $db_debug_awal;
 
             $message = "Total Data Terinput: $total_success_insert | Dilewati: $total_skip_insert | Duplikat: $total_duplicate_skip | Diupdate: $total_updated | Data Tidak Berubah: $total_skip_update_same_status";
             log_message('info', $message);
 
             return $message;
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) { // Throwable: TypeError dll. juga harus rollback, bukan cuma Exception
             $this->db->trans_rollback();
+            $this->db->db_debug = $db_debug_awal;
             $error_message = "Error inserting receipt data: " . $e->getMessage();
             log_message('error', $error_message);
             return $error_message;
         }
     }
 
-    /**
-     * Helper to insert batch safely
-     */
-    private function _flush_batch(&$batch_data_map, &$batch_detail_map, &$total_success_insert) {
-        $this->db->insert_batch('tblprintresi', array_values($batch_data_map));
-        $inserted_rows = count($batch_data_map);
-        $last_id = $this->db->insert_id();
-
-        $detail_batch = [];
-        $i = 0;
-        foreach ($batch_data_map as $k => $header) {
-            $id_resi = $last_id - $inserted_rows + (++$i);
-            $detail = $batch_detail_map[$k];
-            $detail_batch[] = [
-                'id_resi'   => $id_resi,
-                'no_pesanan'=> $detail['no_pesanan'],
-                'sku'       => $detail['sku'],
-                'no_rak'    => $detail['no_rak'],
-                'jumlah'    => $detail['jumlah']
-            ];
-        }
-
-        if (!empty($detail_batch)) {
-            $this->db->insert_batch('tbldetailprintresi', $detail_batch);
-        }
-
-        $total_success_insert += $inserted_rows;
-        $batch_data_map = [];
-        $batch_detail_map = [];
-    }
-
-    private function get_existing_receipt_data(array $dataResi) {
-
-        // Step 1: Extract no_pesanan values from dataResi
-        $no_pesanan_list = array_unique(array_column($dataResi, 'A'));
-        $sku_list = array_unique(array_column($dataResi, 'P'));
-
-        if (empty($no_pesanan_list) || empty($sku_list)) {
-            return [];
-        }
-
-        // Step 2: Create temp table & insert values
-        $this->db->trans_start();
-
-        // Create the temp table (if not exists)
-        $this->db->query("CREATE TEMPORARY TABLE IF NOT EXISTS temp_pesanan (no_pesanan VARCHAR(100) PRIMARY KEY)");
-        $this->db->query("CREATE TEMPORARY TABLE IF NOT EXISTS temp_sku (sku VARCHAR(100) PRIMARY KEY)");
-
-        // Empty the temp table (optional safety)
-        $this->db->truncate('temp_pesanan');
-        $this->db->truncate('temp_sku');
-
-        // Prepare batch insert
-        $insert_pesanan = array_map(fn($no) => ['no_pesanan' => $no], $no_pesanan_list);
-        $insert_sku = array_map(fn($sku) => ['sku' => $sku], $sku_list);
-
-        // Insert into temp_pesanan
-        $this->db->insert_batch('temp_pesanan', $insert_pesanan);
-        $this->db->insert_batch('temp_sku', $insert_sku);
-
-        // Step 3: Join with tblprintresi
-        $this->db->select('pr.no_pesanan, pr.sku, pr.status_pesanan');
-        $this->db->from('tblprintresi pr');
-        $this->db->join('temp_pesanan tp', 'tp.no_pesanan = pr.no_pesanan');
-        $this->db->join('temp_sku ts', 'ts.sku = pr.sku');
-
-        $query = $this->db->get();
-
-        $existing_data = [];
-        foreach ($query->result() as $row) {
-            $key = "{$row->no_pesanan}-{$row->sku}";
-            $existing_data[$key] = strtolower($row->status_pesanan);
-        }
-
-        $this->db->trans_complete();
-
-        return $existing_data;
+    /** Pesan error terakhir dari driver DB, untuk dilampirkan ke Exception. */
+    private function pesan_error_db(): string
+    {
+        $err = $this->db->error();
+        return !empty($err['message']) ? $err['message'] : 'tidak ada detail dari database';
     }
 
     private function get_existing_receipt_data_scan(array $receipt) {
