@@ -79,9 +79,9 @@ class Lost_scan_picker extends MY_Controller
 
     public function index()
     {
-        $data['reportrange']    = $this->rentang_default();
-        $data['list_picker']    = $this->picking_fcd->get_picker('AKTIF')->result_array();
-        $data['jumlah_pending'] = $this->lost_scan_picker_fcd->jumlah_pending();
+        $data['reportrange'] = $this->rentang_default();
+        $data['list_picker'] = $this->picking_fcd->get_picker('AKTIF')->result_array();
+        $data['ringkasan']   = $this->lost_scan_picker_fcd->ringkasan_pending();
 
         $this->show($data, 'lost_scan_picker/index');
     }
@@ -107,9 +107,12 @@ class Lost_scan_picker extends MY_Controller
             'dir'        => 'desc',
         ];
 
+        // Urutan kolom harus sama dengan <thead> di view:
+        // pending: No | Waktu Lapor | No Resi | Dilaporkan oleh | Item | Aksi
+        // selesai: No | Waktu Lapor | No Resi | Dilaporkan oleh | Item | Picker | Diproses | Status
         $valid_columns = ($tab === 'pending')
-            ? [1 => 't.waktu_lapor', 2 => 't.noresi', 3 => 't.sumber', 4 => 'u.name']
-            : [1 => 't.waktu_lapor', 2 => 't.noresi', 3 => 't.sumber', 4 => 'u.name', 6 => 'pg.nama_pegawai', 7 => 't.waktu_proses', 8 => 't.status'];
+            ? [1 => 't.waktu_lapor', 2 => 't.noresi', 3 => 'u.name']
+            : [1 => 't.waktu_lapor', 2 => 't.noresi', 3 => 'u.name', 5 => 'pg.nama_pegawai', 6 => 't.waktu_proses', 7 => 't.status'];
         if (!empty($order[0]) && isset($valid_columns[(int) $order[0]['column']])) {
             $params['order'] = $valid_columns[(int) $order[0]['column']];
             $params['dir']   = strtolower($order[0]['dir']) === 'asc' ? 'asc' : 'desc';
@@ -122,30 +125,42 @@ class Lost_scan_picker extends MY_Controller
         $data_table = [];
         foreach ($hasil['rows'] as $r) {
             $id = (int) $r['id_pending'];
+            $noresi = $this->e($r['noresi']);
+            $daftar_item = $item[(int) $r['id_printresi']] ?? [];
+
             $baris = [
                 $nomor++ . '.',
-                !empty($r['waktu_lapor']) ? date('d/m/Y H:i', strtotime($r['waktu_lapor'])) : '-',
-                '<strong style="letter-spacing:1px;">' . $this->e($r['noresi']) . '</strong>',
-                $this->badge_sumber($r['sumber']),
-                $this->e($r['nama_pelapor'] ?: '-'),
-                $this->sel_item($item[(int) $r['id_printresi']] ?? []),
+                $this->sel_waktu_lapor($r['waktu_lapor'], $tab === 'pending'),
+                '<span class="lsp-resi">' . $noresi . '</span>',
+                $this->badge_sumber($r['sumber']) . ' ' . $this->e($r['nama_pelapor'] ?: '-'),
+                $this->sel_item($daftar_item),
             ];
 
             if ($tab === 'pending') {
+                // Atribut data dipakai modal untuk menampilkan konteks laporan
+                // tanpa request tambahan.
+                $attr = ' data-id="' . $id . '" data-noresi="' . $noresi . '"'
+                    . ' data-sumber="' . $this->e($r['sumber']) . '"'
+                    . ' data-pelapor="' . $this->e($r['nama_pelapor'] ?: '-') . '"'
+                    . ' data-waktu="' . $this->e(!empty($r['waktu_lapor']) ? date('d/m/Y H:i', strtotime($r['waktu_lapor'])) : '-') . '"'
+                    . ' data-usia="' . $this->e($this->usia_teks($r['waktu_lapor'])) . '"'
+                    . ' data-jumlah-item="' . count($daftar_item) . '"';
+
                 if (!empty($r['sudah_picked'])) {
-                    $baris[] = '<span class="label label-default" title="Baris picking sudah dibuat di luar alur (mis. SCAN COMBINED)">sudah di-picker di luar alur</span><br>'
-                        . '<button type="button" class="btn btn-xs btn-default btn-tandai-selesai" style="margin-top:4px;" data-id="' . $id . '" data-noresi="' . $this->e($r['noresi']) . '">'
-                        . '<i class="fa fa-check"></i> Tandai Selesai</button>';
+                    $baris[] = '<button type="button" class="btn btn-sm btn-default btn-block btn-tandai-selesai"' . $attr . '>'
+                        . '<i class="fa fa-check"></i> Tandai Selesai</button>'
+                        . '<small class="text-muted lsp-catatan-aksi" title="Baris picking sudah dibuat di luar alur (mis. SCAN COMBINED)">'
+                        . '<i class="fa fa-info-circle"></i> sudah di-picker di luar alur</small>';
                 } else {
-                    $baris[] = '<button type="button" class="btn btn-xs btn-warning btn-tambah-picker" data-id="' . $id . '" data-noresi="' . $this->e($r['noresi']) . '">'
+                    $baris[] = '<button type="button" class="btn btn-sm btn-warning btn-block btn-tambah-picker"' . $attr . '>'
                         . '<i class="fa fa-user-plus"></i> Tambahkan Picker</button>';
                 }
             } else {
-                $baris[] = $this->e($r['nama_picker'] ?: ('PEGAWAI #' . (int) $r['kode_picker']));
+                $baris[] = '<strong>' . $this->e($r['nama_picker'] ?: ('PEGAWAI #' . (int) $r['kode_picker'])) . '</strong>';
                 $baris[] = $this->e($r['nama_pemroses'] ?: '-') . '<br><small class="text-muted">'
                     . (!empty($r['waktu_proses']) ? date('d/m/Y H:i', strtotime($r['waktu_proses'])) : '-') . '</small>';
                 $baris[] = ($r['status'] === 'SELESAI_LUAR')
-                    ? '<span class="label label-default">SELESAI (di luar alur)</span>'
+                    ? '<span class="label label-default" title="Picking sudah ada sebelum diproses (mis. lewat SCAN COMBINED); laporan ditutup tanpa memilih picker">SELESAI (di luar alur)</span>'
                     : '<span class="label label-success">SELESAI</span>';
             }
 
@@ -157,7 +172,7 @@ class Lost_scan_picker extends MY_Controller
             'recordsTotal'    => $hasil['total'],
             'recordsFiltered' => $hasil['total'],
             'data'            => $data_table,
-            'jumlah_pending'  => $this->lost_scan_picker_fcd->jumlah_pending(),
+            'ringkasan'       => $this->lost_scan_picker_fcd->ringkasan_pending(),
         ]);
     }
 
@@ -210,7 +225,60 @@ class Lost_scan_picker extends MY_Controller
             : '<span class="label label-info">PACKER</span>';
     }
 
-    /** Daftar item resi; dibungkus .lsp-items supaya modal bisa menyalinnya. */
+    /** Selisih waktu lapor ke sekarang dalam menit (null bila kosong). */
+    private function usia_menit($waktu)
+    {
+        if (empty($waktu) || strtotime($waktu) === FALSE) {
+            return null;
+        }
+        return max(0, (int) floor((time() - strtotime($waktu)) / 60));
+    }
+
+    /** "baru saja" / "12 mnt" / "1 jam 5 mnt" / "2 hari" -- untuk kolom usia & modal. */
+    private function usia_teks($waktu)
+    {
+        $menit = $this->usia_menit($waktu);
+        if ($menit === null) {
+            return '-';
+        }
+        if ($menit < 1) {
+            return 'baru saja';
+        }
+        if ($menit < 60) {
+            return $menit . ' mnt';
+        }
+        if ($menit < 1440) {
+            $sisa = $menit % 60;
+            return floor($menit / 60) . ' jam' . ($sisa ? ' ' . $sisa . ' mnt' : '');
+        }
+        return floor($menit / 1440) . ' hari';
+    }
+
+    /**
+     * Sel "Waktu Lapor". Di tab pending ditambah badge usia menunggu;
+     * data-menit dibaca JS (createdRow) untuk mewarnai baris yang sudah lama.
+     * Ambang: 30 menit = kuning, 120 menit = merah.
+     */
+    private function sel_waktu_lapor($waktu, $dengan_usia)
+    {
+        if (empty($waktu)) {
+            return '-';
+        }
+        $ts = strtotime($waktu);
+        $html = '<div class="lsp-waktu">' . date('d/m H:i', $ts) . '</div>';
+        if ($dengan_usia) {
+            $menit = $this->usia_menit($waktu);
+            $kelas = $menit >= 120 ? 'label-danger' : ($menit >= 30 ? 'label-warning' : 'label-default');
+            $html .= '<span class="label ' . $kelas . ' lsp-usia" data-menit="' . $menit . '" title="Menunggu sejak ' . date('d/m/Y H:i', $ts) . '">'
+                . '<i class="fa fa-clock-o"></i> ' . $this->e($this->usia_teks($waktu)) . '</span>';
+        }
+        return $html;
+    }
+
+    /**
+     * Daftar item resi; dibungkus .lsp-items supaya modal bisa menyalinnya.
+     * Rak ditaruh paling depan karena tim picker mencari berdasarkan rak.
+     */
     private function sel_item(array $items)
     {
         if (empty($items)) {
@@ -218,8 +286,10 @@ class Lost_scan_picker extends MY_Controller
         }
         $html = '<div class="lsp-items">';
         foreach ($items as $it) {
-            $html .= '<div style="white-space:nowrap;"><strong>' . $this->e($it['sku']) . '</strong> &times; ' . (int) $it['jumlah']
-                . ' <span class="text-muted">@ ' . $this->e($it['no_rak'] ?: '-') . '</span>'
+            $html .= '<div class="lsp-item">'
+                . '<span class="lsp-rak" title="Rak">' . $this->e($it['no_rak'] ?: '-') . '</span> '
+                . '<strong>' . $this->e($it['sku']) . '</strong>'
+                . ' <span class="lsp-qty">&times;' . (int) $it['jumlah'] . '</span>'
                 . ($it['nama_sku'] !== '' ? ' <small class="text-muted">' . $this->e($it['nama_sku']) . '</small>' : '')
                 . '</div>';
         }

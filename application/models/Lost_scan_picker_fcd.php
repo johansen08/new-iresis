@@ -99,6 +99,34 @@ class Lost_scan_picker_fcd extends CI_Model
     }
 
     /**
+     * Ringkasan antrean untuk kartu di atas tabel: total, per sumber, usia
+     * laporan tertua (menit), dan jumlah yang sudah menunggu > 30 menit.
+     * Satu query agregat -- dipanggil setiap tabel dimuat/disegarkan.
+     */
+    public function ringkasan_pending()
+    {
+        $r = $this->db->query(
+            "SELECT COUNT(*) AS total,
+                    COALESCE(SUM(sumber = 'PACKER'), 0) AS dari_packer,
+                    COALESCE(SUM(sumber = 'HO'), 0) AS dari_ho,
+                    MIN(waktu_lapor) AS tertua,
+                    COALESCE(SUM(waktu_lapor < NOW() - INTERVAL 30 MINUTE), 0) AS lebih_30_menit
+             FROM " . self::TABEL . " WHERE status = 'PENDING'"
+        )->row_array();
+
+        $tertua_menit = !empty($r['tertua']) ? (int) floor((time() - strtotime($r['tertua'])) / 60) : null;
+
+        return [
+            'total'          => (int) $r['total'],
+            'dari_packer'    => (int) $r['dari_packer'],
+            'dari_ho'        => (int) $r['dari_ho'],
+            'tertua'         => $r['tertua'],
+            'tertua_menit'   => $tertua_menit,
+            'lebih_30_menit' => (int) $r['lebih_30_menit'],
+        ];
+    }
+
+    /**
      * Data DataTables. Tab pending: SEMUA baris PENDING (tanpa filter
      * tanggal -- antrean tidak boleh tersembunyi). Tab selesai: SELESAI dan
      * SELESAI_LUAR yang waktu_proses-nya di rentang.
