@@ -606,7 +606,7 @@ class Retur extends MY_Controller
                 $sku       = $row->sku ?? '-';
                 $jumlah    = $row->jumlah ?? 0;
                 $nama      = $row->nama_sku ?? '-';
-                $link_foto = $row->link_foto ?? '';
+                $link_foto = foto_sku_url($row->link_foto ?? ''); // salinan lokal bila ada (offline-proof)
                 $id        = $row->id_printresi ?? '';
                 $nr        = $row->noresi ?? $noresi;
 

@@ -81,3 +81,7 @@ scratch/
 /dev_uri*.txt
 /prod_models.txt
 /prod_uri*.txt
+
+# Cache foto produk hasil Cron::sinkron_foto_sku (±500 MB, bisa diunduh ulang)
+assets/foto_sku/*
+!assets/foto_sku/.gitkeep

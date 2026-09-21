@@ -81,7 +81,8 @@ Aplikasi dipakai 16 PC di LAN dan harus tetap berfungsi penuh saat internet putu
 3. **Font Awesome 4.7.0** lokal di `assets/css/fontawesome/` + `assets/css/fonts/`, sudah termuat lewat `theme-*.css` — jangan tambahkan link FA lagi di view.
 4. Library yang sudah tersedia lokal: moment 2.18.1, daterangepicker 3.1.0, Chart.js 4.4.0, html2canvas 1.4.1, SheetJS xlsx 0.18.5, pusher-js 8.0.2, blueimp-gallery 2.41.0.
 5. Panggilan keluar dari PHP (mis. Pusher) **wajib timeout pendek** (`Pusher_lib`: 5 detik) dan dibungkus try/catch agar request user tidak menggantung saat internet mati.
-6. Cek cepat sebelum commit: `grep -rn "cdnjs\|jsdelivr\|googleapis\|unpkg" application/views assets/css assets/js/*.js` harus kosong.
+6. **Foto produk** (`tblsku.link_foto`, URL object storage Jubelio) di-cache ke `assets/foto_sku/<md5(url)>.<ext>` oleh `cron/sinkron_foto_sku` (task harian; ±500 MB, di-gitignore). Setiap kali `link_foto` dikirim ke layar, bungkus dengan helper **`foto_sku_url()`** (autoload) — mengembalikan salinan lokal bila ada, kalau tidak URL asli. Jangan kirim `link_foto` mentah ke view.
+7. Cek cepat sebelum commit: `grep -rn "cdnjs\|jsdelivr\|googleapis\|unpkg" application/views assets/css assets/js/*.js` harus kosong.
 
 ---
 

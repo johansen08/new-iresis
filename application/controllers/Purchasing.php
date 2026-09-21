@@ -237,9 +237,9 @@ class Purchasing extends MY_Controller
         }
         
         if ($field) {
-            // Jika berupa URL lengkap
+            // Jika berupa URL lengkap: arahkan ke salinan lokal bila sudah disinkron
             if (filter_var($field, FILTER_VALIDATE_URL)) {
-                redirect($field);
+                redirect(foto_sku_url($field));
             }
             // Jika base64
             if (strpos($field, 'data:image') === 0) {
