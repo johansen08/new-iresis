@@ -83,7 +83,7 @@ DELETE **di tabel arsip** — bukan di prod. Sinkron dan tarik-balik tidak perna
    - lewat `maks_detik` (default 7.200) → berhenti rapi; putaran berikutnya melanjutkan dari watermark.
 6. **Laporan** — hitung resi yang aktivitas terakhirnya (`GREATEST(tanggal_printresi|created_at,
    modified_at, tanggal_selesai, tanggal_retur)`) sudah lewat 60 hari. **Hanya angka pemantau**;
-   belum ada penghapusan.
+   penghapusan dilakukan tahap purna (§4c) bila `purna_aktif = TRUE`.
 
 Kecepatan terukur 21 Sep 2026: ±13–15 rb baris/detik (`tblkpi` 545 rb baris 36 dtk).
 Muat awal 3,3 GB ≈ 30–40 menit; putaran harian normal (±10 rb resi/hari) hitungan menit.
@@ -216,7 +216,7 @@ mengecil sampai `OPTIMIZE TABLE` (tahap 8); jumlah baris dan kerja indeks langsu
 | 4 | Mode Arsip: `db_select` ke arsip di akhir `MY_Controller`, sesi `READ ONLY`, menu "Mode Arsip" + roleaccess (1, 2, 6, 10; role lain via Access), banner merah | **Selesai 21 Sep 2026** — uji di browser oleh user |
 | 5 | `pastikan_resi_live($noresi)` (helper autoload → `Arsip_fcd::tarik_balik`, peta tabel di config `keluarga_resi`): dipasang di 10 titik masuk — scan retur, buka retur (3), komplain CS (2), kurangan picker, video packing, detail resi, cancel order. Diagnostik: `php index.php cron cek_resi_live <noresi>` | **Selesai 21 Sep 2026** — jalur `ditarik` diuji di sandbox bersama tahap 7 |
 | 6 | Backup arsip harian: task "IRESIS - Backup arsip 02.30" → `backup_db.ps1 -Database iresis_arsip -Simpan 7 -Paksa` (via `scripts/backup_arsip_senyap.vbs`), file `C:backup-dbotomatisiresis_arsip_*.sql.gz`, rotasi 7 hari. Uji 21 Sep: 1,7 GB → 260 MB gz, 129 dtk, CRC OK. Masih satu disk (hanya ada C:) — pindahkan `$dirBackup` bila ada drive lain | **Selesai 21 Sep 2026** |
-| 7 | Purna (§4c): `cron arsip_purna [uji|jalankan]`, gerbang keselamatan (skema, sinkron ≤ 36 jam, backup arsip ≤ 36 jam), per batch REPLACE → verifikasi PK → DELETE; `tblkpi` 400 hari, `notifications` 30 hari | **Script selesai & teruji mode uji 21 Sep 2026** (20 rb resi/19,8 dtk, verifikasi lolos); eksekusi `jalankan` pertama oleh user, lalu `purna_aktif = TRUE` |
+| 7 | Purna (§4c): `cron arsip_purna [uji|jalankan]`, gerbang keselamatan (skema, sinkron ≤ 36 jam, backup arsip ≤ 36 jam), per batch REPLACE → verifikasi PK → DELETE; `tblkpi` 400 hari, `notifications` 30 hari | **Selesai 21 Sep 2026**: eksekusi pertama oleh user 12.41–14.02, 1.902.185 resi dipindah, 0 gagal; prod 2,75 jt → 852 rb resi; `purna_aktif = TRUE` sejak 14.15 |
 | 8 | `OPTIMIZE TABLE` 5 tabel besar sebulan sekali (Minggu malam) agar ruang disk kembali | Belum |
 | 9 | Peringatan di laporan bila rentang tanggal menyentuh sebelum cutoff | Belum |
 
