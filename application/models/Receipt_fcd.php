@@ -55,6 +55,7 @@ class Receipt_fcd extends CI_Model
     }
 
     function get_detail_receipt($noresi) {
+        pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
         $this->db->select('
             pr.id_printresi,
             pr.noresi,

@@ -49,6 +49,7 @@ class Retur_fcd extends CI_Model
      */
     public function sisa_qty_buka($noresi, $sku, $is_komplain = 0)
     {
+        pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
         $receipt = $this->db->select('id_printresi')
             ->get_where('tblprintresi', ['noresi' => $noresi])->row();
         if (empty($receipt)) return null;
@@ -129,6 +130,8 @@ class Retur_fcd extends CI_Model
         $error_messages = [];
 
         foreach ($resi_list as $noresi) {
+            // Resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
+            pastikan_resi_live($noresi);
             // Get receipt from tblprintresi
             $receipt = $this->db
                 ->select('id_printresi, id_kurir, id_marketplace, noresi, status_pesanan, batal')
@@ -271,6 +274,8 @@ class Retur_fcd extends CI_Model
         $error_messages = [];
 
         foreach ($resi_list as $noresi) {
+            // Resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
+            pastikan_resi_live($noresi);
             // Get receipt from tblprintresi
             $receipt = $this->db
                 ->select('id_printresi, id_kurir, id_marketplace, noresi')

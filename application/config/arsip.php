@@ -64,6 +64,37 @@ $config['kunci_basi_detik'] = 6 * 3600;
 
 /*
 | -------------------------------------------------------------------
+| KELUARGA RESI — tabel-tabel yang "ikut" satu resi
+| -------------------------------------------------------------------
+| Dipakai pastikan_resi_live() (tarik keluarga resi lama dari arsip ke prod
+| saat alur retur/CS/cek resi membutuhkannya) dan nanti tahap purna (pindah
+| keluarga resi > retensi). Urutan penting: induk dulu, tabel ber-FK setelah
+| induknya (tblcs_complain sebelum tblcs_complain_detail).
+|   kolom = kolom di tabel itu yang merujuk resi
+|   pakai = 'id' (nilai = tblprintresi.id_printresi) atau 'noresi'
+*/
+$config['keluarga_resi'] = array(
+	'tblprintresi'               => array('kolom' => 'id_printresi', 'pakai' => 'id'),
+	'tbldetailprintresi'         => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblresiambilbarang'         => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblpacking'                 => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblresikeluar'              => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblpacker_performance_logs' => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblscan_ndd'                => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblresiretur'               => array('kolom' => 'id_resi',      'pakai' => 'id'),
+	'tblbukaretur'               => array('kolom' => 'resi_buka',    'pakai' => 'noresi'),
+	'tblreturjubelio'            => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+	'tblreturverifikasi'         => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+	'tblmasalahpicker'           => array('kolom' => 'noresi',       'pakai' => 'noresi'),
+	'tbllostscanpacker'          => array('kolom' => 'noresi',       'pakai' => 'noresi'),
+	'tblvideopacking'            => array('kolom' => 'noresi',       'pakai' => 'noresi'),
+	'tblcancelorder'             => array('kolom' => 'noresi',       'pakai' => 'noresi'),
+	'tblcs_complain'             => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+	'tblcs_complain_detail'      => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+);
+
+/*
+| -------------------------------------------------------------------
 | MODE ARSIP — user melihat iresis_arsip lewat aplikasi yang sama
 | -------------------------------------------------------------------
 | Diaktifkan per-session lewat menu "Mode Arsip" (uri `arsip`); siapa yang
