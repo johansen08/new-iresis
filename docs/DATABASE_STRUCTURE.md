@@ -342,6 +342,52 @@ tim picker *Tambahkan Picker* → `tambah_picker()` → insert
 insert `tbllostscanpacker` PICKER → SELESAI → packer scan ulang → HO scan
 ulang.
 
+Dipakai alur paket cancel (tahap 1 live 21 Sep 2026, lihat `docs/PAKET_CANCEL.md`).
+
+#### 23. **tblcancel_paket** - Paket Cancel (satu per resi yang barangnya sudah keluar display)
+```sql
+- id_cancel_paket (PK)
+- id_resi (FK → tblprintresi, UNIQUE)
+- noresi (INDEX)
+- status (ENUM: DITEMUKAN, DICEK, DIKIRIM, SELESAI)   -- tahap 1 hanya menulis DITEMUKAN
+- ditemukan_di (ENUM: PICKER, INBOUND, PACKER, HO)    -- meja fisik tempat paket pertama ditolak
+- ditemukan_oleh (FK → tbluser, NULL)
+- ditemukan_komputer
+- ditemukan_at
+- jumlah_tolak                                        -- naik tiap penolakan berikutnya
+- tolak_terakhir_di (ENUM: PICKER, INBOUND, PACKER, HO, LOST_SCAN, NULL)
+- tolak_terakhir_at
+- dicek_oleh, dicek_at            (tahap 2)
+- id_batch (FK → tblretur_display_batch, NULL)  (tahap 3)
+- selesai_at                      (tahap 3)
+- catatan
+- created_at, updated_at
+- INDEX (status, ditemukan_at)
+```
+Ditulis `Cancel_paket_fcd::catat_tolak()` lewat `INSERT … ON DUPLICATE KEY
+UPDATE`: baris baru = DITEMUKAN; baris lama hanya `jumlah_tolak` dan
+`tolak_terakhir_*` yang berubah, status tidak disentuh. Dibuat hanya bila
+barang sudah keluar display (penolakan di picker tanpa picking tidak
+melahirkan baris ini).
+
+#### 24. **tblcancel_paket_tolak** - Jejak Scan Ditolak Karena Cancel
+```sql
+- id_tolak (PK)
+- id_resi (FK → tblprintresi)
+- noresi
+- tahap (ENUM: PICKER, INBOUND, PACKER, HO, LOST_SCAN)
+- alasan                          -- CANCELED / REQUEST_CANCEL / BATAL_MANUAL
+- id_user (FK → tbluser, NULL)
+- nama_komputer
+- waktu
+- keterangan                      -- mis. 'Scan Paket REGULER', 'Update Picker', 'Scan Non-Submit'
+- INDEX (id_resi, waktu), INDEX (waktu)
+```
+Satu baris per penolakan, selalu ditulis (juga saat tidak melahirkan
+`tblcancel_paket`). Titik penulisannya 7 buah — `PAKET_CANCEL.md` §7.1.
+Kedua tabel dibuat `MY_Controller::run_paket_cancel_migration()`
+(`BOOTSTRAP_VERSI` 2026-09-21.3).
+
 ## 🔗 Relationship Diagram
 
 ```

@@ -31,6 +31,8 @@
                                 <th>No Resi</th>
                                 <th>Kurir</th>
                                 <th>Alasan Batal / Status</th>
+                                <th>Cancel Diketahui</th>
+                                <th>Tahap saat Cancel</th>
                                 <th>Picker</th>
                                 <th>Packer</th>
                                 <th>Scan By HO</th>
@@ -80,8 +82,16 @@
                 { data: 5 },
                 { data: 6 },
                 { data: 7 },
-                { data: 8 }
-            ]
+                { data: 8 },
+                { data: 9 },
+                { data: 10 }
+            ],
+            // Urutan ditentukan server (tgl print terbaru dulu); klik header tidak dipakai
+            ordering: false,
+            language: {
+                processing: 'Memuat...',
+                emptyTable: 'Tidak ada resi cancel pada rentang ini'
+            }
         });
 
         $('#btn-search').click(function() {

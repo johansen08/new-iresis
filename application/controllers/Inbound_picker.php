@@ -53,7 +53,10 @@ class Inbound_picker extends MY_Controller
         $picking = [
             'noresi' => $noresi,
             'yangambil_pegawai' => $id_picker,
-            'pending' => ''
+            'pending' => '',
+            // Picking_fcd::save() tidak mencatat penolakan cancel untuk sumber ini;
+            // dicatat di bawah setelah rollback transaksi luar (docs/PAKET_CANCEL.md §7.1 #2).
+            'sumber_scan' => 'INBOUND',
         ];
 
         $normal_picker_status_id = $this->kpi_fcd->get_status_id_by_name('NORMAL_PICKER');
@@ -76,6 +79,13 @@ class Inbound_picker extends MY_Controller
 
         if (isset($save_picker['error'])) {
             $this->db->trans_rollback();
+            // Di meja inbound paket fisik sudah diambil picker -> paket cancel DITEMUKAN.
+            if (($save_picker['data']['EXCEPTION_CODE'] ?? '') === 'ORDER_CANCELED') {
+                $this->load->model('cancel_paket_fcd');
+                $this->cancel_paket_fcd->catat_tolak($receipt, 'INBOUND', $this->data['user'], [
+                    'barang_sudah_diambil' => true,
+                ]);
+            }
             $this->make_ajax_response($save_picker['code'], $save_picker['message'] . ' (Picker)');
         }
 
@@ -151,8 +161,13 @@ class Inbound_picker extends MY_Controller
         $awal_hari  = date('Y-m-d 00:00:00');
         $besok_hari = date('Y-m-d 00:00:00', strtotime('+1 day'));
 
-        $this->db->select('rab.id_resi');
+        // Ikut baca status resi: yang sudah CANCELED/REQUEST_CANCEL (dari upload
+        // Jubelio) atau dibatalkan manual (tblprintresi.batal) TIDAK boleh ikut
+        // dipindah ke packer — scan packer satuan menolaknya, sinkron massal
+        // harus konsisten. Dihitung terpisah supaya operator tahu ada yang dilewati.
+        $this->db->select('rab.id_resi, pr.status_pesanan, pr.batal');
         $this->db->from('tblresiambilbarang rab');
+        $this->db->join('tblprintresi pr', 'pr.id_printresi = rab.id_resi', 'inner');
         $this->db->join('tblpacking p', 'p.id_resi = rab.id_resi', 'left');
         $this->db->where('rab.yangambil_pegawai', $id_picker);
         $this->db->where('rab.tanggal_resiambilbarang >=', $awal_hari);
@@ -160,10 +175,27 @@ class Inbound_picker extends MY_Controller
         $this->db->where('p.id_packing IS NULL');
 
         $query = $this->db->get();
-        $resis_to_sync = $query->result_array();
+        $resis_to_sync = [];
+        $dilewati_cancel = 0;
+        foreach ($query->result_array() as $row) {
+            $sudah_cancel = stripos((string) $row['status_pesanan'], 'CANCEL') !== false
+                || ($row['batal'] !== null && $row['batal'] !== '' && $row['batal'] !== '0');
+            if ($sudah_cancel) {
+                $dilewati_cancel++;
+                continue;
+            }
+            $resis_to_sync[] = $row;
+        }
+
+        $catatan_cancel = $dilewati_cancel > 0
+            ? " ($dilewati_cancel resi dilewati karena sudah CANCEL.)"
+            : '';
 
         if (empty($resis_to_sync)) {
-            $this->make_ajax_response(200, 'Tidak ada resi baru dari Picker ini yang perlu disinkronkan.');
+            $this->make_ajax_response(200, 'Tidak ada resi baru dari Picker ini yang perlu disinkronkan.' . $catatan_cancel, [
+                'total_sync'      => 0,
+                'dilewati_cancel' => $dilewati_cancel,
+            ]);
         }
 
         $normal_packer_status_id = $this->kpi_fcd->get_status_id_by_name('NORMAL');
@@ -215,8 +247,9 @@ class Inbound_picker extends MY_Controller
             $this->make_ajax_response(500, 'Gagal melakukan sinkronisasi massal.');
         }
 
-        $this->make_ajax_response(200, "Berhasil menyinkronkan $count resi ke Packer yang dipilih.", [
-            'total_sync' => $count
+        $this->make_ajax_response(200, "Berhasil menyinkronkan $count resi ke Packer yang dipilih." . $catatan_cancel, [
+            'total_sync'      => $count,
+            'dilewati_cancel' => $dilewati_cancel,
         ]);
     }
 }

@@ -238,6 +238,13 @@ Alur, kondisi, skenario, dan keputusan desainnya lengkap di
 Paket yang lolos tanpa scan di tahap 2/3 ditolak di tahap berikutnya dan
 ditangani lewat alur lost scan — lihat [`LOST_SCAN.md`](LOST_SCAN.md).
 
+Resi yang berubah `CANCELED` (upload Jubelio) setelah barangnya keluar display
+ditolak di scan berikutnya ("Pesanan sudah DIBATALKAN"); sejak 21 Sep 2026
+setiap penolakan itu dicatat (`tblcancel_paket_tolak` / `tblcancel_paket`,
+model `Cancel_paket_fcd`) dan dipakai Laporan Resi Cancel. Alur pengembalian
+barang ke display (tim retur → restock) dirancang di
+[`PAKET_CANCEL.md`](PAKET_CANCEL.md).
+
 ### **Workflow Retur**
 
 ```

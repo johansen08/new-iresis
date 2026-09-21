@@ -251,7 +251,16 @@ class Lost_scan_picker_fcd extends CI_Model
             return $this->batal($prev_debug, 404, 'Resi tidak ditemukan di tblprintresi', 'TIDAK_DITEMUKAN');
         }
         if (strtoupper((string) $resi->status_pesanan) === 'CANCELED' || (string) $resi->batal === '1') {
-            return $this->batal($prev_debug, 400, 'Pesanan sudah DIBATALKAN -- tidak dibuatkan picking', 'ORDER_CANCELED');
+            $hasil = $this->batal($prev_debug, 400, 'Pesanan sudah DIBATALKAN -- tidak dibuatkan picking', 'ORDER_CANCELED');
+            // Jejak paket cancel (docs/PAKET_CANCEL.md §7.1 #7), setelah rollback.
+            // Paket fisik ditahan di meja yang melapor (PACKER/HO), bukan di tim picker.
+            $this->load->model('cancel_paket_fcd');
+            $this->cancel_paket_fcd->catat_tolak($resi, 'LOST_SCAN', $user, [
+                'barang_sudah_diambil' => true,
+                'ditemukan_di'         => $pending->sumber,
+                'keterangan'           => 'Tambahkan Picker ditolak; laporan lost scan #' . $id_pending . ' dari ' . $pending->sumber,
+            ]);
+            return $hasil;
         }
 
         $now = date('Y-m-d H:i:s');

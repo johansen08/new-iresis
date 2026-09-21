@@ -2214,13 +2214,18 @@ class Report extends MY_Controller
 
     public function get_resi_cancel_report_data()
     {
-        $start_date = $this->input->post('start_date');
-        $end_date = $this->input->post('end_date');
+        $start_date = trim((string) $this->input->post('start_date'));
+        $end_date   = trim((string) $this->input->post('end_date'));
+        if ($start_date === '' || $end_date === '') {
+            $start_date = date('Y-m-d 00:00:00');
+            $end_date   = date('Y-m-d H:i:s');
+        }
 
-        $draw = intval($this->input->post('draw'));
-        $start = intval($this->input->post('start'));
+        $draw   = intval($this->input->post('draw'));
+        $start  = intval($this->input->post('start'));
         $length = intval($this->input->post('length'));
-        $search = $this->input->post('search')['value'];
+        $search = $this->input->post('search');
+        $search = is_array($search) && isset($search['value']) ? $search['value'] : '';
 
         $this->load->model('receipt_fcd');
         $result = $this->receipt_fcd->get_resi_cancel_report_data($start_date, $end_date, $start, $length, $search);
@@ -2231,6 +2236,12 @@ class Report extends MY_Controller
             "recordsFiltered" => $result['filtered'],
             "data" => $result['data']
         );
+
+        // Buang semua output nyasar sebelum JSON supaya DataTables bisa parse
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
         echo json_encode($output);
         exit();
     }

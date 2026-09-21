@@ -2997,5 +2997,335 @@ class Receipt_fcd extends CI_Model
     {
         return $this->db->get_where('pergantian_barang', ['status_acc' => 0]);
     }
+
+    // ─────────────────────────────────────────────
+    //  LAPORAN RESI CANCEL
+    // ─────────────────────────────────────────────
+
+    /**
+     * Kondisi SQL "resi dianggap cancel". Dipakai count & data supaya seragam.
+     *
+     * Resi dianggap cancel bila salah satu terpenuhi:
+     *  - tblprintresi.status_pesanan mengandung CANCEL (CANCELED / REQUEST_CANCEL
+     *    hasil upload resi Jubelio),
+     *  - tblprintresi.batal terisi (dibatalkan manual di iresis),
+     *  - tercatat di tblcancelorder (sinkron Jubelio atau scan manual tim resi),
+     *  - punya baris tblcancel_paket (pernah ditolak scan karena cancel;
+     *    docs/PAKET_CANCEL.md) -- tetap tampil walau statusnya berubah lagi.
+     */
+    private function _kondisi_resi_cancel()
+    {
+        return "(pr.status_pesanan LIKE '%CANCEL%'
+            OR (pr.batal IS NOT NULL AND pr.batal <> '' AND pr.batal <> '0')
+            OR co.id_cancel IS NOT NULL
+            OR cp.id_cancel_paket IS NOT NULL)";
+    }
+
+    /**
+     * Query dasar laporan resi cancel: join tblcancelorder & tblcancel_paket
+     * (wajib, bagian dari kondisi cancel) plus marketplace, kurir, picker,
+     * packer, HO bila $join_nama TRUE (dibutuhkan untuk baris data &
+     * pencarian; untuk hitung total tanpa pencarian dilewati supaya ringan).
+     * Filter rentang pada tanggal_printresi.
+     */
+    private function _query_resi_cancel($start_date, $end_date, $search = '', $join_nama = true)
+    {
+        $this->db->from('tblprintresi pr');
+        $this->db->join('tblcancelorder co', 'co.noresi = pr.noresi', 'left');
+        $this->db->join('tblcancel_paket cp', 'cp.id_resi = pr.id_printresi', 'left');
+
+        if ($join_nama || $search !== '') {
+            $this->db->join('tblmarketplace m', 'm.id_marketplace = pr.id_marketplace', 'left');
+            $this->db->join('tblkurir k', 'k.id_kurir = pr.id_kurir', 'left');
+            $this->db->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left');
+            $this->db->join('tblpegawai pg_picker', 'pg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
+            $this->db->join('tblpacking pk', 'pk.id_resi = pr.id_printresi', 'left');
+            $this->db->join('tbluser u_packer', 'u_packer.id_user = pk.packer_pegawai', 'left');
+            $this->db->join('tblresikeluar rk', 'rk.id_resi = pr.id_printresi', 'left');
+            $this->db->join('tblpegawai pg_ho', 'pg_ho.kode_pegawai = rk.id_pegawai', 'left');
+            $this->db->join('tbluser u_penemu', 'u_penemu.id_user = cp.ditemukan_oleh', 'left');
+        }
+
+        $this->db->where('pr.tanggal_printresi >=', $start_date);
+        $this->db->where('pr.tanggal_printresi <=', $end_date);
+        $this->db->where($this->_kondisi_resi_cancel(), null, false);
+
+        if ($search !== '' && $search !== null) {
+            $this->db->group_start();
+            $this->db->like('pr.noresi', $search);
+            $this->db->or_like('m.nama_marketplace', $search);
+            $this->db->or_like('k.nama_kurir', $search);
+            $this->db->or_like('pr.status_pesanan', $search);
+            $this->db->or_like('pr.keterangan', $search);
+            $this->db->or_like('co.catatan', $search);
+            $this->db->or_like('pg_picker.nama_pegawai', $search);
+            $this->db->or_like('u_packer.name', $search);
+            $this->db->or_like('pg_ho.nama_pegawai', $search);
+            $this->db->group_end();
+        }
+    }
+
+    /**
+     * Data DataTable server-side + export Excel untuk Laporan Resi Cancel.
+     *
+     * Kolom (11): #, Marketplace, Tgl Print Resi, No Resi, Kurir,
+     * Alasan Batal / Status, Cancel Diketahui, Tahap saat Cancel,
+     * Picker, Packer, Scan By HO.
+     *
+     * "Cancel Diketahui" = kapan iresis pertama kali tahu resi ini cancel:
+     * tblcancelorder.tanggal_cancel bila ada, kalau tidak tblprintresi.modified_at
+     * (upload resi hanya menulis modified_at saat status_pesanan berubah).
+     * "Tahap saat Cancel" dihitung dari scan yang terjadi SEBELUM waktu itu;
+     * scan yang terjadi sesudahnya ditandai "(setelah cancel)" di kolomnya.
+     *
+     * @return array ['total' => int, 'filtered' => int, 'data' => array baris 11 kolom siap tampil]
+     */
+    public function get_resi_cancel_report_data($start_date, $end_date, $start = 0, $length = 10, $search = '')
+    {
+        $start  = max(0, (int) $start);
+        $length = (int) $length;
+        $search = trim((string) $search);
+
+        // Total tanpa pencarian (tanpa join nama supaya ringan)
+        $this->_query_resi_cancel($start_date, $end_date, '', false);
+        $total = (int) $this->db->count_all_results();
+
+        // Total sesuai pencarian
+        if ($search !== '') {
+            $this->_query_resi_cancel($start_date, $end_date, $search, false);
+            $filtered = (int) $this->db->count_all_results();
+        } else {
+            $filtered = $total;
+        }
+
+        // Baris data
+        $this->db->select("
+            pr.noresi,
+            pr.tanggal_printresi,
+            pr.status_pesanan,
+            pr.batal,
+            pr.keterangan,
+            pr.modified_at,
+            pr.created_at,
+            m.nama_marketplace,
+            k.nama_kurir,
+            co.sumber AS sumber_cancel,
+            co.status_marketplace AS status_cancel,
+            co.catatan AS catatan_cancel,
+            co.tanggal_cancel,
+            rab.tanggal_resiambilbarang AS waktu_picker,
+            pk.tanggal_packing AS waktu_packer,
+            rk.tanggal_resikeluar AS waktu_ho,
+            pg_picker.nama_pegawai AS nama_picker,
+            u_packer.name AS nama_packer,
+            pg_ho.nama_pegawai AS nama_ho,
+            cp.status AS paket_status,
+            cp.ditemukan_di AS paket_ditemukan_di,
+            cp.ditemukan_at AS paket_ditemukan_at,
+            cp.jumlah_tolak AS paket_jumlah_tolak,
+            cp.tolak_terakhir_di AS paket_tolak_terakhir_di,
+            cp.tolak_terakhir_at AS paket_tolak_terakhir_at,
+            u_penemu.name AS paket_ditemukan_oleh
+        ", false);
+        $this->_query_resi_cancel($start_date, $end_date, $search);
+        $this->db->group_by('pr.id_printresi');
+        $this->db->order_by('pr.tanggal_printresi', 'DESC');
+        $this->db->order_by('pr.id_printresi', 'DESC');
+        if ($length > 0) {
+            $this->db->limit($length, $start);
+        }
+        $rows = $this->db->get()->result();
+
+        $data = [];
+        $no   = $start + 1;
+        foreach ($rows as $r) {
+            $waktu_cancel = $this->_waktu_cancel_diketahui($r);
+            $tahap        = $this->_tahap_saat_cancel($r, $waktu_cancel);
+            $jejak        = $this->_teks_paket_cancel($r);
+            if ($jejak !== '') {
+                $tahap .= '<br><small>' . $jejak . '</small>';
+            }
+
+            $data[] = [
+                $no++ . '.',
+                $r->nama_marketplace ?: '-',
+                !empty($r->tanggal_printresi) ? date('d/m/Y H:i:s', strtotime($r->tanggal_printresi)) : '-',
+                $r->noresi,
+                $r->nama_kurir ?: '-',
+                $this->_teks_status_cancel($r),
+                $waktu_cancel !== null ? date('d/m/Y H:i:s', $waktu_cancel) : '-',
+                $tahap,
+                $this->_teks_scan($r->nama_picker, $r->waktu_picker, $waktu_cancel),
+                $this->_teks_scan($r->nama_packer, $r->waktu_packer, $waktu_cancel),
+                $this->_teks_scan($r->nama_ho, $r->waktu_ho, $waktu_cancel),
+            ];
+        }
+
+        return [
+            'total'    => $total,
+            'filtered' => $filtered,
+            'data'     => $data,
+        ];
+    }
+
+    /**
+     * Timestamp (unix) saat iresis pertama kali tahu resi ini cancel, atau NULL
+     * kalau tidak ada satu pun penanda waktu.
+     */
+    private function _waktu_cancel_diketahui($r)
+    {
+        foreach ([$r->tanggal_cancel, $r->modified_at, $r->created_at, $r->tanggal_printresi] as $kandidat) {
+            if (!empty($kandidat) && $kandidat !== '0000-00-00 00:00:00') {
+                $ts = strtotime($kandidat);
+                if ($ts !== false) {
+                    return $ts;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Baris kedua kolom "Tahap saat Cancel": jejak fisik dari tblcancel_paket
+     * (docs/PAKET_CANCEL.md §7.3). Kosong bila resi belum pernah ditolak scan.
+     *
+     * Contoh: "Ditolak di HO 21/09 09:15 oleh GUNTUR (2×) — packer lupa scan"
+     */
+    private function _teks_paket_cancel($r)
+    {
+        if (empty($r->paket_status)) {
+            return '';
+        }
+
+        $label_meja = [
+            'PICKER'    => 'picker',
+            'INBOUND'   => 'inbound',
+            'PACKER'    => 'packer',
+            'HO'        => 'HO',
+            'LOST_SCAN' => 'lost scan',
+        ];
+        $meja  = $label_meja[$r->paket_ditemukan_di] ?? strtolower((string) $r->paket_ditemukan_di);
+        $teks  = 'Ditolak di ' . $meja;
+        if (!empty($r->paket_ditemukan_at)) {
+            $teks .= ' ' . date('d/m H:i', strtotime($r->paket_ditemukan_at));
+        }
+        if (!empty($r->paket_ditemukan_oleh)) {
+            $teks .= ' oleh ' . $r->paket_ditemukan_oleh;
+        }
+
+        $jumlah = (int) $r->paket_jumlah_tolak;
+        if ($jumlah > 1) {
+            $teks .= ' (' . $jumlah . '×';
+            if (!empty($r->paket_tolak_terakhir_di) && $r->paket_tolak_terakhir_di !== $r->paket_ditemukan_di) {
+                $teks .= ', terakhir ' . ($label_meja[$r->paket_tolak_terakhir_di] ?? strtolower($r->paket_tolak_terakhir_di));
+            }
+            $teks .= ')';
+        }
+
+        // Penanda lupa scan: paket sampai meja X tanpa scan meja sebelumnya.
+        $penanda = [];
+        $sampai_packer_atau_ho = in_array($r->paket_ditemukan_di, ['INBOUND', 'PACKER', 'HO'], true)
+            || in_array($r->paket_tolak_terakhir_di, ['INBOUND', 'PACKER', 'HO'], true);
+        $sampai_ho = $r->paket_ditemukan_di === 'HO' || $r->paket_tolak_terakhir_di === 'HO';
+        if ($sampai_ho && empty($r->waktu_packer)) {
+            $penanda[] = 'packer lupa scan';
+        }
+        if ($sampai_packer_atau_ho && empty($r->waktu_picker) && $r->paket_ditemukan_di !== 'INBOUND') {
+            $penanda[] = 'picker lupa scan';
+        }
+        if ($penanda) {
+            $teks .= ' — <b>' . implode(', ', $penanda) . '</b>';
+        }
+
+        if ($r->paket_status !== 'DITEMUKAN') {
+            $teks .= ' · ' . $r->paket_status;
+        }
+
+        return $teks;
+    }
+
+    /**
+     * Sampai tahap mana resi sudah diproses ketika cancel diketahui.
+     * Hanya scan yang terjadi <= waktu cancel yang dihitung; kalau waktu cancel
+     * tidak diketahui, semua scan yang ada dihitung.
+     */
+    private function _tahap_saat_cancel($r, $waktu_cancel)
+    {
+        $sebelum_cancel = function ($waktu_scan) use ($waktu_cancel) {
+            if (empty($waktu_scan)) {
+                return false;
+            }
+            if ($waktu_cancel === null) {
+                return true;
+            }
+            $ts = strtotime($waktu_scan);
+            return $ts !== false && $ts <= $waktu_cancel;
+        };
+
+        if ($sebelum_cancel($r->waktu_ho)) {
+            return 'Setelah HO (sudah keluar)';
+        }
+        if ($sebelum_cancel($r->waktu_packer)) {
+            return 'Setelah Packer';
+        }
+        if ($sebelum_cancel($r->waktu_picker)) {
+            return 'Setelah Picker';
+        }
+        return 'Belum diproses';
+    }
+
+    /**
+     * Isi sel Picker/Packer/HO: nama + jam scan; diberi tanda kalau scan
+     * terjadi sesudah cancel diketahui (seharusnya tertolak).
+     */
+    private function _teks_scan($nama, $waktu_scan, $waktu_cancel)
+    {
+        if (empty($nama) && empty($waktu_scan)) {
+            return '-';
+        }
+        $teks = $nama ?: '(tanpa nama)';
+        $ts   = !empty($waktu_scan) ? strtotime($waktu_scan) : false;
+        if ($ts !== false) {
+            $teks .= ' ' . date('d/m H:i', $ts);
+            if ($waktu_cancel !== null && $ts > $waktu_cancel) {
+                $teks .= ' (setelah cancel)';
+            }
+        }
+        return $teks;
+    }
+
+    /** Susun teks kolom "Alasan Batal / Status" dari satu baris laporan. */
+    private function _teks_status_cancel($r)
+    {
+        $batal_manual  = $r->batal !== null && $r->batal !== '' && $r->batal !== '0';
+        $status_cancel = !empty($r->status_pesanan) && stripos($r->status_pesanan, 'CANCEL') !== false;
+        $bagian = [];
+
+        if ($batal_manual) {
+            $bagian[] = 'BATAL MANUAL' . (!empty($r->keterangan) ? ': ' . $r->keterangan : '');
+        } elseif ($status_cancel) {
+            $bagian[] = $r->status_pesanan;
+        } else {
+            // Hanya tercatat di tblcancelorder (snapshot saat cancel terdeteksi)
+            $bagian[] = !empty($r->status_cancel) ? $r->status_cancel : 'CANCEL';
+        }
+
+        if (!empty($r->sumber_cancel)) {
+            $label = $r->sumber_cancel === 'SCAN' ? 'scan tim resi' : 'Jubelio';
+            $waktu = !empty($r->tanggal_cancel) ? ' ' . date('d/m/Y H:i', strtotime($r->tanggal_cancel)) : '';
+            $bagian[] = '(' . $label . $waktu . ')';
+        }
+
+        // Status di tblprintresi sudah berubah lagi setelah cancel tercatat
+        if (!$batal_manual && !$status_cancel && !empty($r->status_pesanan)) {
+            $bagian[] = '- status kini: ' . $r->status_pesanan;
+        }
+
+        if (!empty($r->catatan_cancel)) {
+            $bagian[] = '- ' . $r->catatan_cancel;
+        }
+
+        return implode(' ', $bagian);
+    }
 }
 

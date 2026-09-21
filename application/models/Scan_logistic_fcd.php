@@ -59,6 +59,11 @@ class Scan_logistic_fcd extends CI_Model
             return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
         }
         if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+            // Jejak paket cancel (docs/PAKET_CANCEL.md §7.1 #6): paket fisik ada di meja HO.
+            // Masih di luar trans_begin() di bawah, jadi aman ditulis di sini.
+            $receipt->noresi = $noresi;
+            $this->load->model('cancel_paket_fcd');
+            $this->cancel_paket_fcd->catat_tolak($receipt, 'HO', $user, ['keterangan' => 'Scan Paket ' . ($is_ndd_mode ? 'NDD' : 'REGULER')]);
             return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
         }
         if (!$receipt->is_picked) {
