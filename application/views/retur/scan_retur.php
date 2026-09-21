@@ -519,6 +519,7 @@ $(document).ready(function() {
                                 ' data-qty="' + (item.jumlah || 0) + '"' +
                                 ' data-nama="' + (item.nama_barang || '') + '"' +
                                 ' data-foto="' + (item.link_foto || '') + '"' +
+                                ' data-foto-lokal="' + (item.foto_lokal || '') + '"' +
                                 ' data-norak="' + (item.no_rak || '') + '"' +
                                 ' >Proses Buka Retur</button>';
                         }
@@ -607,7 +608,7 @@ $(document).ready(function() {
         $('#modal_nama_barang').text(nama || '-');
         
         if (foto && foto !== '') {
-            $('#modal_foto').attr('src', foto).show();
+            $('#modal_foto').attr('data-foto-lokal', currentBukaReturBtn.attr('data-foto-lokal') || '').attr('src', foto).show(); // URL asli dulu, lokal cadangan
             $('#modal_no_foto').hide();
         } else {
             $('#modal_foto').hide();
@@ -761,7 +762,7 @@ $(document).ready(function() {
       var fotoUrl = $(this).data('foto');
 
       if (fotoUrl && fotoUrl.trim() !== '') {
-        $('#previewFoto').attr('src', fotoUrl);
+        $('#previewFoto').attr('data-foto-lokal', $(this).attr('data-foto-lokal') || '').attr('src', fotoUrl); // URL asli dulu, lokal cadangan
         $('#fotoModal').fadeIn();
       } else {
         alert('Foto tidak tersedia!');

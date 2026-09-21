@@ -137,6 +137,7 @@ class Restock_fcd extends CI_Model
                 ELSE CONCAT(IFNULL(s.nama_bundle, \'\'), \' \', IFNULL(s.variasi, \'\')) 
             END) as nama_barang,
             COALESCE(s.link_foto, "") as link_foto,
+            COALESCE(s.foto_lokal, "") as foto_lokal,
             COALESCE(peg.nama_pegawai, u.name) as nama_packer,
             COALESCE(peg_picker.nama_pegawai, \'Belum Dipick\') as nama_picker,
             dr.no_rak

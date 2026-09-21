@@ -232,7 +232,7 @@ class Restock extends MY_Controller
         // Show product image if available
         if (!empty($detail->link_foto)) {
             $html .= '<div class="text-center" style="margin-top: 15px;">';
-            $html .= '<img src="' . htmlspecialchars(foto_sku_url($detail->link_foto)) . '" class="img-thumbnail" style="max-width: 200px;">';
+            $html .= foto_sku_img($detail->link_foto, $detail->foto_lokal ?? '', 'class="img-thumbnail" style="max-width: 200px;"');
             $html .= '</div>';
         }
         

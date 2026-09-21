@@ -193,7 +193,7 @@ class Masalah_picker_new extends MY_Controller
         $row['created_fmt'] = !empty($row['created']) ? date('d/m/Y H:i:s', strtotime($row['created'])) : '-';
         $row['updated_fmt'] = !empty($row['updated']) ? date('d/m/Y H:i:s', strtotime($row['updated'])) : null;
         $row['status_label'] = (int) $row['status'] === 0 ? 'Belum diproses' : 'Sudah diproses';
-        $row['link_foto']    = foto_sku_url($row['link_foto'] ?? ''); // salinan lokal bila ada
+        $row['foto_lokal']   = foto_sku_lokal_url($row['link_foto'] ?? '', $row['foto_lokal'] ?? ''); // cadangan saat URL asli gagal
 
         $this->make_ajax_response(200, 'OK', $row);
     }

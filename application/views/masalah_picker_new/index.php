@@ -326,7 +326,7 @@ $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
       html += baris('Status', esc(d.status_label));
       html += '</table>';
       if (d.link_foto) {
-        html += '<div class="text-center"><img src="' + esc(d.link_foto) + '" class="img-thumbnail" style="max-width:220px;"></div>';
+        html += '<div class="text-center"><img src="' + esc(d.link_foto) + '" data-foto-lokal="' + esc(d.foto_lokal || '') + '" class="img-thumbnail" style="max-width:220px;"></div>';
       }
       $('#mpn-modal-detail-isi').html(html);
     }, 'json').fail(function () {

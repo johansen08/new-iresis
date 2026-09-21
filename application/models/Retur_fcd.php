@@ -1213,7 +1213,8 @@ class Retur_fcd extends CI_Model
                 WHEN ps.nama_sku IS NOT NULL AND TRIM(ps.nama_sku) != \'\' AND TRIM(ps.nama_sku) != \'False\' THEN CONCAT(ps.nama_sku, \' \', IFNULL(s.nama_bundle, \'\'), \' \', IFNULL(s.variasi, \'\'))
                 ELSE CONCAT(IFNULL(s.nama_bundle, \'\'), \' \', IFNULL(s.variasi, \'\')) 
             END) as nama_sku,
-            s.link_foto
+            s.link_foto,
+            s.foto_lokal
         ');
         $this->db->from('tblprintresi pr');
         $this->db->join('tbldetailprintresi dr', 'dr.id_resi = pr.id_printresi', 'left');

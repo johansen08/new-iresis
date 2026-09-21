@@ -130,7 +130,7 @@
                                              class="sku-thumb"
                                              data-sku="<?= $pqc['sku'] ?>"
                                              style="width:50px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd;"
-                                             onerror="this.src='<?= base_url('assets/img/no-image.png') ?>'"
+                                             onerror="if(!this.dataset.cadangan){this.dataset.cadangan=1;this.src='<?= base_url('purchasing/get_sku_img?sku='.urlencode($pqc['sku']).'&sumber=lokal') ?>';}else{this.onerror=null;this.src='<?= base_url('assets/img/no-image.png') ?>';}"
                                              onclick="openSkuImg(this.src, '<?= $pqc['sku'] ?>')">
                                     </td>
                                     <td><?= $pqc['tanggal'] ?></td>

@@ -57,6 +57,7 @@ class Masalah_picker_new_fcd extends CI_Model
             tm.type_masalah,
             COALESCE(NULLIF(NULLIF(TRIM(s.nama_sku), \'\'), \'False\'), mp.sku) AS nama_barang,
             s.link_foto,
+            s.foto_lokal,
             rab.yangambil_pegawai AS kode_picker,
             COALESCE(peg_picker.nama_pegawai,
                      (SELECT up.name FROM tbluser up WHERE up.id_pegawai = rab.yangambil_pegawai LIMIT 1)
