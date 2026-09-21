@@ -241,6 +241,7 @@ class Cs extends MY_Controller
 
         // Jika submit per resi (single)
         if (!empty($noresi)) {
+            pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
             // Update status untuk semua item kurangan di resi tersebut
             $this->db->select('dr.id_detail_resi');
             $this->db->from('tbldetailprintresi dr');
@@ -1483,6 +1484,9 @@ class Cs extends MY_Controller
             exit;
         }
 
+        // Resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
+        pastikan_resi_live($noresi);
+
         // Data induk resi: marketplace, toko, tanggal pesanan, picker, packer.
         // Detail sengaja tidak di-join di sini supaya baris tidak berlipat.
         $query = "SELECT pr.noresi, pr.id_printresi, pr.id_marketplace, m.nama_marketplace, pr.toko,
@@ -2151,6 +2155,7 @@ class Cs extends MY_Controller
             echo json_encode(['code' => 400, 'message' => 'Nomor resi tidak boleh kosong.', 'data' => []]);
             exit;
         }
+        pastikan_resi_live($noresi); // rekaman resi lama yang sudah diarsipkan ditarik dulu ke prod
 
         $rows = $this->video_packing_fcd->get_by_resi($noresi);
 

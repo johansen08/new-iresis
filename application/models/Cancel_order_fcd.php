@@ -245,6 +245,7 @@ class Cancel_order_fcd extends CI_Model
     public function cek_resi($noresi)
     {
         $noresi = strtoupper(trim($noresi));
+        pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
 
         $sql = "
             SELECT

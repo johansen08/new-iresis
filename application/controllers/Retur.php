@@ -510,6 +510,7 @@ class Retur extends MY_Controller
 	 */
 	private function _cek_boleh_buka_retur($noresi, $is_complain)
 	{
+		pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
 		$receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
 		if (!$receipt) {
 			return "Noresi tidak ditemukan.";
@@ -561,6 +562,7 @@ class Retur extends MY_Controller
     public function get_buka_retur_sku_data($noresi)
     {
         $noresi = urldecode($noresi);
+        pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
         $is_update = $this->input->get('is_update') ? true : false;
         $is_complain = $this->input->get('is_complain') ? 1 : 0;
 

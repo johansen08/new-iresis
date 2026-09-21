@@ -36,8 +36,84 @@ class Arsip_fcd extends CI_Model
         parent::__construct();
         $this->config->load('arsip', TRUE);
         $this->cfg   = $this->config->item('arsip');
-        $this->prod  = $this->db->database;
+        // Nama prod dari secrets, bukan dari koneksi: di Mode Arsip koneksi sudah
+        // di-db_select ke arsip, dan tarik_balik() tidak boleh salah arah.
+        $this->prod  = function_exists('iresis_secret') ? iresis_secret('db_database', $this->db->database) : $this->db->database;
         $this->arsip = $this->cfg['db_arsip'];
+    }
+
+    // ------------------------------------------------------------------
+    //  Tarik balik: keluarga resi lama dari arsip ke prod (dipanggil helper
+    //  pastikan_resi_live() di pintu masuk retur / CS / cek resi)
+    // ------------------------------------------------------------------
+
+    /**
+     * Kalau $noresi tidak ada di prod tetapi ada di arsip, salin seluruh
+     * keluarganya (config `keluarga_resi`) ke prod dengan INSERT IGNORE dalam
+     * satu transaksi, lalu alur pemanggil berjalan seperti biasa. Putaran malam
+     * berikutnya menyalin perubahan barunya kembali ke arsip; tahap purna nanti
+     * mengarsipkannya lagi setelah 60 hari sejak aktivitas terakhir.
+     *
+     * Sengaja tidak pernah melempar: pemanggil adalah alur transaksi live.
+     * Kembalian: 'live' (sudah ada di prod), 'ditarik', 'tidak_ada',
+     * 'lewati' (Mode Arsip / noresi kosong), 'gagal' (lihat _arsip_log).
+     */
+    public function tarik_balik($noresi)
+    {
+        $noresi = trim((string) $noresi);
+        if ($noresi === '' || $this->arsip === '' || $this->arsip === $this->prod
+            || $this->session->userdata('mode_arsip')) {
+            return 'lewati';
+        }
+
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        try {
+            $ada = $this->ambil_row("SELECT 1 n FROM `{$this->prod}`.`tblprintresi` WHERE noresi = ? LIMIT 1", array($noresi));
+            if ($ada) {
+                return 'live';
+            }
+            $r = $this->ambil_row("SELECT id_printresi FROM `{$this->arsip}`.`tblprintresi` WHERE noresi = ? LIMIT 1", array($noresi));
+            if (!$r) {
+                return 'tidak_ada';
+            }
+            $id = (int) $r->id_printresi;
+
+            // sql_mode kosong sementara supaya tanggal 0000-00-00 dari arsip ikut masuk.
+            $mode_lama = $this->ambil_row("SELECT @@SESSION.sql_mode m");
+            $this->q("SET SESSION sql_mode = ''");
+
+            $this->db->trans_begin();
+            $disalin = array();
+            foreach ($this->cfg['keluarga_resi'] as $t => $aturan) {
+                $nilai = ($aturan['pakai'] === 'noresi') ? $noresi : $id;
+                $ok = $this->kueri("INSERT IGNORE INTO `{$this->prod}`.`$t` SELECT * FROM `{$this->arsip}`.`$t`
+                    WHERE `{$aturan['kolom']}` = ?", array($nilai), FALSE);
+                if (!$ok) {
+                    $this->db->trans_rollback();
+                    $this->catat('tarik_balik', $t, 'FAIL', "$noresi: " . $this->pesan_error());
+                    return 'gagal';
+                }
+                $n = $this->db->affected_rows();
+                if ($n > 0) {
+                    $disalin[] = "$t=$n";
+                }
+            }
+            $this->db->trans_commit();
+            $this->catat('tarik_balik', 'tblprintresi', 'OK', "$noresi (id $id): " . implode(', ', $disalin));
+            return 'ditarik';
+        } catch (Throwable $e) {
+            if ($this->db->trans_status() !== FALSE) {
+                $this->db->trans_rollback();
+            }
+            $this->catat('tarik_balik', NULL, 'FAIL', "$noresi: " . $e->getMessage());
+            return 'gagal';
+        } finally {
+            if (!empty($mode_lama) && isset($mode_lama->m)) {
+                $this->q("SET SESSION sql_mode = ?", array($mode_lama->m));
+            }
+            $this->db->db_debug = $debug_lama;
+        }
     }
 
     // ------------------------------------------------------------------

@@ -51,6 +51,9 @@ MariaDB (satu instance, satu koneksi aplikasi)
 | `iresis_arsip._arsip_status` | Watermark per tabel (`pk_terakhir`), mode, baris disalin, `COUNT(*)` arsip, durasi |
 | `iresis_arsip._arsip_log` | Jejak tiap putaran/tabel (OK/FAIL + pesan) |
 | `application/cache/arsip_harian.lock` | Kunci anti-putaran-ganda (basi setelah 6 jam) |
+| `application/helpers/arsip_helper.php` | `pastikan_resi_live($noresi)` (autoload) → `Arsip_fcd::tarik_balik()`: tarik keluarga resi dari arsip ke prod bila hanya ada di arsip; peta tabel di config `keluarga_resi` |
+| `Cron.php::cek_resi_live($noresi)` | Diagnostik CLI: status resi (live / ditarik / tidak_ada) — perilaku sama dengan helper |
+| `scripts/backup_arsip_senyap.vbs` | Task "IRESIS - Backup arsip 02.30" → `C:\backup-db\backup_db.ps1 -Database iresis_arsip -Simpan 7 -Paksa` |
 
 Hak akses: user aplikasi (`iresis_app`@`localhost` dan `@127.0.0.1`) diberi
 `GRANT ALL PRIVILEGES ON iresis_arsip.*` pada 21 Sep 2026. `REPLACE` membutuhkan INSERT +
@@ -136,12 +139,16 @@ Lewat HTTP (jarang perlu): `/cron/arsip_harian?token=<cron_token>&tahap=cek_skem
   Sampai tahap itu aktif, arsip untuk tabel tersebut bisa tertinggal beberapa kolom status.
 - `table_rows` dari `information_schema` hanya perkiraan → pilihan mode penuh/bertahap
   bisa bergeser di sekitar 20.000 baris; keduanya benar, hanya beda cara.
-- `iresis_arsip` masih berisi 24 tabel sisa lama (`*_backup_*`, `*_arsip`, `tmp_*`,
-  `tblprintresi_clean`, `tblpickingsummarylog_20260915` 410 MB). Namanya tidak bentrok dengan
-  tabel prod, tetapi rencananya dipindah ke `iresis_sampah` (RENAME TABLE, lihat §6).
-- Arsip **belum di-backup**: task "IRESIS - Backup DB 30 menit" hanya mendump `iresis_prod`.
-  Sampai tahap purna aktif, prod masih berisi semuanya sehingga belum ada data yang
-  hanya hidup di arsip — tetapi backup arsip harus ada **sebelum** purna dinyalakan.
+- 24 tabel sisa lama yang dulu ditumpuk di `iresis_arsip` (`*_backup_*`, `*_arsip`, `tmp_*`,
+  `tblprintresi_clean`, `tblpickingsummarylog_20260915`; 673 MB) sudah dipindah ke
+  `iresis_sampah` pada 21 Sep 2026 (`RENAME TABLE`, dijalankan user). `iresis_arsip` kini hanya
+  berisi kembaran tabel prod + `_arsip_status`/`_arsip_log`.
+- Backup arsip (task 02.30, rotasi 7) **sedisk dengan datanya** karena PC ini hanya punya
+  drive C:. Kalau ada drive eksternal/NAS, ubah `$dirBackup` di `C:\backup-db\backup_db.ps1`
+  (berlaku untuk backup prod juga) supaya satu kerusakan disk tidak menghabisi keduanya.
+- `pastikan_resi_live()` menyalin keluarga resi dengan `INSERT IGNORE`; baris yang sudah ada
+  di prod tidak disentuh. Resi yang ditarik balik hidup di **dua** DB sampai purna
+  mengarsipkannya lagi (60 hari sejak aktivitas terakhir) — normal, bukan duplikasi.
 
 ## 6. Tahapan
 
@@ -151,8 +158,8 @@ Lewat HTTP (jarang perlu): `/cron/arsip_harian?token=<cron_token>&tahap=cek_skem
 | 2 | Perbaiki 61.033 `tblprintresi.tanggal_printresi = 0000-00-00` (Mar 2026) dari `created_at` | Belum — UPDATE prod, prosedur konfirmasi 3× + backup |
 | 3 | Pindahkan 24 tabel sisa dari `iresis_arsip` ke `iresis_sampah` | Belum — `RENAME TABLE`, dijalankan user |
 | 4 | Mode Arsip: `db_select` ke arsip di akhir `MY_Controller`, sesi `READ ONLY`, menu "Mode Arsip" + roleaccess (1, 2, 6, 10; role lain via Access), banner merah | **Selesai 21 Sep 2026** — uji di browser oleh user |
-| 5 | `pastikan_resi_live($noresi)`: tarik keluarga resi dari arsip ke prod di pintu masuk scan retur, buka retur, komplain CS, cek resi, video packing | Belum |
-| 6 | Backup arsip harian 02.00 ke lokasi terpisah | Belum — **prasyarat tahap 7** |
+| 5 | `pastikan_resi_live($noresi)` (helper autoload → `Arsip_fcd::tarik_balik`, peta tabel di config `keluarga_resi`): dipasang di 10 titik masuk — scan retur, buka retur (3), komplain CS (2), kurangan picker, video packing, detail resi, cancel order. Diagnostik: `php index.php cron cek_resi_live <noresi>` | **Selesai 21 Sep 2026** — jalur `ditarik` diuji di sandbox bersama tahap 7 |
+| 6 | Backup arsip harian: task "IRESIS - Backup arsip 02.30" → `backup_db.ps1 -Database iresis_arsip -Simpan 7 -Paksa` (via `scripts/backup_arsip_senyap.vbs`), file `C:backup-dbotomatisiresis_arsip_*.sql.gz`, rotasi 7 hari. Uji 21 Sep: 1,7 GB → 260 MB gz, 129 dtk, CRC OK. Masih satu disk (hanya ada C:) — pindahkan `$dirBackup` bila ada drive lain | **Selesai 21 Sep 2026** |
 | 7 | Purna: keluarga resi > 60 hari & tanpa status terbuka → `REPLACE` ulang ke arsip → cocokkan → `DELETE` prod per batch; retensi khusus `tblkpi`/`tblpacker_performance_logs` 400 hari, `notifications` 30 hari | Belum — diuji di salinan prod dulu; eksekusi pertama di prod oleh user |
 | 8 | `OPTIMIZE TABLE` 5 tabel besar sebulan sekali (Minggu malam) agar ruang disk kembali | Belum |
 | 9 | Peringatan di laporan bila rentang tanggal menyentuh sebelum cutoff | Belum |

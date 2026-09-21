@@ -631,6 +631,32 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Diagnostik: status satu resi terhadap arsip, dan tarik balik ke prod bila
+     * hanya ada di arsip (perilaku sama persis dengan helper pastikan_resi_live()
+     * yang dipanggil alur retur/CS).
+     *   php index.php cron cek_resi_live JX1234567890
+     */
+    public function cek_resi_live($noresi = '')
+    {
+        $noresi = trim((string) ($noresi !== '' ? $noresi : $this->input->get('noresi')));
+        if ($noresi === '') {
+            echo "Pakai: php index.php cron cek_resi_live <noresi>\n";
+            return;
+        }
+        $this->load->helper('arsip');
+        $t0     = microtime(TRUE);
+        $status = pastikan_resi_live($noresi);
+        $ket    = array(
+            'live'      => 'ada di prod (tidak perlu ditarik)',
+            'ditarik'   => 'hanya ada di arsip -> keluarga resi DISALIN ke prod',
+            'tidak_ada' => 'tidak ada di prod maupun arsip',
+            'lewati'    => 'dilewati (noresi kosong / Mode Arsip / arsip tidak diatur)',
+            'gagal'     => 'GAGAL -- lihat iresis_arsip._arsip_log tahap tarik_balik',
+        );
+        printf("%s: %s (%s) %.1f ms\n", $noresi, $status, isset($ket[$status]) ? $ket[$status] : '?', (microtime(TRUE) - $t0) * 1000);
+    }
+
+    /**
      * Set tblsku.foto_lokal untuk semua SKU yang memakai URL ini (NULL = tidak ada
      * salinan). Hanya baris yang nilainya berbeda yang disentuh; balik jumlahnya.
      */
