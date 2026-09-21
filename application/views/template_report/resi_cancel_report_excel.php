@@ -7,10 +7,10 @@
 
 <table border="0">
     <tr>
-        <td colspan="8" class="title">LAPORAN RESI CANCEL</td>
+        <td colspan="11" class="title">LAPORAN RESI CANCEL</td>
     </tr>
     <tr>
-        <td colspan="8">Periode: <?= $reportrange ?></td>
+        <td colspan="11">Periode: <?= $reportrange ?></td>
     </tr>
 </table>
 
@@ -25,9 +25,11 @@
       <th width="180">No Resi</th>
       <th width="120">Kurir</th>
       <th width="250">Alasan Batal / Status</th>
-      <th width="150">Picker</th>
-      <th width="150">Packer</th>
-      <th width="150">Scan By HO</th>
+      <th width="150">Cancel Diketahui</th>
+      <th width="150">Tahap saat Cancel</th>
+      <th width="180">Picker</th>
+      <th width="180">Packer</th>
+      <th width="180">Scan By HO</th>
     </tr>
   </thead>
   <tbody>
@@ -40,14 +42,16 @@
           <td><?= $row[3] ?></td>
           <td class="text-center"><?= $row[4] ?></td>
           <td><?= $row[5] ?></td>
-          <td><?= $row[6] ?></td>
-          <td><?= $row[7] ?></td>
+          <td class="text-center"><?= $row[6] ?></td>
+          <td class="text-center"><?= $row[7] ?></td>
           <td><?= $row[8] ?></td>
+          <td><?= $row[9] ?></td>
+          <td><?= $row[10] ?></td>
         </tr>
       <?php endforeach; ?>
     <?php else: ?>
       <tr>
-        <td colspan="9" class="text-center">Tidak ada data.</td>
+        <td colspan="11" class="text-center">Tidak ada data.</td>
       </tr>
     <?php endif; ?>
   </tbody>
