@@ -186,7 +186,7 @@
 </div><!-- .retur-dash -->
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* Font Inter sudah dimuat lokal oleh main.php (assets/css/fonts-lokal.css) */
 .retur-dash { font-family:'Inter',sans-serif; color:#1e293b; padding:4px 2px 30px; }
 .retur-dash * { box-sizing:border-box; }
 .rd-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
@@ -484,7 +484,7 @@ $(document).ready(function() {
   function ensureHtml2Canvas(cb) {
     if (window.html2canvas) { cb(); return; }
     var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.src = 'assets/js/plugins/html2canvas/html2canvas.min.js';
     s.onload = function() { cb(); };
     s.onerror = function() { alert('Gagal memuat modul screenshot (perlu internet).'); };
     document.head.appendChild(s);

@@ -1,6 +1,6 @@
 <style>
 /* LUXURY DESIGN SYSTEM - REFINED */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* Font Inter/Outfit sudah dimuat lokal oleh main.php (assets/css/fonts-lokal.css) */
 
 :root {
     --brand-indigo: #4338ca;
@@ -659,7 +659,7 @@
 </div>
 
 <!-- Load html2canvas -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="assets/js/plugins/html2canvas/html2canvas.min.js"></script>
 
 <script>
 $(document).ready(function() {

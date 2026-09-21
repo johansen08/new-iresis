@@ -580,7 +580,7 @@ if (!$user || !isset($user['id_user'])) {
 </div>
 
 <!-- Include Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="assets/js/plugins/chartjs/chart.umd.min.js"></script>
 
 <script>
     // ===== Date range + AJAX filter (samakan dengan Dashboard KPI Packer) =====

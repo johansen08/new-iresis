@@ -70,7 +70,22 @@ Kesalahan database sering menghentikan eksekusi dengan tampilan halaman HTML err
 
 ---
 
-## 5. Alur Git (Branching)
+## 5. Aset Pihak Ketiga Harus Lokal (Tanpa CDN)
+
+Aplikasi dipakai 16 PC di LAN dan harus tetap berfungsi penuh saat internet putus. Sejak 21 Sep 2026 tidak ada lagi aset yang dimuat dari CDN (jsdelivr, cdnjs, Google Fonts, js.pusher.com).
+
+### **Standar:**
+
+1. **Dilarang `<script src="https://...">`, `<link href="https://...">`, atau `@import url(https://...)`** di view/CSS. Unduh library ke `assets/js/plugins/<nama>/` dan `assets/css/<nama>/`, referensikan dengan path relatif `assets/...`.
+2. **Font web** (Inter, Outfit, Open Sans) sudah ada di `assets/fonts/*.woff2` dan dideklarasikan di `assets/css/fonts-lokal.css` (dimuat `main.php` dan di-`@import` semua `theme-*.css`). Butuh font baru: unduh woff2 subset latin/latin-ext, tambahkan `@font-face` di file itu.
+3. **Font Awesome 4.7.0** lokal di `assets/css/fontawesome/` + `assets/css/fonts/`, sudah termuat lewat `theme-*.css` — jangan tambahkan link FA lagi di view.
+4. Library yang sudah tersedia lokal: moment 2.18.1, daterangepicker 3.1.0, Chart.js 4.4.0, html2canvas 1.4.1, SheetJS xlsx 0.18.5, pusher-js 8.0.2, blueimp-gallery 2.41.0.
+5. Panggilan keluar dari PHP (mis. Pusher) **wajib timeout pendek** (`Pusher_lib`: 5 detik) dan dibungkus try/catch agar request user tidak menggantung saat internet mati.
+6. Cek cepat sebelum commit: `grep -rn "cdnjs\|jsdelivr\|googleapis\|unpkg" application/views assets/css assets/js/*.js` harus kosong.
+
+---
+
+## 6. Alur Git (Branching)
 
 Branch utama proyek ini adalah **`master`**. Branch `development` sudah dihapus (dimerge penuh ke `master` pada 2026-09-12) — jangan dibuat lagi.
 

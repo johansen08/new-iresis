@@ -1,4 +1,4 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="assets/js/plugins/html2canvas/html2canvas.min.js"></script>
 <div id="capture-area" style="padding: 10px; background: #f5f5f5;">
 <div class="row">
     <!-- Total Resi Today -->
