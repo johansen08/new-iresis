@@ -14,11 +14,12 @@ class Video_packing_fcd extends CI_Model
      * Folder root tempat semua rekaman disimpan, kalau secrets.php tidak
      * menentukan lain (kunci 'video_packing_dir').
      *
-     * Sengaja DI LUAR document root: berkasnya besar (±3 MB/menit) dan tidak
-     * boleh ikut disalin/di-backup bersama kode, dan supaya tidak bisa diunduh
-     * siapa pun yang tahu nomor resinya -- videonya hanya bisa diputar lewat
-     * Cs::putar_video_packing() yang memeriksa login. Konsekuensinya Apache
-     * tidak bisa menyajikan berkasnya langsung; lihat url_video().
+     * Sengaja DI LUAR document root: berkasnya besar (±15-20 MB/menit pada
+     * 1080p) dan tidak boleh ikut disalin/di-backup bersama kode, dan supaya
+     * tidak bisa diunduh siapa pun yang tahu nomor resinya -- videonya hanya
+     * bisa diputar lewat Cs::putar_video_packing() yang memeriksa login.
+     * Konsekuensinya Apache tidak bisa menyajikan berkasnya langsung; lihat
+     * url_video().
      */
     const ROOT_UPLOAD_DEFAULT = 'C:/video-packing/';
 

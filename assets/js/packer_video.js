@@ -23,14 +23,28 @@
     }
 
     // --- Setelan yang paling mungkin perlu disesuaikan di lapangan ----------
-    // Diminta 720p untuk menekan beban penyimpanan: label resi/SKU masih terbaca
-    // dari jarak meja packing. Webcam 1080p akan memberi mode 720p-nya sendiri.
-    // Ukuran berkas ditentukan BITRATE_VIDEO, bukan resolusi -- kalau resolusi
-    // diubah, bitrate harus ikut disesuaikan.
-    var LEBAR_IDEAL      = 1280;
-    var TINGGI_IDEAL     = 720;
+    // Diminta 1080p supaya label resi/SKU terbaca jelas saat video diputar
+    // untuk cek komplain. Ini hanya permintaan (constraint `ideal`): webcam
+    // 720p tetap jalan dengan mode terbaiknya (panel memberi tanda oranye),
+    // dan webcam 4MP/2K akan memberi mode 1080p-nya. Kalau ingin merekam
+    // penuh 2560x1440, cukup ubah dua angka ini -- tapi beban encode CPU dan
+    // ukuran berkas ikut naik ~1,8x.
+    var LEBAR_IDEAL      = 1920;
+    var TINGGI_IDEAL     = 1080;
     var FPS_IDEAL        = 15;
-    var BITRATE_VIDEO    = 1200000; // ~9 MB per menit rekaman (~540 MB/jam per PC)
+    // Ukuran berkas ditentukan bitrate, bukan resolusi: rekaman sudah lossy
+    // sejak keluar dari encoder browser, jadi kompresi di server (zip, atau
+    // encode ulang "tanpa mengurangi kualitas") tidak mengecilkannya --
+    // diukur: gzip hemat 2,8%, re-encode H.264 CRF 20-23 malah membesar
+    // 1,5-2,6x karena encoder ikut menyimpan noise webcam. Satu-satunya jalan
+    // hemat adalah codec yang lebih efisien saat merekam: VP9 memberi
+    // kualitas visual setara VP8 pada bitrate ~25-30% lebih rendah, jadi
+    // bitrate-nya dipisah per codec (lihat pilihCodec()).
+    //   VP9 2,0 Mbps  = ~15 MB per menit rekaman (~900 MB/jam per PC)
+    //   VP8 2,7 Mbps  = ~20 MB per menit rekaman (~1,2 GB/jam per PC)
+    // Kalau resolusi diubah, kedua bitrate harus ikut disesuaikan.
+    var BITRATE_VP9      = 2000000;
+    var BITRATE_VP8      = 2700000;
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
@@ -44,7 +58,7 @@
     var MAKS_DURASI_DTK  = 5400;    // 90 menit
     var MAKS_PERCOBAAN   = 4;       // percobaan kirim ulang per potongan
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
-    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~18 MB)
+    var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~30-40 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
     // #menu=... saat halaman dialihkan dari http ke https (dibaca plugins.js).
@@ -257,7 +271,9 @@
             return;
         }
 
-        var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '');
+        var codec = window.MediaRecorder ? pilihCodec().label : '';
+        var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '') +
+            (codec ? ' · ' + codec : '');
         var kurang = lebar < LEBAR_IDEAL || tinggi < TINGGI_IDEAL;
         el.resolusi.textContent = kurang
             ? teks + ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)'
@@ -349,6 +365,9 @@
             video.deviceId = { ideal: pilihan };
         }
 
+        // Sengaja tanpa audio: bukti packing cukup gambarnya, dan tanpa track
+        // suara rekaman lebih ringan (tidak ada encode Opus, tidak minta izin
+        // mikrofon). Sisi server (ffmpeg -an) mengasumsikan hal yang sama.
         return navigator.mediaDevices.getUserMedia({ video: video, audio: false })
             .then(function (s) {
                 stream = s;
@@ -536,23 +555,32 @@
         return !!(recorder && recorder.state === 'recording');
     }
 
-    function pilihMimeType() {
+    /**
+     * Codec rekaman beserta bitrate yang cocok untuknya.
+     *
+     * VP9 didahulukan karena lebih hemat pada kualitas yang sama (lihat
+     * catatan BITRATE_VP9). VP8 tetap cadangan untuk browser lama. Keduanya
+     * tetap WebM, jadi sisi server (remux, konversi MP4, halaman CS) tidak
+     * perlu tahu codec mana yang dipakai. Codec yang terpilih dipajang di
+     * panel supaya PC yang jatuh ke VP8 bisa dikenali dari lapangan.
+     */
+    function pilihCodec() {
         var kandidat = [
-            'video/webm;codecs=vp8',
-            'video/webm;codecs=vp9',
-            'video/webm'
+            { mime: 'video/webm;codecs=vp9', label: 'VP9', bitrate: BITRATE_VP9 },
+            { mime: 'video/webm;codecs=vp8', label: 'VP8', bitrate: BITRATE_VP8 },
+            { mime: 'video/webm',            label: 'WebM', bitrate: BITRATE_VP8 }
         ];
 
         for (var i = 0; i < kandidat.length; i++) {
-            if (MediaRecorder.isTypeSupported(kandidat[i])) return kandidat[i];
+            if (MediaRecorder.isTypeSupported(kandidat[i].mime)) return kandidat[i];
         }
-        return '';
+        return { mime: '', label: '', bitrate: BITRATE_VP8 };
     }
 
     function jalankanRekaman(noresi) {
-        var opsi = { videoBitsPerSecond: BITRATE_VIDEO };
-        var mime = pilihMimeType();
-        if (mime) opsi.mimeType = mime;
+        var codec = pilihCodec();
+        var opsi  = { videoBitsPerSecond: codec.bitrate };
+        if (codec.mime) opsi.mimeType = codec.mime;
 
         var rec;
         try {
