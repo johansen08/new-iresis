@@ -590,6 +590,47 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Salin data prod ke database arsip (superset) — Task Scheduler
+     * "IRESIS - Arsip harian" tiap 01.00 via scripts/arsip_harian_senyap.vbs.
+     *   php index.php cron arsip_harian                → cek skema + sinkron + laporan
+     *   php index.php cron arsip_harian cek_skema      → hanya samakan struktur
+     *   php index.php cron arsip_harian sinkron 600    → sinkron maks 600 detik (muat awal bertahap)
+     *   php index.php cron arsip_harian laporan        → hanya hitung resi lewat retensi
+     * Tidak ada DELETE di prod pada tahap ini. Setelan: application/config/arsip.php;
+     * penjelasan alur & tahapan: docs/ARSIP_DATA.md.
+     */
+    public function arsip_harian($tahap = 'semua', $maks_detik = null)
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
+        $tahap = $tahap ?: $this->input->get('tahap');
+        $tahap = in_array($tahap, array('semua', 'cek_skema', 'sinkron', 'laporan')) ? $tahap : 'semua';
+        $maks_detik = (int) ($maks_detik !== null ? $maks_detik : $this->input->get('maks_detik'));
+
+        $this->load->model('Arsip_fcd');
+        $hasil = $this->Arsip_fcd->jalankan($tahap, $maks_detik ?: null);
+
+        // Tiap baris sudah membawa jam kejadiannya (dari model); tanggal ditambah di sini.
+        foreach ($hasil['log'] as $baris) {
+            echo date('Y-m-d') . " $baris\n";
+        }
+
+        $ringkas = array(
+            'success' => $hasil['success'], 'tahap' => $tahap, 'durasi_detik' => $hasil['durasi_detik'],
+            'tabel_selesai' => isset($hasil['sinkron']) ? count($hasil['sinkron']['selesai']) : 0,
+            'tabel_gagal'   => isset($hasil['sinkron']) ? array_keys($hasil['sinkron']['gagal']) : array(),
+            'skema_beda'    => isset($hasil['skema']) ? array_keys($hasil['skema']['beda']) : array(),
+            'terpotong'     => !empty($hasil['sinkron']['terpotong']),
+            'resi_lewat_retensi' => isset($hasil['purna_perkiraan']['resi_lewat_retensi']) ? $hasil['purna_perkiraan']['resi_lewat_retensi'] : null,
+        );
+        if (isset($hasil['pesan'])) {
+            $ringkas['pesan'] = $hasil['pesan'];
+        }
+        $this->_log('cron_arsip_harian', $ringkas);
+    }
+
+    /**
      * Set tblsku.foto_lokal untuk semua SKU yang memakai URL ini (NULL = tidak ada
      * salinan). Hanya baris yang nilainya berbeda yang disentuh; balik jumlahnya.
      */
