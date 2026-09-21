@@ -19,7 +19,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $config['db_arsip'] = 'iresis_arsip';
 
 // Retensi keluarga resi di prod (hari, dihitung dari aktivitas terakhir resi).
-// Dipakai tahap "purna" (belum aktif — lihat docs/ARSIP_DATA.md §Tahapan).
+// Dipakai tahap purna (§4c dokumen) — aktif sejak 21 Sep 2026.
 $config['retensi_hari'] = 60;
 
 // Retensi khusus tabel yang BUKAN bagian keluarga resi (hari), diarsipkan tahap
@@ -43,7 +43,7 @@ $config['retensi_khusus'] = array(
 // FALSE: putaran malam 01.00 hanya sinkron. TRUE: setelah sinkron, purna ikut
 // jalan dengan sisa batas waktu. Nyalakan setelah eksekusi manual pertama
 // (php index.php cron arsip_purna jalankan) terbukti bersih.
-$config['purna_aktif'] = FALSE;
+$config['purna_aktif'] = TRUE;  // dinyalakan 21 Sep 2026 14.15 setelah purna pertama bersih (1.902.185 resi)
 
 // Jumlah resi per batch (panjang daftar IN). 2.000 resi ≈ 10-15 rb baris anak.
 $config['purna_batch_resi'] = 2000;
