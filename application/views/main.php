@@ -16,14 +16,12 @@
 	<!-- END META SECTION -->
 
 	<!-- CSS INCLUDE -->
-	<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/blueimp-gallery/2.41.0/css/blueimp-gallery.min.css" />
+	<!-- Semua aset dimuat lokal (tanpa CDN) agar aplikasi tetap jalan saat internet mati; Font Awesome 4.7 ikut lewat theme-*.css -->
+	<link rel="stylesheet" type="text/css" href="assets/css/daterangepicker/daterangepicker.css" />
+	<link rel="stylesheet" type="text/css" href="assets/css/fonts-lokal.css" />
+	<link rel="stylesheet" href="assets/css/blueimp/blueimp-gallery.min.css" />
 	
-	<link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-fresh.css?v=1.0.1" />
+	<link rel="stylesheet" type="text/css" id="theme" href="assets/css/theme-fresh.css?v=1.0.2" />
 	<!-- Panel perekam video packing (Scan Resi Packer Webcam); dibuat oleh assets/js/packer_video.js -->
 	<link rel="stylesheet" type="text/css" href="assets/css/packer_video.css?v=<?= @filemtime(FCPATH . 'assets/css/packer_video.css') ?: '1.0.0' ?>" />
 	<!-- EOF CSS INCLUDE -->
@@ -661,8 +659,8 @@
 	<script type="text/javascript" src="assets/js/plugins/nvd3/nv.d3.min.js"></script>
 	<script type='text/javascript' src='assets/js/plugins/jquery-validation/jquery.validate.js'></script>
 
-	<script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
-	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+	<script type="text/javascript" src="assets/js/plugins/moment/moment.min.js"></script>
+	<script type="text/javascript" src="assets/js/plugins/daterangepicker/daterangepicker.min.js"></script>
 
 	<script type='text/javascript' src='assets/js/plugins/noty/jquery.noty.js'></script>
 	<script type='text/javascript' src='assets/js/plugins/noty/layouts/center.js'></script>
@@ -681,7 +679,7 @@
 	<!-- END TEMPLATE -->
 
 	<!-- NOTIFIKASI -->
-    <script src="https://js.pusher.com/8.0/pusher.min.js" async></script>
+    <script src="assets/js/plugins/pusher/pusher.min.js" async></script>
     <script>
     var userRoleId = "<?= $user['hakakses'] ?>";
     var allowedRoleIds = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
@@ -798,7 +796,7 @@
         <ol class="indicator"></ol>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-gallery/2.41.0/js/blueimp-gallery.min.js"></script>
+    <script src="assets/js/plugins/blueimp/blueimp-gallery.min.js"></script>
     
 
     <script>

@@ -166,7 +166,7 @@ if (!$user || !isset($user['id_user'])) {
 </div>
 
 <!-- Include Chart.js FIRST (before using it) - Use specific version -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="assets/js/plugins/chartjs/chart.umd.min.js"></script>
 
 <script>
 // Check if Chart.js loaded
@@ -174,7 +174,7 @@ if (typeof Chart === 'undefined') {
     console.error('Chart.js failed to load! Using fallback...');
     // Fallback: load from alternative CDN
     var script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+    script.src = 'assets/js/plugins/chartjs/chart.umd.min.js';
     document.head.appendChild(script);
 }
 

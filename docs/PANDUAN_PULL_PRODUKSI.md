@@ -66,7 +66,7 @@ git diff
 - Kalau itu tambalan yang memang perlu dipertahankan: simpan sementara dengan
   `git stash push -m "tambalan lokal produksi"`, pull, lalu `git stash pop`.
 - Kalau itu perubahan yang seharusnya masuk repo: hentikan, commit dulu lewat
-  branch sesuai `docs/DEVELOPMENT_STANDARDS.md` §5.
+  branch sesuai `docs/DEVELOPMENT_STANDARDS.md` §6.
 
 ### A.4 Pastikan remote terpasang
 

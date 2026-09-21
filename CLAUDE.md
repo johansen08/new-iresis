@@ -92,7 +92,7 @@ Tidak ada kredensial di file config. `application/config/secrets.php` (gitignore
 
 ## Alur git
 
-Branch utama **`master`** (branch `development` sudah dihapus 2026-09-12). Satu branch per pekerjaan lahir dari `master` (`feature/*` atau `fix/*`), pesan commit `tipe(modul): deskripsi` dalam bahasa Indonesia (`feat`, `fix`, `docs`, `chore`), merge balik dengan `--no-ff`, hapus branch dengan `-d` (jangan `-D`). Detailnya di `docs/DEVELOPMENT_STANDARDS.md` §5.
+Branch utama **`master`** (branch `development` sudah dihapus 2026-09-12). Satu branch per pekerjaan lahir dari `master` (`feature/*` atau `fix/*`), pesan commit `tipe(modul): deskripsi` dalam bahasa Indonesia (`feat`, `fix`, `docs`, `chore`), merge balik dengan `--no-ff`, hapus branch dengan `-d` (jangan `-D`). Detailnya di `docs/DEVELOPMENT_STANDARDS.md` §6. Aset pihak ketiga wajib lokal, dilarang CDN (§5 dokumen yang sama).
 
 Remote `origin` = `https://github.com/johansen08/new-iresis.git` (sejak 2026-09-12). Setelah merge ke `master`, `git push origin master`. Prosedur menarik perubahan ke PC produksi ada di `docs/PANDUAN_PULL_PRODUKSI.md`.
 
