@@ -57,7 +57,7 @@ MariaDB (satu instance, satu koneksi aplikasi)
 
 Hak akses: user aplikasi (`iresis_app`@`localhost` dan `@127.0.0.1`) diberi
 `GRANT ALL PRIVILEGES ON iresis_arsip.*` pada 21 Sep 2026. `REPLACE` membutuhkan INSERT +
-DELETE **di tabel arsip** — bukan di prod. Job ini tidak pernah menjalankan DELETE/UPDATE di prod.
+DELETE **di tabel arsip** — bukan di prod. Sinkron dan tarik-balik tidak pernah menjalankan DELETE/UPDATE di prod; satu-satunya yang menghapus di prod adalah purna (§4c), dengan gerbang keselamatan dan verifikasi per batch.
 
 ## 4. Cara kerja satu putaran (`cron arsip_harian`)
 
@@ -129,6 +129,62 @@ Lewat HTTP (jarang perlu): `/cron/arsip_harian?token=<cron_token>&tahap=cek_skem
 | Ditolak otomatis | Kalau `db_pconnect` aktif (SET SESSION akan menempel di koneksi yang dipakai ulang request prod), atau `db_select` gagal — session dibersihkan, dicatat di `application/logs/`. |
 | Kesegaran | Halaman Mode Arsip menampilkan sinkron terakhir dan kegagalan 3 hari terakhir dari `_arsip_status`/`_arsip_log`. |
 
+## 4c. Purna — memindahkan keluarga resi > 60 hari keluar dari prod
+
+Satu-satunya bagian yang menjalankan `DELETE` di prod: `Arsip_fcd::purna()`, dipicu
+`php index.php cron arsip_purna [uji|jalankan] [maks_detik] [maks_resi]`, atau otomatis di
+putaran 01.00 setelah sinkron bila `purna_aktif = TRUE` di `config/arsip.php`.
+
+**Gerbang keselamatan** (ditolak kalau salah satu gagal): skema prod = arsip untuk semua tabel
+keluarga; sinkron terakhir ≤ 36 jam; backup arsip (`C:\backup-db\otomatis\iresis_arsip_*.sql.gz`)
+≤ 36 jam.
+
+**Calon** (`calon_purna`): resi yang aktivitas terakhir di `tblprintresi` (`GREATEST` tanggal
+cetak/`created_at`/`modified_at`/selesai/retur/pengiriman) < cutoff, **dan** tidak ada tanda
+masih terbuka:
+
+| Ditunda kalau | Alasan |
+|---|---|
+| packing / ambil barang / keluar / retur / verifikasi / cancel / komplain bertanggal ≥ cutoff | masih ada aktivitas |
+| `tblresiretur.status_retur = 'Terima Retur'` | diterima tapi belum dibuka |
+| `tblbukaretur.status_acc = 0` | belum di-ACC finance (3.517 resi per 21 Sep 2026) |
+| komplain CS `status_penanganan` ≠ 'Selesai' (NULL = belum) | komplain masih berjalan |
+| belum ada scan keluar **dan** status bukan CANCELED/COMPLETED/SHIPPED/RETURNED | resi nyangkut (201 resi) |
+
+`status_pesanan = PROCESSING` yang sudah punya scan keluar (54.044 resi) dianggap **status
+basi** dan boleh diarsip.
+
+**Per batch** (2.000 resi, `purna_batch_resi`): `REPLACE` 19 tabel keluarga ke arsip →
+verifikasi **setiap PK prod ada di arsip** (gagal = berhenti, tidak ada yang dihapus) → `DELETE`
+di prod dalam satu transaksi, anak dulu, `tblprintresi` terakhir. Lalu `tblkpi` (400 hari,
+kolom `tanggal`) dan `notifications` (30 hari) dengan cara yang sama berdasarkan tanggalnya.
+Jejak per batch di `_arsip_log` tahap `purna`.
+
+Sesi purna memakai `optimizer_switch='materialization=off'`: tanpa itu MariaDB 10.4
+mematerialisasi tiap `NOT EXISTS` (memindai indeks `tblpacking` 2,7 jt baris per batch,
+±10 dtk); dengan itu ±90 ms. Terukur 21 Sep 2026: mode uji 20.000 resi / 19,8 dtk.
+
+**Prosedur eksekusi pertama** (dijalankan user — Claude dilarang menjalankan DELETE):
+
+```bash
+# 1. Uji — semua langkah kecuali DELETE (REPLACE ke arsip + verifikasi), laporkan jumlah
+C:/xampp/php/php.exe index.php cron arsip_purna uji 300
+```
+
+```bash
+# 2. Satu batch sungguhan (2.000 resi tertua), lalu cek aplikasi & jumlah baris
+C:/xampp/php/php.exe index.php cron arsip_purna jalankan 120 2000
+```
+
+```bash
+# 3. Sisanya — berhenti sendiri saat calon habis atau 2 jam
+C:/xampp/php/php.exe index.php cron arsip_purna jalankan 7200
+```
+
+Setelah bersih, nyalakan `purna_aktif = TRUE` supaya putaran malam mengarsipkan yang baru
+lewat 60 hari tiap hari (±10 rb resi/hari, hitungan detik). Ukuran berkas `.ibd` **tidak**
+mengecil sampai `OPTIMIZE TABLE` (tahap 8); jumlah baris dan kerja indeks langsung turun.
+
 ## 5. Batasan yang disengaja
 
 - **Baris yang dihapus di prod tetap ada di arsip.** Arsip tidak pernah menghapus. Kalau
@@ -160,7 +216,7 @@ Lewat HTTP (jarang perlu): `/cron/arsip_harian?token=<cron_token>&tahap=cek_skem
 | 4 | Mode Arsip: `db_select` ke arsip di akhir `MY_Controller`, sesi `READ ONLY`, menu "Mode Arsip" + roleaccess (1, 2, 6, 10; role lain via Access), banner merah | **Selesai 21 Sep 2026** — uji di browser oleh user |
 | 5 | `pastikan_resi_live($noresi)` (helper autoload → `Arsip_fcd::tarik_balik`, peta tabel di config `keluarga_resi`): dipasang di 10 titik masuk — scan retur, buka retur (3), komplain CS (2), kurangan picker, video packing, detail resi, cancel order. Diagnostik: `php index.php cron cek_resi_live <noresi>` | **Selesai 21 Sep 2026** — jalur `ditarik` diuji di sandbox bersama tahap 7 |
 | 6 | Backup arsip harian: task "IRESIS - Backup arsip 02.30" → `backup_db.ps1 -Database iresis_arsip -Simpan 7 -Paksa` (via `scripts/backup_arsip_senyap.vbs`), file `C:backup-dbotomatisiresis_arsip_*.sql.gz`, rotasi 7 hari. Uji 21 Sep: 1,7 GB → 260 MB gz, 129 dtk, CRC OK. Masih satu disk (hanya ada C:) — pindahkan `$dirBackup` bila ada drive lain | **Selesai 21 Sep 2026** |
-| 7 | Purna: keluarga resi > 60 hari & tanpa status terbuka → `REPLACE` ulang ke arsip → cocokkan → `DELETE` prod per batch; retensi khusus `tblkpi`/`tblpacker_performance_logs` 400 hari, `notifications` 30 hari | Belum — diuji di salinan prod dulu; eksekusi pertama di prod oleh user |
+| 7 | Purna (§4c): `cron arsip_purna [uji|jalankan]`, gerbang keselamatan (skema, sinkron ≤ 36 jam, backup arsip ≤ 36 jam), per batch REPLACE → verifikasi PK → DELETE; `tblkpi` 400 hari, `notifications` 30 hari | **Script selesai & teruji mode uji 21 Sep 2026** (20 rb resi/19,8 dtk, verifikasi lolos); eksekusi `jalankan` pertama oleh user, lalu `purna_aktif = TRUE` |
 | 8 | `OPTIMIZE TABLE` 5 tabel besar sebulan sekali (Minggu malam) agar ruang disk kembali | Belum |
 | 9 | Peringatan di laporan bila rentang tanggal menyentuh sebelum cutoff | Belum |
 

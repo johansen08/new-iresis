@@ -631,6 +631,43 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Purna: pindahkan keluarga resi > retensi (config arsip `retensi_hari`)
+     * dari prod ke arsip — satu-satunya tugas yang menjalankan DELETE di prod.
+     *   php index.php cron arsip_purna                    → UJI: semua langkah kecuali DELETE, laporkan jumlah
+     *   php index.php cron arsip_purna uji 300            → uji maks 300 detik
+     *   php index.php cron arsip_purna jalankan 600 2000  → HAPUS sungguhan, maks 600 dtk / 2.000 resi
+     *   php index.php cron arsip_purna jalankan           → HAPUS sungguhan sampai habis / batas waktu config
+     * Ditolak gerbang keselamatan bila backup arsip atau sinkron terakhir > 36 jam,
+     * atau skema prod-arsip beda. Rincian: docs/ARSIP_DATA.md §4c.
+     */
+    public function arsip_purna($mode = 'uji', $maks_detik = null, $maks_resi = null)
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
+        $mode       = $mode ?: $this->input->get('mode');
+        $uji        = ($mode !== 'jalankan');
+        $maks_detik = (int) ($maks_detik !== null ? $maks_detik : $this->input->get('maks_detik'));
+        $maks_resi  = (int) ($maks_resi !== null ? $maks_resi : $this->input->get('maks_resi'));
+
+        $this->load->model('Arsip_fcd');
+        $hasil = $this->Arsip_fcd->purna($maks_detik ?: null, $maks_resi, $uji);
+
+        foreach ($hasil['log'] as $baris) {
+            echo date('Y-m-d') . " $baris\n";
+        }
+        $ringkas = array(
+            'success' => $hasil['success'], 'mode' => $uji ? 'uji' : 'jalankan', 'durasi_detik' => $hasil['durasi_detik'],
+            'resi' => $hasil['resi'], 'batch' => $hasil['batch'], 'baris' => array_filter($hasil['baris']),
+            'khusus' => $hasil['khusus'],
+        );
+        if (!empty($hasil['pesan'])) {
+            $ringkas['pesan'] = $hasil['pesan'];
+        }
+        $this->_log('cron_arsip_purna', $ringkas);
+    }
+
+    /**
      * Diagnostik: status satu resi terhadap arsip, dan tarik balik ke prod bila
      * hanya ada di arsip (perilaku sama persis dengan helper pastikan_resi_live()
      * yang dipanggil alur retur/CS).
