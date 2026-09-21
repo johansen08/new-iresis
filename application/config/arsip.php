@@ -90,6 +90,23 @@ $config['kunci_basi_detik'] = 6 * 3600;
 
 /*
 | -------------------------------------------------------------------
+| OPTIMASI — kembalikan ruang disk setelah purna (tahap 8)
+| -------------------------------------------------------------------
+| DELETE tidak mengecilkan berkas .ibd (innodb_file_per_table). OPTIMIZE TABLE
+| membangun ulang tabel (InnoDB: ALTER ... FORCE, online) — dijalankan
+| Cron::optimasi_tabel lewat task "IRESIS - Optimasi tabel" (22.30, tanggal 1
+| tiap bulan; pertama kali 21 Sep 2026). Ditolak di jam kerja kecuali dipaksa.
+*/
+$config['optimasi_tabel'] = array(
+	'tblprintresi', 'tbldetailprintresi', 'tblresiambilbarang', 'tblpacking',
+	'tblresikeluar', 'tblpacker_performance_logs', 'tblkpi', 'notifications',
+);
+// Jam kerja yang dilindungi (OPTIMIZE mengunci tabel beberapa menit).
+$config['optimasi_jam_mulai']   = 7;
+$config['optimasi_jam_selesai'] = 22;
+
+/*
+| -------------------------------------------------------------------
 | KELUARGA RESI — tabel-tabel yang "ikut" satu resi
 | -------------------------------------------------------------------
 | Dipakai pastikan_resi_live() (tarik keluarga resi lama dari arsip ke prod

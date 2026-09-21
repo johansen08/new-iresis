@@ -668,6 +668,115 @@ class Cron extends CI_Controller
     }
 
     /**
+     * OPTIMIZE TABLE tabel-tabel besar prod (config arsip `optimasi_tabel`) agar
+     * ruang disk yang dilepas purna benar-benar kembali. Task "IRESIS - Optimasi
+     * tabel" 22.30 tanggal 1 tiap bulan; manual:
+     *   php index.php cron optimasi_tabel            → semua tabel di config (tolak di jam kerja)
+     *   php index.php cron optimasi_tabel paksa      → abaikan batas jam kerja
+     *   php index.php cron optimasi_tabel "" tblkpi  → satu tabel saja
+     * InnoDB menjalankannya sebagai ALTER TABLE ... FORCE (online, tapi metadata
+     * lock di awal/akhir) — jangan di jam kerja.
+     */
+    public function optimasi_tabel($paksa = '', $hanya = '')
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '256M');
+
+        $this->config->load('arsip', TRUE);
+        $cfg   = $this->config->item('arsip');
+        $paksa = ($paksa === 'paksa') || $this->input->get('paksa');
+        $hanya = $hanya ?: (string) $this->input->get('tabel');
+        $jam   = (int) date('G');
+
+        if (!$paksa && $jam >= (int) $cfg['optimasi_jam_mulai'] && $jam < (int) $cfg['optimasi_jam_selesai']) {
+            $this->_log('cron_optimasi_tabel', array('success' => FALSE,
+                'pesan' => "Ditolak: jam $jam masih jam kerja ({$cfg['optimasi_jam_mulai']}-{$cfg['optimasi_jam_selesai']}); pakai 'paksa' bila yakin"));
+            return;
+        }
+
+        $daftar = $hanya !== '' ? array($hanya) : $cfg['optimasi_tabel'];
+        $db     = $this->db->database;
+        $dir    = NULL;
+        $r      = $this->db->query("SELECT @@datadir d")->row();
+        if ($r && $r->d) {
+            $dir = rtrim(str_replace('\\', '/', $r->d), '/') . '/' . $db . '/';
+        }
+
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        $this->db->query("SET SESSION wait_timeout = 28800");
+
+        $hasil  = array();
+        $gagal  = array();
+        $t_awal = microtime(TRUE);
+        foreach ($daftar as $t) {
+            $sebelum = $this->ukuran_tabel($db, $t, $dir);
+            if ($sebelum === NULL) {
+                $gagal[$t] = 'tabel tidak ada';
+                echo date('Y-m-d H:i:s') . "  $t: tabel tidak ada\n";
+                continue;
+            }
+            $t0 = microtime(TRUE);
+            try {
+                $q = $this->db->query("OPTIMIZE TABLE `$db`.`$t`");
+                $baris = $q ? $q->result_array() : array();
+            } catch (Throwable $e) {
+                $q = FALSE;
+                $baris = array(array('Msg_type' => 'error', 'Msg_text' => $e->getMessage()));
+            }
+            $detik = round(microtime(TRUE) - $t0, 1);
+            $pesan = array();
+            $error = FALSE;
+            foreach ($baris as $b) {
+                // InnoDB selalu membalas "Table does not support optimize, doing recreate + analyze instead" — itu normal.
+                if (isset($b['Msg_type']) && strtolower($b['Msg_type']) === 'error') {
+                    $error = TRUE;
+                }
+                if (isset($b['Msg_text']) && stripos($b['Msg_text'], 'does not support optimize') === FALSE) {
+                    $pesan[] = $b['Msg_type'] . ': ' . $b['Msg_text'];
+                }
+            }
+            $sesudah = $this->ukuran_tabel($db, $t, $dir);
+            $hasil[$t] = array('sebelum_mb' => $sebelum, 'sesudah_mb' => $sesudah, 'detik' => $detik, 'pesan' => implode('; ', $pesan));
+            if ($q === FALSE || $error) {
+                $gagal[$t] = implode('; ', $pesan);
+            }
+            echo date('Y-m-d H:i:s') . sprintf("  %-28s %8.1f MB -> %8.1f MB  %6.1f dtk  %s\n", $t, $sebelum, $sesudah, $detik,
+                ($q === FALSE || $error) ? 'GAGAL ' . implode('; ', $pesan) : 'OK');
+        }
+        $this->db->db_debug = $debug_lama;
+
+        $total_sebelum = $total_sesudah = 0;
+        foreach ($hasil as $h) {
+            $total_sebelum += $h['sebelum_mb'];
+            $total_sesudah += (float) $h['sesudah_mb'];
+        }
+        $this->_log('cron_optimasi_tabel', array(
+            'success' => empty($gagal), 'tabel' => count($hasil), 'gagal' => $gagal,
+            'sebelum_mb' => round($total_sebelum, 1), 'sesudah_mb' => round($total_sesudah, 1),
+            'hemat_mb' => round($total_sebelum - $total_sesudah, 1), 'durasi_detik' => round(microtime(TRUE) - $t_awal, 1),
+        ));
+    }
+
+    /** Ukuran tabel dalam MB: berkas .ibd di disk bila terbaca, kalau tidak data+indeks dari information_schema. NULL bila tabel tidak ada. */
+    private function ukuran_tabel($db, $t, $dir)
+    {
+        $r = $this->db->query("SELECT data_length + index_length b FROM information_schema.tables
+            WHERE table_schema = ? AND table_name = ?", array($db, $t))->row();
+        if (!$r) {
+            return NULL;
+        }
+        clearstatcache();
+        if ($dir && is_file($dir . $t . '.ibd')) {
+            $f = @filesize($dir . $t . '.ibd');
+            if ($f !== FALSE) {
+                return round($f / 1048576, 1);
+            }
+        }
+        return round((int) $r->b / 1048576, 1);
+    }
+
+    /**
      * Diagnostik: status satu resi terhadap arsip, dan tarik balik ke prod bila
      * hanya ada di arsip (perilaku sama persis dengan helper pastikan_resi_live()
      * yang dipanggil alur retur/CS).
