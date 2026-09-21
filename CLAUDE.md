@@ -80,7 +80,7 @@ Tidak ada kredensial di file config. `application/config/secrets.php` (gitignore
 
 - **Pusher** (notifikasi realtime): `models/Notification.php::send()` → `libraries/Pusher_lib.php`.
 - **Jubelio**: tidak ada API stabil untuk unduh laporan (Telerik Report Server hanya bisa dipicu dari flow "Cetak" di UI-nya), jadi jalurnya browser automation Python di `scripts/*.py` yang lalu POST ke endpoint `cron/auto_upload_*`. Lihat `docs/AUTO_UPLOAD_RESI.md` dan `docs/AUTO_UPLOAD_RETUR_JUBELIO.md`.
-- **`Cron.php`**: auth via `?token=` yang dicocokkan ke `cron_token` di secrets, atau bebas token saat `is_cli()`. Isinya sekarang hanya `auto_upload_*` (dipanggil `scripts/*.py`), `check_resi_status`, `fix_resi_detail`, `tutup_video_menggantung`, dan `finalisasi_video` (task scheduler, tiap menit).
+- **`Cron.php`**: auth via `?token=` yang dicocokkan ke `cron_token` di secrets, atau bebas token saat `is_cli()`. Isinya sekarang hanya `auto_upload_*` (dipanggil `scripts/*.py`), `check_resi_status`, `fix_resi_detail`, `tutup_video_menggantung`, `finalisasi_video` (task scheduler, tiap menit), dan `sinkron_foto_sku` (cache foto produk ke `assets/foto_sku/` agar tampil saat internet mati; helper `foto_sku_url()`).
 - **WhatsApp gateway & ngrok sudah dihapus** (17 Sep 2026, commit di branch `chore/hapus-wa-gateway-ngrok`). Kalau perlu lagi, sumbernya ada di git history sebelum commit itu.
 
 ## Standar coding (ringkas dari `docs/DEVELOPMENT_STANDARDS.md`)

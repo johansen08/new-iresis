@@ -237,7 +237,7 @@ class Packer extends MY_Controller
 				'nama_sku'      => $row->nama_sku ?? '-',
 				'jumlah'        => (int) ($row->jumlah ?? 0),
 				'no_rak'        => $row->no_rak ?? '-',
-				'link_foto'     => $row->link_foto ?? '',
+				'link_foto'     => foto_sku_url($row->link_foto ?? ''), // salinan lokal bila ada (offline-proof)
 				'jenis_packing' => $row->jenis_packing ?? '',
 				'nama_picker'   => $row->name ?? ($row->yangambil_pegawai ?? ''),
 			];
@@ -501,7 +501,7 @@ class Packer extends MY_Controller
                     $jumlah = $row_masalah->jumlah ?? 0;
                     $no_rak = $row_masalah->no_rak ?? '-';
                     $nama_barang = $row_masalah->nama_sku ?? '-';
-                    $link_foto = $row_masalah->link_foto ?? '';
+                    $link_foto = foto_sku_url($row_masalah->link_foto ?? ''); // salinan lokal bila ada
                     $yangambil_pegawai = $row_masalah->yangambil_pegawai ?? '';
                     $picker_name = $row_masalah->name ?? $yangambil_pegawai; // Use picker_name if available, fallback to yangambil_pegawai
 

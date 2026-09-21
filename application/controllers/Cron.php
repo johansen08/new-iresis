@@ -438,6 +438,149 @@ class Cron extends CI_Controller
      * hasilnya. Sumber yang hilang tidak akan sembuh dengan diulang; kegagalan
      * lain dikembalikan ke antrian sampai tiga percobaan.
      */
+    /**
+     * Sinkron foto produk ke cache lokal (assets/foto_sku/), lihat helper foto_sku.
+     *
+     * tblsku.link_foto menunjuk ke object storage Jubelio, jadi foto di layar
+     * packer/retur/QC hilang saat internet putus. Method ini mengunduh setiap
+     * URL unik yang belum punya salinan lokal (nama berkas md5(url).ext) --
+     * idempoten, aman dijalankan berulang; hanya URL baru yang diunduh.
+     * URL yang dijawab 404/410 ditandai berkas <nama>.tidakada agar tidak
+     * dicoba terus. Kegagalan lain (timeout dsb.) dicoba lagi di putaran
+     * berikutnya. Satu putaran dibatasi $maks_detik supaya task harian tidak
+     * menumpuk; kunci berkas mencegah dua putaran berjalan bersamaan.
+     *
+     *   php index.php cron sinkron_foto_sku            (maks. 25 menit, 6 paralel)
+     *   php index.php cron sinkron_foto_sku 3600 8     (maks. 1 jam, 8 paralel)
+     */
+    public function sinkron_foto_sku($maks_detik = null, $paralel = null)
+    {
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
+        $maks_detik = (int) ($maks_detik !== null ? $maks_detik : $this->input->get('maks_detik'));
+        $paralel    = (int) ($paralel !== null ? $paralel : $this->input->get('paralel'));
+        if ($maks_detik <= 0) {
+            $maks_detik = 1500;
+        }
+        $paralel = max(1, min(16, $paralel ?: 6));
+
+        $dir = FCPATH . FOTO_SKU_DIR;
+        if (!is_dir($dir) && !@mkdir($dir, 0755, TRUE)) {
+            $this->_log('cron_sinkron_foto_sku', ['success' => FALSE, 'pesan' => "Folder $dir tidak bisa dibuat"]);
+            return;
+        }
+
+        // Kunci: satu putaran pada satu waktu (task harian vs. jalan manual).
+        $kunci = fopen(APPPATH . 'cache/sinkron_foto_sku.lock', 'c');
+        if (!$kunci || !flock($kunci, LOCK_EX | LOCK_NB)) {
+            $this->_log('cron_sinkron_foto_sku', ['success' => TRUE, 'pesan' => 'Putaran lain masih berjalan, lewati'], FALSE);
+            return;
+        }
+
+        $mulai   = microtime(true);
+        $ringkas = ['total_url' => 0, 'sudah_ada' => 0, 'tidak_ada' => 0, 'diunduh' => 0, 'gagal' => 0,
+                    'sisa' => 0, 'byte' => 0, 'detik' => 0, 'habis_waktu' => FALSE, 'contoh_gagal' => []];
+
+        $rows = $this->db->query("SELECT DISTINCT link_foto FROM tblsku WHERE link_foto LIKE 'http%'")->result();
+        $antrian = [];
+        foreach ($rows as $r) {
+            $url  = trim($r->link_foto);
+            $nama = foto_sku_nama_berkas($url);
+            if ($nama === '') {
+                continue;
+            }
+            $ringkas['total_url']++;
+            if (is_file($dir . $nama)) {
+                $ringkas['sudah_ada']++;
+            } elseif (is_file($dir . $nama . '.tidakada')) {
+                $ringkas['tidak_ada']++;
+            } else {
+                $antrian[$nama] = $url;
+            }
+        }
+        unset($rows);
+
+        foreach (array_chunk($antrian, $paralel, TRUE) as $batch) {
+            if (microtime(true) - $mulai > $maks_detik) {
+                $ringkas['habis_waktu'] = TRUE;
+                break;
+            }
+
+            $mh = curl_multi_init();
+            $ch = [];
+            foreach ($batch as $nama => $url) {
+                $c = curl_init($url);
+                curl_setopt_array($c, [
+                    CURLOPT_RETURNTRANSFER => TRUE,
+                    CURLOPT_FOLLOWLOCATION => TRUE,
+                    CURLOPT_MAXREDIRS      => 3,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT        => 45,
+                    CURLOPT_USERAGENT      => 'IRESIS-sinkron-foto-sku/1.0',
+                ]);
+                curl_multi_add_handle($mh, $c);
+                $ch[$nama] = $c;
+            }
+            do {
+                $status = curl_multi_exec($mh, $aktif);
+                if ($aktif) {
+                    curl_multi_select($mh, 1.0);
+                }
+            } while ($aktif && $status === CURLM_OK);
+
+            foreach ($ch as $nama => $c) {
+                $body = curl_multi_getcontent($c);
+                $kode = (int) curl_getinfo($c, CURLINFO_HTTP_CODE);
+                $tipe = (string) curl_getinfo($c, CURLINFO_CONTENT_TYPE);
+                $err  = curl_error($c);
+                curl_multi_remove_handle($mh, $c);
+                curl_close($c);
+
+                if ($kode === 200 && $body !== '' && $body !== FALSE
+                    && (stripos($tipe, 'image/') === 0 || $this->terlihat_gambar($body))) {
+                    // Tulis ke .part dulu, lalu rename, supaya pembaca tidak dapat berkas setengah.
+                    if (file_put_contents($dir . $nama . '.part', $body) !== FALSE
+                        && rename($dir . $nama . '.part', $dir . $nama)) {
+                        $ringkas['diunduh']++;
+                        $ringkas['byte'] += strlen($body);
+                        continue;
+                    }
+                    $err = 'gagal menulis berkas';
+                } elseif ($kode === 404 || $kode === 410) {
+                    @touch($dir . $nama . '.tidakada');
+                    $ringkas['tidak_ada']++;
+                    continue;
+                }
+
+                $ringkas['gagal']++;
+                if (count($ringkas['contoh_gagal']) < 5) {
+                    $ringkas['contoh_gagal'][] = "HTTP $kode " . ($err ?: $tipe) . ' <- ' . $batch[$nama];
+                }
+            }
+            curl_multi_close($mh);
+        }
+
+        $ringkas['sisa']    = max(0, $ringkas['total_url'] - $ringkas['sudah_ada'] - $ringkas['tidak_ada'] - $ringkas['diunduh']);
+        $ringkas['detik']   = round(microtime(true) - $mulai, 1);
+        $ringkas['success'] = TRUE;
+
+        flock($kunci, LOCK_UN);
+        fclose($kunci);
+
+        $this->_log('cron_sinkron_foto_sku', $ringkas, $ringkas['diunduh'] > 0 || $ringkas['gagal'] > 0);
+    }
+
+    /** Deteksi gambar dari magic bytes bila server tidak mengirim Content-Type image/*. */
+    private function terlihat_gambar($body)
+    {
+        $awal = substr($body, 0, 12);
+        return strpos($awal, "\xFF\xD8\xFF") === 0                                  // JPEG
+            || strpos($awal, "\x89PNG") === 0                                      // PNG
+            || strpos($awal, 'GIF8') === 0                                         // GIF
+            || (strpos($awal, 'RIFF') === 0 && substr($awal, 8, 4) === 'WEBP');    // WebP
+    }
+
     private function transcode_satu_mp4($row, array &$ringkas)
     {
         $sumber = $this->video_packing_fcd->path_berkas($row);
