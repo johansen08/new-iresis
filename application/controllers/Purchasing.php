@@ -237,9 +237,18 @@ class Purchasing extends MY_Controller
         }
         
         if ($field) {
-            // Jika berupa URL lengkap: arahkan ke salinan lokal bila sudah disinkron
+            // Jika berupa URL lengkap: ke URL asli; ?sumber=lokal (dipanggil onerror
+            // <img> di view) -> salinan lokal bila sudah disinkron, kalau tidak no-image.
             if (filter_var($field, FILTER_VALIDATE_URL)) {
-                redirect(foto_sku_url($field));
+                if ($this->input->get('sumber') === 'lokal') {
+                    $lokal = foto_sku_lokal_url($field, $row->foto_lokal ?? '');
+                    if ($lokal !== '') {
+                        redirect($lokal);
+                    }
+                    $field = null; // jatuh ke gambar default di bawah
+                } else {
+                    redirect($field);
+                }
             }
             // Jika base64
             if (strpos($field, 'data:image') === 0) {

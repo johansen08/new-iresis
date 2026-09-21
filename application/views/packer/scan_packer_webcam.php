@@ -649,7 +649,7 @@
       var fotoUrl = $(this).data('foto');
 
         if (fotoUrl && fotoUrl.trim() !== '') {
-            $('#previewFoto').attr('src', fotoUrl);   // ✅ Set the image source
+            $('#previewFoto').attr('data-foto-lokal', $(this).attr('data-foto-lokal') || '').attr('src', fotoUrl); // URL asli dulu, lokal cadangan
             $('#fotoModal').fadeIn();                 // ✅ Show the modal
         } else {
             alert('Foto tidak tersedia!');
@@ -661,7 +661,7 @@
       var fotoUrl = $(this).data('foto');
 
         if (fotoUrl && fotoUrl.trim() !== '') {
-            $('#previewFoto').attr('src', fotoUrl);   // ✅ Set the image source
+            $('#previewFoto').attr('data-foto-lokal', $(this).attr('data-foto-lokal') || '').attr('src', fotoUrl); // URL asli dulu, lokal cadangan
             $('#fotoModal').fadeIn();                 // ✅ Show the modal
         } else {
             alert('Foto tidak tersedia!');

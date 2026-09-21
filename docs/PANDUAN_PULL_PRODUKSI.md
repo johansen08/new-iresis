@@ -595,3 +595,52 @@ atau tunda rilis ini. Menurunkan bitrate (`BITRATE_VP9` / `BITRATE_VP8` di
 Ikuti A.9 — tidak ada data yang perlu dipulihkan. Rekaman yang sudah
 terlanjur dibuat 1080p/VP9 tetap bisa diputar dan dikonversi MP4 oleh
 versi lama (server memang tidak pernah membedakan codec).
+
+---
+
+## F. Rilis 21 September 2026 — aplikasi tetap jalan saat internet putus
+
+Dikerjakan **langsung di PC produksi** (semua sudah aktif di sana sejak 21 Sep
+pagi), jadi bagian ini untuk PC lain (dev/cadangan) yang menarik commit-nya.
+
+| Commit | Perubahan |
+|---|---|
+| `fix/aset-lokal-offline` | Semua library/font/ikon dari `assets/` (tanpa CDN); timeout Pusher 5 detik |
+| `feature/foto-sku-lokal` + `feature/foto-produk-url-dulu-lokal` | Foto produk: URL asli dulu, cadangan lokal `C:\foto-produk\`; kolom `tblsku.foto_lokal`; cron `sinkron_foto_sku` |
+
+### F.1 Database — otomatis lewat migrasi
+
+`BOOTSTRAP_VERSI` naik ke `2026-09-21.1`: `run_foto_sku_lokal_migration()`
+menambah kolom `tblsku.foto_lokal VARCHAR(64) NULL` (hanya kolom, tidak
+menyentuh baris). Kolom diisi oleh cron, bukan migrasi. Cek:
+
+```sql
+SHOW COLUMNS FROM tblsku LIKE 'foto_lokal';
+SELECT COUNT(*) total, SUM(foto_lokal IS NOT NULL) terisi FROM tblsku WHERE link_foto LIKE 'http%';
+```
+
+### F.2 Di luar repo — WAJIB di PC yang melayani klien
+
+1. **Folder** `C:\foto-produk\` (atau ubah `foto_produk_dir` di `secrets.php`).
+2. **Apache**: salin `C:\xampp\apache\conf\extra\httpd-iresis-foto-produk.conf`
+   (isinya ada di `docs/DEVELOPMENT_STANDARDS.md` §5 dan di PC produksi) lalu
+   tambahkan `Include conf/extra/httpd-iresis-foto-produk.conf` di akhir
+   `httpd.conf`; `httpd -t` harus `Syntax OK`; restart Apache. Tanpa ini
+   `/foto-produk/...` 404 — aplikasi tetap jalan (URL asli dipakai dulu), hanya
+   cadangan offline-nya tidak ada.
+3. **Task Scheduler** *IRESIS - Sinkron foto SKU*: harian 23.00, aksi
+   `wscript.exe //B //Nologo "C:\xampp\htdocs\new-iresis\scripts\sinkron_foto_sku_senyap.vbs"`,
+   batas 1 jam, jangan dobel. Isi awal (8.550 URL, ±200 MB, ±10 menit) bisa
+   dijalankan manual: `C:\xampp\php\php.exe index.php cron sinkron_foto_sku 3600 10`.
+
+### F.3 Verifikasi di sisi pengguna
+
+- Matikan internet sebentar (cabut WAN router) → buka Scan Resi Packer: ikon,
+  filter tanggal, dan foto produk tetap tampil (foto muncul ≤4 detik setelah
+  URL asli gagal). Log `C:\foto-produk\sinkron.log` berisi ringkasan per putaran.
+- Console browser tidak boleh ada request ke `cdnjs`, `jsdelivr`, `googleapis`.
+
+### F.4 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Kolom `foto_lokal` boleh dibiarkan (tidak dipakai versi lama).
+Backup `tblsku` sebelum pengisian pertama: tabel `tblsku_bak_20260921`.

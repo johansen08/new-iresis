@@ -77,6 +77,7 @@ class Receipt_fcd extends CI_Model
             dr.no_rak,
             s.nama_sku,
             s.link_foto,
+            s.foto_lokal,
             s.jenis_packing,
             rab.yangambil_pegawai,
             u.name

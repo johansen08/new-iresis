@@ -39,7 +39,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-18.4';
+    const BOOTSTRAP_VERSI = '2026-09-21.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -96,6 +96,7 @@ class MY_Controller extends CI_Controller
         $this->run_lost_scan_picker_migration();
         $this->run_scan_paket_ndd_new_migration();
         $this->run_salah_ambil_special_migration();
+        $this->run_foto_sku_lokal_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1471,6 +1472,22 @@ class MY_Controller extends CI_Controller
      * client packer (4). Daftar yang sama dikunci di
      * Salah_ambil_special::ROLE_BOLEH; keduanya harus sejalan.
      */
+    /**
+     * Kolom tblsku.foto_lokal: nama berkas salinan lokal foto produk
+     * (= md5(link_foto).ext di folder foto_produk_dir, bawaan C:/foto-produk/).
+     * Diisi Cron::sinkron_foto_sku; dibaca helper foto_sku (URL asli dulu,
+     * lokal hanya cadangan saat internet putus). Menambah kolom saja, tidak
+     * menyentuh baris.
+     */
+    protected function run_foto_sku_lokal_migration()
+    {
+        if (!in_array('foto_lokal', $this->db->list_fields('tblsku'))) {
+            $this->db->query("ALTER TABLE tblsku ADD COLUMN foto_lokal VARCHAR(64) DEFAULT NULL"
+                . " COMMENT 'Nama berkas salinan lokal foto (folder foto_produk_dir, = md5(link_foto).ext), diisi cron sinkron_foto_sku'"
+                . " AFTER link_foto");
+        }
+    }
+
     protected function run_salah_ambil_special_migration()
     {
         $uri = 'salah-ambil-special';

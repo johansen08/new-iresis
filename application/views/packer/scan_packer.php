@@ -497,7 +497,7 @@
       var fotoUrl = $(this).data('foto');
 
         if (fotoUrl && fotoUrl.trim() !== '') {
-            $('#previewFoto').attr('src', fotoUrl);   // ✅ Set the image source
+            $('#previewFoto').attr('data-foto-lokal', $(this).attr('data-foto-lokal') || '').attr('src', fotoUrl); // URL asli dulu, lokal cadangan
             $('#fotoModal').fadeIn();                 // ✅ Show the modal
         } else {
             alert('Foto tidak tersedia!');
@@ -509,7 +509,7 @@
       var fotoUrl = $(this).data('foto');
 
         if (fotoUrl && fotoUrl.trim() !== '') {
-            $('#previewFoto').attr('src', fotoUrl);   // ✅ Set the image source
+            $('#previewFoto').attr('data-foto-lokal', $(this).attr('data-foto-lokal') || '').attr('src', fotoUrl); // URL asli dulu, lokal cadangan
             $('#fotoModal').fadeIn();                 // ✅ Show the modal
         } else {
             alert('Foto tidak tersedia!');
@@ -720,7 +720,7 @@
 
     items.forEach(function(item, i) {
       var foto = item.link_foto
-        ? '<img src="' + escapeHtml(item.link_foto) + '" style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' + escapeHtml(item.link_foto) + '">'
+        ? '<img src="' + escapeHtml(item.link_foto) + '" data-foto-lokal="' + escapeHtml(item.foto_lokal || '') + '" style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' + escapeHtml(item.link_foto) + '">'
         : '<span class="text-muted">No Photo</span>';
 
       var packing = item.jenis_packing

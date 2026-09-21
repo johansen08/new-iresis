@@ -237,7 +237,8 @@ class Packer extends MY_Controller
 				'nama_sku'      => $row->nama_sku ?? '-',
 				'jumlah'        => (int) ($row->jumlah ?? 0),
 				'no_rak'        => $row->no_rak ?? '-',
-				'link_foto'     => foto_sku_url($row->link_foto ?? ''), // salinan lokal bila ada (offline-proof)
+				'link_foto'     => $row->link_foto ?? '',
+				'foto_lokal'    => foto_sku_lokal_url($row->link_foto ?? '', $row->foto_lokal ?? ''), // cadangan saat URL asli gagal
 				'jenis_packing' => $row->jenis_packing ?? '',
 				'nama_picker'   => $row->name ?? ($row->yangambil_pegawai ?? ''),
 			];
@@ -501,7 +502,8 @@ class Packer extends MY_Controller
                     $jumlah = $row_masalah->jumlah ?? 0;
                     $no_rak = $row_masalah->no_rak ?? '-';
                     $nama_barang = $row_masalah->nama_sku ?? '-';
-                    $link_foto = foto_sku_url($row_masalah->link_foto ?? ''); // salinan lokal bila ada
+                    $link_foto = $row_masalah->link_foto ?? '';
+                    $foto_lokal = foto_sku_lokal_url($link_foto, $row_masalah->foto_lokal ?? ''); // cadangan saat URL asli gagal
                     $yangambil_pegawai = $row_masalah->yangambil_pegawai ?? '';
                     $picker_name = $row_masalah->name ?? $yangambil_pegawai; // Use picker_name if available, fallback to yangambil_pegawai
 
@@ -514,7 +516,7 @@ class Packer extends MY_Controller
 
                     $data_masalah_picker[] = array(
                         $table_number++ . '.',
-                        $link_foto ? '<img src="' . htmlspecialchars($link_foto, ENT_QUOTES, 'UTF-8') . '" style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' . htmlspecialchars($link_foto, ENT_QUOTES, 'UTF-8') . '">' : '<span class="text-muted">No Photo</span>',
+                        $link_foto ? foto_sku_img($link_foto, $row_masalah->foto_lokal ?? '', 'style="max-width: 100px; max-height: 100px; cursor: pointer;" class="img-thumbnail foto-preview" data-foto="' . htmlspecialchars($link_foto, ENT_QUOTES, 'UTF-8') . '"') : '<span class="text-muted">No Photo</span>',
                         htmlspecialchars($nama_barang, ENT_QUOTES, 'UTF-8'),
                         $packing_display,
                         htmlspecialchars($sku, ENT_QUOTES, 'UTF-8'),

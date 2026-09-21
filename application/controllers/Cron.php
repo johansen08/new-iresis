@@ -439,16 +439,19 @@ class Cron extends CI_Controller
      * lain dikembalikan ke antrian sampai tiga percobaan.
      */
     /**
-     * Sinkron foto produk ke cache lokal (assets/foto_sku/), lihat helper foto_sku.
+     * Sinkron foto produk ke folder lokal (foto_produk_dir, bawaan C:/foto-produk/)
+     * dan catat nama berkasnya di tblsku.foto_lokal -- lihat helper foto_sku.
      *
      * tblsku.link_foto menunjuk ke object storage Jubelio, jadi foto di layar
-     * packer/retur/QC hilang saat internet putus. Method ini mengunduh setiap
-     * URL unik yang belum punya salinan lokal (nama berkas md5(url).ext) --
-     * idempoten, aman dijalankan berulang; hanya URL baru yang diunduh.
-     * URL yang dijawab 404/410 ditandai berkas <nama>.tidakada agar tidak
-     * dicoba terus. Kegagalan lain (timeout dsb.) dicoba lagi di putaran
-     * berikutnya. Satu putaran dibatasi $maks_detik supaya task harian tidak
-     * menumpuk; kunci berkas mencegah dua putaran berjalan bersamaan.
+     * packer/retur/QC hilang saat internet putus. Browser tetap mencoba URL asli
+     * dulu; salinan lokal hanya cadangan. Method ini, per URL unik:
+     *   - berkas sudah ada  -> pastikan foto_lokal semua SKU ber-URL itu = nama berkas
+     *   - belum ada         -> unduh (curl_multi), tulis .part lalu rename, set foto_lokal
+     *   - 404/410           -> tandai <nama>.tidakada, kosongkan foto_lokal
+     *   - gagal lain        -> dicoba lagi di putaran berikutnya
+     * Idempoten dan aman dijalankan berulang; nama berkas = md5(url).ext, jadi
+     * SKU yang fotonya diganti otomatis mendapat berkas baru. Satu putaran
+     * dibatasi $maks_detik; kunci berkas mencegah dua putaran bersamaan.
      *
      *   php index.php cron sinkron_foto_sku            (maks. 25 menit, 6 paralel)
      *   php index.php cron sinkron_foto_sku 3600 8     (maks. 1 jam, 8 paralel)
@@ -465,7 +468,7 @@ class Cron extends CI_Controller
         }
         $paralel = max(1, min(16, $paralel ?: 6));
 
-        $dir = FCPATH . FOTO_SKU_DIR;
+        $dir = foto_sku_dir();
         if (!is_dir($dir) && !@mkdir($dir, 0755, TRUE)) {
             $this->_log('cron_sinkron_foto_sku', ['success' => FALSE, 'pesan' => "Folder $dir tidak bisa dibuat"]);
             return;
@@ -480,9 +483,15 @@ class Cron extends CI_Controller
 
         $mulai   = microtime(true);
         $ringkas = ['total_url' => 0, 'sudah_ada' => 0, 'tidak_ada' => 0, 'diunduh' => 0, 'gagal' => 0,
-                    'sisa' => 0, 'byte' => 0, 'detik' => 0, 'habis_waktu' => FALSE, 'contoh_gagal' => []];
+                    'db_diperbarui' => 0, 'sisa' => 0, 'byte' => 0, 'detik' => 0, 'habis_waktu' => FALSE,
+                    'folder' => $dir, 'contoh_gagal' => []];
 
-        $rows = $this->db->query("SELECT DISTINCT link_foto FROM tblsku WHERE link_foto LIKE 'http%'")->result();
+        // fl = gabungan nilai foto_lokal semua SKU yang memakai URL ini; kalau
+        // semuanya sudah = nama berkas, GROUP_CONCAT DISTINCT menghasilkan tepat nama itu.
+        $rows = $this->db->query(
+            "SELECT link_foto, GROUP_CONCAT(DISTINCT COALESCE(foto_lokal, '')) AS fl
+             FROM tblsku WHERE link_foto LIKE 'http%' GROUP BY link_foto"
+        )->result();
         $antrian = [];
         foreach ($rows as $r) {
             $url  = trim($r->link_foto);
@@ -493,10 +502,16 @@ class Cron extends CI_Controller
             $ringkas['total_url']++;
             if (is_file($dir . $nama)) {
                 $ringkas['sudah_ada']++;
+                if ($r->fl !== $nama) {
+                    $ringkas['db_diperbarui'] += $this->catat_foto_lokal($r->link_foto, $nama);
+                }
             } elseif (is_file($dir . $nama . '.tidakada')) {
                 $ringkas['tidak_ada']++;
+                if ($r->fl !== '') {
+                    $ringkas['db_diperbarui'] += $this->catat_foto_lokal($r->link_foto, NULL);
+                }
             } else {
-                $antrian[$nama] = $url;
+                $antrian[$nama] = $r->link_foto;
             }
         }
         unset($rows);
@@ -510,7 +525,7 @@ class Cron extends CI_Controller
             $mh = curl_multi_init();
             $ch = [];
             foreach ($batch as $nama => $url) {
-                $c = curl_init($url);
+                $c = curl_init(trim($url));
                 curl_setopt_array($c, [
                     CURLOPT_RETURNTRANSFER => TRUE,
                     CURLOPT_FOLLOWLOCATION => TRUE,
@@ -544,12 +559,14 @@ class Cron extends CI_Controller
                         && rename($dir . $nama . '.part', $dir . $nama)) {
                         $ringkas['diunduh']++;
                         $ringkas['byte'] += strlen($body);
+                        $ringkas['db_diperbarui'] += $this->catat_foto_lokal($batch[$nama], $nama);
                         continue;
                     }
                     $err = 'gagal menulis berkas';
                 } elseif ($kode === 404 || $kode === 410) {
                     @touch($dir . $nama . '.tidakada');
                     $ringkas['tidak_ada']++;
+                    $ringkas['db_diperbarui'] += $this->catat_foto_lokal($batch[$nama], NULL);
                     continue;
                 }
 
@@ -568,7 +585,25 @@ class Cron extends CI_Controller
         flock($kunci, LOCK_UN);
         fclose($kunci);
 
-        $this->_log('cron_sinkron_foto_sku', $ringkas, $ringkas['diunduh'] > 0 || $ringkas['gagal'] > 0);
+        $this->_log('cron_sinkron_foto_sku', $ringkas,
+            $ringkas['diunduh'] > 0 || $ringkas['gagal'] > 0 || $ringkas['db_diperbarui'] > 0);
+    }
+
+    /**
+     * Set tblsku.foto_lokal untuk semua SKU yang memakai URL ini (NULL = tidak ada
+     * salinan). Hanya baris yang nilainya berbeda yang disentuh; balik jumlahnya.
+     */
+    private function catat_foto_lokal($link_foto, $nama)
+    {
+        $this->db->where('link_foto', $link_foto);
+        if ($nama === NULL) {
+            $this->db->where('foto_lokal IS NOT NULL', NULL, FALSE);
+        } else {
+            $this->db->group_start()->where('foto_lokal IS NULL', NULL, FALSE)
+                     ->or_where('foto_lokal !=', $nama)->group_end();
+        }
+        $this->db->update('tblsku', ['foto_lokal' => $nama]);
+        return (int) $this->db->affected_rows();
     }
 
     /** Deteksi gambar dari magic bytes bila server tidak mengirim Content-Type image/*. */
