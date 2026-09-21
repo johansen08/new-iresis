@@ -329,6 +329,36 @@ Penjaga yang memaksa urutan (sudah ada sebelumnya):
 
 ---
 
+## 🔄 Workflow Paket Cancel (Deteksi → Cek Retur → Restock)
+
+Resi yang status cancel-nya baru masuk (upload Jubelio) setelah barangnya
+keluar dari display. Rincian, tahapan rilis, dan keputusan desain:
+[`PAKET_CANCEL.md`](PAKET_CANCEL.md). Tahap 1 (jejak penolakan) live 21 Sep 2026;
+tahap 2–3 masih rancangan.
+
+```
+Scan ditolak "DIBATALKAN" di picker / inbound / packer / HO / lost scan
+   ├─→ tblcancel_paket_tolak  (setiap penolakan: siapa, meja, jam)       [tahap 1]
+   └─→ bila barang sudah keluar display: tblcancel_paket DITEMUKAN       [tahap 1]
+                     │
+                     ▼
+        TIM RETUR → Cek Paket Cancel (scan resi, isi qty/SKU ditemukan)   [tahap 2]
+           ├─→ tblcancel_paket_item
+           ├─→ selisih → tblmasalahpicker (KURANG / SALAH / TIDAK AMBIL)
+           └─→ tblcancel_paket DICEK
+                     │
+                     ▼
+        Batch ke display (tblretur_display_batch, sumber CANCEL) → DIKIRIM  [tahap 3]
+                     │
+                     ▼
+        TIM RESTOCK terima batch → DITERIMA → tblcancel_paket SELESAI       [tahap 3]
+
+Laporan Resi Cancel: kolom "Tahap saat Cancel" + jejak penolakan
+(penanda "packer lupa scan" / "picker lupa scan").
+```
+
+---
+
 ## 🔄 Workflow Salah Ambil Special (Packer)
 
 Batch resi spesial (tepat 1 SKU / qty 1) yang salah diambil picker,
