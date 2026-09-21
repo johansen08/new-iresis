@@ -86,9 +86,9 @@ class Arsip_fcd extends CI_Model
             $this->db->trans_begin();
             $disalin = array();
             foreach ($this->cfg['keluarga_resi'] as $t => $aturan) {
-                $nilai = ($aturan['pakai'] === 'noresi') ? $noresi : $id;
+                $pilih = $this->pilih_sql($aturan, array($id), array($noresi), $this->arsip);
                 $ok = $this->kueri("INSERT IGNORE INTO `{$this->prod}`.`$t` SELECT * FROM `{$this->arsip}`.`$t`
-                    WHERE `{$aturan['kolom']}` = ?", array($nilai), FALSE);
+                    WHERE $pilih", array(), FALSE);
                 if (!$ok) {
                     $this->db->trans_rollback();
                     $this->catat('tarik_balik', $t, 'FAIL', "$noresi: " . $this->pesan_error());
@@ -167,7 +167,20 @@ class Arsip_fcd extends CI_Model
                 $hasil['purna_perkiraan'] = $this->laporan_purna();
             }
 
-            $hasil['success'] = empty($skema['beda']) && empty($hasil['sinkron']['gagal']);
+            // Purna ikut putaran malam hanya bila dinyalakan di config, sinkron
+            // bersih, dan masih ada sisa batas waktu (min. 10 menit).
+            if ($tahap === 'semua' && !empty($this->cfg['purna_aktif']) && empty($skema['beda'])
+                && empty($hasil['sinkron']['gagal']) && empty($hasil['sinkron']['terpotong'])) {
+                $sisa = $maks_detik - (int) (microtime(TRUE) - $this->mulai);
+                if ($sisa >= 600) {
+                    $hasil['purna'] = $this->purna($sisa, 0, FALSE, FALSE);
+                } else {
+                    $this->log[] = date('H:i:s') . "  purna dilewati: sisa waktu $sisa dtk < 600";
+                }
+            }
+
+            $hasil['success'] = empty($skema['beda']) && empty($hasil['sinkron']['gagal'])
+                && (!isset($hasil['purna']) || $hasil['purna']['success']);
         } catch (Throwable $e) {
             $hasil['pesan'] = $e->getMessage();
             $this->log[] = date("H:i:s") . "  " . 'PUTARAN GAGAL: ' . $e->getMessage();
@@ -545,6 +558,341 @@ class Arsip_fcd extends CI_Model
         $this->log[] = date("H:i:s") . "  " . sprintf('laporan: %s resi sudah lewat retensi %d hari (aktivitas tertua %s) — belum dihapus, tahap purna belum aktif',
             number_format($out['resi_lewat_retensi']), $hari, $r->tertua ?: '-');
         return $out;
+    }
+
+    // ------------------------------------------------------------------
+    //  Purna: pindahkan keluarga resi > retensi dari prod ke arsip (tahap 7)
+    // ------------------------------------------------------------------
+
+    /**
+     * Klausa WHERE pemilih baris satu tabel keluarga untuk sekumpulan resi.
+     *   pakai 'id'       → kolom IN (id...)
+     *   pakai 'noresi'   → kolom IN ('noresi'...)
+     *   pakai 'komplain' → kolom IN (SELECT id_complain FROM <sumber>.tblcs_complain WHERE no_resi IN (...))
+     * $db_sumber = DB tempat baris dibaca (prod saat purna, arsip saat tarik balik).
+     */
+    private function pilih_sql(array $aturan, array $ids, array $noresis, $db_sumber, $alias = '')
+    {
+        $kolom = ($alias !== '' ? "`$alias`." : '') . "`{$aturan['kolom']}`";
+        $ids   = array_map('intval', $ids);
+        $esc   = array();
+        foreach ($noresis as $n) {
+            $esc[] = $this->db->escape($n);
+        }
+        $id_list = $ids ? implode(',', $ids) : 'NULL';
+        $no_list = $esc ? implode(',', $esc) : "''";
+
+        switch ($aturan['pakai']) {
+            case 'id':
+                return "$kolom IN ($id_list)";
+            case 'noresi':
+                return "$kolom IN ($no_list)";
+            case 'komplain':
+                return "$kolom IN (SELECT id_complain FROM `$db_sumber`.`tblcs_complain` WHERE no_resi IN ($no_list))";
+        }
+        throw new Exception("keluarga_resi: 'pakai' tidak dikenal untuk kolom {$aturan['kolom']}");
+    }
+
+    /** Nama kolom PK tunggal tabel prod, atau NULL. */
+    private function pk_tabel($t)
+    {
+        $r = $this->ambil_semua("SELECT column_name FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = ? AND column_key = 'PRI'", array($this->prod, $t));
+        return count($r) === 1 ? $r[0]->column_name : NULL;
+    }
+
+    /**
+     * Gerbang keselamatan sebelum purna. Mengembalikan '' kalau boleh jalan,
+     * selain itu alasan penolakan.
+     */
+    private function gerbang_purna()
+    {
+        $skema = $this->cek_skema();
+        if (!empty($skema['beda'])) {
+            return 'skema prod dan arsip beda: ' . implode(', ', array_keys($skema['beda']));
+        }
+        foreach ($this->cfg['keluarga_resi'] as $t => $a) {
+            if (!isset($skema['siap'][$t])) {
+                return "tabel keluarga '$t' tidak siap di arsip";
+            }
+        }
+
+        $maks = (int) $this->cfg['purna_sinkron_maks_jam'];
+        $r = $this->ambil_row("SELECT MAX(terakhir_jalan) t FROM `{$this->arsip}`.`_arsip_status` WHERE mode <> 'lewati'");
+        if (!$r || !$r->t) {
+            return 'arsip belum pernah disinkron';
+        }
+        $umur = (time() - strtotime($r->t)) / 3600;
+        if ($umur > $maks) {
+            return sprintf('sinkron terakhir %s (%.0f jam lalu) lebih tua dari %d jam', $r->t, $umur, $maks);
+        }
+
+        $pola  = $this->cfg['purna_backup_pola'];
+        $files = $pola ? glob($pola) : array();
+        if (!$files) {
+            return "tidak ada backup arsip yang cocok dengan $pola";
+        }
+        $terbaru = 0;
+        foreach ($files as $f) {
+            $terbaru = max($terbaru, filemtime($f));
+        }
+        $umur = (time() - $terbaru) / 3600;
+        if ($umur > (int) $this->cfg['purna_backup_maks_jam']) {
+            return sprintf('backup arsip terbaru %s (%.0f jam lalu) lebih tua dari %d jam',
+                date('Y-m-d H:i', $terbaru), $umur, $this->cfg['purna_backup_maks_jam']);
+        }
+        return '';
+    }
+
+    /**
+     * Ambil satu batch resi calon purna: aktivitas terakhir di tblprintresi
+     * < cutoff, dan TIDAK punya tanda "masih terbuka" di tabel anak.
+     * Aturannya (lihat docs/ARSIP_DATA.md §4c):
+     *   - packing / ambil barang / keluar / retur / verifikasi / cancel / komplain
+     *     yang bertanggal >= cutoff → masih aktif, tunda;
+     *   - retur masih "Terima Retur" (belum dibuka), buka retur status_acc = 0
+     *     (belum di-ACC finance), komplain belum "Selesai" → tunda;
+     *   - belum pernah scan keluar DAN status bukan CANCELED/COMPLETED/SHIPPED/
+     *     RETURNED → tunda (201 resi per 21 Sep 2026); status PROCESSING yang
+     *     sudah punya scan keluar dianggap basi dan boleh diarsip.
+     */
+    private function calon_purna($id_awal, $batas, $cutoff)
+    {
+        $p = "`{$this->prod}`";
+        $sql = "SELECT p.id_printresi, p.noresi FROM $p.`tblprintresi` p
+            WHERE p.id_printresi > ?
+              AND GREATEST(
+                    COALESCE(NULLIF(p.tanggal_printresi, '0000-00-00 00:00:00'), '1970-01-01'),
+                    COALESCE(p.created_at, '1970-01-01'), COALESCE(p.modified_at, '1970-01-01'),
+                    COALESCE(p.tanggal_selesai, '1970-01-01'), COALESCE(p.tanggal_retur, '1970-01-01'),
+                    COALESCE(p.tanggal_pengiriman, '1970-01-01')) < ?
+              AND (p.status_pesanan IN ('CANCELED','COMPLETED','SHIPPED','RETURNED')
+                   OR EXISTS (SELECT 1 FROM $p.`tblresikeluar` k WHERE k.id_resi = p.id_printresi))
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblpacking` x WHERE x.id_resi = p.id_printresi AND x.tanggal_packing >= ?)
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblresiambilbarang` x WHERE x.id_resi = p.id_printresi AND x.tanggal_resiambilbarang >= ?)
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblresikeluar` x WHERE x.id_resi = p.id_printresi AND x.tanggal_resikeluar >= ?)
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblresiretur` x WHERE x.id_resi = p.id_printresi AND (x.tanggal_resiretur >= ? OR x.status_retur = 'Terima Retur'))
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblbukaretur` x WHERE x.resi_buka = p.noresi AND (x.tanggal_buka_retur >= ? OR x.status_acc = 0))
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblreturverifikasi` x WHERE x.no_resi = p.noresi AND x.verified_at >= ?)
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblcancelorder` x WHERE x.noresi = p.noresi AND COALESCE(x.updated_at, x.created_at) >= ?)
+              AND NOT EXISTS (SELECT 1 FROM $p.`tblcs_complain` x WHERE x.no_resi = p.noresi AND (COALESCE(x.status_penanganan, '') <> 'Selesai' OR COALESCE(x.updated_at, x.created_at) >= ?))
+            ORDER BY p.id_printresi LIMIT " . (int) $batas;
+        $binds = array((int) $id_awal, $cutoff, $cutoff, $cutoff, $cutoff, $cutoff, $cutoff, $cutoff, $cutoff, $cutoff);
+        return $this->ambil_semua($sql, $binds);
+    }
+
+    /**
+     * Jalankan purna. $uji = TRUE → semua langkah kecuali DELETE (REPLACE ke
+     * arsip + verifikasi tetap dilakukan, hasilnya dilaporkan). $maks_resi = 0
+     * berarti tanpa batas selain waktu. Mengembalikan ringkasan.
+     *
+     * Satu batch: calon_purna → REPLACE tiap tabel keluarga ke arsip → verifikasi
+     * tiap PK prod ada di arsip (kalau tidak: berhenti, tidak ada yang dihapus)
+     * → DELETE prod dalam satu transaksi, urutan keluarga dibalik (anak dulu).
+     */
+    public function purna($maks_detik = NULL, $maks_resi = 0, $uji = TRUE, $pakai_kunci = TRUE)
+    {
+        // $pakai_kunci = FALSE saat dipanggil dari jalankan(): kunci, sesi, dan
+        // jam mulai sudah diatur pemanggil (batas waktu dibagi dengan sinkron).
+        if ($pakai_kunci) {
+            $this->mulai = microtime(TRUE);
+        }
+        $maks_detik = (int) ($maks_detik ?: $this->cfg['maks_detik']);
+        $out = array('success' => FALSE, 'uji' => (bool) $uji, 'resi' => 0, 'batch' => 0,
+            'baris' => array(), 'khusus' => array(), 'pesan' => '');
+
+        if ($pakai_kunci) {
+            $kunci = $this->ambil_kunci();
+            if ($kunci !== TRUE) {
+                $out['pesan'] = $kunci;
+                return $this->selesai($out);
+            }
+        }
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        $this->q("SET SESSION sql_mode = ''");
+        $this->q("SET SESSION wait_timeout = 28800");
+        // Tanpa ini MariaDB 10.4 mematerialisasi tiap NOT EXISTS di calon_purna()
+        // (memindai seluruh indeks tblpacking 2,7 jt baris per batch, ±10 dtk);
+        // sebagai sub-kueri berkorelasi jadi lookup indeks per resi (±90 ms/batch).
+        $this->q("SET SESSION optimizer_switch = 'materialization=off'");
+
+        try {
+            $this->siapkan_db();
+            $tolak = $this->gerbang_purna();
+            if ($tolak !== '') {
+                $out['pesan'] = 'DITOLAK gerbang keselamatan: ' . $tolak;
+                $this->log[] = date('H:i:s') . '  purna ' . $out['pesan'];
+                $this->catat('purna', NULL, 'FAIL', $out['pesan']);
+                throw new Exception($out['pesan']);
+            }
+
+            $hari   = (int) $this->cfg['retensi_hari'];
+            $cutoff = date('Y-m-d H:i:s', strtotime("-$hari days"));
+            $batas  = max(100, (int) $this->cfg['purna_batch_resi']);
+            $this->log[] = date('H:i:s') . sprintf('  purna %s: retensi %d hari, cutoff %s, batch %d resi',
+                $uji ? 'UJI (tanpa DELETE)' : 'JALANKAN', $hari, $cutoff, $batas);
+
+            $keluarga = $this->cfg['keluarga_resi'];
+            $pk = array();
+            foreach ($keluarga as $t => $a) {
+                $pk[$t] = $this->pk_tabel($t);
+                if ($pk[$t] === NULL) {
+                    throw new Exception("tabel keluarga '$t' tidak punya PK tunggal — verifikasi tidak mungkin");
+                }
+                $out['baris'][$t] = 0;
+            }
+
+            $id_awal = 0;
+            while (TRUE) {
+                if ($this->habis_waktu($maks_detik)) {
+                    $this->log[] = date('H:i:s') . "  purna: batas waktu $maks_detik dtk tercapai";
+                    break;
+                }
+                $sisa = $maks_resi > 0 ? min($batas, $maks_resi - $out['resi']) : $batas;
+                if ($sisa <= 0) {
+                    break;
+                }
+                $calon = $this->calon_purna($id_awal, $sisa, $cutoff);
+                if (!$calon) {
+                    break;
+                }
+                $ids = $nos = array();
+                foreach ($calon as $c) {
+                    $ids[] = (int) $c->id_printresi;
+                    $nos[] = $c->noresi;
+                }
+                $id_awal = max($ids);
+                $t0 = microtime(TRUE);
+
+                // 1. Salin keluarga ke arsip (REPLACE = idempoten, menimpa versi lama di arsip).
+                foreach ($keluarga as $t => $a) {
+                    $pilih = $this->pilih_sql($a, $ids, $nos, $this->prod);
+                    $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t` WHERE $pilih");
+                }
+
+                // 2. Verifikasi: setiap PK prod dalam batch harus ada di arsip.
+                $hilang = array();
+                $jml    = array();
+                foreach ($keluarga as $t => $a) {
+                    $pilih = $this->pilih_sql($a, $ids, $nos, $this->prod, 'p');
+                    $jml[$t] = $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t` p WHERE $pilih");
+                    $n = $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t` p WHERE $pilih
+                        AND NOT EXISTS (SELECT 1 FROM `{$this->arsip}`.`$t` a WHERE a.`{$pk[$t]}` = p.`{$pk[$t]}`)");
+                    if ($n > 0) {
+                        $hilang[] = "$t: $n baris";
+                    }
+                }
+                if ($hilang) {
+                    $pesan = 'verifikasi gagal, batch TIDAK dihapus — ' . implode('; ', $hilang);
+                    $this->catat('purna', NULL, 'FAIL', $pesan);
+                    throw new Exception($pesan);
+                }
+
+                // 3. Hapus di prod (anak dulu, tblprintresi terakhir) — dilewati saat uji.
+                if (!$uji) {
+                    $this->db->trans_begin();
+                    foreach (array_reverse($keluarga, TRUE) as $t => $a) {
+                        $pilih = $this->pilih_sql($a, $ids, $nos, $this->prod);
+                        if (!$this->kueri("DELETE FROM `{$this->prod}`.`$t` WHERE $pilih", array(), FALSE)) {
+                            $this->db->trans_rollback();
+                            $pesan = "DELETE $t gagal, batch dibatalkan: " . $this->pesan_error();
+                            $this->catat('purna', $t, 'FAIL', $pesan);
+                            throw new Exception($pesan);
+                        }
+                    }
+                    $this->db->trans_commit();
+                }
+
+                foreach ($jml as $t => $n) {
+                    $out['baris'][$t] += $n;
+                }
+                $out['resi']  += count($ids);
+                $out['batch'] += 1;
+                $this->catat('purna', 'batch', 'OK', sprintf('%s%d resi (id %d..%d), %s, %.1f dtk',
+                    $uji ? 'UJI ' : '', count($ids), min($ids), $id_awal, $this->ringkas_jml($jml), microtime(TRUE) - $t0));
+                if ($out['batch'] % 10 === 0 || count($ids) < $sisa) {
+                    $this->log[] = date('H:i:s') . sprintf('  purna: %s resi, %d batch, terakhir id %d',
+                        number_format($out['resi']), $out['batch'], $id_awal);
+                }
+                usleep((int) $this->cfg['jeda_batch_ms'] * 1000);
+            }
+
+            // 4. Tabel dengan retensi sendiri (tblkpi, notifications).
+            foreach ($this->cfg['retensi_khusus'] as $t => $aturan) {
+                if ($this->habis_waktu($maks_detik)) {
+                    break;
+                }
+                $out['khusus'][$t] = $this->purna_khusus($t, $aturan, $uji);
+            }
+
+            $out['success'] = TRUE;
+            $this->log[] = date('H:i:s') . sprintf('  purna selesai: %s resi dalam %d batch%s; %s',
+                number_format($out['resi']), $out['batch'], $uji ? ' (UJI, tidak ada yang dihapus)' : ' DIHAPUS dari prod',
+                $this->ringkas_jml($out['baris']));
+            $this->catat('purna', NULL, 'OK', ($uji ? 'UJI ' : '') . number_format($out['resi']) . ' resi, ' . $this->ringkas_jml($out['baris']));
+        } catch (Throwable $e) {
+            $out['pesan'] = $e->getMessage();
+            $this->log[]  = date('H:i:s') . '  PURNA BERHENTI: ' . $e->getMessage();
+        }
+
+        $this->db->db_debug = $debug_lama;
+        if ($pakai_kunci) {
+            $this->lepas_kunci();
+            return $this->selesai($out);
+        }
+        return $out;
+    }
+
+    /** Purna satu tabel ber-retensi sendiri (by kolom tanggal, batch by PK). Mengembalikan jumlah baris. */
+    private function purna_khusus($t, array $aturan, $uji)
+    {
+        $pk = $this->pk_tabel($t);
+        if ($pk === NULL) {
+            $this->log[] = date('H:i:s') . "  purna $t dilewati: tanpa PK tunggal";
+            return 0;
+        }
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$aturan['hari']} days"));
+        $batas  = (int) $this->cfg['batch'];
+        $total  = 0;
+        while (TRUE) {
+            $r = $this->ambil_row("SELECT MIN(`$pk`) a, MAX(`$pk`) b, COUNT(*) n FROM (SELECT `$pk` FROM `{$this->prod}`.`$t`
+                WHERE `{$aturan['kolom']}` < ? ORDER BY `$pk` LIMIT $batas) x", array($cutoff));
+            if (!$r || !$r->n) {
+                break;
+            }
+            $where = "`{$aturan['kolom']}` < " . $this->db->escape($cutoff) . " AND `$pk` BETWEEN {$r->a} AND {$r->b}";
+            $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t` WHERE $where");
+            $hilang = $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t` p WHERE $where
+                AND NOT EXISTS (SELECT 1 FROM `{$this->arsip}`.`$t` a WHERE a.`$pk` = p.`$pk`)");
+            if ($hilang > 0) {
+                throw new Exception("purna $t: verifikasi gagal ($hilang baris belum ada di arsip), tidak dihapus");
+            }
+            if ($uji) {
+                // Saat uji tidak ada yang dihapus, jadi loop akan mengulang batch yang
+                // sama — cukup hitung totalnya sekali lalu keluar.
+                $total = $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t` WHERE `{$aturan['kolom']}` < ?", array($cutoff));
+                break;
+            }
+            $this->kueri("DELETE FROM `{$this->prod}`.`$t` WHERE $where");
+            $total += (int) $r->n;
+            usleep((int) $this->cfg['jeda_batch_ms'] * 1000);
+        }
+        $this->log[] = date('H:i:s') . sprintf('  purna %s: %s baris < %s (%d hari)%s',
+            $t, number_format($total), $cutoff, $aturan['hari'], $uji ? ' — UJI' : ' dihapus');
+        $this->catat('purna', $t, 'OK', ($uji ? 'UJI ' : '') . number_format($total) . " baris < $cutoff");
+        return $total;
+    }
+
+    private function ringkas_jml(array $jml)
+    {
+        $s = array();
+        foreach ($jml as $t => $n) {
+            if ($n > 0) {
+                $s[] = str_replace('tbl', '', $t) . '=' . number_format($n);
+            }
+        }
+        return $s ? implode(', ', $s) : '0 baris';
     }
 
     // ------------------------------------------------------------------

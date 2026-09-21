@@ -22,12 +22,38 @@ $config['db_arsip'] = 'iresis_arsip';
 // Dipakai tahap "purna" (belum aktif — lihat docs/ARSIP_DATA.md §Tahapan).
 $config['retensi_hari'] = 60;
 
-// Retensi khusus per tabel yang bukan bagian keluarga resi (hari).
+// Retensi khusus tabel yang BUKAN bagian keluarga resi (hari), diarsipkan tahap
+// purna berdasarkan kolom tanggalnya sendiri. tblkpi = agregat per user/hari
+// (dashboard KPI membandingkan bulan), notifications = lonceng di header.
 $config['retensi_khusus'] = array(
-	'tblkpi'                     => 400,
-	'tblpacker_performance_logs' => 400,
-	'notifications'              => 30,
+	'tblkpi'        => array('hari' => 400, 'kolom' => 'tanggal'),
+	'notifications' => array('hari' => 30,  'kolom' => 'created_at'),
 );
+
+/*
+| -------------------------------------------------------------------
+| PURNA — pindahkan keluarga resi > retensi dari prod (tahap 7)
+| -------------------------------------------------------------------
+| Satu-satunya bagian yang menjalankan DELETE di prod. Alurnya per batch:
+| pilih calon → REPLACE keluarga ke arsip → verifikasi tiap PK ada di arsip →
+| DELETE di prod (anak dulu, induk terakhir) dalam satu transaksi. Gagal
+| verifikasi = berhenti tanpa menghapus. Rinciannya di docs/ARSIP_DATA.md §4c.
+*/
+
+// FALSE: putaran malam 01.00 hanya sinkron. TRUE: setelah sinkron, purna ikut
+// jalan dengan sisa batas waktu. Nyalakan setelah eksekusi manual pertama
+// (php index.php cron arsip_purna jalankan) terbukti bersih.
+$config['purna_aktif'] = FALSE;
+
+// Jumlah resi per batch (panjang daftar IN). 2.000 resi ≈ 10-15 rb baris anak.
+$config['purna_batch_resi'] = 2000;
+
+// Gerbang keselamatan: purna MENOLAK jalan kalau backup arsip terbaru lebih tua
+// dari N jam, atau sinkron terakhir lebih tua dari N jam. Pola berkas mengikuti
+// task "IRESIS - Backup arsip 02.30" (backup_db.ps1 -Database iresis_arsip).
+$config['purna_backup_pola']     = 'C:/backup-db/otomatis/iresis_arsip_*.sql.gz';
+$config['purna_backup_maks_jam'] = 36;
+$config['purna_sinkron_maks_jam'] = 36;
 
 // Tabel prod yang TIDAK disalin ke arsip: pola nama (substring, tanpa regex)
 // untuk tabel sisa/backup yang tidak sengaja tertinggal di prod.
@@ -91,6 +117,10 @@ $config['keluarga_resi'] = array(
 	'tblcancelorder'             => array('kolom' => 'noresi',       'pakai' => 'noresi'),
 	'tblcs_complain'             => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
 	'tblcs_complain_detail'      => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+	// 'komplain': dipilih lewat tblcs_complain.id_complain milik resi itu
+	// (FK CASCADE di prod; disalin eksplisit supaya ikut ke arsip sebelum dihapus).
+	'tblcs_complain_banding'     => array('kolom' => 'id_complain',  'pakai' => 'komplain'),
+	'tblcs_complain_lampiran'    => array('kolom' => 'id_complain',  'pakai' => 'komplain'),
 );
 
 /*
