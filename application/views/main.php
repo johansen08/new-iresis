@@ -4,7 +4,7 @@
 
 <head>
 	<!-- META SECTION -->
-	<title>BEVERRA - Manajemen Resi</title>
+	<title><?= !empty($mode_arsip) ? "[ARSIP] " : "" ?>BEVERRA - Manajemen Resi</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -148,6 +148,13 @@
 
 		<!-- PAGE CONTENT -->
 		<div class="page-content">
+
+			<?php if (!empty($mode_arsip)) : // Banner Mode Arsip -- lihat MY_Controller::terapkan_mode_arsip() ?>
+			<div style="background:#c9302c;color:#fff;padding:8px 20px;font-size:15px;font-weight:bold;letter-spacing:.3px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+				<span><span class="fa fa-archive"></span> MODE ARSIP &mdash; Anda melihat <code style="color:#fff;background:rgba(0,0,0,.25)"><?= $mode_arsip_db ?></code> (<?= !empty($mode_arsip_tulis) ? "TULISAN DIIZINKAN" : "hanya baca" ?>). Ini BUKAN data live.</span>
+				<a href="<?= base_url("arsip/keluar") ?>" class="btn btn-default btn-sm" style="font-weight:bold"><span class="fa fa-sign-out"></span> Kembali ke LIVE</a>
+			</div>
+			<?php endif; ?>
 
 			<!-- START X-NAVIGATION VERTICAL -->
 			<ul class="x-navigation x-navigation-horizontal x-navigation-panel">

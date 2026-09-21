@@ -29,7 +29,76 @@ class MY_Controller extends CI_Controller
             $this->jalankan_bootstrap_sekali();
 
             $this->data['html_menu_tree'] = $this->ambil_menu_tree();
+
+            // Harus paling akhir: bootstrap (DDL) dan cache menu di atas wajib
+            // jatuh ke prod, baru koneksi dialihkan ke arsip bila sesi memintanya.
+            $this->terapkan_mode_arsip();
         }
+    }
+
+    /**
+     * Mode Arsip: alihkan koneksi ke database arsip untuk sisa request ini.
+     *
+     * Dipicu penanda session `mode_arsip` yang hanya dipasang Arsip::masuk()
+     * setelah memeriksa hak akses menu `arsip`. Koneksi dan usernya tetap sama
+     * (iresis_app punya hak di kedua DB), hanya default database yang dipindah
+     * lewat db_select — jadi seluruh model/controller yang menyebut nama tabel
+     * tanpa prefix otomatis membaca arsip.
+     *
+     * Bawaan read-only lewat SET SESSION TRANSACTION READ ONLY: tulisan apa pun
+     * ditolak MariaDB (ERROR 1792), bukan nyasar ke arsip. db_debug dimatikan
+     * supaya penolakan itu tidak mencetak halaman HTML error CI di tengah JSON
+     * (lihat catatan di make_ajax_response). Boleh dibuka lewat
+     * config arsip `mode_arsip_tulis`.
+     *
+     * Ditolak kalau koneksi persisten: SET SESSION akan menempel di koneksi
+     * yang dipakai ulang request lain, dan request itu bisa jadi milik prod.
+     */
+    protected function terapkan_mode_arsip()
+    {
+        if (!$this->session->userdata('mode_arsip')) {
+            return;
+        }
+
+        $this->config->load('arsip', TRUE);
+        $cfg = $this->config->item('arsip');
+        $db_arsip = isset($cfg['db_arsip']) ? $cfg['db_arsip'] : '';
+
+        if ($db_arsip === '' || $db_arsip === $this->db->database || !empty($this->db->pconnect)) {
+            $this->session->unset_userdata('mode_arsip');
+            log_message('error', 'Mode Arsip dibatalkan: db_arsip kosong/sama dengan prod atau koneksi persisten aktif');
+            return;
+        }
+
+        if (!$this->db->db_select($db_arsip)) {
+            $this->session->unset_userdata('mode_arsip');
+            log_message('error', "Mode Arsip dibatalkan: db_select('$db_arsip') gagal");
+            return;
+        }
+
+        if (empty($cfg['mode_arsip_tulis'])) {
+            $this->db->query('SET SESSION TRANSACTION READ ONLY');
+            $this->db->db_debug = FALSE;
+        }
+
+        $this->data['mode_arsip']       = TRUE;
+        $this->data['mode_arsip_db']    = $db_arsip;
+        $this->data['mode_arsip_tulis'] = !empty($cfg['mode_arsip_tulis']);
+    }
+
+    /**
+     * Apakah role user ini boleh memakai Mode Arsip: punya akses ke menu `arsip`
+     * di roleaccess. Dibuka untuk role lain cukup lewat halaman Access.
+     */
+    public function boleh_mode_arsip()
+    {
+        $peran = isset($this->data['user']['hakakses']) ? (int) $this->data['user']['hakakses'] : 0;
+        if ($peran <= 0) {
+            return FALSE;
+        }
+        $n = $this->db->query("SELECT COUNT(*) n FROM roleaccess r JOIN menu m ON m.id = r.menuid
+            WHERE m.uri = 'arsip' AND m.isactive = 1 AND r.roleid = ?", array($peran))->row();
+        return $n && (int) $n->n > 0;
     }
 
     /**
@@ -39,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-21.1';
+    const BOOTSTRAP_VERSI = '2026-09-21.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -97,6 +166,7 @@ class MY_Controller extends CI_Controller
         $this->run_scan_paket_ndd_new_migration();
         $this->run_salah_ambil_special_migration();
         $this->run_foto_sku_lokal_migration();
+        $this->run_mode_arsip_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1519,6 +1589,47 @@ class MY_Controller extends CI_Controller
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu "Mode Arsip" (uri `arsip`) di tingkat atas, tepat di bawah root `/`.
+     *
+     * Akses ke menu ini = izin memakai Mode Arsip (lihat terapkan_mode_arsip dan
+     * boleh_mode_arsip). Keputusan 21 Sep 2026: webmaster (1), admin (2),
+     * tim retur (6), tim finance (10); role lain dibuka lewat halaman Access
+     * bila butuh -- daftar di sini hanya nilai awal, tidak dipaksakan ulang.
+     * Alur lengkap: docs/ARSIP_DATA.md.
+     */
+    protected function run_mode_arsip_migration()
+    {
+        $uri = 'arsip';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'        => 'Mode Arsip',
+                'parentid'    => 1,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-archive',
+                'sortorder'   => 98,
+                'description' => 'Lihat data lama di iresis_arsip (hanya baca). Akses menu ini = izin memakai Mode Arsip.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+
+            $role_boleh = [1, 2, 6, 10];
+            foreach ($role_boleh as $roleid) {
                 $this->db->insert('roleaccess', [
                     'roleid'    => $roleid,
                     'menuid'    => $menu_id,
