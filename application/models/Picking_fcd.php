@@ -100,6 +100,17 @@ class Picking_fcd extends CI_Model
             }
             if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
                 $this->db->trans_rollback();
+                // Jejak paket cancel (docs/PAKET_CANCEL.md §7.1 #1) -- ditulis SETELAH
+                // rollback supaya tidak ikut terbuang. Inbound Picker mencatat sendiri
+                // (transaksi luar miliknya belum di-rollback di titik ini).
+                if (($picking['sumber_scan'] ?? '') !== 'INBOUND') {
+                    $receipt->noresi = $picking['noresi'];
+                    $this->load->model('cancel_paket_fcd');
+                    $this->cancel_paket_fcd->catat_tolak($receipt, 'PICKER', $user, [
+                        'barang_sudah_diambil' => !empty($receipt->id_resiambilbarang),
+                        'keterangan'           => $mode == PICKING_UPDATE_PACKER ? 'Update Picker' : null,
+                    ]);
+                }
                 return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
             }
 

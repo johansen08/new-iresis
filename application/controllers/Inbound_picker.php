@@ -53,7 +53,10 @@ class Inbound_picker extends MY_Controller
         $picking = [
             'noresi' => $noresi,
             'yangambil_pegawai' => $id_picker,
-            'pending' => ''
+            'pending' => '',
+            // Picking_fcd::save() tidak mencatat penolakan cancel untuk sumber ini;
+            // dicatat di bawah setelah rollback transaksi luar (docs/PAKET_CANCEL.md §7.1 #2).
+            'sumber_scan' => 'INBOUND',
         ];
 
         $normal_picker_status_id = $this->kpi_fcd->get_status_id_by_name('NORMAL_PICKER');
@@ -76,6 +79,13 @@ class Inbound_picker extends MY_Controller
 
         if (isset($save_picker['error'])) {
             $this->db->trans_rollback();
+            // Di meja inbound paket fisik sudah diambil picker -> paket cancel DITEMUKAN.
+            if (($save_picker['data']['EXCEPTION_CODE'] ?? '') === 'ORDER_CANCELED') {
+                $this->load->model('cancel_paket_fcd');
+                $this->cancel_paket_fcd->catat_tolak($receipt, 'INBOUND', $this->data['user'], [
+                    'barang_sudah_diambil' => true,
+                ]);
+            }
             $this->make_ajax_response($save_picker['code'], $save_picker['message'] . ' (Picker)');
         }
 

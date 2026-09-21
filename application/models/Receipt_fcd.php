@@ -3009,26 +3009,30 @@ class Receipt_fcd extends CI_Model
      *  - tblprintresi.status_pesanan mengandung CANCEL (CANCELED / REQUEST_CANCEL
      *    hasil upload resi Jubelio),
      *  - tblprintresi.batal terisi (dibatalkan manual di iresis),
-     *  - tercatat di tblcancelorder (sinkron Jubelio atau scan manual tim resi).
+     *  - tercatat di tblcancelorder (sinkron Jubelio atau scan manual tim resi),
+     *  - punya baris tblcancel_paket (pernah ditolak scan karena cancel;
+     *    docs/PAKET_CANCEL.md) -- tetap tampil walau statusnya berubah lagi.
      */
     private function _kondisi_resi_cancel()
     {
         return "(pr.status_pesanan LIKE '%CANCEL%'
             OR (pr.batal IS NOT NULL AND pr.batal <> '' AND pr.batal <> '0')
-            OR co.id_cancel IS NOT NULL)";
+            OR co.id_cancel IS NOT NULL
+            OR cp.id_cancel_paket IS NOT NULL)";
     }
 
     /**
-     * Query dasar laporan resi cancel: join tblcancelorder (wajib, bagian dari
-     * kondisi cancel) plus marketplace, kurir, picker, packer, HO bila
-     * $join_nama TRUE (dibutuhkan untuk baris data & pencarian; untuk hitung
-     * total tanpa pencarian dilewati supaya ringan). Filter rentang pada
-     * tanggal_printresi.
+     * Query dasar laporan resi cancel: join tblcancelorder & tblcancel_paket
+     * (wajib, bagian dari kondisi cancel) plus marketplace, kurir, picker,
+     * packer, HO bila $join_nama TRUE (dibutuhkan untuk baris data &
+     * pencarian; untuk hitung total tanpa pencarian dilewati supaya ringan).
+     * Filter rentang pada tanggal_printresi.
      */
     private function _query_resi_cancel($start_date, $end_date, $search = '', $join_nama = true)
     {
         $this->db->from('tblprintresi pr');
         $this->db->join('tblcancelorder co', 'co.noresi = pr.noresi', 'left');
+        $this->db->join('tblcancel_paket cp', 'cp.id_resi = pr.id_printresi', 'left');
 
         if ($join_nama || $search !== '') {
             $this->db->join('tblmarketplace m', 'm.id_marketplace = pr.id_marketplace', 'left');
@@ -3039,6 +3043,7 @@ class Receipt_fcd extends CI_Model
             $this->db->join('tbluser u_packer', 'u_packer.id_user = pk.packer_pegawai', 'left');
             $this->db->join('tblresikeluar rk', 'rk.id_resi = pr.id_printresi', 'left');
             $this->db->join('tblpegawai pg_ho', 'pg_ho.kode_pegawai = rk.id_pegawai', 'left');
+            $this->db->join('tbluser u_penemu', 'u_penemu.id_user = cp.ditemukan_oleh', 'left');
         }
 
         $this->db->where('pr.tanggal_printresi >=', $start_date);
@@ -3113,7 +3118,14 @@ class Receipt_fcd extends CI_Model
             rk.tanggal_resikeluar AS waktu_ho,
             pg_picker.nama_pegawai AS nama_picker,
             u_packer.name AS nama_packer,
-            pg_ho.nama_pegawai AS nama_ho
+            pg_ho.nama_pegawai AS nama_ho,
+            cp.status AS paket_status,
+            cp.ditemukan_di AS paket_ditemukan_di,
+            cp.ditemukan_at AS paket_ditemukan_at,
+            cp.jumlah_tolak AS paket_jumlah_tolak,
+            cp.tolak_terakhir_di AS paket_tolak_terakhir_di,
+            cp.tolak_terakhir_at AS paket_tolak_terakhir_at,
+            u_penemu.name AS paket_ditemukan_oleh
         ", false);
         $this->_query_resi_cancel($start_date, $end_date, $search);
         $this->db->group_by('pr.id_printresi');
@@ -3129,6 +3141,10 @@ class Receipt_fcd extends CI_Model
         foreach ($rows as $r) {
             $waktu_cancel = $this->_waktu_cancel_diketahui($r);
             $tahap        = $this->_tahap_saat_cancel($r, $waktu_cancel);
+            $jejak        = $this->_teks_paket_cancel($r);
+            if ($jejak !== '') {
+                $tahap .= '<br><small>' . $jejak . '</small>';
+            }
 
             $data[] = [
                 $no++ . '.',
@@ -3167,6 +3183,65 @@ class Receipt_fcd extends CI_Model
             }
         }
         return null;
+    }
+
+    /**
+     * Baris kedua kolom "Tahap saat Cancel": jejak fisik dari tblcancel_paket
+     * (docs/PAKET_CANCEL.md §7.3). Kosong bila resi belum pernah ditolak scan.
+     *
+     * Contoh: "Ditolak di HO 21/09 09:15 oleh GUNTUR (2×) — packer lupa scan"
+     */
+    private function _teks_paket_cancel($r)
+    {
+        if (empty($r->paket_status)) {
+            return '';
+        }
+
+        $label_meja = [
+            'PICKER'    => 'picker',
+            'INBOUND'   => 'inbound',
+            'PACKER'    => 'packer',
+            'HO'        => 'HO',
+            'LOST_SCAN' => 'lost scan',
+        ];
+        $meja  = $label_meja[$r->paket_ditemukan_di] ?? strtolower((string) $r->paket_ditemukan_di);
+        $teks  = 'Ditolak di ' . $meja;
+        if (!empty($r->paket_ditemukan_at)) {
+            $teks .= ' ' . date('d/m H:i', strtotime($r->paket_ditemukan_at));
+        }
+        if (!empty($r->paket_ditemukan_oleh)) {
+            $teks .= ' oleh ' . $r->paket_ditemukan_oleh;
+        }
+
+        $jumlah = (int) $r->paket_jumlah_tolak;
+        if ($jumlah > 1) {
+            $teks .= ' (' . $jumlah . '×';
+            if (!empty($r->paket_tolak_terakhir_di) && $r->paket_tolak_terakhir_di !== $r->paket_ditemukan_di) {
+                $teks .= ', terakhir ' . ($label_meja[$r->paket_tolak_terakhir_di] ?? strtolower($r->paket_tolak_terakhir_di));
+            }
+            $teks .= ')';
+        }
+
+        // Penanda lupa scan: paket sampai meja X tanpa scan meja sebelumnya.
+        $penanda = [];
+        $sampai_packer_atau_ho = in_array($r->paket_ditemukan_di, ['INBOUND', 'PACKER', 'HO'], true)
+            || in_array($r->paket_tolak_terakhir_di, ['INBOUND', 'PACKER', 'HO'], true);
+        $sampai_ho = $r->paket_ditemukan_di === 'HO' || $r->paket_tolak_terakhir_di === 'HO';
+        if ($sampai_ho && empty($r->waktu_packer)) {
+            $penanda[] = 'packer lupa scan';
+        }
+        if ($sampai_packer_atau_ho && empty($r->waktu_picker) && $r->paket_ditemukan_di !== 'INBOUND') {
+            $penanda[] = 'picker lupa scan';
+        }
+        if ($penanda) {
+            $teks .= ' — <b>' . implode(', ', $penanda) . '</b>';
+        }
+
+        if ($r->paket_status !== 'DITEMUKAN') {
+            $teks .= ' · ' . $r->paket_status;
+        }
+
+        return $teks;
     }
 
     /**

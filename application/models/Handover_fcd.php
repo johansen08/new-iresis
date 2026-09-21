@@ -30,6 +30,10 @@ class Handover_fcd extends CI_Model
             return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah SELESAI', 'data' => ['EXCEPTION_CODE' => 'ORDER_COMPLETED']];
         }
         if ($receipt->status_pesanan == 'CANCELED' || $receipt->batal == '1' || $receipt->batal == 1) {
+            // Jejak paket cancel (docs/PAKET_CANCEL.md §7.1 #5): paket fisik ada di meja HO.
+            $receipt->noresi = $handover['noresi'];
+            $this->load->model('cancel_paket_fcd');
+            $this->cancel_paket_fcd->catat_tolak($receipt, 'HO', $user, ['keterangan' => 'Scan HO']);
             return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'data' => ['EXCEPTION_CODE' => 'ORDER_CANCELED']];
         }
 

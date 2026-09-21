@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-21.2';
+    const BOOTSTRAP_VERSI = '2026-09-21.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -167,6 +167,7 @@ class MY_Controller extends CI_Controller
         $this->run_salah_ambil_special_migration();
         $this->run_foto_sku_lokal_migration();
         $this->run_mode_arsip_migration();
+        $this->run_paket_cancel_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1638,5 +1639,53 @@ class MY_Controller extends CI_Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * Paket Cancel tahap 1 (docs/PAKET_CANCEL.md §7–8): jejak scan yang
+     * ditolak karena resi cancel + baris paket cancel per resi yang barangnya
+     * sudah keluar display. Tidak ada menu baru di tahap ini.
+     */
+    protected function run_paket_cancel_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_paket` (
+          `id_cancel_paket` int(11) NOT NULL AUTO_INCREMENT,
+          `id_resi` bigint(20) NOT NULL,
+          `noresi` varchar(100) NOT NULL,
+          `status` enum('DITEMUKAN','DICEK','DIKIRIM','SELESAI') NOT NULL DEFAULT 'DITEMUKAN',
+          `ditemukan_di` enum('PICKER','INBOUND','PACKER','HO') NOT NULL,
+          `ditemukan_oleh` int(11) DEFAULT NULL,
+          `ditemukan_komputer` varchar(50) DEFAULT NULL,
+          `ditemukan_at` datetime NOT NULL,
+          `jumlah_tolak` int(11) NOT NULL DEFAULT 1,
+          `tolak_terakhir_di` enum('PICKER','INBOUND','PACKER','HO','LOST_SCAN') DEFAULT NULL,
+          `tolak_terakhir_at` datetime DEFAULT NULL,
+          `dicek_oleh` int(11) DEFAULT NULL,
+          `dicek_at` datetime DEFAULT NULL,
+          `id_batch` int(11) DEFAULT NULL,
+          `selesai_at` datetime DEFAULT NULL,
+          `catatan` varchar(255) DEFAULT NULL,
+          `created_at` datetime NOT NULL,
+          `updated_at` datetime DEFAULT NULL,
+          PRIMARY KEY (`id_cancel_paket`),
+          UNIQUE KEY `uq_cancel_paket_resi` (`id_resi`),
+          KEY `idx_cancel_paket_status` (`status`, `ditemukan_at`),
+          KEY `idx_cancel_paket_noresi` (`noresi`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_paket_tolak` (
+          `id_tolak` int(11) NOT NULL AUTO_INCREMENT,
+          `id_resi` bigint(20) NOT NULL,
+          `noresi` varchar(100) NOT NULL,
+          `tahap` enum('PICKER','INBOUND','PACKER','HO','LOST_SCAN') NOT NULL,
+          `alasan` varchar(30) NOT NULL,
+          `id_user` int(11) DEFAULT NULL,
+          `nama_komputer` varchar(50) DEFAULT NULL,
+          `waktu` datetime NOT NULL,
+          `keterangan` varchar(255) DEFAULT NULL,
+          PRIMARY KEY (`id_tolak`),
+          KEY `idx_cancel_tolak_resi` (`id_resi`, `waktu`),
+          KEY `idx_cancel_tolak_waktu` (`waktu`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
     }
 }
