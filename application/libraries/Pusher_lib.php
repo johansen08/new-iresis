@@ -16,7 +16,10 @@ class Pusher_lib {
         // Ambil data dari config
         $options = array(
             'cluster' => $CI->config->item('pusher_cluster', 'pusher'),
-            'useTLS'  => true
+            'useTLS'  => true,
+            // Bawaan 30 detik: saat internet putus, tiap aksi yang memicu notifikasi ikut
+            // menggantung selama itu. 5 detik cukup untuk API Pusher normal.
+            'timeout' => 5
         );
 
         // Inisialisasi Pusher
