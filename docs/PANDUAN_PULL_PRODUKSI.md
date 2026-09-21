@@ -520,3 +520,78 @@ Saat kode dipasang lagi, kembalikan `isactive = 1` manual — migrasi hanya
 membuat menu yang belum ada. Baris `tblmasalahpicker` yang sudah ditulis
 fitur ini adalah laporan salah ambil sungguhan; biarkan CS memprosesnya
 seperti biasa.
+
+---
+
+## E. Langkah tambahan rilis 19 September 2026 — rekaman webcam 1080p + VP9
+
+Isi rilis: **Scan Resi Packer (Webcam)** merekam **1920×1080 @ 15 fps**
+(sebelumnya 1280×720) dengan codec **VP9** (fallback VP8 di browser lama).
+Tanpa suara — memang sejak awal tidak pernah ada track audio. Hanya
+`assets/js/packer_video.js` yang berubah perilakunya; sisi server (upload
+potongan, remux, antrian MP4, halaman Video Packing CS) tidak berubah karena
+VP9 tetap WebM. **Tidak ada migrasi, tidak ada SQL.** Kembali pakai
+`git pull` biasa (A.5).
+
+| Commit | Perubahan |
+|---|---|
+| branch `feature/packer-webcam-1080p-vp9` | resolusi 1080p, bitrate per codec (VP9 2,0 Mbps / VP8 2,7 Mbps), VP9 didahulukan, panel kamera menampilkan codec |
+
+Kenapa tidak "dikompres saat simpan lalu diekstrak di CS": diukur pada
+rekaman nyata 1080p 60 detik (11,6 MB) — gzip hanya hemat 2,8 %, dan encode
+ulang H.264 "tanpa mengurangi kualitas" (CRF 20–23) justru **membesar**
+menjadi 17–31 MB, karena rekaman webcam sudah lossy dan encoder ikut
+menyimpan noise. Ukuran ditentukan bitrate saat merekam; VP9 memberi
+kualitas setara VP8 pada bitrate ~25–30 % lebih rendah, itu penghematan
+satu-satunya yang nyata.
+
+### E.1 Kapasitas disk `C:\video-packing\` — WAJIB dicek sebelum pull
+
+Ini kebalikan dari rilis 15 Sep (B.6) yang **menurunkan** ke 720p karena
+disk. Perkiraan baru:
+
+| Setelan | Per PC per jam | ~30 PC × 6 jam/hari |
+|---|---|---|
+| 720p VP8 1,2 Mbps (sebelum rilis ini) | ≈ 540 MB | ≈ 100 GB/hari |
+| **1080p VP9 2,0 Mbps (rilis ini)** | **≈ 900 MB** | **≈ 160 GB/hari** |
+| 1080p VP8 2,7 Mbps (PC yang jatuh ke VP8) | ≈ 1,2 GB | ≈ 215 GB/hari |
+
+Per 15 Sep 2026 sisa drive C: produksi ±375 GB dan `C:\video-packing\`
+sedrive dengan MariaDB. Dengan 160 GB/hari, drive penuh dalam **2–3 hari
+kerja** kalau belum ada penghapusan/pemindahan rekaman lama. Sebelum pull:
+
+```powershell
+Get-PSDrive C | Select-Object @{n='Terpakai_GB';e={[math]::Round($_.Used/1GB)}}, @{n='Sisa_GB';e={[math]::Round($_.Free/1GB)}}
+(Get-ChildItem C:\video-packing -File | Measure-Object Length -Sum).Sum / 1GB
+```
+
+Kalau sisa ruang tidak cukup untuk kebijakan retensi yang disepakati,
+pilihannya: pindahkan `video_packing_dir` di `secrets.php` ke drive lain,
+atau tunda rilis ini. Menurunkan bitrate (`BITRATE_VP9` / `BITRATE_VP8` di
+`packer_video.js`) juga bisa, tapi kualitas 1080p-nya ikut turun.
+
+### E.2 Verifikasi di sisi pengguna
+
+- **Packer**: buka Scan Resi Packer (Webcam) → panel kamera menampilkan
+  `Resolusi: 1920×1080 @ 15 fps · VP9`. Kalau tertulis `· VP8`, browser PC
+  itu tidak punya encoder VP9 (Chrome sangat lama) — rekamannya tetap jalan,
+  hanya berkasnya ~35 % lebih besar. Kalau oranye ("di bawah 1920×1080"),
+  webcam PC itu hanya sanggup 720p — catat PC-nya; ini bukan kesalahan.
+- Perhatikan CPU PC packer saat merekam (Task Manager → chrome): encode
+  VP9 1080p lebih berat dari VP8 720p. Kalau preview kamera patah-patah atau
+  PC melambat saat packing, laporkan PC-nya — bitrate/resolusi bisa
+  diturunkan per rilis, belum ada setelan per PC.
+- **CS**: Video Packing → cari resi yang direkam setelah rilis → video
+  diputar seperti biasa (Chrome/Edge/Firefox memutar VP9 tanpa apa pun).
+  **Siapkan MP4** tetap bekerja (ffmpeg membaca VP9); hasil MP4-nya bisa
+  lebih besar dari WebM-nya, itu normal (lihat catatan di atas).
+- Browser packer harus memuat `packer_video.js` versi baru: `main.php`
+  menambahkan `?v=<filemtime>` otomatis, jadi cukup muat ulang halaman
+  (F5). Panel yang masih menampilkan `1280×720` tanpa nama codec berarti
+  masih memakai JS lama.
+
+### E.3 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9 — tidak ada data yang perlu dipulihkan. Rekaman yang sudah
+terlanjur dibuat 1080p/VP9 tetap bisa diputar dan dikonversi MP4 oleh
+versi lama (server memang tidak pernah membedakan codec).

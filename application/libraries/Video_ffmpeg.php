@@ -136,9 +136,12 @@ class Video_ffmpeg
      * Transcode ke MP4 H.264 (yuv420p, faststart) supaya bisa diputar di
      * iPhone/WhatsApp. Audio memang tidak ada di rekaman packing.
      *
-     * Preset veryfast + CRF 23: ukurannya kurang lebih sama dengan sumber
-     * VP8-nya, kualitas visual setara, dan waktu prosesnya ~15 detik per menit
-     * video di CPU biasa. Preset lebih lambat cuma menghemat ukuran sedikit.
+     * Preset veryfast + CRF 23: kualitas visual setara sumbernya dan waktu
+     * prosesnya ~15 detik per menit video di CPU biasa. Ukurannya bisa lebih
+     * besar dari WebM asalnya (VP9/VP8 dari browser) -- diukur 1,5x pada
+     * sampel 1080p -- karena sumbernya sudah lossy dengan bitrate rendah dan
+     * encoder ikut menyimpan noise webcam. Ini memang konversi format, bukan
+     * penghematan; CRF lebih rendah/preset lebih lambat cuma membesar.
      *
      * @return array ['sukses' => bool, 'ukuran' => int, 'pesan' => string]
      */
