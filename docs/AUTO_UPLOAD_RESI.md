@@ -216,7 +216,7 @@ Sudah divalidasi silang terhadap data asli di `tblprintresi` (bukan tebakan):
 | `tanggal_pesan` | `transaction_date` (list) | UTC → dikonversi ke WIB (+7 jam) |
 | `tanggal_bataskirim` | `due_date` (detail per order) | UTC → WIB. **Dikonfirmasi cocok 100%** dengan nilai asli di DB |
 | `tanggal_selesai` | `completed_date` (detail) | UTC → WIB. Null selama belum COMPLETED |
-| `tanggal_pengiriman` | `awb_created_date` (detail/item) | UTC → WIB. **Belum bisa divalidasi penuh** — nilai lama di DB untuk kolom ini kelihatan punya bug tersendiri (tanggal bulan/hari tertukar), jadi tidak ada pembanding yang bisa dipercaya. Tidak dipakai laporan manapun, risiko rendah. |
+| `tanggal_pengiriman` | `awb_created_date` (detail/item) | UTC → WIB. Nilai lama di DB (unggahan xlsx Jan–Sep 2026) hari/bulannya tertukar dan hari > 12 hilang jadi NULL — akar masalahnya parser teks tanggal di `Receipt_fcd::insert_receipt()` (lihat §Bug tanggal hari/bulan di bawah), sudah diperbaiki 22 Sep 2026. Jalur API ini sejak awal benar karena mengirim `Y-m-d`. |
 | `sku` | `items[].item_code` (detail) | Cocok persis (mis. `BM-AKS28-2`) |
 | `jumlah` | `items[].qty` (detail) | |
 | `no_rak` | *(dikosongkan)* | Lokasi rak asli ada di `tblsku.no_rak`, bukan dari Jubelio — sistem sudah pakai `COALESCE` ke `tblsku` saat tampil ke packer |
@@ -275,3 +275,38 @@ Dibaca constructor `Cron` lewat `iresis_secret('cron_token')`.
 | `application/models/Receipt_fcd.php` | Logic insert ke DB (`insert_receipt`, `get_completed_noresi`) |
 | `application/config/secrets.php` | Token cron (`cron_token`) |
 | `C:\MP\log_upload_resi.txt` / `log_upload_resi_api.txt` | Log output harian |
+
+---
+
+## Bug tanggal hari/bulan tertukar (ditemukan 22 Sep 2026)
+
+**Gejala.** Di `tblprintresi`, `tanggal_pengiriman` 36 % berada di masa depan
+(175.040 dari 485.388 terisi), `tanggal_selesai` 53 %, `tanggal_retur` 48 %;
+nilainya menumpuk di hari 1–12 tiap bulan (resi dicetak 12 Sep tersimpan
+`2026-12-09`). Sekaligus ~348.000 resi `SHIPPED` punya `tanggal_pengiriman`
+NULL. `tanggal_pesan` dan `tanggal_bataskirim` selalu benar.
+
+**Akar masalah.** Sejak unggahan 1 Jan 2026 kolom J/L/U (tanggal pengiriman/
+selesai/retur) di laporan Jubelio berupa **teks** `hari/bulan/tahun`, bukan
+angka serial seperti kolom D/H. `Receipt_fcd::insert_receipt()` mencoba
+`createFromFormat('d/m/Y H:i:s')`, gagal (bentuk jamnya tidak persis), lalu
+jatuh ke `new DateTime("12/09/2026 …")` — PHP membaca garis miring ala
+Amerika (bulan/hari): 12/09 → 9 Desember, dan **hari > 12 melempar exception
+→ NULL**. Data Okt–Des 2025 benar (format ekspor saat itu masih terbaca).
+
+**Perbaikan (22 Sep 2026, `fix(receipt)`).** Parser diganti: teks bertanda
+`/ - .` dibaca hari-dulu lewat regex (bulan-dulu hanya bila terbukti dari isi
+file: ada angka kedua > 12), jam menerima `H:i:s`, `H:i`, `H.i.s`, AM/PM dan
+pecahan detik, angka serial tetap seperti semula, jalur API (`Y-m-d`) tidak
+berubah. Tiap unggahan menulis satu baris log (`application/logs/`) berisi
+urutan yang terdeteksi, jumlah teks tanggal yang gagal, dan contoh sel mentah
+`D E J K L M U V` — **periksa log setelah unggahan pertama** untuk memastikan
+format Jubelio memang yang diduga.
+
+**Data lama.** Nilai NULL tidak bisa dipulihkan dari DB (hilang saat impor;
+perlu impor ulang dari Jubelio, dan jalur update hanya menulis bila
+`status_pesanan` berubah). Nilai yang tertukar dikoreksi dengan skrip
+`dev_tools/sql/20260922_koreksi_tanggal_hari_bulan_tblprintresi.sql`
+(+ `_rollback.sql`): backup `CREATE TABLE … SELECT` per DB, tukar hari↔bulan
+hanya bila hasilnya ≤ NOW() dan ≥ `tanggal_pesan`/`tanggal_printresi`, prod
+dulu baru arsip (sinkron malam tidak membawa UPDATE tanpa `modified_at`).
