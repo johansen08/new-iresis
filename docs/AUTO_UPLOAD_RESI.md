@@ -308,5 +308,6 @@ perlu impor ulang dari Jubelio, dan jalur update hanya menulis bila
 `status_pesanan` berubah). Nilai yang tertukar dikoreksi dengan skrip
 `dev_tools/sql/20260922_koreksi_tanggal_hari_bulan_tblprintresi.sql`
 (+ `_rollback.sql`): backup `CREATE TABLE … SELECT` per DB, tukar hari↔bulan
-hanya bila hasilnya ≤ NOW() dan ≥ `tanggal_pesan`/`tanggal_printresi`, prod
-dulu baru arsip (sinkron malam tidak membawa UPDATE tanpa `modified_at`).
+hanya bila hasilnya ≤ NOW() dan ≥ `tanggal_pesan` (bukan `tanggal_printresi`,
+karena itu waktu unggah dan bisa lebih lambat dari pengiriman), prod dulu baru
+arsip (sinkron malam tidak membawa UPDATE tanpa `modified_at`).
