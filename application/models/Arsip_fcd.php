@@ -532,9 +532,13 @@ class Arsip_fcd extends CI_Model
     // ------------------------------------------------------------------
 
     /**
-     * Berapa resi yang aktivitas terakhirnya sudah lewat retensi. Angka ini
-     * perkiraan kasar untuk memantau; aturan "status terbuka" (retur belum
-     * tuntas, komplain, lost scan) baru diterapkan di tahap purna.
+     * Berapa resi di prod yang tanggal cetak/created_at/modified_at-nya sudah
+     * lewat retensi. Angka pemantau kasar: purna masih mengecualikan yang punya
+     * tanda "terbuka" (lihat calon_purna), jadi yang benar-benar dipindah lebih kecil.
+     *
+     * tanggal_selesai / tanggal_retur / tanggal_pengiriman SENGAJA tidak dihitung:
+     * ketiganya dari Excel marketplace dan 36-53 % nilainya di masa depan
+     * (hari/bulan tertukar saat impor, temuan 22 Sep 2026).
      */
     public function laporan_purna()
     {
@@ -542,10 +546,8 @@ class Arsip_fcd extends CI_Model
         $r = $this->ambil_row("SELECT COUNT(*) jml, MIN(akhir) tertua, MAX(akhir) termuda FROM (
                 SELECT GREATEST(
                     COALESCE(NULLIF(tanggal_printresi, '0000-00-00 00:00:00'), '1970-01-01'),
-                    COALESCE(created_at,      '1970-01-01'),
-                    COALESCE(modified_at,     '1970-01-01'),
-                    COALESCE(tanggal_selesai, '1970-01-01'),
-                    COALESCE(tanggal_retur,   '1970-01-01')
+                    COALESCE(created_at,  '1970-01-01'),
+                    COALESCE(modified_at, '1970-01-01')
                 ) akhir FROM `{$this->prod}`.`tblprintresi`
             ) x WHERE akhir < NOW() - INTERVAL $hari DAY");
         if (!$r) {
@@ -555,8 +557,9 @@ class Arsip_fcd extends CI_Model
 
         $out = array('retensi_hari' => $hari, 'resi_lewat_retensi' => (int) $r->jml,
             'aktivitas_tertua' => $r->tertua, 'aktivitas_termuda_lewat' => $r->termuda);
-        $this->log[] = date("H:i:s") . "  " . sprintf('laporan: %s resi sudah lewat retensi %d hari (aktivitas tertua %s) — belum dihapus, tahap purna belum aktif',
-            number_format($out['resi_lewat_retensi']), $hari, $r->tertua ?: '-');
+        $this->log[] = date("H:i:s") . "  " . sprintf('laporan: %s resi di prod sudah lewat retensi %d hari (tertua %s) — yang tanpa tanda terbuka dipindah purna%s',
+            number_format($out['resi_lewat_retensi']), $hari, $r->tertua ?: '-',
+            empty($this->cfg['purna_aktif']) ? ' (purna_aktif masih FALSE)' : '');
         return $out;
     }
 
@@ -646,6 +649,8 @@ class Arsip_fcd extends CI_Model
 
     /**
      * Ambil satu batch resi calon purna: aktivitas terakhir di tblprintresi
+     * (tanggal cetak/created_at/modified_at — bukan tanggal_selesai/retur/
+     * pengiriman yang berasal dari Excel marketplace dan sering salah bulan)
      * < cutoff, dan TIDAK punya tanda "masih terbuka" di tabel anak.
      * Aturannya (lihat docs/ARSIP_DATA.md §4c):
      *   - packing / ambil barang / keluar / retur / verifikasi / cancel / komplain
@@ -663,9 +668,7 @@ class Arsip_fcd extends CI_Model
             WHERE p.id_printresi > ?
               AND GREATEST(
                     COALESCE(NULLIF(p.tanggal_printresi, '0000-00-00 00:00:00'), '1970-01-01'),
-                    COALESCE(p.created_at, '1970-01-01'), COALESCE(p.modified_at, '1970-01-01'),
-                    COALESCE(p.tanggal_selesai, '1970-01-01'), COALESCE(p.tanggal_retur, '1970-01-01'),
-                    COALESCE(p.tanggal_pengiriman, '1970-01-01')) < ?
+                    COALESCE(p.created_at, '1970-01-01'), COALESCE(p.modified_at, '1970-01-01')) < ?
               AND (p.status_pesanan IN ('CANCELED','COMPLETED','SHIPPED','RETURNED')
                    OR EXISTS (SELECT 1 FROM $p.`tblresikeluar` k WHERE k.id_resi = p.id_printresi))
               AND NOT EXISTS (SELECT 1 FROM $p.`tblpacking` x WHERE x.id_resi = p.id_printresi AND x.tanggal_packing >= ?)

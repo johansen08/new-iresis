@@ -140,8 +140,11 @@ keluarga; sinkron terakhir ≤ 36 jam; backup arsip (`C:\backup-db\otomatis\ires
 ≤ 36 jam.
 
 **Calon** (`calon_purna`): resi yang aktivitas terakhir di `tblprintresi` (`GREATEST` tanggal
-cetak/`created_at`/`modified_at`/selesai/retur/pengiriman) < cutoff, **dan** tidak ada tanda
-masih terbuka:
+cetak/`created_at`/`modified_at`) < cutoff, **dan** tidak ada tanda masih terbuka.
+`tanggal_selesai`/`tanggal_retur`/`tanggal_pengiriman` **sengaja tidak dihitung** sebagai
+aktivitas: ketiganya dari kolom Excel upload resi dan 36–53 % nilainya di masa depan
+(hari/bulan tertukar — temuan 22 Sep 2026; pada putaran pertama itu menahan 159 rb resi tua di
+prod). Aktivitas nyata (packing, keluar, retur) sudah dicek lewat tabel anaknya:
 
 | Ditunda kalau | Alasan |
 |---|---|
