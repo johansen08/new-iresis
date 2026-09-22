@@ -1386,42 +1386,107 @@ class Receipt_fcd extends CI_Model
                 $kurir_map[strtolower($kr->nama_kurir)] = $kr->id_kurir;
             }
 
-            // Helpers
-            $excelDateToPhpDate = function ($excelDate) {
-                if (is_numeric($excelDate)) {
-                    $unixDate = ($excelDate - 25569) * 86400;
-                    return gmdate("d/m/Y", $unixDate);
+            // ---- Helper tanggal/jam sel Excel ----------------------------------
+            //
+            // Sel tanggal bisa berupa angka serial Excel (tanggal pesan D, batas
+            // kirim H) atau TEKS "hari/bulan/tahun" (tanggal pengiriman J,
+            // selesai L, retur U -- begitu Jubelio mengekspornya sejak Jan 2026).
+            // Parser lama hanya cocok untuk teks yang persis 'd/m/Y H:i:s'; teks
+            // lain jatuh ke `new DateTime()` yang membaca "12/09/2026" ala
+            // Amerika (bulan/hari) -> 9 Desember, dan melempar exception untuk
+            // hari > 12 -> NULL. Akibatnya tanggal_pengiriman/selesai/retur di
+            // DB 36-53 % berada di masa depan dan sisanya kosong.
+            //
+            // Sekarang teks bertanda "/", "-" atau "." dibaca HARI DULU (format
+            // Indonesia/Jubelio). Urutan bulan-dulu hanya dipakai bila terbukti
+            // dari isi file (ada angka kedua > 12) -- dihitung sekali di bawah.
+            $bukti_hari_dulu = 0;
+            $bukti_bulan_dulu = 0;
+            foreach ($receiptData as $row) {
+                foreach (['D', 'H', 'J', 'L', 'U'] as $kol) {
+                    $v = $row[$kol] ?? null;
+                    if ($v === null || $v === '' || is_numeric($v)) continue;
+                    if (!preg_match('/^\s*(\d{1,2})[\/\-.](\d{1,2})[\/\-.]\d{2,4}/', (string)$v, $m)) continue;
+                    if ((int)$m[1] > 12) $bukti_hari_dulu++;
+                    if ((int)$m[2] > 12) $bukti_bulan_dulu++;
                 }
-                return $excelDate;
-            };
-            $excelTimeToPhpTime = function ($excelTime) {
-                if (is_numeric($excelTime)) {
-                    $totalSeconds = (int) round($excelTime * 86400);
-                    $hours = floor($totalSeconds / 3600);
-                    $minutes = floor(($totalSeconds % 3600) / 60);
-                    $seconds = $totalSeconds % 60;
-                    return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
+            }
+            $hari_dulu = $bukti_bulan_dulu <= $bukti_hari_dulu;
+
+            $tanggal_gagal = 0;   // teks tanggal non-kosong yang tak terbaca
+            $contoh_gagal  = [];  // maksimal 3 contoh untuk log
+
+            // Teks jam "16:56:29", "16:56", "16.56.29", "4:56:29 PM", "16:56:29.000" -> 'H:i:s'
+            $uraiTeksWaktu = function ($teks) {
+                if (!preg_match('/(\d{1,2})[:.](\d{1,2})(?:[:.](\d{1,2}))?(?:[.,]\d+)?\s*([AaPp]\.?[Mm])?/', (string)$teks, $m)) return null;
+                $h = (int)$m[1];
+                $i = (int)$m[2];
+                $s = isset($m[3]) && $m[3] !== '' ? (int)$m[3] : 0;
+                if (!empty($m[4])) {
+                    $pm = stripos($m[4], 'p') === 0;
+                    if ($pm && $h < 12) $h += 12;
+                    if (!$pm && $h == 12) $h = 0;
                 }
-                return $excelTime;
+                if ($h > 23 || $i > 59 || $s > 59) return null;
+                return sprintf('%02d:%02d:%02d', $h, $i, $s);
             };
-            $combineDateTime = function ($date, $time) {
-                if (!$date || !$time) return null;
 
-                // 1. Try original format d/m/Y H:i:s
-                $dt = DateTime::createFromFormat('d/m/Y H:i:s', "$date $time");
-                if ($dt) return $dt->format('Y-m-d H:i:s');
-
-                // 2. Try Y-m-d H:i:s (ISO) usually from Excel general format
-                $dt = DateTime::createFromFormat('Y-m-d H:i:s', "$date $time");
-                if ($dt) return $dt->format('Y-m-d H:i:s');
-
-                // 3. Fallback to smart parsing
-                try {
-                    $dt = new DateTime("$date $time");
-                    return $dt->format('Y-m-d H:i:s');
-                } catch (Exception $e) {
+            // Teks tanggal "12/09/2026", "12-09-26", "2026-09-12", boleh membawa jam
+            // di belakangnya -> ['Y-m-d', 'H:i:s'|null]; null bila tak terbaca.
+            $uraiTeksTanggal = function ($teks) use ($hari_dulu, $uraiTeksWaktu) {
+                $teks = trim((string)$teks);
+                if (preg_match('/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[T\s]+(.*))?$/', $teks, $m)) {
+                    $y  = (int)$m[1];
+                    $mo = (int)$m[2];
+                    $d  = (int)$m[3];
+                } elseif (preg_match('/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:[T\s]+(.*))?$/', $teks, $m)) {
+                    $y = (int)$m[3];
+                    if ($y < 100) $y += 2000;
+                    $d  = $hari_dulu ? (int)$m[1] : (int)$m[2];
+                    $mo = $hari_dulu ? (int)$m[2] : (int)$m[1];
+                    // urutan yang diminta mustahil (bulan > 12) tapi kebalikannya sah
+                    if (!checkdate($mo, $d, $y) && checkdate($d, $mo, $y)) {
+                        [$d, $mo] = [$mo, $d];
+                    }
+                } else {
                     return null;
                 }
+                if (!checkdate($mo, $d, $y)) return null;
+                $jam = isset($m[4]) && $m[4] !== '' ? $uraiTeksWaktu($m[4]) : null;
+                return [sprintf('%04d-%02d-%02d', $y, $mo, $d), $jam];
+            };
+
+            // Sel tanggal -> 'Y-m-d' (atau 'Y-m-d H:i:s' bila jam menumpang di teksnya)
+            $excelDateToPhpDate = function ($excelDate) use ($uraiTeksTanggal, &$tanggal_gagal, &$contoh_gagal) {
+                if ($excelDate === null || $excelDate === '') return null;
+                if (is_numeric($excelDate)) {
+                    // serial Excel = hari sejak 1899-12-30; pecahan (jam) diabaikan di sini
+                    return gmdate('Y-m-d', (int)floor(((float)$excelDate - 25569) * 86400));
+                }
+                $hasil = $uraiTeksTanggal($excelDate);
+                if ($hasil === null) {
+                    $tanggal_gagal++;
+                    if (count($contoh_gagal) < 3) $contoh_gagal[] = (string)$excelDate;
+                    return null;
+                }
+                return $hasil[1] ? $hasil[0] . ' ' . $hasil[1] : $hasil[0];
+            };
+            // Sel jam -> 'H:i:s'
+            $excelTimeToPhpTime = function ($excelTime) use ($uraiTeksWaktu) {
+                if ($excelTime === null || $excelTime === '') return null;
+                if (is_numeric($excelTime)) {
+                    // pecahan hari Excel (0.5 = 12:00); bila ikut membawa tanggal (>= 1) ambil pecahannya saja
+                    $totalSeconds = (int) round(fmod((float)$excelTime, 1) * 86400) % 86400;
+                    return sprintf('%02d:%02d:%02d', intdiv($totalSeconds, 3600), intdiv($totalSeconds % 3600, 60), $totalSeconds % 60);
+                }
+                return $uraiTeksWaktu($excelTime);
+            };
+            // Gabung -> 'Y-m-d H:i:s'; seperti sebelumnya, tanpa jam hasilnya NULL
+            // kecuali jamnya sudah menumpang di sel tanggal.
+            $combineDateTime = function ($date, $time) {
+                if (!$date) return null;
+                if (!$time) return strlen($date) > 10 ? $date : null;
+                return substr($date, 0, 10) . ' ' . $time;
             };
 
             $courier_aliases = [
@@ -1667,6 +1732,22 @@ class Receipt_fcd extends CI_Model
                     $batch_detail_map[$detail_key]['jumlah'] += (int)($row['Q'] ?? 0);
                 }
             }
+
+            // Satu baris log per unggahan: urutan tanggal yang terdeteksi, jumlah
+            // teks tanggal yang gagal, dan contoh sel mentah -- supaya perubahan
+            // format ekspor Jubelio ketahuan dari log, bukan dari data yang rusak.
+            $contoh_mentah = '-';
+            foreach ($receiptData as $row) {
+                if (!empty($row['J'])) {
+                    $contoh_mentah = json_encode(array_intersect_key($row, array_flip(['D', 'E', 'J', 'K', 'L', 'M', 'U', 'V'])));
+                    break;
+                }
+            }
+            log_message('error', sprintf(
+                'Upload resi: teks tanggal dibaca %s (bukti hari-dulu %d, bulan-dulu %d), tak terbaca %d%s; contoh sel mentah %s',
+                $hari_dulu ? 'hari-dulu' : 'bulan-dulu', $bukti_hari_dulu, $bukti_bulan_dulu, $tanggal_gagal,
+                $contoh_gagal ? ' (' . implode(' | ', $contoh_gagal) . ')' : '', $contoh_mentah
+            ));
 
             // Insert Headers in batches
             $jumlah_header = count($batch_header_map);
