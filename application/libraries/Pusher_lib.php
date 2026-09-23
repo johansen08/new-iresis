@@ -4,14 +4,21 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Pusher_lib {
 
     private $pusher;
+    private $aktif = TRUE;
 
     public function __construct()
     {
         // Panggil instance super-object CodeIgniter
         $CI =& get_instance();
-        
+
         // Load file konfigurasi pusher.php yang kita buat di Langkah 1
         $CI->load->config('pusher', TRUE);
+
+        // Dimatikan di folder dev lewat `pusher_aktif` di secrets.php (lihat config/pusher.php)
+        $this->aktif = $CI->config->item('pusher_aktif', 'pusher') !== FALSE;
+        if ( ! $this->aktif) {
+            return;
+        }
 
         // Ambil data dari config
         $options = array(
@@ -34,6 +41,11 @@ class Pusher_lib {
     // Buat fungsi wrapper agar mudah dipanggil di controller
     public function trigger($channels, $event, $data)
     {
+        if ( ! $this->aktif) {
+            log_message('debug', 'Pusher nonaktif (pusher_aktif = FALSE), event '.$event.' tidak dikirim.');
+            return new stdClass();
+        }
+
         return $this->pusher->trigger($channels, $event, $data);
     }
 }

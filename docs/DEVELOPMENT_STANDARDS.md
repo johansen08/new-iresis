@@ -109,7 +109,8 @@ Branch utama proyek ini adalah **`master`**. Branch `development` sudah dihapus 
    git branch -d feature/nama-fitur
    ```
 4. **Hapus branch dengan `-d`, JANGAN `-D`.** Huruf kecil akan menolak jika masih ada commit yang belum termerge — itu pengaman agar tidak ada pekerjaan yang hilang.
-5. **Belum ada remote.** Seluruh riwayat hanya tersimpan di PC ini dan belum punya backup off-site.
+5. **Remote `origin`** = `https://github.com/johansen08/new-iresis.git` (sejak 2026-09-12). Setelah merge ke `master`, jalankan `git push origin master`.
+6. **Kerjakan di folder dev, bukan di produksi** (sejak 2026-09-23). Branch, uji, dan merge dilakukan di `C:\xampp\htdocs\iresis-dev`. Folder produksi `new-iresis` hanya menarik hasilnya lewat `git pull`. Lihat `docs/LINGKUNGAN_DEV.md`.
 
 ---
 

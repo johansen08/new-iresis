@@ -385,7 +385,12 @@ $config['encryption_key'] = '';
 |
 */
 $config['sess_driver'] = 'files';
-$config['sess_cookie_name'] = 'siresi_session';
+// Bisa ditimpa lewat secrets.php (`sess_cookie_name`): folder dev di host yang sama
+// wajib memakai nama lain, karena cookie_path '/' membuat cookie dan berkas session
+// (save_path bawaan PHP) terbagi dengan produksi -- login/logout/Mode Arsip di dev
+// akan ikut mengubah session produksi di browser yang sama.
+require_once(APPPATH.'config/secrets_load.php');
+$config['sess_cookie_name'] = iresis_secret('sess_cookie_name', 'siresi_session');
 $config['sess_expiration'] = 86400;
 $config['sess_save_path'] = NULL;
 $config['sess_match_ip'] = FALSE;
