@@ -81,3 +81,6 @@ scratch/
 /dev_uri*.txt
 /prod_models.txt
 /prod_uri*.txt
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
