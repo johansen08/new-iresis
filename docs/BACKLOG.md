@@ -33,7 +33,7 @@ Backlog ini menurunkan PRD menjadi pekerjaan yang bisa diambil satu per satu. Su
 | B-16 | Smoke test CLI untuk endpoint scan | P2 | M | Setelah B-15 | §10 tanpa test, §6 |
 | B-17 | Jajaki API retur Jubelio | P2 | M | Siap (riset) | §10 Jubelio |
 | B-18 | Perbarui dokumen yang usang | P2 | S | Siap | *temuan* |
-| B-19 | Tutup folder `graft/` dari akses HTTP | P1 | S | Siap | *temuan* |
+| B-19 | Tutup folder `graft/` dari akses HTTP | P1 | S | Selesai (`75f24ad`) | *temuan* |
 
 ## Keputusan yang dibutuhkan
 
@@ -215,12 +215,12 @@ Unggah resi sudah punya jalur API v2 (`core-api`), tetapi retur masih bergantung
 
 - `HANDOFF.md` §4 masih menyebut kredensial Jubelio dan token cron *hardcoded* di `scripts/*.py`. Kenyataannya, keempat script `auto_upload_*` sudah membaca `secrets_local.py`, yang di-gitignore.
 - `CLAUDE.md` menyebut 39 controller, 41 model, dan 392 route. Kode sekarang punya 44 controller, 47 model, dan 413 route.
-- `CLAUDE.md` dan komentar di `.htaccess` menyebut `.htaccess` sebagai *whitelist*. Isinya sebenarnya daftar blokir: folder yang tidak disebut di sana tetap bisa dibuka lewat HTTP (lihat B-19).
+- `CLAUDE.md` menyebut `.htaccess` sebagai *whitelist*. Isinya sebenarnya daftar blokir: folder yang tidak disebut di sana tetap bisa dibuka lewat HTTP (lihat B-19). Komentar di `.htaccess` sudah diluruskan di `75f24ad`.
 - Setelah B-11 selesai, cocokkan juga bagian jadwal di kedua dokumen auto upload.
 
 ## Urutan yang disarankan
 
-1. **Minggu ini, tanpa menunggu.** B-01 (sebelum 1 Okt 22.30), B-03, B-19, dan B-15. Sambil itu, jawab Q1–Q7.
+1. **Minggu ini, tanpa menunggu.** B-01 (sebelum 1 Okt 22.30), B-03, dan B-15. B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
 2. **Berikutnya.** B-08 dan B-09 (pekerjaan pertama menurut PRD §2), lalu B-04 dan B-05.
 3. **Begitu keputusan masuk.** B-02, B-10, B-11, dan B-12. Hampir semuanya kerja operasional, bukan kode.
 4. **Setelah itu.** B-13 → B-14, lalu B-06, B-16, B-07, dan B-17. B-18 bisa diselipkan kapan saja.
