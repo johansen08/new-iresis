@@ -28,8 +28,10 @@ dev (gitignored). Kodenya sama persis dengan produksi.
 
 1. Kerjakan di `C:\xampp\htdocs\iresis-dev`. Buat branch dari `master`
    (`feature/*` atau `fix/*`, lihat `docs/DEVELOPMENT_STANDARDS.md` §6).
-2. Uji di `http://localhost/iresis-dev/`. Kalau menambah migrasi atau menu,
-   naikkan `BOOTSTRAP_VERSI`. Migrasinya akan jalan ke `iresis_dev` dulu.
+2. Uji di `http://localhost/iresis-dev/` dengan checklist
+   `docs/UJI_REGRESI.md`, lalu tulis hasilnya di pesan merge commit. Kalau
+   menambah migrasi atau menu, naikkan `BOOTSTRAP_VERSI`. Migrasinya akan
+   jalan ke `iresis_dev` dulu.
 3. Merge `--no-ff` ke `master` di folder dev, lalu `git push origin master`.
 4. Di folder produksi, jalankan `git pull` sesuai `docs/PANDUAN_PULL_PRODUKSI.md`,
    sebaiknya di luar jam kerja.

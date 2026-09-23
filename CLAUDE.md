@@ -12,7 +12,7 @@ Bahasa kerja proyek ini **Indonesia** — komentar kode, pesan commit, dokumen, 
 
 ## Perintah
 
-Tidak ada test suite, linter, atau build step di repo ini (tidak ada PHPUnit, tidak ada `require-dev`, tidak ada npm build). Verifikasi dilakukan dengan syntax check + uji manual di browser.
+Tidak ada test suite, linter, atau build step di repo ini (tidak ada PHPUnit, tidak ada `require-dev`, tidak ada npm build). Verifikasi dilakukan dengan syntax check + uji manual di browser mengikuti `docs/UJI_REGRESI.md` (checklist per meja, peta file → langkah di §3, hasil ditulis di pesan merge commit).
 
 ```bash
 # Syntax check — satu-satunya "lint" yang tersedia. Jalankan untuk SETIAP file PHP yang diubah.
