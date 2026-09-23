@@ -73,6 +73,7 @@ Semua endpoint butuh `?token=<cron_token di secrets.php>` atau dijalankan via CL
 ## 7. Dokumen Pendukung
 
 - [`docs/PRD.md`](docs/PRD.md) — PRD produk: masalah, tujuan & metrik, peran, alur bisnis, kebutuhan fungsional (F-xx) & non-fungsional, risiko, pertanyaan terbuka.
+- [`docs/BACKLOG.md`](docs/BACKLOG.md) — backlog turunan PRD: task B-xx berprioritas (P0–P2) dan berukuran (S/M/L), keputusan yang dibutuhkan (Q1–Q7), urutan kerja.
 - [`docs/ANALISIS_PROGRAM.md`](docs/ANALISIS_PROGRAM.md) — analisis per-controller/model (paling detail).
 - [`docs/DATABASE_STRUCTURE.md`](docs/DATABASE_STRUCTURE.md) — skema tabel.
 - [`docs/WORKFLOW_DIAGRAM.md`](docs/WORKFLOW_DIAGRAM.md) — diagram alur bisnis.
