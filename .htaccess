@@ -3,11 +3,14 @@ RewriteEngine On
 # Jangan tampilkan daftar isi folder (sebelumnya /scripts/, /logs/, dsb. bisa dijelajah).
 Options -Indexes
 
-# Yang boleh diakses langsung dari browser hanya index.php, assets/, dan favicon.ico.
-# Folder repo/dev/log dan file konfigurasi/skrip di root ditolak (403) --
-# 17 Sep 2026 ditemukan kredensial di scripts/ dan seluruh .git bisa diunduh lewat HTTP.
+# Ini daftar BLOKIR, bukan whitelist: folder/file nyata yang tidak disebut di bawah
+# tetap dilayani Apache apa adanya. Folder baru di root yang tidak boleh dibuka dari
+# browser WAJIB ditambahkan ke daftar folder di bawah (application/ dan system/
+# punya .htaccess sendiri).
+# 17 Sep 2026 ditemukan kredensial di scripts/ dan seluruh .git bisa diunduh lewat HTTP;
+# 23 Sep 2026 indeks kode graft/ (hanya ada di dev) ternyata bisa dibuka dari LAN.
 RewriteRule ^\. - [F,L]
-RewriteRule ^(scripts|docs|dev_tools|logs|sql_migrations|vendor)(/|$) - [F,L]
+RewriteRule ^(scripts|docs|dev_tools|logs|sql_migrations|vendor|graft)(/|$) - [F,L]
 RewriteRule ^[^/]+\.(md|bat|ps1|sql|py|json|lock|xml|log|txt)$ - [F,L]
 
 # Sisanya: URL tanpa file/folder nyata diteruskan ke CodeIgniter.
