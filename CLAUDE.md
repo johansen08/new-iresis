@@ -26,6 +26,10 @@ composer install
 
 Aplikasi berjalan di Apache XAMPP pada port **80** (dan 443 untuk LAN HTTPS): `http://localhost/new-iresis/`. Login pakai akun dari tabel `tbluser`.
 
+**Dua folder di PC yang sama (sejak 23 Sep 2026):**
+- `C:\xampp\htdocs\new-iresis` adalah **produksi**. Folder ini melayani 16 klien LAN, dan setiap simpan file langsung live. Jangan edit di sini; folder ini hanya menerima `git pull` (`docs/PANDUAN_PULL_PRODUKSI.md`).
+- `C:\xampp\htdocs\iresis-dev` adalah tempat **pengembangan**: `http://localhost/iresis-dev/`, DB `iresis_dev` (salinan prod) lewat user MariaDB `iresis_dev` yang tidak punya akses ke `iresis_prod`. Cookie session, Pusher, dan folder video dipisah lewat `secrets.php`. Kerjakan dan uji di sini, merge, push, lalu pull di produksi. Detailnya di `docs/LINGKUNGAN_DEV.md`.
+
 ```bash
 "C:/xampp/mysql/bin/mysql.exe" -u root -e "SHOW DATABASES;"
 ```
