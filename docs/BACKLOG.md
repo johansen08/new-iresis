@@ -1,6 +1,6 @@
 # Backlog iResis
 
-Terakhir diperbarui: 23 Sep 2026 · Sumber: [`PRD.md`](PRD.md)
+Terakhir diperbarui: 24 Sep 2026 · Sumber: [`PRD.md`](PRD.md)
 
 Backlog ini menurunkan PRD menjadi pekerjaan yang bisa diambil satu per satu. Sumber tiap task adalah risiko dan pertanyaan terbuka di PRD §10, metrik yang belum terukur di §2, dan kebutuhan **(rancangan)** di §5. Angka diambil dari `iresis_prod`, `iresis_arsip`, dan `iresis_dev` per 23 Sep 2026 (hanya `SELECT`). Task bertanda *temuan* tidak ada di PRD; masalahnya ditemukan saat backlog ini disusun.
 
@@ -15,7 +15,7 @@ Backlog ini menurunkan PRD menjadi pekerjaan yang bisa diambil satu per satu. Su
 
 | ID | Task | Prio | Ukuran | Status | Sumber |
 | --- | --- | --- | --- | --- | --- |
-| B-01 | Perbaiki argumen task "Optimasi tabel bulanan" | P0 | S | Siap, sebelum 1 Okt 22.30 | *temuan* |
+| B-01 | Perbaiki argumen task "Optimasi tabel bulanan" | P0 | S | Argumen sudah benar; cek hasil 2 Okt | *temuan* |
 | B-02 | Salin backup ke luar drive C: dan uji pulihkan | P0 | S | Terhambat Q7 | §10 satu disk |
 | B-03 | Isi `tanggal_printresi` 0000-00-00 dari `created_at` | P0 | S | Siap (konfirmasi 3×) | §10 data tanggal |
 | B-04 | Password ke `password_hash()`, migrasi saat login | P1 | M | Siap | §10 MD5 |
@@ -53,11 +53,24 @@ Q1–Q6 berasal dari PRD §10. Q7 baru, karena B-02 butuh perangkat.
 
 ### B-01 · Perbaiki argumen task "Optimasi tabel bulanan"
 
-`S` · Siap · *temuan*
+`S` · Argumen sudah benar (dicek 24 Sep), tinggal verifikasi 2 Okt · *temuan*
 
-- **Fakta.** Argumen task `IRESIS - Optimasi tabel bulanan` rusak: `//B //Nologo " C:\xampp\htdocs\new-iresis\scripts\optimasi_tabel_senyap.vbs\`. Ada spasi di dalam kutip, garis miring balik di akhir, dan tidak ada kutip penutup. Task ini belum pernah jalan (`0x41303`), dan jadwal pertamanya 1 Okt 22.30. Karena `//B`, wscript akan gagal tanpa pesan apa pun.
-- **Langkah.** Samakan argumennya dengan task `IRESIS - Optimasi tabel (sekali 21 Sep 2026)` yang sukses: `//B //Nologo "C:\xampp\htdocs\new-iresis\scripts\optimasi_tabel_senyap.vbs"`. Jangan dijalankan manual pada jam kerja, karena optimasi membangun ulang tabel.
-- **Selesai bila** `LastTaskResult` bernilai `0x0` setelah jadwal 1 Okt 22.30.
+- **Fakta awal (23 Sep).** Argumen task `IRESIS - Optimasi tabel bulanan` terbaca rusak: `//B //Nologo " C:\xampp\htdocs\new-iresis\scripts\optimasi_tabel_senyap.vbs\`. Ada spasi di dalam kutip, garis miring balik di akhir, dan tidak ada kutip penutup. Task ini belum pernah jalan (`0x41303`), dan jadwal pertamanya 1 Okt 22.30.
+- **Pemeriksaan 24 Sep.** Argumen yang tersimpan sekarang identik byte demi byte dengan task `IRESIS - Optimasi tabel (sekali 21 Sep 2026)` yang sukses: `//B //Nologo "C:\xampp\htdocs\new-iresis\scripts\optimasi_tabel_senyap.vbs"` (75 karakter, dibaca dari `Export-ScheduledTask`). Berkas task terakhir ditulis 23 Sep 14.38.01, 41 detik sebelum backlog ini di-commit. Jadi kemungkinan besar argumennya sudah diperbaiki saat itu, tapi backlog tidak ikut diperbarui. Log operasional Task Scheduler mati, sehingga hal ini tidak bisa dipastikan. Perlu dicatat juga: `schtasks /query /fo CSV` merusak kutip di kolom *Task To Run* (`...vbs""`), dan `/fo LIST` memotong barisnya. Baca argumen task lewat `Export-ScheduledTask`, bukan `schtasks`.
+- **Yang juga sudah dicek, tidak perlu diubah.**
+  - Pemicunya tanggal 1 tiap bulan jam 22.30, dan jadwal berikutnya 1 Okt 22.30.
+  - Penjaga jam kerja di `Cron::optimasi_tabel` (`optimasi_jam_mulai` 7, `optimasi_jam_selesai` 22) meloloskan jam 22.
+  - Task berjalan sebagai user `PC` (Interactive), sama dengan task malam lain yang sukses (Arsip harian 01.00, Backup arsip 02.30, Sinkron foto SKU 23.00).
+  - `StartWhenAvailable` mati, jadi kalau PC mati pada jam 22.30, task tidak menyusul di jam kerja. Itu memang yang diinginkan.
+  - Putaran 21 Sep selesai dalam 88 detik untuk 8 tabel, dengan penghematan 2.880 MB.
+- **Langkah tersisa.** Tanggal 2 Okt pagi, jalankan di PC server:
+  ```powershell
+  Get-ScheduledTask -TaskName 'IRESIS - Optimasi tabel bulanan' | Get-ScheduledTaskInfo |
+      Select-Object LastRunTime, @{n='Hasil';e={'0x{0:X}' -f $_.LastTaskResult}}
+  Get-Content C:\xampp\htdocs\new-iresis\logs\optimasi_tabel.log -Tail 10
+  ```
+  Kode `0x0` saja belum cukup. Kalau `Cron::optimasi_tabel` menolak jalan (misalnya karena jam kerja), PHP tetap keluar dengan kode 0, jadi baris log yang menentukan. Jangan jalankan task ini manual pada jam kerja, karena optimasi membangun ulang tabel.
+- **Selesai bila** `logs\optimasi_tabel.log` di folder produksi punya baris `[cron_optimasi_tabel] OK` bertanggal 2026-10-01, dan `LastTaskResult` bernilai `0x0`.
 
 ### B-02 · Salin backup ke luar drive C: dan uji pulihkan
 
@@ -220,7 +233,7 @@ Unggah resi sudah punya jalur API v2 (`core-api`), tetapi retur masih bergantung
 
 ## Urutan yang disarankan
 
-1. **Minggu ini, tanpa menunggu.** B-01 (sebelum 1 Okt 22.30) dan B-03. B-15 dan B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
+1. **Minggu ini, tanpa menunggu.** B-03, lalu cek hasil B-01 pada 2 Okt pagi. B-15 dan B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
 2. **Berikutnya.** B-08 dan B-09 (pekerjaan pertama menurut PRD §2), lalu B-04 dan B-05.
 3. **Begitu keputusan masuk.** B-02, B-10, B-11, dan B-12. Hampir semuanya kerja operasional, bukan kode.
 4. **Setelah itu.** B-13 → B-14, lalu B-06, B-16, B-07, dan B-17. B-18 bisa diselipkan kapan saja.
