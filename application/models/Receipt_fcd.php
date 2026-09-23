@@ -2702,6 +2702,259 @@ class Receipt_fcd extends CI_Model
     }
 
     /**
+     * Aturan "wajib keluar" untuk laporan pengiriman (ekspor Excel).
+     *
+     * Setiap paket yang di-HO pada hari D digolongkan menurut jam pesanannya
+     * masuk (tblprintresi.tanggal_pesan; kalau kosong pakai tanggal_printresi):
+     *  - wajib     : masuk <= D 12.00 (termasuk sisa hari-hari sebelumnya)
+     *  - wajib_tt  : TikTok, masuk D 12.00-15.00 (diusahakan keluar hari itu)
+     *  - non_wajib : sisanya (masuk sesudah batas, keluar hari itu = bonus)
+     */
+    const BATAS_WAJIB_KELUAR    = '12:00:00';
+    const BATAS_WAJIB_KELUAR_TT = '15:00:00';
+
+    /**
+     * TikTok vs Tokopedia dibedakan dari awalan tbldetailprintresi.no_pesanan
+     * ('TT-' vs 'TP-'), bukan dari id_marketplace: upload resi memetakan teks
+     * Jubelio "Shop | Tokopedia - <toko>" maupun "Tokopedia" ke id_marketplace
+     * 3 yang sama, dan kolom tblprintresi.toko selalu kosong. Awalan itu
+     * konsisten — per Agustus 2026 tidak ada satu pun resi yang mencampur dua
+     * awalan. id_marketplace 5 adalah data TikTok lama sebelum pemetaan itu.
+     */
+    const AWALAN_MARKETPLACE = array(
+        'TT-' => 'TikTok',
+        'TP-' => 'Tokopedia',
+    );
+    const ID_MARKETPLACE_TIKTOK = 5;
+    const LABEL_TIKTOK          = 'TikTok';
+
+    // Kategori resi mengikuti get_shipping_report_detail(); 'lainnya' menampung
+    // resi tanpa detail SKU supaya jumlah kategori selalu = total.
+    const KATEGORI_RESI = array(
+        'spesial' => '1 SKU 1 Qty Spesial',
+        'reguler' => '1 SKU 1 Qty Reguler',
+        '1sku'    => '1 SKU Qty 2-9',
+        '2_9sku'  => '2-9 SKU Qty ≤9',
+        'banyak'  => 'Qty >9',
+        'lainnya' => 'Lainnya',
+    );
+
+    // Nama pendek untuk kepala kolom matriks MP x kategori: nama panjang
+    // di KATEGORI_RESI membuat Excel melebarkan kolomnya mengikuti isi.
+    // Nama lengkapnya tetap terbaca sebagai baris di tabel BY KATEGORI.
+    const KATEGORI_RINGKAS = array(
+        'spesial' => '1 Qty Spesial',
+        'reguler' => '1 Qty Reguler',
+        '1sku'    => '1 SKU 2-9',
+        '2_9sku'  => '2-9 SKU',
+        'banyak'  => 'Qty >9',
+        'lainnya' => 'Lainnya',
+    );
+
+    /**
+     * Rekap paket keluar per marketplace × kurir × kategori, masing-masing
+     * dipecah wajib / wajib_tt / non_wajib. Satu query; penjumlahan ke tabel
+     * laporan dilakukan di rekap_wajib_keluar().
+     *
+     * Tiga hal yang membuatnya cepat, jangan dibongkar tanpa mengukur ulang:
+     *  - tblresikeluar dipindai SEKALI (agregat detail ikut di JOIN yang sama),
+     *    bukan dua kali lewat derived table berisi filter tanggal sendiri.
+     *  - Jalur 1 SKU dicari lewat LEFT JOIN ke himpunan id_resi, bukan EXISTS
+     *    berkorelasi per baris.
+     *  - Himpunan itu dipagari rentang id_resi periode ini (id_resi naik searah
+     *    waktu), supaya biayanya ikut ukuran periode, bukan ukuran tabel.
+     * Untuk 1-21 Sep 2026: 5,1 dtk (sebelumnya 10,5); sehari: 0,2 dtk (0,4).
+     */
+    function get_shipping_report_wajib_keluar($start_date, $end_date)
+    {
+        $awal  = $this->db->escape($start_date);
+        $akhir = $this->db->escape($end_date);
+
+        // Pagar id_resi + pintu keluar cepat kalau periode ini kosong.
+        $batas = $this->db->query("
+            SELECT MIN(id_resi) AS lo, MAX(id_resi) AS hi
+            FROM tblresikeluar
+            WHERE tanggal_resikeluar >= $awal AND tanggal_resikeluar <= $akhir
+        ")->row_array();
+        if (empty($batas['lo'])) {
+            return array();
+        }
+        $lo = (int) $batas['lo'];
+        $hi = (int) $batas['hi'];
+
+        // Id status performa dibaca dari master, bukan ditulis angka, supaya
+        // tetap benar kalau master-nya berubah.
+        $id_pick = $this->id_status_performa('1_SKU_PICKER');
+        $id_pack = $this->id_status_performa('1_SKU_PACKER');
+
+        $tiktok = (int) self::ID_MARKETPLACE_TIKTOK;
+
+        // t.pfx = awalan no_pesanan; dipakai memisah TikTok dari Tokopedia.
+        $mp_case = "CASE";
+        foreach (self::AWALAN_MARKETPLACE as $pfx => $label) {
+            $mp_case .= " WHEN t.pfx = " . $this->db->escape($pfx) . " THEN " . $this->db->escape($label);
+        }
+        $mp_case .= " WHEN t.id_marketplace = $tiktok THEN " . $this->db->escape(self::LABEL_TIKTOK);
+        $mp_case .= " ELSE COALESCE(m.nama_marketplace, '- Tidak diketahui -') END";
+
+        $pfx_tiktok = array_search(self::LABEL_TIKTOK, self::AWALAN_MARKETPLACE, true);
+        $is_tiktok  = "(t.pfx = " . $this->db->escape($pfx_tiktok) . " OR t.id_marketplace = $tiktok)";
+
+        $sql = "
+            SELECT x.mp, x.nama_kurir, x.kategori,
+                   SUM(x.kelas = 'WK')  AS wajib,
+                   SUM(x.kelas = 'TT')  AS wajib_tt,
+                   SUM(x.kelas = 'NON') AS non_wajib,
+                   COUNT(*)             AS total
+            FROM (
+                SELECT $mp_case AS mp,
+                       COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
+                       CASE
+                           WHEN t.unique_skus = 1 AND t.total_qty = 1
+                                AND (pick.id_resi IS NOT NULL OR pack.id_resi IS NOT NULL) THEN 'spesial'
+                           WHEN t.unique_skus = 1 AND t.total_qty = 1 THEN 'reguler'
+                           WHEN t.unique_skus = 1 AND t.total_qty BETWEEN 2 AND 9 THEN '1sku'
+                           WHEN t.unique_skus BETWEEN 2 AND 9 AND t.total_qty <= 9 THEN '2_9sku'
+                           WHEN t.total_qty > 9 THEN 'banyak'
+                           ELSE 'lainnya'
+                       END AS kategori,
+                       CASE
+                           WHEN t.masuk <= TIMESTAMP(DATE(t.tanggal_resikeluar), " . $this->db->escape(self::BATAS_WAJIB_KELUAR) . ") THEN 'WK'
+                           WHEN $is_tiktok
+                                AND t.masuk <= TIMESTAMP(DATE(t.tanggal_resikeluar), " . $this->db->escape(self::BATAS_WAJIB_KELUAR_TT) . ") THEN 'TT'
+                           ELSE 'NON'
+                       END AS kelas
+                FROM (
+                    SELECT rk.id_resi, rk.tanggal_resikeluar, pr.id_marketplace, pr.id_kurir,
+                           COALESCE(NULLIF(pr.tanggal_pesan, '0000-00-00 00:00:00'), pr.tanggal_printresi) AS masuk,
+                           COUNT(DISTINCT dr.sku)      AS unique_skus,
+                           SUM(dr.jumlah)              AS total_qty,
+                           MIN(LEFT(dr.no_pesanan, 3)) AS pfx
+                    FROM tblresikeluar rk
+                    INNER JOIN tblprintresi pr ON pr.id_printresi = rk.id_resi
+                    LEFT JOIN tbldetailprintresi dr ON dr.id_resi = rk.id_resi
+                    WHERE rk.tanggal_resikeluar >= $awal AND rk.tanggal_resikeluar <= $akhir
+                    GROUP BY rk.id_resi
+                ) t
+                LEFT JOIN tblmarketplace m ON m.id_marketplace = t.id_marketplace
+                LEFT JOIN tblkurir k ON k.id_kurir = t.id_kurir
+                LEFT JOIN (
+                    SELECT DISTINCT id_resi FROM tblresiambilbarang
+                    WHERE status_performa_id = $id_pick AND id_resi BETWEEN $lo AND $hi
+                ) pick ON pick.id_resi = t.id_resi
+                LEFT JOIN (
+                    SELECT DISTINCT id_resi FROM tblpacking
+                    WHERE status_performa_id = $id_pack AND keterangan = 'SYNC_FROM_PICKER'
+                      AND id_resi BETWEEN $lo AND $hi
+                ) pack ON pack.id_resi = t.id_resi
+            ) x
+            GROUP BY x.mp, x.nama_kurir, x.kategori
+        ";
+        return $this->db->query($sql)->result_array();
+    }
+
+    /**
+     * Id status performa menurut kode_status; 0 kalau kodenya tidak ada
+     * (LEFT JOIN-nya lalu tidak cocok ke baris mana pun, bukan error).
+     */
+    private function id_status_performa($kode)
+    {
+        $row = $this->db->query(
+            "SELECT id_statusperforma FROM tblmasterstatusperforma WHERE kode_status = " . $this->db->escape($kode) . " LIMIT 1"
+        )->row_array();
+        return $row ? (int) $row['id_statusperforma'] : 0;
+    }
+
+    /**
+     * Susun hasil get_shipping_report_wajib_keluar() jadi bahan laporan:
+     *  - by_mp, by_kategori, by_kurir : baris berisi label, wajib, wajib_tt,
+     *    non_wajib, total, pct (persen dari grand total) dan rank (peringkat
+     *    total, 1 = terbesar, nilai sama berbagi peringkat)
+     *  - matriks       : baris = marketplace, kolom = kategori (isi total saja)
+     *  - kolom_matriks : kode kategori yang benar-benar terpakai, urut tetap
+     *  - total_matriks : jumlah per kolom kategori
+     */
+    function rekap_wajib_keluar($start_date, $end_date)
+    {
+        $rows  = $this->get_shipping_report_wajib_keluar($start_date, $end_date);
+        $ukur  = array('wajib', 'wajib_tt', 'non_wajib', 'total');
+        $grand = 0;
+        $rekap = array('by_mp' => array(), 'by_kategori' => array(), 'by_kurir' => array());
+        $sel   = array();   // [mp][kategori] => jumlah
+        $pakai = array();   // kategori yang muncul
+
+        $tambah = function (&$tabel, $kunci, $label, $r) use ($ukur) {
+            if (!isset($tabel[$kunci])) {
+                $tabel[$kunci] = array_fill_keys($ukur, 0) + array('label' => $label);
+            }
+            foreach ($ukur as $u) {
+                $tabel[$kunci][$u] += (int) $r[$u];
+            }
+        };
+
+        foreach ($rows as $r) {
+            $grand += (int) $r['total'];
+            $kat    = isset(self::KATEGORI_RESI[$r['kategori']]) ? self::KATEGORI_RESI[$r['kategori']] : $r['kategori'];
+            $tambah($rekap['by_mp'],       $r['mp'],         $r['mp'],         $r);
+            $tambah($rekap['by_kategori'], $r['kategori'],   $kat,             $r);
+            $tambah($rekap['by_kurir'],    $r['nama_kurir'], $r['nama_kurir'], $r);
+
+            $pakai[$r['kategori']] = TRUE;
+            if (!isset($sel[$r['mp']][$r['kategori']])) {
+                $sel[$r['mp']][$r['kategori']] = 0;
+            }
+            $sel[$r['mp']][$r['kategori']] += (int) $r['total'];
+        }
+
+        foreach ($rekap as &$tabel) {
+            $tabel = array_values($tabel);
+            usort($tabel, function ($a, $b) {
+                return ($b['total'] - $a['total']) ?: strcmp($a['label'], $b['label']);
+            });
+            $this->beri_pct_rank($tabel, $grand);
+        }
+        unset($tabel);
+
+        // Kolom matriks mengikuti urutan KATEGORI_RESI, hanya yang ada isinya.
+        $kolom = array_values(array_intersect(array_keys(self::KATEGORI_RESI), array_keys($pakai)));
+
+        $matriks = array();
+        $total_kolom = array_fill_keys($kolom, 0);
+        foreach ($rekap['by_mp'] as $mp) {
+            $baris = array('label' => $mp['label'], 'sel' => array(), 'total' => $mp['total']);
+            foreach ($kolom as $k) {
+                $n = isset($sel[$mp['label']][$k]) ? $sel[$mp['label']][$k] : 0;
+                $baris['sel'][$k]  = $n;
+                $total_kolom[$k]  += $n;
+            }
+            $matriks[] = $baris;
+        }
+        $this->beri_pct_rank($matriks, $grand);
+
+        $rekap['matriks']       = $matriks;
+        $rekap['kolom_matriks'] = $kolom;
+        $rekap['total_matriks'] = $total_kolom;
+        $rekap['grand_total']   = $grand;
+        return $rekap;
+    }
+
+    /**
+     * Isikan pct (persen dari $grand) dan rank (peringkat total) ke tiap baris.
+     * Peringkat dihitung dari nilai total, bukan posisi baris, jadi total yang
+     * sama selalu dapat peringkat yang sama.
+     */
+    private function beri_pct_rank(&$tabel, $grand)
+    {
+        $totals = array_column($tabel, 'total');
+        rsort($totals);
+        foreach ($tabel as &$baris) {
+            $baris['pct']  = $grand > 0 ? $baris['total'] / $grand * 100 : 0;
+            $baris['rank'] = array_search($baris['total'], $totals) + 1;
+        }
+        unset($baris);
+    }
+
+    /**
      * Get overall category totals of unique resi containing special SKU
      */
     function get_sku_special_report_category_totals($start_date, $end_date)
