@@ -855,7 +855,11 @@ class Report extends MY_Controller
 
     public function export_to_excel_shipping_report()
     {
+        // Rekap menyentuh seluruh resi keluar pada periode; rentang sebulan
+        // butuh beberapa detik, jadi batas memori dan waktu dilepas.
         ini_set('memory_limit', '-1');
+        set_time_limit(0);
+
         $reportrange = date('Y-m-d 00:00:00') . ' - ' . date('Y-m-d H:i:s');
         if ($this->input->method() == 'post') {
             $reportrange = $this->input->post('reportrange');
@@ -864,16 +868,11 @@ class Report extends MY_Controller
         $start_date = explode(" - ", $reportrange)[0];
         $end_date   = explode(" - ", $reportrange)[1];
 
-        $data['reportrange']  = $reportrange;
-        $data['list_data']    = $this->receipt_fcd->get_data_shipping_report($start_date, $end_date)->result_array();
-        $data['grand_total']  = $this->receipt_fcd->get_grand_total_data_shipping_report($start_date, $end_date);
-        $data['detail_data']  = $this->receipt_fcd->get_shipping_report_detail($start_date, $end_date);
-        $data['cat_totals']   = $this->receipt_fcd->get_shipping_report_category_totals($start_date, $end_date);
+        $rekap = $this->receipt_fcd->rekap_wajib_keluar($start_date, $end_date);
 
-        header("Content-type: application/vnd-ms-excel");
-        header("Content-Disposition: attachment; filename=Laporan_Total_Pengiriman_Paket_" . date('Y-m-d') . ".xls");
-
-        $this->load->view('template_report/shipping_report', $data);
+        // Ekspor_pengiriman menulis .xlsx asli lalu exit sendiri.
+        $this->load->library('ekspor_pengiriman');
+        $this->ekspor_pengiriman->kirim($rekap, $reportrange, Receipt_fcd::KATEGORI_RINGKAS);
     }
 
     public function retur_receipt_report()
