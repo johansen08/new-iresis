@@ -90,7 +90,19 @@ git log --oneline HEAD..origin/master
 
 Baris yang tampil adalah commit yang akan masuk. **Baca dulu** — cari kata
 `migrasi`, `BOOTSTRAP_VERSI`, `secrets`, `cron`, `.bat`: itu tanda rilis
-butuh langkah tambahan (lihat Bagian B). Lalu:
+butuh langkah tambahan (lihat Bagian B).
+
+Setiap merge yang mengubah kode membawa baris `Uji regresi: …` di pesan
+merge commit-nya (`docs/UJI_REGRESI.md` §11.3):
+
+```powershell
+git log --merges HEAD..origin/master
+```
+
+Kalau ada merge yang mengubah kode tanpa baris itu, atau barisnya menyebut
+gagal, tunda pull dan tanyakan ke pengembangnya. Aturan ini berlaku untuk
+merge sesudah checklist itu dibuat (23 Sep 2026); merge sebelumnya memang
+tidak punya baris tersebut. Lalu:
 
 ```powershell
 git pull --ff-only origin master

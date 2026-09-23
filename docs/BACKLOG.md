@@ -29,8 +29,8 @@ Backlog ini menurunkan PRD menjadi pekerjaan yang bisa diambil satu per satu. Su
 | B-12 | Akun tim accounting dan finance | P1 | S | Terhambat Q5 | §3, F-71 |
 | B-13 | Paket cancel tahap 2: Cek Paket Cancel | P2 | L | Terhambat Q6 | F-44 |
 | B-14 | Paket cancel tahap 3: batch ke display | P2 | L | Setelah B-13 | F-44 |
-| B-15 | Daftar uji regresi manual per meja | P2 | S | Siap | §10 tanpa test |
-| B-16 | Smoke test CLI untuk endpoint scan | P2 | M | Setelah B-15 | §10 tanpa test, §6 |
+| B-15 | Daftar uji regresi manual per meja | P2 | S | Selesai (`7949cd2`) | §10 tanpa test |
+| B-16 | Smoke test CLI untuk endpoint scan | P2 | M | Siap | §10 tanpa test, §6 |
 | B-17 | Jajaki API retur Jubelio | P2 | M | Siap (riset) | §10 Jubelio |
 | B-18 | Perbarui dokumen yang usang | P2 | S | Siap | *temuan* |
 | B-19 | Tutup folder `graft/` dari akses HTTP | P1 | S | Selesai (`75f24ad`) | *temuan* |
@@ -193,13 +193,13 @@ Barang dari paket cancel yang lolos cek dikirim ke display lewat `tblretur_displ
 
 ### B-15 · Daftar uji regresi manual per meja
 
-`S` · Siap · PRD §10 "Tanpa test otomatis"
+`S` · Selesai (`7949cd2`, hasilnya [`UJI_REGRESI.md`](UJI_REGRESI.md)) · PRD §10 "Tanpa test otomatis"
 
 Buat satu checklist di `docs/` yang dijalankan di `iresis-dev` sebelum pull ke produksi. Untuk tiap meja (picker, packer, HO, retur, admin upload), isinya: scan resi normal, resi batal, resi yang tahap sebelumnya belum di-scan, dan satu alur pengecualian (lost scan atau masalah picker), lengkap dengan hasil yang diharapkan.
 
 ### B-16 · Smoke test CLI untuk endpoint scan
 
-`M` · Setelah B-15 · PRD §10, §6 "Keandalan respons"
+`M` · Siap · PRD §10, §6 "Keandalan respons"
 
 Buat script PHP CLI yang memanggil endpoint scan utama di `iresis-dev` dengan resi uji, lalu memeriksa bahwa balasannya JSON valid dengan status yang diharapkan. Script ini menangkap kasus "satu byte keluaran nyasar" sebelum sampai ke lantai gudang. Simpan di `tests/`, tambahkan `tests` ke aturan blokir `.htaccess` baris 10 (lihat B-19: folder yang tidak disebut di sana bisa dibuka lewat HTTP), dan tolak eksekusi selain lewat CLI.
 
@@ -220,7 +220,7 @@ Unggah resi sudah punya jalur API v2 (`core-api`), tetapi retur masih bergantung
 
 ## Urutan yang disarankan
 
-1. **Minggu ini, tanpa menunggu.** B-01 (sebelum 1 Okt 22.30), B-03, dan B-15. B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
+1. **Minggu ini, tanpa menunggu.** B-01 (sebelum 1 Okt 22.30) dan B-03. B-15 dan B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
 2. **Berikutnya.** B-08 dan B-09 (pekerjaan pertama menurut PRD §2), lalu B-04 dan B-05.
 3. **Begitu keputusan masuk.** B-02, B-10, B-11, dan B-12. Hampir semuanya kerja operasional, bukan kode.
 4. **Setelah itu.** B-13 → B-14, lalu B-06, B-16, B-07, dan B-17. B-18 bisa diselipkan kapan saja.
