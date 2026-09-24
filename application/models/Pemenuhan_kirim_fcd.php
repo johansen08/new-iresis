@@ -9,19 +9,18 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * keluar hari itu dan sampai tahap mana resi-resi itu sudah diproses.
  * Aturan lengkap dan hasil verifikasinya ada di docs/PEMENUHAN_KIRIM_HARIAN.md.
  *
- * Ringkasnya:
+ * Ringkasnya (standar operasional = standar MP + tambahan TikTok):
  *  - Wajib keluar hari D = sisa hari sebelumnya yang belum keluar (≤ 7 hari)
- *    + pesanan masuk s/d D 12.00 (semua MP)
- *    + pesanan TikTok masuk s/d D 15.00 yang batas kirim MP-nya D atau D+1
- *    + resi apa pun yang batas kirim MP-nya ≤ D (jaring pengaman).
- *  - Cancel (CANCELED / REQUEST_CANCEL / batal = 1) keluar dari semua angka.
+ *    + resi yang batas kirim MP-nya ≤ D (standar MP; resi tanpa batas kirim,
+ *      mis. Lazada dan reseller, ikut pesanan masuk s/d D 12.00)
+ *    + pesanan TikTok masuk s/d D 15.00 yang batas kirim MP-nya s/d D+1
+ *      (tambahan operasional).
+ *  - Cancel (CANCELED / REQUEST_CANCEL / batal = 1, atau tercatat di Daftar
+ *    Cancel Order `tblcancelorder`) keluar dari semua angka.
  *  - "Sudah keluar" = ada scan HO, atau status MP SHIPPED / COMPLETED /
  *    RETURNED tanpa scan HO (status itu baru berubah sesudah HO).
  *  - Tahap bertingkat: yang sudah keluar pasti terhitung sudah packer dan
  *    picker; yang sudah packer pasti terhitung sudah picker.
- *  - Upload telat: resi yang di-upload ke IRESIS pada hari D sesudah jam
- *    setelan (bawaan 16.00) tetap dihitung, tetapi angkanya dikirim terpisah
- *    ('telat') supaya layar bisa memisahkannya dari "belum" milik gudang.
  *
  * Hasil disimpan di berkas cache sebentar supaya banyak layar yang membuka
  * menu ini bersamaan tetap hanya memicu satu hitungan per menit.
@@ -40,12 +39,12 @@ class Pemenuhan_kirim_fcd extends CI_Model
     const STATUS_CANCEL = ['CANCELED', 'REQUEST_CANCEL'];
 
     /**
-     * Grup resi. Wajib keluar = KA + TA + TB + TM.
-     *  KA sisa kemarin · TA masuk s/d 12.00 · TB TikTok s/d 15.00 berbatas kirim ≤ besok
-     *  TM batas kirim MP hari ini tapi masuk sesudah jam · TX TikTok s/d 15.00 berbatas lusa+
+     * Grup resi. Wajib keluar = KA + TA + TB.
+     *  KA sisa kemarin · TA batas kirim MP ≤ hari ini (tanpa batas kirim: pesanan s/d 12.00)
+     *  TB TikTok s/d 15.00 berbatas kirim ≤ besok · TX TikTok s/d 15.00 berbatas lusa+
      *  TC boleh besok
      */
-    const GRUP = ['KA', 'TA', 'TB', 'TM', 'TX', 'TC'];
+    const GRUP = ['KA', 'TA', 'TB', 'TX', 'TC'];
 
     /**
      * Kategori resi: 0 Spesial, 1 Reguler (keduanya "1 Qty"),
@@ -63,14 +62,13 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
     /** Nilai bawaan bila baris tb_config_operasional belum ada. */
     const SETELAN_BAWAAN = [
-        'pkh_jam_selesai_packer'   => '18:00',
-        'pkh_default_packer'       => '8',
-        'pkh_batas_per_packer'     => '120',
-        'pkh_jam_upload_terlambat' => '16:00',
+        'pkh_jam_selesai_packer' => '18:00',
+        'pkh_default_packer'     => '8',
+        'pkh_batas_per_packer'   => '120',
     ];
 
-    /** Naikkan bila bentuk hasil snapshot() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 2;
+    /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
+    const VERSI_CACHE = 3;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -94,8 +92,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $umur  = $hari_ini ? self::CACHE_HARI_INI : self::CACHE_HARI_LEWAT;
 
         return $this->hitung_sekali($kunci, $umur, function () use ($tanggal, $hari_ini, $per_jam) {
-            $setelan = $this->setelan();
-            $grup = $this->hitung_grup($tanggal, $per_jam, $setelan['jam_upload_terlambat']);
+            $grup = $this->hitung_grup($tanggal, $per_jam);
             if ($grup === NULL) {
                 return NULL;
             }
@@ -105,11 +102,10 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'hari_ini'        => $hari_ini,
                 'jam_data'        => substr($per_jam, 11, 5),
                 'grup'            => $grup['grup'],
-                'telat'           => $grup['telat'],
                 'cancel_hari_ini' => $grup['cancel'],
                 'tertunggak_lama' => $this->tertunggak_lama($tanggal),
                 'packer_aktif'    => $this->packer_aktif($per_jam),
-                'setelan'         => $setelan,
+                'setelan'         => $this->setelan(),
                 'detik_kategori'  => self::DETIK_PACKING,
             ];
         });
@@ -122,7 +118,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
      * "belum". Satu baris per resi, kunci dipendekkan supaya JSON-nya kecil:
      *   id, r no resi, p no pesanan, mp, k kurir, kj jam tutup kurir,
      *   sku [[sku, qty, rak]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
-     *   g grup, t upload telat, up masuk IRESIS, ps jam pesan, bk batas kirim,
+     *   g grup, up masuk IRESIS, ps jam pesan, bk batas kirim,
      *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing.
      * Belum picker = pk ''; belum packer = pc ''; belum HO = semua baris.
      */
@@ -134,11 +130,10 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $umur  = $hari_ini ? self::CACHE_HARI_INI : self::CACHE_HARI_LEWAT;
 
         return $this->hitung_sekali($kunci, $umur, function () use ($tanggal, $hari_ini, $per_jam) {
-            $jam_telat = $this->setelan()['jam_upload_terlambat'];
             $q = $this->db->query("
-                SELECT z.id, z.grup, z.kat, z.telat, z.pick_at, z.pack_at, z.picker_c, z.printed_at, z.masuk, z.btk
-                FROM (" . $this->sql_per_resi($tanggal, $per_jam, $jam_telat) . ") z
-                WHERE z.batal = 0 AND z.grup IN ('KA', 'TA', 'TB', 'TM') AND z.keluar_at IS NULL
+                SELECT z.id, z.grup, z.kat, z.pick_at, z.pack_at, z.picker_c, z.printed_at, z.masuk, z.btk
+                FROM (" . $this->sql_per_resi($tanggal, $per_jam) . ") z
+                WHERE z.batal = 0 AND z.grup IN ('KA', 'TA', 'TB') AND z.keluar_at IS NULL
                 ORDER BY z.printed_at, z.id
             ");
             if (!$q) {
@@ -167,7 +162,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'sku' => $r['sku'],
                     'j'   => $kat <= 1 ? 1 : ($kat <= 4 ? 2 : 0),
                     'g'   => $z['grup'],
-                    't'   => (int) $z['telat'],
                     'up'  => $jam($z['printed_at']),
                     'ps'  => $jam($z['masuk']),
                     'bk'  => $z['btk'] ? substr($z['btk'], 0, 10) : '',
@@ -181,7 +175,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'label_tanggal' => $this->label_tanggal($tanggal),
                 'hari_ini'      => $hari_ini,
                 'jam_data'      => substr($per_jam, 11, 5),
-                'jam_telat'     => $jam_telat,
                 'rows'          => $rows,
             ];
         });
@@ -245,22 +238,20 @@ class Pemenuhan_kirim_fcd extends CI_Model
     /**
      * Satu query: per grup × kategori → [diterima, sudah picker, sudah packer,
      * sudah keluar, keluar tanpa scan HO], plus jumlah cancel hari itu.
-     * 'grup' memuat semua resi; 'telat' bentuknya sama tetapi hanya resi yang
-     * di-upload hari D sesudah $jam_telat (bagian dari 'grup', bukan tambahan).
      */
-    protected function hitung_grup($tanggal, $per_jam, $jam_telat)
+    protected function hitung_grup($tanggal, $per_jam)
     {
         $d = $this->db->escape($tanggal . ' 00:00:00');
         $sql = "
-            SELECT z.grup, z.kat, z.telat,
+            SELECT z.grup, z.kat,
                    SUM(z.batal = 0)                                   AS dit,
                    SUM(z.batal = 0 AND z.picker_c IS NOT NULL)        AS pick,
                    SUM(z.batal = 0 AND z.packer_c IS NOT NULL)        AS pack,
                    SUM(z.batal = 0 AND z.keluar_at IS NOT NULL)       AS keluar,
                    SUM(z.batal = 0 AND z.keluar_at IS NOT NULL AND z.ho_at IS NULL) AS tanpa_ho,
-                   SUM(z.batal = 1 AND (z.printed_at >= $d OR z.modified_at >= $d)) AS cancel
-            FROM (" . $this->sql_per_resi($tanggal, $per_jam, $jam_telat) . ") z
-            GROUP BY z.grup, z.kat, z.telat
+                   SUM(z.batal = 1 AND (z.printed_at >= $d OR z.modified_at >= $d OR z.cancel_catat >= $d)) AS cancel
+            FROM (" . $this->sql_per_resi($tanggal, $per_jam) . ") z
+            GROUP BY z.grup, z.kat
         ";
 
         $q = $this->db->query($sql);
@@ -270,30 +261,23 @@ class Pemenuhan_kirim_fcd extends CI_Model
         }
 
         $kosong = array_fill(0, self::JUMLAH_KATEGORI, [0, 0, 0, 0, 0]);
-        $grup  = array_fill_keys(self::GRUP, $kosong);
-        $telat = array_fill_keys(self::GRUP, $kosong);
+        $grup = array_fill_keys(self::GRUP, $kosong);
         $cancel = 0;
         foreach ($q->result_array() as $r) {
             $cancel += (int) $r['cancel'];
             if (!isset($grup[$r['grup']])) {
                 continue;
             }
-            $g = $r['grup'];
-            $k = (int) $r['kat'];
-            $angka = [(int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho']];
-            foreach ($angka as $j => $n) {
-                $grup[$g][$k][$j] += $n;
-                if ((int) $r['telat'] === 1) {
-                    $telat[$g][$k][$j] += $n;
-                }
-            }
+            $grup[$r['grup']][(int) $r['kat']] = [
+                (int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho'],
+            ];
         }
-        return ['grup' => $grup, 'telat' => $telat, 'cancel' => $cancel];
+        return ['grup' => $grup, 'cancel' => $cancel];
     }
 
     /**
      * Subquery satu baris per resi yang relevan untuk hari D, dengan kolom:
-     * id, printed_at, modified_at, masuk, btk, batal, grup, kat, telat,
+     * id, printed_at, modified_at, cancel_catat, masuk, btk, batal, grup, kat,
      * pick_at/pack_at/ho_at/keluar_at (s/d $per_jam), picker_c/packer_c (tahap bertingkat).
      * Dipakai hitung_grup() (angka kotak) dan daftar_belum() (popup) supaya
      * keduanya selalu sepakat soal resi mana yang "belum".
@@ -306,10 +290,9 @@ class Pemenuhan_kirim_fcd extends CI_Model
      *    id_resi). NOT EXISTS ke tblresikeluar membuat MariaDB 10.4 memindai
      *    seluruh tabel itu (±660 rb baris) lewat materialization.
      */
-    protected function sql_per_resi($tanggal, $per_jam, $jam_telat)
+    protected function sql_per_resi($tanggal, $per_jam)
     {
         $d      = $this->db->escape($tanggal . ' 00:00:00');
-        $dtelat = $this->db->escape($tanggal . ' ' . $jam_telat . ':00');
         $d_hari = $this->db->escape($tanggal);
         $d1     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' +1 day')));
         $d7     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -' . self::HARI_SISA . ' day')) . ' 00:00:00');
@@ -327,13 +310,14 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 SELECT y.*,
                        COALESCE(y.pick_at, y.pack_at, y.keluar_at) AS picker_c,
                        COALESCE(y.pack_at, y.keluar_at)            AS packer_c,
-                       -- resi sisa (di-print sebelum D) tidak pernah telat di hari D
-                       IF(y.printed_at >= $dtelat, 1, 0)           AS telat,
                        CASE
                            WHEN y.printed_at < $d THEN 'KA'
-                           WHEN y.masuk <= $d12 THEN 'TA'
+                           -- standar MP: batas kirim MP hari ini (atau sudah lewat)
+                           WHEN y.btk IS NOT NULL AND DATE(y.btk) <= $d_hari THEN 'TA'
+                           -- tanpa batas kirim dari upload (Lazada, reseller): pesanan s/d 12.00
+                           WHEN y.btk IS NULL AND y.masuk <= $d12 THEN 'TA'
+                           -- tambahan operasional: pesanan TikTok s/d 15.00
                            WHEN y.tt = 1 AND y.masuk <= $d15 AND (y.btk IS NULL OR DATE(y.btk) <= $d1) THEN 'TB'
-                           WHEN DATE(y.btk) <= $d_hari THEN 'TM'
                            WHEN y.tt = 1 AND y.masuk <= $d15 THEN 'TX'
                            ELSE 'TC'
                        END AS grup,
@@ -360,14 +344,19 @@ class Pemenuhan_kirim_fcd extends CI_Model
                                        COALESCE(x.modified_at, x.printed_at), NULL)) AS keluar_at
                     FROM (
                         SELECT c.*,
+                               IF(c.batal_status = 1 OR c.cancel_catat IS NOT NULL, 1, 0) AS batal,
                                (SELECT MIN(a.tanggal_resiambilbarang) FROM tblresiambilbarang a WHERE a.id_resi = c.id) AS pick_min,
                                (SELECT MIN(k.tanggal_packing) FROM tblpacking k WHERE k.id_resi = c.id)                 AS pack_min,
                                (SELECT MIN(h.tanggal_resikeluar) FROM tblresikeluar h WHERE h.id_resi = c.id)           AS ho_min
                         FROM (
                             SELECT p.id_printresi AS id, p.tanggal_printresi AS printed_at, p.modified_at,
-                                   p.tanggal_bataskirim AS btk,
+                                   NULLIF(p.tanggal_bataskirim, '0000-00-00 00:00:00') AS btk,
                                    UPPER(TRIM(COALESCE(p.status_pesanan, ''))) AS st,
-                                   IF(UPPER(TRIM(COALESCE(p.status_pesanan, ''))) IN ($cancel) OR p.batal = '1', 1, 0) AS batal,
+                                   -- dicatat cancel di Daftar Cancel Order (Scan Cek Cancel / sinkron Jubelio), indeks unik noresi;
+                                   -- tidak NULL selama barisnya ada (dipakai juga untuk kolom batal di bawah)
+                                   (SELECT COALESCE(co.created_at, co.tanggal_cancel, '1970-01-01') FROM tblcancelorder co
+                                    WHERE co.noresi = p.noresi) AS cancel_catat,
+                                   IF(UPPER(TRIM(COALESCE(p.status_pesanan, ''))) IN ($cancel) OR p.batal = '1', 1, 0) AS batal_status,
                                    COALESCE(NULLIF(p.tanggal_pesan, '0000-00-00 00:00:00'), p.tanggal_printresi) AS masuk,
                                    IF(p.id_marketplace = 5 OR MAX(d.no_pesanan LIKE 'TT-%') = 1, 1, 0) AS tt,
                                    COUNT(DISTINCT d.sku) AS u,
@@ -439,7 +428,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
      */
     protected function tertunggak_lama($tanggal)
     {
-        $kunci = 'lama_' . md5($this->db->database . '|' . $tanggal);
+        $kunci = 'lama' . self::VERSI_CACHE . '_' . md5($this->db->database . '|' . $tanggal);
         $simpan = $this->cache_baca($kunci, self::CACHE_TERTUNGGAK);
         if (is_int($simpan)) {
             return $simpan;
@@ -452,6 +441,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
             WHERE p.tanggal_printresi < $batas
               AND UPPER(TRIM(COALESCE(p.status_pesanan, ''))) NOT IN ($bukan)
               AND p.batal <> '1'
+              AND NOT EXISTS (SELECT 1 FROM tblcancelorder co WHERE co.noresi = p.noresi)
               AND (SELECT COUNT(*) FROM tblresikeluar h WHERE h.id_resi = p.id_printresi) = 0
         ");
         $n = $row ? (int) $row->row()->n : 0;
@@ -483,18 +473,12 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 }
             }
         }
-        // jam upload terlambat ikut masuk query: hanya format HH:MM yang diterima
-        $jam_telat = $nilai['pkh_jam_upload_terlambat'];
-        $jam_telat = preg_match('/^([01]?\d|2[0-3]):[0-5]\d$/', $jam_telat)
-            ? str_pad($jam_telat, 5, '0', STR_PAD_LEFT)
-            : self::SETELAN_BAWAAN['pkh_jam_upload_terlambat'];
         return [
-            'jam_selesai'          => $nilai['pkh_jam_selesai_packer'],
-            'default_packer'       => max(1, (int) $nilai['pkh_default_packer']),
-            'default_batas'        => max(1, (int) $nilai['pkh_batas_per_packer']),
-            'jam_upload_terlambat' => $jam_telat,
-            'istirahat_mulai'      => self::ISTIRAHAT_MULAI,
-            'istirahat_selesai'    => self::ISTIRAHAT_SELESAI,
+            'jam_selesai'       => $nilai['pkh_jam_selesai_packer'],
+            'default_packer'    => max(1, (int) $nilai['pkh_default_packer']),
+            'default_batas'     => max(1, (int) $nilai['pkh_batas_per_packer']),
+            'istirahat_mulai'   => self::ISTIRAHAT_MULAI,
+            'istirahat_selesai' => self::ISTIRAHAT_SELESAI,
         ];
     }
 

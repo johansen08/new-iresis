@@ -223,7 +223,7 @@ class Monitoring extends MY_Controller
             $this->make_ajax_response(400, 'Resi yang dipilih sudah tidak ada di daftar belum selesai. Muat ulang lalu coba lagi.');
         }
 
-        $grup  = ['KA' => 'Sisa kemarin', 'TA' => 'Pesanan s/d 12.00', 'TB' => 'TikTok 12.00-15.00', 'TM' => 'Batas kirim MP hari ini'];
+        $grup  = ['KA' => 'Sisa kemarin', 'TA' => 'Batas kirim MP hari ini', 'TB' => 'TikTok s/d 15.00 (operasional)'];
         $jenis = [1 => '1 Qty', 2 => '>1 Qty', 0 => 'Tanpa rincian SKU'];
         $judul = mb_substr(trim((string) $this->input->post('judul')) ?: 'Resi belum selesai', 0, 60);
         $filter = mb_substr(trim((string) $this->input->post('filter')), 0, 300);
@@ -236,11 +236,11 @@ class Monitoring extends MY_Controller
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(13);
 
         $kolom = ['No Resi', 'No Pesanan', 'Marketplace', 'Kurir', 'SKU x Qty', 'Rak', 'Total Qty', 'Jenis', 'Kelompok',
-                  'Upload Telat', 'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing'];
+                  'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing'];
+        $huruf = range('A', 'P');
         $ws->fromArray($kolom, NULL, 'A4');
-        $ws->getStyle('A4:Q4')->getFont()->setBold(true);
+        $ws->getStyle('A4:P4')->getFont()->setBold(true);
 
-        $huruf = range('A', 'Q');
         $baris = 5;
         foreach ($rows as $r) {
             $posisi = $r['pc'] !== '' ? 'Sudah packing, belum HO' : ($r['pk'] !== '' ? 'Sudah dipick, belum packing' : 'Belum dipick');
@@ -249,7 +249,7 @@ class Monitoring extends MY_Controller
                 implode(', ', array_map(function ($s) { return $s[0] . ' x' . $s[1]; }, $r['sku'])),
                 implode(', ', array_unique(array_filter(array_column($r['sku'], 2)))),
                 array_sum(array_column($r['sku'], 1)),
-                $jenis[$r['j']] ?? '', $grup[$r['g']] ?? $r['g'], $r['t'] ? 'Ya' : '',
+                $jenis[$r['j']] ?? '', $grup[$r['g']] ?? $r['g'],
                 $r['up'], $r['ps'], $r['bk'], $posisi, $r['pk'] === '-' ? '' : $r['pk'], $r['pn'], $r['pc'],
             ];
             foreach ($nilai as $i => $v) {
@@ -267,7 +267,7 @@ class Monitoring extends MY_Controller
         }
         $ws->getColumnDimension('A')->setAutoSize(false)->setWidth(24);   // judul di A1 jangan melebarkan kolom resi
         $ws->freezePane('A5');
-        $ws->setAutoFilter('A4:Q' . ($baris - 1));
+        $ws->setAutoFilter('A4:P' . ($baris - 1));
 
         $nama = preg_replace('/[^A-Za-z0-9]+/', '_', $judul) . '_' . $tanggal . ($daftar['hari_ini'] ? '_' . str_replace(':', '', $daftar['jam_data']) : '') . '.xlsx';
         while (ob_get_level() > 0) {

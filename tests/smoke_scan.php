@@ -402,7 +402,7 @@ echo "\n== Pemenuhan Kirim Harian\n";
 uji_halaman('monitoring/pemenuhan-kirim-harian');
 $cek_pkh = function (array $json) {
     $d = $json['data'] ?? NULL;
-    foreach (['KA', 'TA', 'TB', 'TM', 'TX', 'TC'] as $g) {
+    foreach (['KA', 'TA', 'TB', 'TX', 'TC'] as $g) {
         if (!isset($d['grup'][$g]) || count($d['grup'][$g]) !== 6) {
             return "grup $g tidak lengkap: " . cuplik(json_encode($d));
         }
@@ -429,14 +429,14 @@ $detail = uji_endpoint('daftar resi belum (kemarin)', minta('GET', 'monitoring/p
             return 'rows tidak ada: ' . cuplik(json_encode($json['data'] ?? NULL));
         }
         foreach ($rows as $r) {
-            foreach (['id', 'r', 'p', 'mp', 'k', 'sku', 'j', 'g', 't', 'up', 'pk', 'pc'] as $k) {
+            foreach (['id', 'r', 'p', 'mp', 'k', 'sku', 'j', 'g', 'up', 'pk', 'pc'] as $k) {
                 if (!array_key_exists($k, $r)) {
                     return "baris tanpa kunci $k: " . cuplik(json_encode($r));
                 }
             }
         }
         $belum_ho = 0;
-        foreach (['KA', 'TA', 'TB', 'TM'] as $g) {
+        foreach (['KA', 'TA', 'TB'] as $g) {
             foreach ($snap_kemarin['data']['grup'][$g] ?? [] as $kat) {
                 $belum_ho += $kat[0] - $kat[3];
             }
