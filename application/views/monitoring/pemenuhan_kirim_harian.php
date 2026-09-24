@@ -371,8 +371,9 @@
 <script>
 (function () {
   // Kategori: 0 Spesial, 1 Reguler (keduanya 1 Qty), 2 1 SKU 2–9, 3 2–9 SKU, 4 Qty >9 (ketiganya >1 Qty), 5 tanpa rincian SKU.
-  // Grup (standar operasional): wajib keluar = KA (sisa kemarin) + TA (batas kirim MP hari ini; tanpa batas kirim: pesanan s/d 12.00)
-  //       + TB (TikTok s/d 15.00, batas ≤ besok); TX (TikTok s/d 15.00 batas lusa+) dan TC boleh besok.
+  // Grup (standar operasional): wajib keluar = KA (sisa kemarin berbatas kirim hari ini/kemarin)
+  //       + TA (semua MP berbatas kirim hari ini) + TB (TikTok 12.00–15.00 berbatas kirim besok);
+  //       TX (TikTok pagi yang dibayar sore / batas lusa) dan TC boleh besok; KX lewat > 24 jam (otomatis cancel MP).
   var URL_DATA = <?= json_encode(base_url('monitoring/pemenuhan-kirim-harian-data')) ?>;
   var URL_DETAIL = <?= json_encode(base_url('monitoring/pemenuhan-kirim-harian-detail')) ?>;
   var URL_EXCEL = <?= json_encode(base_url('monitoring/pemenuhan-kirim-harian-excel')) ?>;
@@ -460,20 +461,21 @@
     var n = function (nama) { return total(g[nama], 0); };
     var dit = total(W, 0), tanpaHO = total(W, 4), besok = n('TX') + n('TC');
     var wajibHariIni = n('TA') + n('TB');
+    var kedaluwarsa = g.KX ? Math.max(0, total(g.KX, 0) - total(g.KX, 3)) : 0;   // lewat > 24 jam, belum keluar
     $id('pkh-sub').innerHTML = d.label_tanggal + ' · ' + (d.hari_ini ? 'data jam <b>' + d.jam_data.replace(':', '.') + '</b>' : '<b>rekap akhir hari</b>');
     $id('pkh-masuk').textContent = fmt(wajibHariIni + besok);
     $id('pkh-masuk-note').innerHTML = '<b>' + fmt(wajibHariIni) + '</b> wajib keluar hari ini · <b>' + fmt(besok) + '</b> boleh keluar besok';
     $id('pkh-wajib').textContent = fmt(dit);
     $id('pkh-parts').innerHTML =
-      '<li><span>Sisa kemarin</span><b>' + fmt(n('KA')) + '</b></li>' +
-      '<li><span>Batas kirim MP hari ini · standar MP</span><b>' + fmt(n('TA')) + '</b></li>' +
-      '<li><span>TikTok s/d 15.00 · tambahan operasional</span><b>' + fmt(n('TB')) + '</b></li>';
+      '<li><span>Sisa kemarin · batas kirim hari ini</span><b>' + fmt(n('KA')) + '</b></li>' +
+      '<li><span>Semua MP · batas kirim hari ini</span><b>' + fmt(n('TA')) + '</b></li>' +
+      '<li><span>TikTok 12.00–15.00 · batas kirim besok</span><b>' + fmt(n('TB')) + '</b></li>';
     pasangInfo($id('pkh-info-wajib'),
-      '<p>Wajib keluar (standar operasional) = sisa kemarin + resi yang <b>batas kirim MP</b>-nya hari ini + pesanan <b>TikTok</b> masuk s/d 15.00 yang batas kirim MP-nya hari ini atau besok.</p>' +
-      '<p>Resi tanpa batas kirim dari upload (Lazada, reseller) ikut pesanan masuk s/d 12.00.' +
-      (n('TX') ? ' ' + fmt(n('TX')) + ' pesanan TikTok s/d 15.00 berbatas kirim lusa atau lebih dihitung boleh besok.' : '') + '</p>' +
-      '<p><b>Tidak dihitung:</b> ' + fmt(d.cancel_hari_ini) + ' resi cancel hari ini (CANCELED / REQUEST_CANCEL, atau dicatat di Daftar Cancel Order) dan ' + fmt(d.tertunggak_lama) +
-      ' resi lama (&gt; 7 hari) yang belum keluar, perlu dicek terpisah.</p>');
+      '<p>Wajib keluar (standar operasional) = sisa kemarin yang batas kirimnya hari ini + pesanan semua MP yang <b>batas kirim</b>-nya hari ini (pembeli sudah bayar; biasanya pesanan 00.00–12.00) + pesanan <b>TikTok 12.00–15.00</b> yang batas kirimnya besok.</p>' +
+      '<p>Pesanan pagi yang batas kirimnya besok berarti baru dibayar sore, jadi boleh keluar besok' +
+      (n('TX') ? ' (' + fmt(n('TX')) + ' pesanan TikTok hari ini)' : '') + '. Resi tanpa batas kirim (Lazada, reseller) memakai jam pesan: s/d 12.00 wajib hari itu.</p>' +
+      '<p><b>Tidak dihitung:</b> ' + fmt(d.cancel_hari_ini) + ' resi cancel hari ini (CANCELED / REQUEST_CANCEL, atau dicatat di Daftar Cancel Order)' +
+      (kedaluwarsa ? ' dan ' + fmt(kedaluwarsa) + ' resi yang lewat lebih dari 24 jam dari batas kirim (otomatis dibatalkan MP)' : '') + '.</p>');
     var tahap = [   // [judul, indeks kolom, kelas, teks ⓘ]
       ['Picker', 1, '', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
       ['Packer', 2, 'key', 'Resi wajib yang sudah discan packer, termasuk Spesial yang otomatis ter-pack saat dipick. Resi yang sudah keluar ikut terhitung walau scan packer-nya terlewat.'],
@@ -621,7 +623,7 @@
     { nama: 'Belum packer', ket: 'resi wajib keluar yang belum discan packer' },
     { nama: 'Belum HO', ket: 'resi wajib keluar yang belum keluar (scan HO)' }
   ];
-  var GRUP_M = { KA: 'Sisa kemarin', TA: 'Batas kirim MP hari ini', TB: 'TikTok s/d 15.00 (operasional)' };
+  var GRUP_M = { KA: 'Sisa kemarin', TA: 'Semua MP, batas kirim hari ini', TB: 'TikTok 12.00–15.00, batas kirim besok' };
   var JENIS_M = { 1: '1 Qty', 2: '>1 Qty', 0: 'Tanpa rincian SKU' };
   var POSISI_M = { belum: 'Belum dipick', pick: 'Sudah dipick, belum packing', pack: 'Sudah packing, belum HO' };
   var URUT_M = { 'masuk': 'Masuk IRESIS terlama', 'masuk-d': 'Masuk IRESIS terbaru', 'batas': 'Batas kirim terdekat', 'resi': 'No resi A–Z' };
@@ -770,7 +772,7 @@
     }
     $id('pkh-m-body').innerHTML = '<table class="pkh-rs"><thead><tr><th>No resi</th><th>No pesanan</th><th>MP</th><th>Kurir</th><th>SKU × Qty</th><th>Masuk IRESIS</th><th>Batas kirim</th><th>Posisi</th></tr></thead><tbody>' +
       hasil.slice(a, b).map(function (r) {
-        var chips = r.g === 'KA' ? '<span class="pkh-chip">Sisa kemarin</span>' : (r.g === 'TB' ? '<span class="pkh-chip a">TikTok s/d 15.00</span>' : '');
+        var chips = r.g === 'KA' ? '<span class="pkh-chip">Sisa kemarin</span>' : (r.g === 'TB' ? '<span class="pkh-chip a">TikTok 12–15</span>' : '');
         var pos = r.pc ? '<span class="pkh-chip a">Packing ' + waktuM(r.pc, d.tanggal) + '</span>'
           : r.pk ? '<span class="pkh-chip w">' + (r.pk === '-' ? 'Sudah dipick' : 'Dipick ' + waktuM(r.pk, d.tanggal)) + '</span>' + (r.pn ? '<div class="pkh-kecil">' + tandai(r.pn) + '</div>' : '')
           : '<span class="pkh-chip b">Belum dipick</span>';

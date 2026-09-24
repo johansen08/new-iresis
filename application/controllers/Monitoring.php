@@ -223,7 +223,7 @@ class Monitoring extends MY_Controller
             $this->make_ajax_response(400, 'Resi yang dipilih sudah tidak ada di daftar belum selesai. Muat ulang lalu coba lagi.');
         }
 
-        $grup  = ['KA' => 'Sisa kemarin', 'TA' => 'Batas kirim MP hari ini', 'TB' => 'TikTok s/d 15.00 (operasional)'];
+        $grup  = ['KA' => 'Sisa kemarin', 'TA' => 'Semua MP, batas kirim hari ini', 'TB' => 'TikTok 12.00-15.00, batas kirim besok'];
         $jenis = [1 => '1 Qty', 2 => '>1 Qty', 0 => 'Tanpa rincian SKU'];
         $judul = mb_substr(trim((string) $this->input->post('judul')) ?: 'Resi belum selesai', 0, 60);
         $filter = mb_substr(trim((string) $this->input->post('filter')), 0, 300);
