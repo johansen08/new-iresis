@@ -235,11 +235,11 @@ class Monitoring extends MY_Controller
         $ws->setCellValue('A2', ($filter !== '' ? 'Filter: ' . $filter . ' · ' : '') . count($rows) . ' resi');
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(13);
 
-        $kolom = ['No Resi', 'No Pesanan', 'Marketplace', 'Kurir', 'SKU x Qty', 'Rak', 'Total Qty', 'Jenis', 'Kelompok',
+        $kolom = ['No Resi', 'No Pesanan', 'Marketplace', 'Kurir', 'SKU x Qty', 'Total Qty', 'Jenis', 'Kelompok',
                   'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing'];
-        $huruf = range('A', 'P');
+        $huruf = range('A', 'O');
         $ws->fromArray($kolom, NULL, 'A4');
-        $ws->getStyle('A4:P4')->getFont()->setBold(true);
+        $ws->getStyle('A4:O4')->getFont()->setBold(true);
 
         $baris = 5;
         foreach ($rows as $r) {
@@ -247,14 +247,13 @@ class Monitoring extends MY_Controller
             $nilai = [
                 $r['r'], $r['p'], $r['mp'], $r['k'],
                 implode(', ', array_map(function ($s) { return $s[0] . ' x' . $s[1]; }, $r['sku'])),
-                implode(', ', array_unique(array_filter(array_column($r['sku'], 2)))),
                 array_sum(array_column($r['sku'], 1)),
                 $jenis[$r['j']] ?? '', $grup[$r['g']] ?? $r['g'],
                 $r['up'], $r['ps'], $r['bk'], $posisi, $r['pk'] === '-' ? '' : $r['pk'], $r['pn'], $r['pc'],
             ];
             foreach ($nilai as $i => $v) {
                 // teks eksplisit: no resi/pesanan angka panjang tidak boleh jadi 1,23E+15
-                if ($i === 6) {
+                if ($i === 5) {
                     $ws->setCellValue($huruf[$i] . $baris, (int) $v);
                 } else {
                     $ws->setCellValueExplicit($huruf[$i] . $baris, (string) $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
@@ -267,7 +266,7 @@ class Monitoring extends MY_Controller
         }
         $ws->getColumnDimension('A')->setAutoSize(false)->setWidth(24);   // judul di A1 jangan melebarkan kolom resi
         $ws->freezePane('A5');
-        $ws->setAutoFilter('A4:P' . ($baris - 1));
+        $ws->setAutoFilter('A4:O' . ($baris - 1));
 
         $nama = preg_replace('/[^A-Za-z0-9]+/', '_', $judul) . '_' . $tanggal . ($daftar['hari_ini'] ? '_' . str_replace(':', '', $daftar['jam_data']) : '') . '.xlsx';
         while (ob_get_level() > 0) {
