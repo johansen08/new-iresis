@@ -656,3 +656,75 @@ SELECT COUNT(*) total, SUM(foto_lokal IS NOT NULL) terisi FROM tblsku WHERE link
 
 Ikuti A.9. Kolom `foto_lokal` boleh dibiarkan (tidak dipakai versi lama).
 Backup `tblsku` sebelum pengisian pertama: tabel `tblsku_bak_20260921`.
+
+---
+
+## G. Rilis 24 September 2026 — menu Pemenuhan Kirim Harian
+
+Isi rilis: menu **TIM MONITORING → Pemenuhan Kirim Harian**: resi masuk, resi
+wajib keluar hari ini, progres picker/packer/HO, rincian 1 Qty / >1 Qty, dan
+hitungan OT/perbantuan packer. Hanya **membaca** data resi; tidak ada tombol
+yang menulis. Aturan dan hasil verifikasinya: `docs/PEMENUHAN_KIRIM_HARIAN.md`.
+
+| Branch | Perubahan |
+|---|---|
+| `feature/pemenuhan-kirim-harian` | Model `Pemenuhan_kirim_fcd.php`, 2 method + 2 route di `Monitoring`, view `monitoring/pemenuhan_kirim_harian.php`, migrasi di `MY_Controller.php`, smoke test ditambah 4 pemeriksaan |
+
+Riwayat git tidak ditulis ulang, jadi pakai `git pull` biasa (A.5).
+
+### G.1 Database — hanya menu, hak akses, dan setelan; otomatis lewat migrasi
+
+`BOOTSTRAP_VERSI` naik ke **`2026-09-24.1`**. Pada request pertama setelah pull
+(A.7) aplikasi menjalankan `MY_Controller::run_pemenuhan_kirim_harian_migration()`:
+
+| Objek | Perubahan |
+|---|---|
+| `menu` | 1 baris baru: **Pemenuhan Kirim Harian** (`uri` `monitoring/pemenuhan-kirim-harian`, icon `fa fa-truck`, `sortorder` 10 = paling atas di grup, induk = induk menu Laporan Pesanan Masuk yaitu TIM MONITORING id 83) |
+| `roleaccess` | menu itu → role yang sama dengan Laporan Pesanan Masuk (per 24 Sep: **1, 2, 6**) |
+| `tb_config_operasional` | 3 baris baru bila belum ada: `pkh_jam_selesai_packer` = `18:00`, `pkh_default_packer` = `8`, `pkh_batas_per_packer` = `120` |
+
+Tidak ada tabel atau kolom baru dan tidak ada SQL manual. Migrasi idempoten.
+Menu memakai berkas cache `application/cache/pkh_*.json` dan `pkh_*.lock`
+(folder yang sama dengan penanda bootstrap, jadi tidak perlu disiapkan).
+
+### G.2 Verifikasi migrasi
+
+Setelah logout/login (A.7):
+
+```powershell
+Get-Content application\cache\bootstrap_migrasi.txt
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "SELECT m.id, m.name, m.parentid, m.sortorder, GROUP_CONCAT(r.roleid ORDER BY r.roleid) AS roles FROM menu m LEFT JOIN roleaccess r ON r.menuid = m.id WHERE m.uri = 'monitoring/pemenuhan-kirim-harian' GROUP BY m.id; SELECT kunci, nilai FROM tb_config_operasional WHERE kunci LIKE 'pkh_%';"
+```
+
+Harus tampil: penanda `2026-09-24.1`; **satu** baris menu dengan `parentid` 83
+dan `roles` 1,2,6; tiga baris setelan `pkh_*`. Kalau ada dua baris menu dengan
+`uri` sama, nonaktifkan yang `id`-nya lebih besar
+(`UPDATE menu SET isactive = 0 WHERE id = <id besar>`).
+
+### G.3 Verifikasi di sisi pengguna
+
+Login sebagai webmaster, admin, atau tim retur (role 1, 2, 6) setelah
+logout/login:
+
+1. TIM MONITORING → **Pemenuhan Kirim Harian** tampil paling atas. Halaman
+   terbuka tanpa reload dan tanpa teks JSON mentah. Buka pertama ±1 detik.
+2. Angka wajib keluar = sisa kemarin + pesanan s/d 12.00 + TikTok 12.00–15.00.
+   Kotak Packer "Belum" sama dengan total "Belum packer" di Detail Belum Selesai.
+3. Ubah jumlah packer atau batas per packer: beban dan kesimpulan langsung
+   berubah. Ganti tanggal ke kemarin: judul berubah jadi "rekap akhir hari".
+4. Biarkan terbuka lebih dari 1 menit: "data jam" ikut berganti tanpa reload.
+5. Log error PHP (A.8 langkah 3) tidak berisi baris dari
+   `Pemenuhan_kirim_fcd`.
+
+### G.4 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Baris menu, `roleaccess`, dan setelan **tetap ada** setelah rollback
+kode (menu akan 404 karena method-nya tidak ada). Untuk menyembunyikannya tanpa
+menghapus:
+
+```powershell
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "UPDATE menu SET isactive = 0 WHERE uri = 'monitoring/pemenuhan-kirim-harian';"
+```
+
+Saat kode dipasang lagi, kembalikan `isactive = 1` manual. Migrasi hanya
+membuat menu yang belum ada. Berkas `application/cache/pkh_*` boleh dibiarkan.
