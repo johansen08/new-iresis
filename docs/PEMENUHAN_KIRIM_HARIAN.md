@@ -27,9 +27,12 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
   dan TikTok 12.00–15.00. Satu baris tambahan muncul hanya bila jaring pengaman
   batas kirim MP menangkap sesuatu (§2).
 - **Picker / Packer / HO (keluar)**: jumlah sudah, persen, dan belum. Kotak
-  Packer diberi bingkai karena packing adalah tahap paling lama.
+  Packer diberi bingkai karena packing adalah tahap paling lama. Bila ada,
+  baris oranye **Upload telat** memisahkan resi yang di-upload sesudah picking
+  tutup dari "Belum" milik gudang (§2.1).
 - **Detail Belum Selesai** (bisa dilipat): belum picker/packer/HO per
-  **1 Qty** dan **>1 Qty**.
+  **1 Qty** dan **>1 Qty**, plus baris **Upload telat** bila ada. Baris Total
+  tetap menjumlah semuanya.
 - **Detail OT/Perbantuan** (bisa dilipat): input jumlah packer (bawaan 8) dan
   batas per packer (bawaan 120). Keduanya bisa diubah dan hasilnya langsung
   dihitung ulang (§6).
@@ -60,6 +63,40 @@ Setiap resi masuk ke tepat satu grup:
 - Resi dihitung sejak **ter-upload**. Pesanan yang baru ter-upload dua hari
   kemudian tetap masuk grup wajib begitu ada (contoh nyata: pesanan 22 Sep malam
   ter-upload 24 Sep 09.26, batas kirim MP 24 Sep).
+
+### 2.1 Upload telat
+
+Resi wajib hari D yang **di-upload ke IRESIS hari D sesudah jam setelan**
+`pkh_jam_upload_terlambat` (bawaan **16.00**, dibandingkan dengan
+`tanggal_printresi`) disebut *upload telat*. Aturan wajibnya tidak berubah:
+resi itu tetap dihitung di angka wajib, sudah, dan persen. Yang berubah hanya
+cara menampilkan sisanya:
+
+- Kotak Picker/Packer/HO: **Belum** hanya menghitung tanggungan gudang; upload
+  telat ditulis di baris sendiri di bawahnya.
+- Detail Belum Selesai: baris 1 Qty / >1 Qty tanpa upload telat, baris
+  **Upload telat (sesudah 16.00)** terpisah, Total = semuanya.
+- Hitungan OT/perbantuan **tidak** memasukkan upload telat.
+- Resi sisa (di-print sebelum D) tidak pernah dihitung telat di hari D; resi
+  upload telat hari D-1 muncul di hari D sebagai sisa kemarin biasa.
+
+Alasannya (diminta user 24 Sep): picking berhenti ±15.20–15.50 setiap hari
+sejak 17 Sep, sementara upload terakhir hari itu biasanya 16.00–17.00. Resi
+wajib di upload itu tidak mungkin dikerjakan hari yang sama, jadi tampil
+sebagai "belum" padahal keterlambatannya di hulu. Contoh 23 Sep: picker
+terakhir 15.43, upload 16.34 (536 resi) dan 16.46 (69 resi); 5 di antaranya
+wajib (pesanan Shopee sebelum 12.00, TikTok sebelum 15.00) dan baru keluar 24
+Sep 09.13–09.31, masih dalam batas kirim MP 24 Sep.
+
+Data produksi 14–23 Sep (resi wajib, tidak cancel):
+
+| Upload sesudah | Resi wajib per hari | Keluar hari yang sama |
+|---|---|---|
+| 15.30 | 1–6 | 2 resi (15 dan 17 Sep) |
+| **16.00** | **1–6** | **tidak ada** |
+
+Karena itu bawaannya 16.00. Nilai setelan diperiksa format `HH:MM`; nilai
+yang tidak sah jatuh ke 16.00.
 
 ## 3. Cancel, keluar, dan tahap
 
@@ -128,6 +165,9 @@ mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):
 | `pkh_jam_selesai_packer` | `18:00` |
 | `pkh_default_packer` | `8` |
 | `pkh_batas_per_packer` | `120` |
+| `pkh_jam_upload_terlambat` | `16:00` (§2.1, sejak `BOOTSTRAP_VERSI` 2026-09-24.2) |
+
+Paket upload telat tidak ikut beban per packer (§2.1).
 
 ## 7. Hasil verifikasi data (produksi, 15–24 Sep 2026)
 
@@ -141,6 +181,12 @@ mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):
   1.465 keluar, Lazada dan Tokopedia semua keluar. Resi yang "belum dipick"
   ternyata baru ter-upload 24 Sep (upload terlambat, bukan kesalahan gudang).
 - Tidak ada scan ganda di picker, packer, maupun HO pada 23 Sep.
+- Rekap 23 Sep (produksi, 24 Sep): wajib 7.956, belum picker/packer/HO 5/6/6.
+  Sesudah §2.1: Belum 0/1/1 + upload telat 5/5/5. Satu-satunya "belum"
+  gudang adalah resi Shopee 17 Sep yang dipick tapi tak pernah dipacking dan
+  ternyata sudah cancel di marketplace; statusnya tetap PROCESSING di IRESIS
+  karena upload otomatis hanya menarik pesanan 3 hari terakhir
+  (`scripts/auto_upload_resi.py`).
 - Angka menu di `iresis_dev` (salinan 23 Sep 13.30) cocok dengan putar ulang
   data produksi pada jam yang sama, dengan selisih 2–6 resi karena status resi
   di salinan itu belum diperbarui.
