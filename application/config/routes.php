@@ -364,6 +364,8 @@ $route['cs/complain-management/delete-lampiran/(:num)'] = 'cs/delete_lampiran_co
 
 $route['monitoring/kurangan-picker'] = 'monitoring/kurangan_picker';
 $route['monitoring/get-kurangan-picker-data'] = 'monitoring/get_kurangan_picker_data';
+$route['monitoring/pemenuhan-kirim-harian'] = 'monitoring/pemenuhan_kirim_harian';
+$route['monitoring/pemenuhan-kirim-harian-data'] = 'monitoring/pemenuhan_kirim_harian_data';
 
 $route['restock/laporan-masalah-picker'] = 'restock/laporan_masalah_picker';
 $route['restock/get-laporan-masalah-picker-data'] = 'restock/get_laporan_masalah_picker_data';
