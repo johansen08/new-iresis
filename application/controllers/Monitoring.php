@@ -144,6 +144,49 @@ class Monitoring extends MY_Controller
             ]));
     }
 
+    /**
+     * Pemenuhan Kirim Harian: berapa resi wajib keluar hari ini dan sampai
+     * tahap mana (picker, packer, HO), plus hitungan OT/perbantuan packer.
+     * Aturan: docs/PEMENUHAN_KIRIM_HARIAN.md.
+     */
+    public function pemenuhan_kirim_harian()
+    {
+        // Hitungan ±1 dtk: lepas kunci session supaya request lain user ini tidak ikut menunggu.
+        session_write_close();
+        $this->load->model('pemenuhan_kirim_fcd');
+        $tanggal = $this->tanggal_pemenuhan($this->input->get('tanggal'));
+
+        $data['title']    = 'Pemenuhan Kirim Harian';
+        $data['snapshot'] = $this->pemenuhan_kirim_fcd->snapshot($tanggal);
+        $data['tanggal']  = $tanggal;
+        $this->show($data, 'monitoring/pemenuhan_kirim_harian');
+    }
+
+    /** Data JSON untuk pembaruan otomatis tiap menit dan ganti tanggal. */
+    public function pemenuhan_kirim_harian_data()
+    {
+        session_write_close();
+        $this->load->model('pemenuhan_kirim_fcd');
+        $tanggal = $this->tanggal_pemenuhan($this->input->get('tanggal'));
+
+        $snapshot = $this->pemenuhan_kirim_fcd->snapshot($tanggal);
+        if ($snapshot === NULL) {
+            $this->make_ajax_response(500, 'Data gagal dihitung. Coba lagi sebentar lagi.');
+        }
+        $this->make_ajax_response(200, 'OK', $snapshot);
+    }
+
+    /** Tanggal Y-m-d yang sah dan tidak di masa depan; selain itu hari ini. */
+    private function tanggal_pemenuhan($masukan)
+    {
+        $masukan = (string) $masukan;
+        $t = DateTime::createFromFormat('!Y-m-d', $masukan);
+        if (!$t || $t->format('Y-m-d') !== $masukan || $masukan > date('Y-m-d')) {
+            return date('Y-m-d');
+        }
+        return $masukan;
+    }
+
     public function laporan_pesanan_masuk()
     {
         $data['title'] = 'Laporan Pesanan Masuk';

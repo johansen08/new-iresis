@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-21.3';
+    const BOOTSTRAP_VERSI = '2026-09-24.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -168,6 +168,7 @@ class MY_Controller extends CI_Controller
         $this->run_foto_sku_lokal_migration();
         $this->run_mode_arsip_migration();
         $this->run_paket_cancel_migration();
+        $this->run_pemenuhan_kirim_harian_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1687,5 +1688,63 @@ class MY_Controller extends CI_Controller
           KEY `idx_cancel_tolak_resi` (`id_resi`, `waktu`),
           KEY `idx_cancel_tolak_waktu` (`waktu`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    }
+
+    /**
+     * Menu "Pemenuhan Kirim Harian" di grup TIM MONITORING, paling atas
+     * (docs/PEMENUHAN_KIRIM_HARIAN.md), plus tiga setelan bawaannya di
+     * tb_config_operasional. Setelan yang sudah ada tidak ditimpa.
+     *
+     * Hak akses disalin dari menu saudaranya, Laporan Pesanan Masuk (per 24 Sep
+     * 2026: role 1, 2, 6); role lain dibuka lewat halaman Access.
+     */
+    protected function run_pemenuhan_kirim_harian_migration()
+    {
+        $uri = 'monitoring/pemenuhan-kirim-harian';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'monitoring/laporan_pesanan_masuk'])->row();
+
+            $this->db->insert('menu', [
+                'name'        => 'Pemenuhan Kirim Harian',
+                'parentid'    => $saudara ? $saudara->parentid : 83,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-truck',
+                'sortorder'   => 10,
+                'description' => 'Resi wajib keluar hari ini, progres picker/packer/HO, dan hitungan OT/perbantuan packer.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+
+            $role_boleh = $saudara
+                ? array_column($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result_array(), 'roleid')
+                : [];
+            if (empty($role_boleh)) {
+                $role_boleh = [1, 2, 6];
+            }
+            foreach (array_unique($role_boleh) as $roleid) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+
+        $setelan = [
+            'pkh_jam_selesai_packer' => ['18:00', 'Jam selesai kerja packer (menu Pemenuhan Kirim Harian)'],
+            'pkh_default_packer'     => ['8', 'Jumlah packer bawaan di hitungan OT/perbantuan (menu Pemenuhan Kirim Harian)'],
+            'pkh_batas_per_packer'   => ['120', 'Batas paket >1 Qty per packer sampai jam selesai (menu Pemenuhan Kirim Harian)'],
+        ];
+        foreach ($setelan as $kunci => $isi) {
+            if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {
+                $this->db->insert('tb_config_operasional', ['kunci' => $kunci, 'nilai' => $isi[0], 'keterangan' => $isi[1]]);
+            }
+        }
     }
 }

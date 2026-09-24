@@ -8,6 +8,7 @@
  * EXCEPTION_CODE yang diharapkan. Sasarannya kasus "satu byte keluaran
  * nyasar" (CLAUDE.md, bagian SPA semu): PHP Warning, spasi sebelum tag PHP,
  * atau halaman error CI yang ikut tercetak dan membuat jQuery gagal parse.
+ * Menu Pemenuhan Kirim Harian (JSON yang diperbarui tiap menit) ikut diperiksa.
  *
  * Pakai, dari root folder dev:
  *   C:/xampp/php/php.exe tests/smoke_scan.php              putaran penuh
@@ -394,6 +395,29 @@ foreach ([
 ] as $path) {
     uji_halaman($path);
 }
+
+// Menu Tim Monitoring yang diperbarui otomatis tiap menit lewat AJAX: JSON-nya
+// harus utuh sama seperti endpoint scan. Hanya membaca (cache ditulis ke berkas).
+echo "\n== Pemenuhan Kirim Harian\n";
+uji_halaman('monitoring/pemenuhan-kirim-harian');
+$cek_pkh = function (array $json) {
+    $d = $json['data'] ?? NULL;
+    foreach (['KA', 'TA', 'TB', 'TM', 'TX', 'TC'] as $g) {
+        if (!isset($d['grup'][$g]) || count($d['grup'][$g]) !== 6) {
+            return "grup $g tidak lengkap: " . cuplik(json_encode($d));
+        }
+    }
+    return isset($d['setelan']['default_batas'], $d['setelan']['default_packer']) ? NULL : 'setelan tidak ada';
+};
+uji_endpoint('data hari ini', minta('GET', 'monitoring/pemenuhan-kirim-harian-data'), 200, NULL, $cek_pkh);
+uji_endpoint('data kemarin (rekap akhir hari)', minta('GET', 'monitoring/pemenuhan-kirim-harian-data?tanggal=' . date('Y-m-d', strtotime('-1 day'))), 200, NULL,
+    function ($json) use ($cek_pkh) {
+        return $cek_pkh($json) ?? (($json['data']['hari_ini'] ?? NULL) === FALSE ? NULL : 'hari_ini seharusnya FALSE');
+    });
+uji_endpoint('tanggal tidak sah jatuh ke hari ini', minta('GET', 'monitoring/pemenuhan-kirim-harian-data?tanggal=2026-13-45'), 200, NULL,
+    function ($json) {
+        return ($json['data']['tanggal'] ?? '') === date('Y-m-d') ? NULL : 'tanggal ' . ($json['data']['tanggal'] ?? '-') . ', seharusnya hari ini';
+    });
 
 echo "\n== Tolakan tanpa menulis data\n";
 $x = RESI_KARANGAN;

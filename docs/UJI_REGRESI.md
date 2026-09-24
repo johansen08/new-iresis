@@ -141,6 +141,8 @@ luarnya, dengan `code` dan `EXCEPTION_CODE` yang benar. Yang diperiksa:
 - delapan halaman menu scan, termasuk pengecekan tidak ada halaman error PHP
   di dalam view;
 - tolakan untuk resi tidak ditemukan dan resi dobel;
+- menu Pemenuhan Kirim Harian: halamannya, JSON data hari ini dan kemarin, dan
+  tanggal tidak sah yang harus jatuh ke hari ini (hanya membaca);
 - dalam putaran penuh: satu resi normal dibawa dari picker sampai Terima Retur,
   satu resi CANCELED ditolak di tiap meja, lalu keadaan akhir keduanya dicocokkan
   di database.
@@ -174,6 +176,7 @@ Dipakai untuk putaran sebagian. Satu file bisa muncul di beberapa baris.
 | `models/Retur_fcd.php`, `controllers/Retur.php`, `views/retur/*` | §9 |
 | `models/Cancel_paket_fcd.php` | P-3, K-3, H-4, R-3, lalu query §11.1 |
 | `models/Lost_scan_picker_fcd.php`, `models/Lost_scan_packer_fcd.php`, `controllers/Lost_scan_picker.php` | K-4, K-5, H-5, §10 |
+| `models/Pemenuhan_kirim_fcd.php`, `views/monitoring/pemenuhan_kirim_harian.php` | Smoke test bagian "Pemenuhan Kirim Harian", lalu buka menunya di browser: ganti tanggal, ubah jumlah packer dan batas, buka ikon ⓘ. Tidak perlu scan resi |
 
 Putaran sebagian tetap memakai persiapan §2 dan penutup §11. Resi yang
 langkahnya tidak dijalankan cukup dilewati di tabel keadaan akhir.
