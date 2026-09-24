@@ -9,8 +9,9 @@ Options -Indexes
 # punya .htaccess sendiri).
 # 17 Sep 2026 ditemukan kredensial di scripts/ dan seluruh .git bisa diunduh lewat HTTP;
 # 23 Sep 2026 indeks kode graft/ (hanya ada di dev) ternyata bisa dibuka dari LAN.
+# 24 Sep 2026 tests/ (smoke test CLI, B-16) ikut diblokir sejak dibuat.
 RewriteRule ^\. - [F,L]
-RewriteRule ^(scripts|docs|dev_tools|logs|sql_migrations|vendor|graft)(/|$) - [F,L]
+RewriteRule ^(scripts|docs|dev_tools|logs|sql_migrations|vendor|graft|tests)(/|$) - [F,L]
 RewriteRule ^[^/]+\.(md|bat|ps1|sql|py|json|lock|xml|log|txt)$ - [F,L]
 
 # Sisanya: URL tanpa file/folder nyata diteruskan ke CodeIgniter.

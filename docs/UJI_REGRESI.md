@@ -31,6 +31,8 @@ ini dalam commit yang sama.
    ```bash
    git diff --name-only master...HEAD -- '*.php' | xargs -r -n1 C:/xampp/php/php.exe -l
    ```
+   Setelah itu jalankan smoke test (§2.3). Kalau smoke test gagal, perbaiki
+   dulu sebelum mulai checklist manual.
 2. Buka `http://localhost/iresis-dev/` **di PC server**, bukan lewat IP LAN.
    Browser hanya mengizinkan kamera di `localhost` atau HTTPS, dan §7 butuh
    kamera. Login dengan akun **webmaster** (role 1). Role ini memegang semua
@@ -47,13 +49,16 @@ ini dalam commit yang sama.
 ### 2.1 Resi uji
 
 Jalankan query berikut sebagai user `iresis_dev`, bukan root. User ini tidak
-punya akses ke `iresis_prod`. Ketiganya butuh sekitar 15 detik.
+punya akses ke `iresis_prod`. Baris `SET SESSION optimizer_switch` di awal
+jangan dilewati. Tanpa baris itu MariaDB memindai penuh tabel detail dan tabel
+picker, sehingga query butuh sekitar 16 detik, bukan 0,02 detik.
 
 ```bash
 "C:/xampp/mysql/bin/mysql.exe" -u iresis_dev -p iresis_dev
 ```
 
 ```sql
+SET SESSION optimizer_switch = 'semijoin=off,materialization=off';
 SET @batas := (SELECT MAX(tanggal_printresi) FROM tblprintresi) - INTERVAL 14 DAY;
 
 -- Baris 1 = N, baris 2 = N2, baris 3 = L1. Baris 4-5 cadangan untuk menu
@@ -125,6 +130,35 @@ basi: segarkan database dev (`docs/LINGKUNGAN_DEV.md` §5).
 
 Dev dan produksi memakai Apache dan MariaDB yang sama. Unggah file besar di
 dev ikut memperlambat produksi, jadi jalankan §5 di luar jam sibuk.
+
+### 2.3 Smoke test otomatis
+
+`tests/smoke_scan.php` (B-16) memanggil endpoint scan lewat HTTP sungguhan,
+lalu memeriksa bahwa setiap balasan adalah JSON utuh tanpa satu byte pun di
+luarnya, dengan `code` dan `EXCEPTION_CODE` yang benar. Yang diperiksa:
+
+- balasan 401 saat belum login dan proses login;
+- delapan halaman menu scan, termasuk pengecekan tidak ada halaman error PHP
+  di dalam view;
+- tolakan untuk resi tidak ditemukan dan resi dobel;
+- dalam putaran penuh: satu resi normal dibawa dari picker sampai Terima Retur,
+  satu resi CANCELED ditolak di tiap meja, lalu keadaan akhir keduanya dicocokkan
+  di database.
+
+```bash
+C:/xampp/php/php.exe tests/smoke_scan.php
+```
+
+Kode keluar 0 berarti lulus, 1 berarti ada yang gagal (rinciannya tercetak),
+dan 2 berarti tidak bisa mulai. Pakai `--baca-saja` untuk putaran yang tidak
+menulis data. Syaratnya adalah `uji_username` dan `uji_password` (akun
+webmaster di `iresis_dev`) sudah diisi di `secrets.php` folder dev. Script
+menolak jalan di folder produksi.
+
+Smoke test **tidak menggantikan** checklist ini. Smoke test tidak melihat
+layar, tidak mendengar suara, tidak menyentuh kamera, upload, Buka Retur,
+maupun lost scan. Kerjanya menangkap lebih dulu kerusakan paling umum, yaitu
+JSON rusak dan kode balasan yang berubah.
 
 ## 3. Peta file → langkah
 
