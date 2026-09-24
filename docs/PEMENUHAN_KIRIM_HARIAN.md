@@ -14,8 +14,8 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
 
 | Berkas | Isi |
 |---|---|
-| `models/Pemenuhan_kirim_fcd.php` | Semua hitungan (satu query utama + cache) |
-| `controllers/Monitoring.php` | `pemenuhan_kirim_harian()` (halaman) dan `pemenuhan_kirim_harian_data()` (JSON, dipanggil tiap menit) |
+| `models/Pemenuhan_kirim_fcd.php` | Semua hitungan (satu subquery per resi `sql_per_resi()` + cache): `snapshot()` untuk angka, `daftar_belum()` untuk popup |
+| `controllers/Monitoring.php` | `pemenuhan_kirim_harian()` (halaman), `pemenuhan_kirim_harian_data()` (JSON, dipanggil tiap menit), `pemenuhan_kirim_harian_detail()` (daftar popup), `pemenuhan_kirim_harian_excel()` (unduh xlsx) |
 | `views/monitoring/pemenuhan_kirim_harian.php` | Tampilan + hitungan beban per packer di browser |
 | `core/MY_Controller.php` | `run_pemenuhan_kirim_harian_migration()`: menu, hak akses, setelan |
 
@@ -38,6 +38,36 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
   dihitung ulang (§6).
 - Pilih tanggal lain untuk melihat **rekap akhir hari** tanggal itu. Hari ini
   diperbarui otomatis tiap 1 menit. Posisi lipatan diingat per browser.
+
+### 1.1 Lihat detail dan unduh Excel
+
+Diminta user 24 Sep 2026 (prototipe disetujui lebih dulu). Di kotak
+Picker/Packer/HO ada tombol **Lihat detail** di samping "Belum" dan **Lihat**
+di samping "Upload telat". Keduanya membuka popup daftar resi:
+
+- Tab tahap: Belum picker / Belum packer / Belum HO, dengan jumlahnya.
+- Kolom: no resi (label Upload telat / Sisa kemarin), no pesanan,
+  marketplace, kurir + jam tutup kurir (`tblkurir.jam_batas_kirim`), SKU × qty
+  + rak, masuk IRESIS + jam pesan, batas kirim (merah bila lewat), posisi
+  (belum dipick / dipick jam + nama picker / packing jam). **Toko tidak
+  ditampilkan**: `tblprintresi.toko` kosong di semua resi.
+- Cari (no resi, no pesanan, SKU, rak, nama picker; kata yang cocok disorot),
+  filter Belum gudang / Upload telat / Semua, marketplace, kurir, jenis,
+  kelompok wajib, posisi; urut; 50 baris per halaman; di layar sempit baris
+  menjadi kartu.
+- **Salin no resi**: seluruh hasil filter ke clipboard (bila browser menolak,
+  mis. lewat http di IP LAN, teksnya ditampilkan terpilih untuk Ctrl+C).
+- **Unduh Excel**: browser mengirim id resi hasil filter (urutan layar); server
+  mengambil isi barisnya dari `daftar_belum()` yang sama, jadi hanya resi yang
+  memang ada di daftar yang bisa ikut. Baris 1 judul + tanggal, baris 2 filter
+  yang dipakai, header di baris 4; no resi/pesanan disimpan sebagai teks. Gagal
+  (sesi habis, daftar kosong) dibalas JSON dan ditampilkan sebagai pesan.
+
+`daftar_belum()` memakai subquery yang sama dengan angka kotak, jadi jumlah
+baris popup = angka "Belum" (smoke test memeriksa ini). Data dimuat saat popup
+dibuka dan disimpan di cache berkas seperti angka (55 dtk / 10 menit);
+cari/filter/halaman dikerjakan di browser. Ukuran: ±1 MB JSON untuk ±4.000
+resi (pagi hari, sebelum picking), ±1 dtk query. Excel 2.672 resi ±4 dtk, 50 MB.
 
 ## 2. Aturan wajib keluar hari D
 

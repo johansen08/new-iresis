@@ -410,7 +410,8 @@ $cek_pkh = function (array $json) {
     return isset($d['setelan']['default_batas'], $d['setelan']['default_packer']) ? NULL : 'setelan tidak ada';
 };
 uji_endpoint('data hari ini', minta('GET', 'monitoring/pemenuhan-kirim-harian-data'), 200, NULL, $cek_pkh);
-uji_endpoint('data kemarin (rekap akhir hari)', minta('GET', 'monitoring/pemenuhan-kirim-harian-data?tanggal=' . date('Y-m-d', strtotime('-1 day'))), 200, NULL,
+$kemarin = date('Y-m-d', strtotime('-1 day'));
+$snap_kemarin = uji_endpoint('data kemarin (rekap akhir hari)', minta('GET', 'monitoring/pemenuhan-kirim-harian-data?tanggal=' . $kemarin), 200, NULL,
     function ($json) use ($cek_pkh) {
         return $cek_pkh($json) ?? (($json['data']['hari_ini'] ?? NULL) === FALSE ? NULL : 'hari_ini seharusnya FALSE');
     });
@@ -418,6 +419,56 @@ uji_endpoint('tanggal tidak sah jatuh ke hari ini', minta('GET', 'monitoring/pem
     function ($json) {
         return ($json['data']['tanggal'] ?? '') === date('Y-m-d') ? NULL : 'tanggal ' . ($json['data']['tanggal'] ?? '-') . ', seharusnya hari ini';
     });
+
+// Popup "Lihat detail": jumlah baris harus sama dengan angka "belum HO" kotak
+// (keduanya dari subquery yang sama), lalu unduh Excel dibuka lagi dan dicek isinya.
+$detail = uji_endpoint('daftar resi belum (kemarin)', minta('GET', 'monitoring/pemenuhan-kirim-harian-detail?tanggal=' . $kemarin), 200, NULL,
+    function ($json) use ($snap_kemarin) {
+        $rows = $json['data']['rows'] ?? NULL;
+        if (!is_array($rows)) {
+            return 'rows tidak ada: ' . cuplik(json_encode($json['data'] ?? NULL));
+        }
+        foreach ($rows as $r) {
+            foreach (['id', 'r', 'p', 'mp', 'k', 'sku', 'j', 'g', 't', 'up', 'pk', 'pc'] as $k) {
+                if (!array_key_exists($k, $r)) {
+                    return "baris tanpa kunci $k: " . cuplik(json_encode($r));
+                }
+            }
+        }
+        $belum_ho = 0;
+        foreach (['KA', 'TA', 'TB', 'TM'] as $g) {
+            foreach ($snap_kemarin['data']['grup'][$g] ?? [] as $kat) {
+                $belum_ho += $kat[0] - $kat[3];
+            }
+        }
+        return count($rows) === $belum_ho ? NULL : count($rows) . " baris, padahal kotak HO menghitung $belum_ho belum";
+    });
+$baris_detail = $detail['data']['rows'] ?? [];
+$ids = array_slice(array_column($baris_detail, 'id'), 0, 3);
+if ($ids) {
+    $r = minta('POST', 'monitoring/pemenuhan-kirim-harian-excel', ['tanggal' => $kemarin, 'judul' => 'Belum HO', 'filter' => 'uji smoke', 'ids' => implode(',', $ids)]);
+    $alasan = NULL;
+    if ($r['status'] !== 200 || substr($r['body'], 0, 2) !== 'PK') {
+        $alasan = "HTTP {$r['status']}, bukan berkas xlsx. Isi: " . cuplik($r['body']);
+    } else {
+        $tmp = tempnam(sys_get_temp_dir(), 'pkh_');
+        file_put_contents($tmp, $r['body']);
+        require_once dirname(__DIR__) . '/vendor/autoload.php';
+        $lama = error_reporting(E_ALL & ~E_DEPRECATED);
+        $ws = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+        error_reporting($lama);
+        @unlink($tmp);
+        if ($ws->getCell('A4')->getValue() !== 'No Resi' || $ws->getCell('A5')->getValue() !== $baris_detail[0]['r']) {
+            $alasan = 'isi tidak cocok: A4 ' . var_export($ws->getCell('A4')->getValue(), TRUE) . ', A5 ' . var_export($ws->getCell('A5')->getValue(), TRUE) . ", seharusnya {$baris_detail[0]['r']}";
+        } elseif ($ws->getHighestDataRow() !== 4 + count($ids)) {
+            $alasan = 'baris data ' . ($ws->getHighestDataRow() - 4) . ', seharusnya ' . count($ids);
+        }
+    }
+    lapor($alasan === NULL ? 'LULUS' : 'GAGAL', 'unduh Excel hasil filter (' . count($ids) . ' resi)', $r['ms'], (string) $alasan);
+} else {
+    lapor('LEWAT', 'unduh Excel hasil filter', NULL, 'tidak ada resi yang belum keluar kemarin');
+}
+uji_endpoint('unduh Excel tanpa resi ditolak', minta('POST', 'monitoring/pemenuhan-kirim-harian-excel', ['tanggal' => $kemarin, 'ids' => '']), 400);
 
 echo "\n== Tolakan tanpa menulis data\n";
 $x = RESI_KARANGAN;

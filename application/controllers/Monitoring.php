@@ -176,6 +176,110 @@ class Monitoring extends MY_Controller
         $this->make_ajax_response(200, 'OK', $snapshot);
     }
 
+    /** Daftar resi wajib yang belum keluar, untuk popup "Lihat detail". */
+    public function pemenuhan_kirim_harian_detail()
+    {
+        session_write_close();
+        $this->load->model('pemenuhan_kirim_fcd');
+        $tanggal = $this->tanggal_pemenuhan($this->input->get('tanggal'));
+
+        $daftar = $this->pemenuhan_kirim_fcd->daftar_belum($tanggal);
+        if ($daftar === NULL) {
+            $this->make_ajax_response(500, 'Daftar resi gagal dimuat. Coba lagi sebentar lagi.');
+        }
+        $this->make_ajax_response(200, 'OK', $daftar);
+    }
+
+    /**
+     * Unduh Excel hasil filter popup. Browser mengirim id resi yang sedang
+     * tersaring (urutannya sama dengan di layar); isi baris diambil dari
+     * daftar_belum() di server, jadi hanya resi yang memang ada di daftar
+     * yang bisa ikut terunduh. Gagal → JSON biasa (dibaca oleh JS).
+     */
+    public function pemenuhan_kirim_harian_excel()
+    {
+        session_write_close();
+        ini_set('memory_limit', '1024M');
+        set_time_limit(300);
+        $this->load->model('pemenuhan_kirim_fcd');
+        $tanggal = $this->tanggal_pemenuhan($this->input->post('tanggal'));
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', (string) $this->input->post('ids'))))));
+        if (!$ids) {
+            $this->make_ajax_response(400, 'Tidak ada resi untuk diunduh.');
+        }
+        $daftar = $this->pemenuhan_kirim_fcd->daftar_belum($tanggal);
+        if ($daftar === NULL) {
+            $this->make_ajax_response(500, 'Daftar resi gagal dimuat. Coba lagi sebentar lagi.');
+        }
+        $per_id = array_column($daftar['rows'], NULL, 'id');
+        $rows = [];
+        foreach ($ids as $id) {
+            if (isset($per_id[$id])) {
+                $rows[] = $per_id[$id];
+            }
+        }
+        if (!$rows) {
+            $this->make_ajax_response(400, 'Resi yang dipilih sudah tidak ada di daftar belum selesai. Muat ulang lalu coba lagi.');
+        }
+
+        $grup  = ['KA' => 'Sisa kemarin', 'TA' => 'Pesanan s/d 12.00', 'TB' => 'TikTok 12.00-15.00', 'TM' => 'Batas kirim MP hari ini'];
+        $jenis = [1 => '1 Qty', 2 => '>1 Qty', 0 => 'Tanpa rincian SKU'];
+        $judul = mb_substr(trim((string) $this->input->post('judul')) ?: 'Resi belum selesai', 0, 60);
+        $filter = mb_substr(trim((string) $this->input->post('filter')), 0, 300);
+
+        $xls = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $ws = $xls->getActiveSheet();
+        $ws->setTitle('Resi');
+        $ws->setCellValue('A1', $judul . ' · ' . $daftar['label_tanggal'] . ' · ' . ($daftar['hari_ini'] ? 'data jam ' . $daftar['jam_data'] : 'rekap akhir hari'));
+        $ws->setCellValue('A2', ($filter !== '' ? 'Filter: ' . $filter . ' · ' : '') . count($rows) . ' resi');
+        $ws->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+
+        $kolom = ['No Resi', 'No Pesanan', 'Marketplace', 'Kurir', 'SKU x Qty', 'Rak', 'Total Qty', 'Jenis', 'Kelompok',
+                  'Upload Telat', 'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing'];
+        $ws->fromArray($kolom, NULL, 'A4');
+        $ws->getStyle('A4:Q4')->getFont()->setBold(true);
+
+        $huruf = range('A', 'Q');
+        $baris = 5;
+        foreach ($rows as $r) {
+            $posisi = $r['pc'] !== '' ? 'Sudah packing, belum HO' : ($r['pk'] !== '' ? 'Sudah dipick, belum packing' : 'Belum dipick');
+            $nilai = [
+                $r['r'], $r['p'], $r['mp'], $r['k'],
+                implode(', ', array_map(function ($s) { return $s[0] . ' x' . $s[1]; }, $r['sku'])),
+                implode(', ', array_unique(array_filter(array_column($r['sku'], 2)))),
+                array_sum(array_column($r['sku'], 1)),
+                $jenis[$r['j']] ?? '', $grup[$r['g']] ?? $r['g'], $r['t'] ? 'Ya' : '',
+                $r['up'], $r['ps'], $r['bk'], $posisi, $r['pk'] === '-' ? '' : $r['pk'], $r['pn'], $r['pc'],
+            ];
+            foreach ($nilai as $i => $v) {
+                // teks eksplisit: no resi/pesanan angka panjang tidak boleh jadi 1,23E+15
+                if ($i === 6) {
+                    $ws->setCellValue($huruf[$i] . $baris, (int) $v);
+                } else {
+                    $ws->setCellValueExplicit($huruf[$i] . $baris, (string) $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+            }
+            $baris++;
+        }
+        foreach ($huruf as $c) {
+            $ws->getColumnDimension($c)->setAutoSize(true);
+        }
+        $ws->getColumnDimension('A')->setAutoSize(false)->setWidth(24);   // judul di A1 jangan melebarkan kolom resi
+        $ws->freezePane('A5');
+        $ws->setAutoFilter('A4:Q' . ($baris - 1));
+
+        $nama = preg_replace('/[^A-Za-z0-9]+/', '_', $judul) . '_' . $tanggal . ($daftar['hari_ini'] ? '_' . str_replace(':', '', $daftar['jam_data']) : '') . '.xlsx';
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($xls))->save('php://output');
+        exit;
+    }
+
     /** Tanggal Y-m-d yang sah dan tidak di masa depan; selain itu hari ini. */
     private function tanggal_pemenuhan($masukan)
     {
