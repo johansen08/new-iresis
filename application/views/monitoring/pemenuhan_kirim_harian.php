@@ -12,7 +12,10 @@
   --pkh-ink:#0a2345;--pkh-text:#1d2939;--pkh-muted:#5b6b82;--pkh-line:#dfe4ec;--pkh-line-strong:#c4cedb;
   --pkh-accent:#1463c9;--pkh-accent-soft:#e4eefc;
   --pkh-ok:#227a3a;--pkh-ok-soft:#e3f3e7;--pkh-warn:#9a5200;--pkh-warn-soft:#fdf0db;--pkh-bad:#c42b2b;--pkh-bad-soft:#fde6e4;
-  max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
+  /* padding sendiri: halaman lain dapat jarak dari .row > .col-*, halaman ini tidak memakainya,
+     jadi tanpa ini isi menempel ke sidebar dan tombol tema di tepi kanan pada layar sempit */
+  box-sizing:border-box;max-width:1184px;margin:0 auto;padding:20px 32px 32px;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
   color:var(--pkh-text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
 .pkh *{box-sizing:border-box}
 .pkh > *{min-width:0}
@@ -221,6 +224,7 @@
 }
 @media (max-width:720px){.pkh-top{grid-template-columns:1fr}}
 @media (max-width:640px){
+  .pkh{padding:16px 16px 24px}
   .pkh-stages{gap:8px}
   .pkh-stage,.pkh-stage.key{padding:12px}
   .pkh-stage .num{font-size:24px}

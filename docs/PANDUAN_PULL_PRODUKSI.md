@@ -826,3 +826,14 @@ user) dan "tutup HH.MM" di bawah kurir (`tblkurir.jam_batas_kirim` tidak
 terverifikasi). Kolom Excel "Rak" dihapus. Branch `fix/pkh-detail-tanpa-rak`,
 hanya model/controller/view; tanpa migrasi, `VERSI_CACHE` 4. Verifikasi: buka
 popup, kolom Kurir hanya nama kurir, kolom SKU hanya "SKU ×qty".
+
+---
+
+## K. Rilis 24 September 2026 (sore, lanjutan) — padding menu Pemenuhan Kirim Harian
+
+Isi menu diberi jarak sendiri (32px kiri-kanan, 16px di layar ≤ 640px) supaya
+tidak menempel ke sidebar atau tombol tema di tepi kanan pada layar sempit.
+Halaman lain mendapat jarak dari `.row > .col-*` template; menu ini tidak
+memakainya. Hanya CSS di view `monitoring/pemenuhan_kirim_harian.php`, tanpa
+migrasi. Verifikasi: buka menu dengan sidebar terbuka di layar ±1.024px, kartu
+berjarak dari sidebar dan tepi kanan.
