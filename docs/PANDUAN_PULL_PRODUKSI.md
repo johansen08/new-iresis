@@ -731,17 +731,22 @@ membuat menu yang belum ada. Berkas `application/cache/pkh_*` boleh dibiarkan.
 
 ---
 
-## H. Rilis 24 September 2026 (lanjutan) — Pemenuhan Kirim Harian: upload telat
+## H. Rilis 24 September 2026 (lanjutan) — Pemenuhan Kirim Harian: upload telat + Lihat detail
 
-Isi rilis: resi wajib yang di-upload ke IRESIS **sesudah 16.00** (picking sudah
-tutup) dipisah dari "Belum" di kotak Picker/Packer/HO dan diberi baris sendiri
-di Detail Belum Selesai. Angka wajib dan persen tidak berubah. Hitungan
-OT/perbantuan tidak lagi memasukkan resi itu. Aturan dan datanya:
-`docs/PEMENUHAN_KIRIM_HARIAN.md` §2.1.
+Isi rilis:
+
+1. Resi wajib yang di-upload ke IRESIS **sesudah 16.00** (picking sudah tutup)
+   dipisah dari "Belum" di kotak Picker/Packer/HO dan diberi baris sendiri di
+   Detail Belum Selesai. Angka wajib dan persen tidak berubah. Hitungan
+   OT/perbantuan tidak lagi memasukkan resi itu (`PEMENUHAN_KIRIM_HARIAN.md` §2.1).
+2. Tombol **Lihat detail** di samping tiap "Belum" (dan **Lihat** di samping
+   "Upload telat"): popup daftar resi dengan cari, filter, Salin no resi, dan
+   **Unduh Excel** hasil filter (§1.1). Hanya membaca data.
 
 | Branch | Perubahan |
 |---|---|
 | `feature/pkh-upload-telat` | `Pemenuhan_kirim_fcd.php` (kolom `telat` di query, hasil `telat`, setelan baru, versi cache), view `monitoring/pemenuhan_kirim_harian.php`, 1 setelan di migrasi `MY_Controller.php` |
+| `feature/pkh-lihat-detail` | `Pemenuhan_kirim_fcd.php` (`sql_per_resi()` dipakai bersama, `daftar_belum()`, `hitung_sekali()`), 2 method + 2 route di `Monitoring` (`-detail`, `-excel`), popup di view, smoke test +3 pemeriksaan |
 
 Riwayat git tidak ditulis ulang, jadi pakai `git pull` biasa (A.5).
 
@@ -765,6 +770,12 @@ menu, pilih tanggal **23 Sep 2026**: kotak Picker "Belum: 0" dengan baris
 oranye "Upload telat: 5", Packer dan HO "Belum: 1" dengan "Upload telat: 5";
 persen tetap 99,9%. (Kalau status SPXID067708609229 sudah diperbarui jadi
 CANCELED, Packer dan HO menjadi "Belum: 0".)
+
+Kembali ke hari ini, klik **Lihat detail** di kotak Packer: popup terbuka,
+jumlah di tab "Belum packer" sama dengan angka "Belum" di kotak. Ketik
+sebagian no resi di kotak cari, lalu **Unduh Excel**: berkas
+`Belum_packer_<tanggal>_<jam>.xlsx` terunduh dan isinya sama dengan daftar di
+layar.
 
 ### H.3 Kalau perlu kembali ke versi sebelumnya
 
