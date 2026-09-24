@@ -54,6 +54,10 @@
 .pkh-bar i{display:block;height:100%;background:var(--pkh-accent);border-radius:99px;transition:width .35s ease}
 .pkh-stage .left{margin-top:10px;font-size:14px;color:var(--pkh-muted)}
 .pkh-stage .left b{color:var(--pkh-ink);font-size:16px}
+.pkh-stage .telat{display:block;margin-top:2px;color:var(--pkh-warn)}
+.pkh-stage .telat b{color:var(--pkh-warn)}
+.pkh-kat .telat td{color:var(--pkh-warn)}
+.pkh-kat .telat td:first-child{color:var(--pkh-warn)}
 
 /* ikon info */
 .pkh-info{position:relative;display:inline-grid;place-items:center;width:20px;height:20px;margin-left:6px;border-radius:50%;color:var(--pkh-muted);cursor:help;vertical-align:-4px;flex:none}
@@ -197,7 +201,7 @@
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <div>
-          <div class="pkh-sum-title">Detail OT/Perbantuan<span class="pkh-info" data-tip="<p><b>Beban per packer</b> = paket &gt;1 Qty yang belum dipacking ÷ jumlah packer.</p><p><b>Cukup</b> bila beban paling banyak 85% dari batas; <b>Mepet</b> bila sampai batas; <b>Perlu OT / Perbantuan</b> bila lewat batas.</p>"></span></div>
+          <div class="pkh-sum-title">Detail OT/Perbantuan<span class="pkh-info" data-tip="<p><b>Beban per packer</b> = paket &gt;1 Qty yang belum dipacking ÷ jumlah packer.</p><p><b>Cukup</b> bila beban paling banyak 85% dari batas; <b>Mepet</b> bila sampai batas; <b>Perlu OT / Perbantuan</b> bila lewat batas.</p><p>Resi <b>upload telat</b> tidak ikut dihitung: resi itu masuk sesudah picking tutup dan baru dikerjakan besok.</p>"></span></div>
           <div class="pkh-sum-meta" id="pkh-pack-meta"></div>
         </div>
       </div>
@@ -314,6 +318,8 @@
       return [0, 1, 2, 3, 4].map(function (j) { return nama.reduce(function (s, g) { return s + grup[g][k][j]; }, 0); });
     });
   }
+  // A − B per sel: dipakai untuk memisahkan resi upload telat dari sisanya
+  function kurang(A, B) { return A.map(function (r, k) { return r.map(function (v, j) { return v - B[k][j]; }); }); }
   function total(perKat, j, kat) { return (kat || SEMUA).reduce(function (s, k) { return s + perKat[k][j]; }, 0); }
   function belum(W, j, kat) { return Math.max(0, total(W, 0, kat) - total(W, j, kat)); }
   function sisaMenitKerja(d) {   // sampai jam selesai packer, istirahat tidak dihitung
@@ -325,6 +331,10 @@
 
   function renderAtas(d) {
     var g = d.grup, W = gabung(g, WAJIB);
+    // T = bagian W yang di-upload sesudah jam batas upload; N = sisanya (tanggungan gudang)
+    var T = d.telat ? gabung(d.telat, WAJIB) : SEMUA.map(function () { return [0, 0, 0, 0, 0]; });
+    var N = kurang(W, T);
+    var jamTelat = d.setelan.jam_upload_terlambat.replace(':', '.');
     var n = function (nama) { return total(g[nama], 0); };
     var dit = total(W, 0), tanpaHO = total(W, 4), besok = n('TX') + n('TC');
     var wajibHariIni = n('TA') + n('TB') + n('TM');
@@ -342,36 +352,46 @@
       '<p><b>Cek silang batas kirim MP:</b> ' + (n('TM') ? fmt(n('TM')) + ' resi berbatas kirim hari ini masuk sesudah jam, sudah ikut dihitung.' : 'tidak ada resi berbatas kirim hari ini yang terlewat aturan jam.') +
       (n('TX') ? ' ' + fmt(n('TX')) + ' pesanan TikTok 12.00–15.00 berbatas kirim lusa atau lebih, dihitung boleh besok.' : '') + '</p>' +
       '<p><b>Tidak dihitung:</b> ' + fmt(d.cancel_hari_ini) + ' resi cancel hari ini (CANCELED / REQUEST_CANCEL) dan ' + fmt(d.tertunggak_lama) +
-      ' resi lama (&gt; 7 hari) yang belum keluar, perlu dicek terpisah.</p>');
-    var tahap = [
-      ['Picker', total(W, 1), '', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
-      ['Packer', total(W, 2), 'key', 'Resi wajib yang sudah discan packer, termasuk Spesial yang otomatis ter-pack saat dipick. Resi yang sudah keluar ikut terhitung walau scan packer-nya terlewat.'],
-      ['HO (keluar)', total(W, 3), '', 'Keluar = sudah discan HO, atau status marketplace sudah SHIPPED / COMPLETED / RETURNED.' + (tanpaHO ? ' Termasuk <b>' + fmt(tanpaHO) + '</b> resi yang keluar tanpa scan HO.' : '')]
+      ' resi lama (&gt; 7 hari) yang belum keluar, perlu dicek terpisah.</p>' +
+      (total(T, 0) ? '<p><b>Upload telat:</b> ' + fmt(total(T, 0)) + ' resi wajib baru di-upload ke IRESIS sesudah ' + jamTelat +
+        '. Tetap dihitung, tetapi di kotak Picker/Packer/HO dipisah dari Belum.</p>' : ''));
+    var TIP_TELAT = '<p><b>Upload telat</b> = resi wajib yang baru di-upload ke IRESIS sesudah ' + jamTelat +
+      ', saat picking sudah tutup. Tetap dihitung di angka dan persen, tetapi dipisah dari Belum karena gudang tidak sempat mengerjakannya hari itu.</p>';
+    var tahap = [   // [judul, indeks kolom, kelas, teks ⓘ]
+      ['Picker', 1, '', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
+      ['Packer', 2, 'key', 'Resi wajib yang sudah discan packer, termasuk Spesial yang otomatis ter-pack saat dipick. Resi yang sudah keluar ikut terhitung walau scan packer-nya terlewat.'],
+      ['HO (keluar)', 3, '', 'Keluar = sudah discan HO, atau status marketplace sudah SHIPPED / COMPLETED / RETURNED.' + (tanpaHO ? ' Termasuk <b>' + fmt(tanpaHO) + '</b> resi yang keluar tanpa scan HO.' : '')]
     ];
     $id('pkh-stages').innerHTML = tahap.map(function (t, i) {
+      var sudah = total(W, t[1]), telat = belum(T, t[1]);
       return '<div class="pkh-card pkh-stage ' + t[2] + '">' +
         '<div class="pkh-label">' + t[0] + '<span class="pkh-info" id="pkh-info-tahap-' + i + '"></span></div>' +
-        '<div class="row-n"><span class="num">' + fmt(t[1]) + '</span><span class="pct">' + pct(t[1], dit) + '</span></div>' +
-        '<div class="pkh-bar"><i style="width:' + (dit ? Math.min(100, t[1] / dit * 100) : 0) + '%"></i></div>' +
-        '<div class="left">Belum: <b>' + fmt(Math.max(0, dit - t[1])) + '</b></div></div>';
+        '<div class="row-n"><span class="num">' + fmt(sudah) + '</span><span class="pct">' + pct(sudah, dit) + '</span></div>' +
+        '<div class="pkh-bar"><i style="width:' + (dit ? Math.min(100, sudah / dit * 100) : 0) + '%"></i></div>' +
+        '<div class="left">Belum: <b>' + fmt(belum(N, t[1])) + '</b>' +
+        (telat ? '<span class="telat">Upload telat: <b>' + fmt(telat) + '</b></span>' : '') + '</div></div>';
     }).join('');
-    tahap.forEach(function (t, i) { pasangInfo($id('pkh-info-tahap-' + i), t[3]); });
-    return W;
+    tahap.forEach(function (t, i) { pasangInfo($id('pkh-info-tahap-' + i), '<p>' + t[3] + '</p>' + (belum(T, t[1]) ? TIP_TELAT : '')); });
+    return { W: W, N: N, T: T, jamTelat: jamTelat };
   }
 
-  function renderJenis(W) {
+  function renderJenis(M) {
     var v = function (x) { return x ? fmt(x) : '<span class="zero">–</span>'; };
-    var baris = function (label, kat, cls) {
-      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + v(belum(W, 1, kat)) + '</td><td class="col-pack">' + v(belum(W, 2, kat)) + '</td><td>' + v(belum(W, 3, kat)) + '</td></tr>';
+    var baris = function (label, X, kat, cls) {
+      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + v(belum(X, 1, kat)) + '</td><td class="col-pack">' + v(belum(X, 2, kat)) + '</td><td>' + v(belum(X, 3, kat)) + '</td></tr>';
     };
+    // baris jenis hanya tanggungan gudang; upload telat punya baris sendiri; Total = semuanya
     $id('pkh-t-kat').innerHTML =
       '<thead><tr><th>Jenis resi</th><th>Belum picker</th><th class="col-pack">Belum packer</th><th>Belum HO</th></tr></thead><tbody>' +
-      baris('1 Qty', SATU_QTY) + baris('&gt;1 Qty', LEBIH_QTY) +
-      (total(W, 0, [5]) > 0 ? baris('Tanpa rincian SKU', [5]) : '') +
-      baris('Total', SEMUA, 'tot') + '</tbody>';
-    $id('pkh-kat-meta').innerHTML = 'Belum dipacking <b>' + fmt(belum(W, 2)) + '</b>: 1 Qty <b>' + fmt(belum(W, 2, SATU_QTY)) + '</b> · &gt;1 Qty <b>' + fmt(belum(W, 2, LEBIH_QTY)) + '</b>';
+      baris('1 Qty', M.N, SATU_QTY) + baris('&gt;1 Qty', M.N, LEBIH_QTY) +
+      (total(M.N, 0, [5]) > 0 ? baris('Tanpa rincian SKU', M.N, [5]) : '') +
+      (belum(M.T, 3) > 0 ? baris('Upload telat (sesudah ' + M.jamTelat + ')', M.T, SEMUA, 'telat') : '') +
+      baris('Total', M.W, SEMUA, 'tot') + '</tbody>';
+    $id('pkh-kat-meta').innerHTML = 'Belum dipacking <b>' + fmt(belum(M.W, 2)) + '</b>: 1 Qty <b>' + fmt(belum(M.N, 2, SATU_QTY)) + '</b> · &gt;1 Qty <b>' + fmt(belum(M.N, 2, LEBIH_QTY)) + '</b>' +
+      (belum(M.T, 2) ? ' · upload telat <b>' + fmt(belum(M.T, 2)) + '</b>' : '');
   }
 
+  // W di sini = resi tanggungan gudang saja (tanpa upload telat)
   function renderPacking(W) {
     var d = state.data, P = state.packer, B = state.batas;
     // 1 Qty yang lewat meja packer hanya Reguler; Spesial otomatis ter-pack saat dipick
@@ -413,9 +433,9 @@
 
   function render() {
     if (!state.data) return;
-    var W = renderAtas(state.data);
-    renderJenis(W);
-    renderPacking(W);
+    var M = renderAtas(state.data);
+    renderJenis(M);
+    renderPacking(M.N);
   }
 
   function pakaiData(d) {

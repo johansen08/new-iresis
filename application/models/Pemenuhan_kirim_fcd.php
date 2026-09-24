@@ -19,6 +19,9 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    RETURNED tanpa scan HO (status itu baru berubah sesudah HO).
  *  - Tahap bertingkat: yang sudah keluar pasti terhitung sudah packer dan
  *    picker; yang sudah packer pasti terhitung sudah picker.
+ *  - Upload telat: resi yang di-upload ke IRESIS pada hari D sesudah jam
+ *    setelan (bawaan 16.00) tetap dihitung, tetapi angkanya dikirim terpisah
+ *    ('telat') supaya layar bisa memisahkannya dari "belum" milik gudang.
  *
  * Hasil disimpan di berkas cache sebentar supaya banyak layar yang membuka
  * menu ini bersamaan tetap hanya memicu satu hitungan per menit.
@@ -60,10 +63,14 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
     /** Nilai bawaan bila baris tb_config_operasional belum ada. */
     const SETELAN_BAWAAN = [
-        'pkh_jam_selesai_packer' => '18:00',
-        'pkh_default_packer'     => '8',
-        'pkh_batas_per_packer'   => '120',
+        'pkh_jam_selesai_packer'   => '18:00',
+        'pkh_default_packer'       => '8',
+        'pkh_batas_per_packer'     => '120',
+        'pkh_jam_upload_terlambat' => '16:00',
     ];
+
+    /** Naikkan bila bentuk hasil snapshot() berubah, supaya cache lama tidak terbaca. */
+    const VERSI_CACHE = 2;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -83,7 +90,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $per_jam  = $hari_ini ? date('Y-m-d H:i:s') : $tanggal . ' 23:59:59';
 
         // Nama database ikut jadi kunci: Mode Arsip membaca DB lain.
-        $kunci = 'snap_' . md5($this->db->database . '|' . $tanggal);
+        $kunci = 'snap' . self::VERSI_CACHE . '_' . md5($this->db->database . '|' . $tanggal);
         $umur  = $hari_ini ? self::CACHE_HARI_INI : self::CACHE_HARI_LEWAT;
         $simpan = $this->cache_baca($kunci, $umur);
         if (is_array($simpan)) {
@@ -106,7 +113,8 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $debug_lama = $this->db->db_debug;
         $this->db->db_debug = FALSE;   // error query jangan mencetak halaman HTML di tengah JSON
         try {
-            $grup = $this->hitung_grup($tanggal, $per_jam);
+            $setelan = $this->setelan();
+            $grup = $this->hitung_grup($tanggal, $per_jam, $setelan['jam_upload_terlambat']);
             if ($grup === NULL) {
                 return NULL;
             }
@@ -116,10 +124,11 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'hari_ini'        => $hari_ini,
                 'jam_data'        => substr($per_jam, 11, 5),
                 'grup'            => $grup['grup'],
+                'telat'           => $grup['telat'],
                 'cancel_hari_ini' => $grup['cancel'],
                 'tertunggak_lama' => $this->tertunggak_lama($tanggal),
                 'packer_aktif'    => $this->packer_aktif($per_jam),
-                'setelan'         => $this->setelan(),
+                'setelan'         => $setelan,
                 'detik_kategori'  => self::DETIK_PACKING,
             ];
             $this->cache_tulis($kunci, $hasil);
@@ -136,6 +145,8 @@ class Pemenuhan_kirim_fcd extends CI_Model
     /**
      * Satu query: per grup × kategori → [diterima, sudah picker, sudah packer,
      * sudah keluar, keluar tanpa scan HO], plus jumlah cancel hari itu.
+     * 'grup' memuat semua resi; 'telat' bentuknya sama tetapi hanya resi yang
+     * di-upload hari D sesudah $jam_telat (bagian dari 'grup', bukan tambahan).
      *
      * Dua hal yang membuatnya cepat (±0,5 dtk, sebelumnya 10 dtk), jangan
      * dibongkar tanpa mengukur ulang:
@@ -145,9 +156,10 @@ class Pemenuhan_kirim_fcd extends CI_Model
      *    id_resi). NOT EXISTS ke tblresikeluar membuat MariaDB 10.4 memindai
      *    seluruh tabel itu (±660 rb baris) lewat materialization.
      */
-    protected function hitung_grup($tanggal, $per_jam)
+    protected function hitung_grup($tanggal, $per_jam, $jam_telat)
     {
         $d      = $this->db->escape($tanggal . ' 00:00:00');
+        $dtelat = $this->db->escape($tanggal . ' ' . $jam_telat . ':00');
         $d_hari = $this->db->escape($tanggal);
         $d1     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' +1 day')));
         $d7     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -' . self::HARI_SISA . ' day')) . ' 00:00:00');
@@ -162,7 +174,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $id_pack = $this->id_status_performa('1_SKU_PACKER');
 
         $sql = "
-            SELECT z.grup, z.kat,
+            SELECT z.grup, z.kat, z.telat,
                    SUM(z.batal = 0)                                   AS dit,
                    SUM(z.batal = 0 AND z.picker_c IS NOT NULL)        AS pick,
                    SUM(z.batal = 0 AND z.packer_c IS NOT NULL)        AS pack,
@@ -173,6 +185,8 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 SELECT y.*,
                        COALESCE(y.pick_at, y.pack_at, y.keluar_at) AS picker_c,
                        COALESCE(y.pack_at, y.keluar_at)            AS packer_c,
+                       -- resi sisa (di-print sebelum D) tidak pernah telat di hari D
+                       IF(y.printed_at >= $dtelat, 1, 0)           AS telat,
                        CASE
                            WHEN y.printed_at < $d THEN 'KA'
                            WHEN y.masuk <= $d12 THEN 'TA'
@@ -233,7 +247,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     WHERE x.printed_at >= $d OR x.ho_min IS NULL OR x.ho_min >= $d
                 ) y
             ) z
-            GROUP BY z.grup, z.kat
+            GROUP BY z.grup, z.kat, z.telat
         ";
 
         $q = $this->db->query($sql);
@@ -243,18 +257,25 @@ class Pemenuhan_kirim_fcd extends CI_Model
         }
 
         $kosong = array_fill(0, self::JUMLAH_KATEGORI, [0, 0, 0, 0, 0]);
-        $grup = array_fill_keys(self::GRUP, $kosong);
+        $grup  = array_fill_keys(self::GRUP, $kosong);
+        $telat = array_fill_keys(self::GRUP, $kosong);
         $cancel = 0;
         foreach ($q->result_array() as $r) {
             $cancel += (int) $r['cancel'];
             if (!isset($grup[$r['grup']])) {
                 continue;
             }
-            $grup[$r['grup']][(int) $r['kat']] = [
-                (int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho'],
-            ];
+            $g = $r['grup'];
+            $k = (int) $r['kat'];
+            $angka = [(int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho']];
+            foreach ($angka as $j => $n) {
+                $grup[$g][$k][$j] += $n;
+                if ((int) $r['telat'] === 1) {
+                    $telat[$g][$k][$j] += $n;
+                }
+            }
         }
-        return ['grup' => $grup, 'cancel' => $cancel];
+        return ['grup' => $grup, 'telat' => $telat, 'cancel' => $cancel];
     }
 
     /**
@@ -308,12 +329,18 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 }
             }
         }
+        // jam upload terlambat ikut masuk query: hanya format HH:MM yang diterima
+        $jam_telat = $nilai['pkh_jam_upload_terlambat'];
+        $jam_telat = preg_match('/^([01]?\d|2[0-3]):[0-5]\d$/', $jam_telat)
+            ? str_pad($jam_telat, 5, '0', STR_PAD_LEFT)
+            : self::SETELAN_BAWAAN['pkh_jam_upload_terlambat'];
         return [
-            'jam_selesai'       => $nilai['pkh_jam_selesai_packer'],
-            'default_packer'    => max(1, (int) $nilai['pkh_default_packer']),
-            'default_batas'     => max(1, (int) $nilai['pkh_batas_per_packer']),
-            'istirahat_mulai'   => self::ISTIRAHAT_MULAI,
-            'istirahat_selesai' => self::ISTIRAHAT_SELESAI,
+            'jam_selesai'          => $nilai['pkh_jam_selesai_packer'],
+            'default_packer'       => max(1, (int) $nilai['pkh_default_packer']),
+            'default_batas'        => max(1, (int) $nilai['pkh_batas_per_packer']),
+            'jam_upload_terlambat' => $jam_telat,
+            'istirahat_mulai'      => self::ISTIRAHAT_MULAI,
+            'istirahat_selesai'    => self::ISTIRAHAT_SELESAI,
         ];
     }
 
