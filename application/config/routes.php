@@ -366,6 +366,8 @@ $route['monitoring/kurangan-picker'] = 'monitoring/kurangan_picker';
 $route['monitoring/get-kurangan-picker-data'] = 'monitoring/get_kurangan_picker_data';
 $route['monitoring/pemenuhan-kirim-harian'] = 'monitoring/pemenuhan_kirim_harian';
 $route['monitoring/pemenuhan-kirim-harian-data'] = 'monitoring/pemenuhan_kirim_harian_data';
+$route['monitoring/pemenuhan-kirim-harian-detail'] = 'monitoring/pemenuhan_kirim_harian_detail';
+$route['monitoring/pemenuhan-kirim-harian-excel'] = 'monitoring/pemenuhan_kirim_harian_excel';
 
 $route['restock/laporan-masalah-picker'] = 'restock/laporan_masalah_picker';
 $route['restock/get-laporan-masalah-picker-data'] = 'restock/get_laporan_masalah_picker_data';

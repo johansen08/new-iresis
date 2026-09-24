@@ -92,33 +92,14 @@ class Pemenuhan_kirim_fcd extends CI_Model
         // Nama database ikut jadi kunci: Mode Arsip membaca DB lain.
         $kunci = 'snap' . self::VERSI_CACHE . '_' . md5($this->db->database . '|' . $tanggal);
         $umur  = $hari_ini ? self::CACHE_HARI_INI : self::CACHE_HARI_LEWAT;
-        $simpan = $this->cache_baca($kunci, $umur);
-        if (is_array($simpan)) {
-            return $simpan;
-        }
 
-        // Satu penghitung per tanggal: layar lain yang meminta bersamaan menunggu,
-        // lalu memakai hasil yang baru ditulis (hitungannya ±1 dtk, jangan diulang).
-        $gembok = @fopen(APPPATH . 'cache/pkh_' . $kunci . '.lock', 'c');
-        if ($gembok) {
-            @flock($gembok, LOCK_EX);
-            $simpan = $this->cache_baca($kunci, $umur);
-            if (is_array($simpan)) {
-                @flock($gembok, LOCK_UN);
-                @fclose($gembok);
-                return $simpan;
-            }
-        }
-
-        $debug_lama = $this->db->db_debug;
-        $this->db->db_debug = FALSE;   // error query jangan mencetak halaman HTML di tengah JSON
-        try {
+        return $this->hitung_sekali($kunci, $umur, function () use ($tanggal, $hari_ini, $per_jam) {
             $setelan = $this->setelan();
             $grup = $this->hitung_grup($tanggal, $per_jam, $setelan['jam_upload_terlambat']);
             if ($grup === NULL) {
                 return NULL;
             }
-            $hasil = [
+            return [
                 'tanggal'         => $tanggal,
                 'label_tanggal'   => $this->label_tanggal($tanggal),
                 'hari_ini'        => $hari_ini,
@@ -131,12 +112,131 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'setelan'         => $setelan,
                 'detik_kategori'  => self::DETIK_PACKING,
             ];
-            $this->cache_tulis($kunci, $hasil);
-        } finally {
-            $this->db->db_debug = $debug_lama;
-            if ($gembok) {
-                @flock($gembok, LOCK_UN);
-                @fclose($gembok);
+        });
+    }
+
+    /**
+     * Daftar resi wajib keluar yang BELUM keluar pada tanggal $tanggal, untuk
+     * popup "Lihat detail" dan unduhan Excel. Memakai subquery yang sama dengan
+     * angka kotak (sql_per_resi), jadi resi di daftar = resi yang dihitung
+     * "belum". Satu baris per resi, kunci dipendekkan supaya JSON-nya kecil:
+     *   id, r no resi, p no pesanan, mp, k kurir, kj jam tutup kurir,
+     *   sku [[sku, qty, rak]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
+     *   g grup, t upload telat, up masuk IRESIS, ps jam pesan, bk batas kirim,
+     *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing.
+     * Belum picker = pk ''; belum packer = pc ''; belum HO = semua baris.
+     */
+    public function daftar_belum($tanggal)
+    {
+        $hari_ini = ($tanggal === date('Y-m-d'));
+        $per_jam  = $hari_ini ? date('Y-m-d H:i:s') : $tanggal . ' 23:59:59';
+        $kunci = 'belum' . self::VERSI_CACHE . '_' . md5($this->db->database . '|' . $tanggal);
+        $umur  = $hari_ini ? self::CACHE_HARI_INI : self::CACHE_HARI_LEWAT;
+
+        return $this->hitung_sekali($kunci, $umur, function () use ($tanggal, $hari_ini, $per_jam) {
+            $jam_telat = $this->setelan()['jam_upload_terlambat'];
+            $q = $this->db->query("
+                SELECT z.id, z.grup, z.kat, z.telat, z.pick_at, z.pack_at, z.picker_c, z.printed_at, z.masuk, z.btk
+                FROM (" . $this->sql_per_resi($tanggal, $per_jam, $jam_telat) . ") z
+                WHERE z.batal = 0 AND z.grup IN ('KA', 'TA', 'TB', 'TM') AND z.keluar_at IS NULL
+                ORDER BY z.printed_at, z.id
+            ");
+            if (!$q) {
+                log_message('error', 'Pemenuhan_kirim_fcd::daftar_belum gagal: ' . json_encode($this->db->error()));
+                return NULL;
+            }
+            $inti = $q->result_array();
+            $rinci = $this->rincian_resi(array_column($inti, 'id'));
+            if ($rinci === NULL) {
+                return NULL;
+            }
+
+            $jam = function ($t) { return $t ? substr($t, 0, 16) : ''; };
+            $rows = [];
+            foreach ($inti as $z) {
+                $id = (int) $z['id'];
+                $r  = isset($rinci[$id]) ? $rinci[$id] : ['r' => '', 'p' => '', 'mp' => '-', 'k' => '-', 'kj' => '', 'pn' => '', 'sku' => []];
+                $kat = (int) $z['kat'];
+                $rows[] = [
+                    'id'  => $id,
+                    'r'   => $r['r'],
+                    'p'   => $r['p'],
+                    'mp'  => $r['mp'],
+                    'k'   => $r['k'],
+                    'kj'  => $r['kj'],
+                    'sku' => $r['sku'],
+                    'j'   => $kat <= 1 ? 1 : ($kat <= 4 ? 2 : 0),
+                    'g'   => $z['grup'],
+                    't'   => (int) $z['telat'],
+                    'up'  => $jam($z['printed_at']),
+                    'ps'  => $jam($z['masuk']),
+                    'bk'  => $z['btk'] ? substr($z['btk'], 0, 10) : '',
+                    'pk'  => $z['pick_at'] ? $jam($z['pick_at']) : ($z['picker_c'] ? '-' : ''),
+                    'pn'  => $z['pick_at'] ? $r['pn'] : '',
+                    'pc'  => $jam($z['pack_at']),
+                ];
+            }
+            return [
+                'tanggal'       => $tanggal,
+                'label_tanggal' => $this->label_tanggal($tanggal),
+                'hari_ini'      => $hari_ini,
+                'jam_data'      => substr($per_jam, 11, 5),
+                'jam_telat'     => $jam_telat,
+                'rows'          => $rows,
+            ];
+        });
+    }
+
+    /**
+     * No resi, no pesanan, marketplace, kurir, picker pertama, dan SKU per resi.
+     * Dua query per 1.000 id (indeks PK dan id_resi). Kolom toko tidak diambil:
+     * kosong di semua resi (dicek 24 Sep 2026).
+     */
+    protected function rincian_resi(array $ids)
+    {
+        $hasil = [];
+        foreach (array_chunk(array_map('intval', $ids), 1000) as $potong) {
+            $daftar = implode(',', $potong);
+            $q = $this->db->query("
+                SELECT p.id_printresi AS id, p.noresi, m.nama_marketplace AS mp, k.nama_kurir AS kurir, k.jam_batas_kirim AS jam_kurir,
+                       (SELECT g.nama_pegawai FROM tblresiambilbarang a JOIN tblpegawai g ON g.kode_pegawai = a.yangambil_pegawai
+                        WHERE a.id_resi = p.id_printresi ORDER BY a.tanggal_resiambilbarang LIMIT 1) AS picker
+                FROM tblprintresi p
+                LEFT JOIN tblmarketplace m ON m.id_marketplace = p.id_marketplace
+                LEFT JOIN tblkurir k ON k.id_kurir = p.id_kurir
+                WHERE p.id_printresi IN ($daftar)
+            ");
+            $d = $this->db->query("
+                SELECT id_resi, no_pesanan, sku, jumlah, no_rak FROM tbldetailprintresi
+                WHERE id_resi IN ($daftar) ORDER BY id_resi, id_detail_resi
+            ");
+            if (!$q || !$d) {
+                log_message('error', 'Pemenuhan_kirim_fcd::rincian_resi gagal: ' . json_encode($this->db->error()));
+                return NULL;
+            }
+            foreach ($q->result_array() as $r) {
+                $hasil[(int) $r['id']] = [
+                    'r'   => (string) $r['noresi'],
+                    'p'   => '',
+                    'mp'  => $r['mp'] ?: '-',
+                    'k'   => $r['kurir'] ?: '-',
+                    'kj'  => (string) $r['jam_kurir'],
+                    // "AHMAD - PICKER - 0339" → "AHMAD"
+                    'pn'  => $r['picker'] ? trim(explode(' - ', $r['picker'])[0]) : '',
+                    'sku' => [],
+                ];
+            }
+            $pesanan = [];
+            foreach ($d->result_array() as $r) {
+                $id = (int) $r['id_resi'];
+                if (!isset($hasil[$id])) {
+                    continue;
+                }
+                $hasil[$id]['sku'][] = [(string) $r['sku'], (int) $r['jumlah'], (string) $r['no_rak']];
+                $pesanan[$id][$r['no_pesanan']] = TRUE;
+            }
+            foreach ($pesanan as $id => $p) {
+                $hasil[$id]['p'] = implode(', ', array_keys($p));
             }
         }
         return $hasil;
@@ -147,6 +247,56 @@ class Pemenuhan_kirim_fcd extends CI_Model
      * sudah keluar, keluar tanpa scan HO], plus jumlah cancel hari itu.
      * 'grup' memuat semua resi; 'telat' bentuknya sama tetapi hanya resi yang
      * di-upload hari D sesudah $jam_telat (bagian dari 'grup', bukan tambahan).
+     */
+    protected function hitung_grup($tanggal, $per_jam, $jam_telat)
+    {
+        $d = $this->db->escape($tanggal . ' 00:00:00');
+        $sql = "
+            SELECT z.grup, z.kat, z.telat,
+                   SUM(z.batal = 0)                                   AS dit,
+                   SUM(z.batal = 0 AND z.picker_c IS NOT NULL)        AS pick,
+                   SUM(z.batal = 0 AND z.packer_c IS NOT NULL)        AS pack,
+                   SUM(z.batal = 0 AND z.keluar_at IS NOT NULL)       AS keluar,
+                   SUM(z.batal = 0 AND z.keluar_at IS NOT NULL AND z.ho_at IS NULL) AS tanpa_ho,
+                   SUM(z.batal = 1 AND (z.printed_at >= $d OR z.modified_at >= $d)) AS cancel
+            FROM (" . $this->sql_per_resi($tanggal, $per_jam, $jam_telat) . ") z
+            GROUP BY z.grup, z.kat, z.telat
+        ";
+
+        $q = $this->db->query($sql);
+        if (!$q) {
+            log_message('error', 'Pemenuhan_kirim_fcd::hitung_grup gagal: ' . json_encode($this->db->error()));
+            return NULL;
+        }
+
+        $kosong = array_fill(0, self::JUMLAH_KATEGORI, [0, 0, 0, 0, 0]);
+        $grup  = array_fill_keys(self::GRUP, $kosong);
+        $telat = array_fill_keys(self::GRUP, $kosong);
+        $cancel = 0;
+        foreach ($q->result_array() as $r) {
+            $cancel += (int) $r['cancel'];
+            if (!isset($grup[$r['grup']])) {
+                continue;
+            }
+            $g = $r['grup'];
+            $k = (int) $r['kat'];
+            $angka = [(int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho']];
+            foreach ($angka as $j => $n) {
+                $grup[$g][$k][$j] += $n;
+                if ((int) $r['telat'] === 1) {
+                    $telat[$g][$k][$j] += $n;
+                }
+            }
+        }
+        return ['grup' => $grup, 'telat' => $telat, 'cancel' => $cancel];
+    }
+
+    /**
+     * Subquery satu baris per resi yang relevan untuk hari D, dengan kolom:
+     * id, printed_at, modified_at, masuk, btk, batal, grup, kat, telat,
+     * pick_at/pack_at/ho_at/keluar_at (s/d $per_jam), picker_c/packer_c (tahap bertingkat).
+     * Dipakai hitung_grup() (angka kotak) dan daftar_belum() (popup) supaya
+     * keduanya selalu sepakat soal resi mana yang "belum".
      *
      * Dua hal yang membuatnya cepat (±0,5 dtk, sebelumnya 10 dtk), jangan
      * dibongkar tanpa mengukur ulang:
@@ -156,7 +306,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
      *    id_resi). NOT EXISTS ke tblresikeluar membuat MariaDB 10.4 memindai
      *    seluruh tabel itu (±660 rb baris) lewat materialization.
      */
-    protected function hitung_grup($tanggal, $per_jam, $jam_telat)
+    protected function sql_per_resi($tanggal, $per_jam, $jam_telat)
     {
         $d      = $this->db->escape($tanggal . ' 00:00:00');
         $dtelat = $this->db->escape($tanggal . ' ' . $jam_telat . ':00');
@@ -173,15 +323,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $id_pick = $this->id_status_performa('1_SKU_PICKER');
         $id_pack = $this->id_status_performa('1_SKU_PACKER');
 
-        $sql = "
-            SELECT z.grup, z.kat, z.telat,
-                   SUM(z.batal = 0)                                   AS dit,
-                   SUM(z.batal = 0 AND z.picker_c IS NOT NULL)        AS pick,
-                   SUM(z.batal = 0 AND z.packer_c IS NOT NULL)        AS pack,
-                   SUM(z.batal = 0 AND z.keluar_at IS NOT NULL)       AS keluar,
-                   SUM(z.batal = 0 AND z.keluar_at IS NOT NULL AND z.ho_at IS NULL) AS tanpa_ho,
-                   SUM(z.batal = 1 AND (z.printed_at >= $d OR z.modified_at >= $d)) AS cancel
-            FROM (
+        return "
                 SELECT y.*,
                        COALESCE(y.pick_at, y.pack_at, y.keluar_at) AS picker_c,
                        COALESCE(y.pack_at, y.keluar_at)            AS packer_c,
@@ -246,36 +388,48 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     -- resi sisa yang sudah di-HO sebelum hari D bukan beban hari ini
                     WHERE x.printed_at >= $d OR x.ho_min IS NULL OR x.ho_min >= $d
                 ) y
-            ) z
-            GROUP BY z.grup, z.kat, z.telat
         ";
+    }
 
-        $q = $this->db->query($sql);
-        if (!$q) {
-            log_message('error', 'Pemenuhan_kirim_fcd::hitung_grup gagal: ' . json_encode($this->db->error()));
-            return NULL;
+    /**
+     * Cache berkas + gembok: $hitung dijalankan paling banyak sekali per $umur
+     * detik untuk $kunci. Layar lain yang meminta bersamaan menunggu, lalu
+     * memakai hasil yang baru ditulis (hitungannya ±1 dtk, jangan diulang).
+     * $hitung mengembalikan array, atau NULL bila query gagal (tidak disimpan).
+     */
+    protected function hitung_sekali($kunci, $umur, callable $hitung)
+    {
+        $simpan = $this->cache_baca($kunci, $umur);
+        if (is_array($simpan)) {
+            return $simpan;
         }
 
-        $kosong = array_fill(0, self::JUMLAH_KATEGORI, [0, 0, 0, 0, 0]);
-        $grup  = array_fill_keys(self::GRUP, $kosong);
-        $telat = array_fill_keys(self::GRUP, $kosong);
-        $cancel = 0;
-        foreach ($q->result_array() as $r) {
-            $cancel += (int) $r['cancel'];
-            if (!isset($grup[$r['grup']])) {
-                continue;
-            }
-            $g = $r['grup'];
-            $k = (int) $r['kat'];
-            $angka = [(int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho']];
-            foreach ($angka as $j => $n) {
-                $grup[$g][$k][$j] += $n;
-                if ((int) $r['telat'] === 1) {
-                    $telat[$g][$k][$j] += $n;
-                }
+        $gembok = @fopen(APPPATH . 'cache/pkh_' . $kunci . '.lock', 'c');
+        if ($gembok) {
+            @flock($gembok, LOCK_EX);
+            $simpan = $this->cache_baca($kunci, $umur);
+            if (is_array($simpan)) {
+                @flock($gembok, LOCK_UN);
+                @fclose($gembok);
+                return $simpan;
             }
         }
-        return ['grup' => $grup, 'telat' => $telat, 'cancel' => $cancel];
+
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;   // error query jangan mencetak halaman HTML di tengah JSON
+        try {
+            $hasil = $hitung();
+            if (is_array($hasil)) {
+                $this->cache_tulis($kunci, $hasil);
+            }
+        } finally {
+            $this->db->db_debug = $debug_lama;
+            if ($gembok) {
+                @flock($gembok, LOCK_UN);
+                @fclose($gembok);
+            }
+        }
+        return is_array($hasil) ? $hasil : NULL;
     }
 
     /**
