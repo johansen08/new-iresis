@@ -837,3 +837,20 @@ Halaman lain mendapat jarak dari `.row > .col-*` template; menu ini tidak
 memakainya. Hanya CSS di view `monitoring/pemenuhan_kirim_harian.php`, tanpa
 migrasi. Verifikasi: buka menu dengan sidebar terbuka di layar ±1.024px, kartu
 berjarak dari sidebar dan tepi kanan.
+
+---
+
+## L. Rilis 24 September 2026 (sore, lanjutan) — aturan wajib: batas kirim = sudah bayar, lewat 24 jam = batal
+
+Koreksi aturan Pemenuhan Kirim Harian dari user (`PEMENUHAN_KIRIM_HARIAN.md` §2):
+
+1. Wajib keluar hari D = sisa kemarin yang batas kirimnya D (atau D-1, belum
+   lewat 24 jam) + semua MP yang batas kirimnya ≤ D + TikTok yang dipesan
+   **12.00–15.00** dengan batas kirim D+1. Pesanan pagi yang batas kirimnya
+   besok (pembeli baru bayar sore) boleh keluar besok, termasuk TikTok.
+2. Resi yang lewat lebih dari 24 jam dari batas kirim tidak dihitung
+   (otomatis dibatalkan MP). Hitungan "resi lama > 7 hari perlu dicek" dihapus.
+
+Branch `fix/pkh-aturan-bayar-24jam`, hanya model/controller/view; tanpa
+migrasi, `VERSI_CACHE` 5. Verifikasi: pilih **21 Sep 2026** → ketiga kotak
+100%, "Belum: 0"; pilih **23 Sep** → Belum 3/3/3 (tiga resi TikTok 12–15).

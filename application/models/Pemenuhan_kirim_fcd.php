@@ -9,12 +9,17 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * keluar hari itu dan sampai tahap mana resi-resi itu sudah diproses.
  * Aturan lengkap dan hasil verifikasinya ada di docs/PEMENUHAN_KIRIM_HARIAN.md.
  *
- * Ringkasnya (standar operasional = standar MP + tambahan TikTok):
- *  - Wajib keluar hari D = sisa hari sebelumnya yang belum keluar (≤ 7 hari)
- *    + resi yang batas kirim MP-nya ≤ D (standar MP; resi tanpa batas kirim,
- *      mis. Lazada dan reseller, ikut pesanan masuk s/d D 12.00)
- *    + pesanan TikTok masuk s/d D 15.00 yang batas kirim MP-nya s/d D+1
- *      (tambahan operasional).
+ * Ringkasnya (standar operasional = standar MP + tambahan TikTok). Batas kirim
+ * MP menandai pembeli sudah bayar: pesanan pagi yang baru dibayar sore
+ * batas kirimnya besok, jadi belum wajib hari ini.
+ *  - Wajib keluar hari D = sisa hari sebelumnya yang batas kirimnya D (atau D-1,
+ *      belum lewat 24 jam)
+ *    + resi hari D yang batas kirim MP-nya ≤ D (semua MP)
+ *    + pesanan TikTok 12.00–15.00 hari D yang batas kirim MP-nya D+1.
+ *    Resi tanpa batas kirim (Lazada, reseller): batas = hari pesan bila pesanan
+ *    s/d 12.00, selain itu besoknya.
+ *  - Resi yang lewat lebih dari 24 jam dari batas kirim (batas ≤ D-2) otomatis
+ *    dibatalkan MP, jadi tidak dihitung sama sekali.
  *  - Cancel (CANCELED / REQUEST_CANCEL / batal = 1, atau tercatat di Daftar
  *    Cancel Order `tblcancelorder`) keluar dari semua angka.
  *  - "Sudah keluar" = ada scan HO, atau status MP SHIPPED / COMPLETED /
@@ -27,7 +32,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Pemenuhan_kirim_fcd extends CI_Model
 {
-    /** Resi sisa yang lebih tua dari ini tidak ikut angka harian (dilaporkan terpisah). */
+    /** Jendela resi sisa yang dibaca (resi lebih tua pasti sudah lewat 24 jam dari batas kirim). */
     const HARI_SISA = 7;
 
     const JAM_WAJIB_SEMUA_MP = '12:00:00';
@@ -40,11 +45,12 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
     /**
      * Grup resi. Wajib keluar = KA + TA + TB.
-     *  KA sisa kemarin · TA batas kirim MP ≤ hari ini (tanpa batas kirim: pesanan s/d 12.00)
-     *  TB TikTok s/d 15.00 berbatas kirim ≤ besok · TX TikTok s/d 15.00 berbatas lusa+
-     *  TC boleh besok
+     *  KA sisa kemarin berbatas kirim hari ini/kemarin · KB sisa berbatas kirim besok+ (belum wajib)
+     *  TA resi hari ini berbatas kirim ≤ hari ini · TB TikTok 12.00–15.00 berbatas kirim besok
+     *  TX TikTok s/d 15.00 lainnya (dibayar sore / batas lusa) · TC boleh besok
+     *  KX lewat > 24 jam dari batas kirim (otomatis cancel MP)
      */
-    const GRUP = ['KA', 'TA', 'TB', 'TX', 'TC'];
+    const GRUP = ['KA', 'KB', 'TA', 'TB', 'TX', 'TC', 'KX'];
 
     /**
      * Kategori resi: 0 Spesial, 1 Reguler (keduanya "1 Qty"),
@@ -68,7 +74,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 4;
+    const VERSI_CACHE = 5;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -76,7 +82,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
     /** Umur cache (detik): hari ini diperbarui tiap menit, hari lewat jarang berubah. */
     const CACHE_HARI_INI = 55;
     const CACHE_HARI_LEWAT = 600;
-    const CACHE_TERTUNGGAK = 1800;
 
     /**
      * Seluruh angka untuk menu ini pada tanggal $tanggal (Y-m-d).
@@ -103,7 +108,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'jam_data'        => substr($per_jam, 11, 5),
                 'grup'            => $grup['grup'],
                 'cancel_hari_ini' => $grup['cancel'],
-                'tertunggak_lama' => $this->tertunggak_lama($tanggal),
                 'packer_aktif'    => $this->packer_aktif($per_jam),
                 'setelan'         => $this->setelan(),
                 'detik_kategori'  => self::DETIK_PACKING,
@@ -294,6 +298,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     {
         $d      = $this->db->escape($tanggal . ' 00:00:00');
         $d_hari = $this->db->escape($tanggal);
+        $d_1    = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -1 day')));
         $d1     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' +1 day')));
         $d7     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -' . self::HARI_SISA . ' day')) . ' 00:00:00');
         $d12    = $this->db->escape($tanggal . ' ' . self::JAM_WAJIB_SEMUA_MP);
@@ -311,13 +316,16 @@ class Pemenuhan_kirim_fcd extends CI_Model
                        COALESCE(y.pick_at, y.pack_at, y.keluar_at) AS picker_c,
                        COALESCE(y.pack_at, y.keluar_at)            AS packer_c,
                        CASE
-                           WHEN y.printed_at < $d THEN 'KA'
-                           -- standar MP: batas kirim MP hari ini (atau sudah lewat)
-                           WHEN y.btk IS NOT NULL AND DATE(y.btk) <= $d_hari THEN 'TA'
-                           -- tanpa batas kirim dari upload (Lazada, reseller): pesanan s/d 12.00
-                           WHEN y.btk IS NULL AND y.masuk <= $d12 THEN 'TA'
-                           -- tambahan operasional: pesanan TikTok s/d 15.00
-                           WHEN y.tt = 1 AND y.masuk <= $d15 AND (y.btk IS NULL OR DATE(y.btk) <= $d1) THEN 'TB'
+                           -- lewat > 24 jam dari batas kirim: otomatis dibatalkan MP, tidak dihitung
+                           WHEN y.btk_ef < $d_1 THEN 'KX'
+                           -- sisa kemarin: wajib bila batas kirimnya hari ini (atau kemarin, belum lewat 24 jam)
+                           WHEN y.printed_at < $d AND y.btk_ef <= $d_hari THEN 'KA'
+                           WHEN y.printed_at < $d THEN 'KB'
+                           -- semua MP: batas kirim hari ini = pembeli sudah bayar (biasanya pesanan 00.00–12.00)
+                           WHEN y.btk_ef <= $d_hari THEN 'TA'
+                           -- tambahan operasional: TikTok 12.00–15.00 yang batas kirimnya besok
+                           WHEN y.tt = 1 AND y.masuk > $d12 AND y.masuk <= $d15 AND y.btk_ef = $d1 THEN 'TB'
+                           -- TikTok s/d 15.00 lainnya: pesanan pagi yang baru dibayar sore, atau batas lusa
                            WHEN y.tt = 1 AND y.masuk <= $d15 THEN 'TX'
                            ELSE 'TC'
                        END AS grup,
@@ -335,6 +343,9 @@ class Pemenuhan_kirim_fcd extends CI_Model
                        END AS kat
                 FROM (
                     SELECT x.*,
+                           -- batas kirim efektif; tanpa batas kirim dari upload (Lazada, reseller):
+                           -- hari pesan bila pesanan s/d 12.00, selain itu besoknya
+                           COALESCE(DATE(x.btk), IF(TIME(x.masuk) <= '" . self::JAM_WAJIB_SEMUA_MP . "', DATE(x.masuk), DATE(x.masuk) + INTERVAL 1 DAY)) AS btk_ef,
                            IF(x.pick_min <= $per, x.pick_min, NULL) AS pick_at,
                            IF(x.pack_min <= $per, x.pack_min, NULL) AS pack_at,
                            IF(x.ho_min <= $per, x.ho_min, NULL)     AS ho_at,
@@ -419,34 +430,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
             }
         }
         return is_array($hasil) ? $hasil : NULL;
-    }
-
-    /**
-     * Resi lebih tua dari HARI_SISA yang belum pernah keluar dan tidak cancel.
-     * Tidak ikut angka harian; ditampilkan terpisah supaya dibereskan.
-     * Memindai sebagian besar tblprintresi (±0,4 dtk), jadi disimpan 30 menit.
-     */
-    protected function tertunggak_lama($tanggal)
-    {
-        $kunci = 'lama' . self::VERSI_CACHE . '_' . md5($this->db->database . '|' . $tanggal);
-        $simpan = $this->cache_baca($kunci, self::CACHE_TERTUNGGAK);
-        if (is_int($simpan)) {
-            return $simpan;
-        }
-
-        $batas = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -' . self::HARI_SISA . ' day')) . ' 00:00:00');
-        $bukan = $this->daftar_sql(array_merge(self::STATUS_CANCEL, self::STATUS_KELUAR));
-        $row = $this->db->query("
-            SELECT COUNT(*) AS n FROM tblprintresi p
-            WHERE p.tanggal_printresi < $batas
-              AND UPPER(TRIM(COALESCE(p.status_pesanan, ''))) NOT IN ($bukan)
-              AND p.batal <> '1'
-              AND NOT EXISTS (SELECT 1 FROM tblcancelorder co WHERE co.noresi = p.noresi)
-              AND (SELECT COUNT(*) FROM tblresikeluar h WHERE h.id_resi = p.id_printresi) = 0
-        ");
-        $n = $row ? (int) $row->row()->n : 0;
-        $this->cache_tulis($kunci, $n);
-        return $n;
     }
 
     /** Jumlah akun packer yang scan packing (bukan sinkron spesial) dalam 60 menit terakhir. */

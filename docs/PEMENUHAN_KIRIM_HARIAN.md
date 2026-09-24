@@ -23,8 +23,9 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
 
 - **Resi masuk hari ini**: resi yang di-upload ke IRESIS pada tanggal itu,
   dipecah jadi wajib keluar hari ini dan boleh keluar besok.
-- **Wajib keluar hari ini** dengan rinciannya: sisa kemarin, batas kirim MP
-  hari ini (standar MP), dan TikTok s/d 15.00 (tambahan operasional) (§2).
+- **Wajib keluar hari ini** dengan rinciannya: sisa kemarin berbatas kirim hari
+  ini, semua MP berbatas kirim hari ini, dan TikTok 12.00–15.00 berbatas kirim
+  besok (§2).
 - **Picker / Packer / HO (keluar)**: jumlah sudah, persen, belum, dan tombol
   **Lihat detail** (§1.1). Kotak Packer diberi bingkai karena packing adalah
   tahap paling lama.
@@ -43,7 +44,7 @@ Picker/Packer/HO ada tombol **Lihat detail** di samping "Belum" yang membuka
 popup daftar resi:
 
 - Tab tahap: Belum picker / Belum packer / Belum HO, dengan jumlahnya.
-- Kolom: no resi (label Sisa kemarin / TikTok s/d 15.00), no pesanan,
+- Kolom: no resi (label Sisa kemarin / TikTok 12–15), no pesanan,
   marketplace, kurir, SKU × qty, masuk IRESIS + jam pesan, batas kirim (merah
   bila lewat), posisi (belum dipick / dipick jam + nama picker / packing jam).
   **Tidak ditampilkan**: toko (`tblprintresi.toko` kosong di semua resi), no rak
@@ -69,35 +70,42 @@ resi (pagi hari, sebelum picking), ±1 dtk query. Excel 2.672 resi ±4 dtk, 50 M
 
 ## 2. Aturan wajib keluar hari D (standar operasional)
 
-Menu ini mengukur **standar operasional**, bukan standar MP saja:
-standar operasional = standar MP + tambahan TikTok s/d 15.00. Setiap resi
-masuk ke tepat satu grup:
+Menu ini mengukur **standar operasional** = standar MP + tambahan TikTok
+12.00–15.00. **Batas kirim MP adalah tanda pembeli sudah bayar**: IRESIS tidak
+punya jam bayar, tetapi pesanan pagi yang baru dibayar sore batas kirimnya
+menjadi besok. Karena itu semua aturan memakai tanggal batas kirim, dan jam
+pesan hanya dipakai untuk jendela TikTok 12.00–15.00. Setiap resi masuk ke
+tepat satu grup (B = batas kirim efektif, lihat di bawah):
 
 | Grup | Syarat | Wajib hari D? |
 |---|---|---|
-| KA | di-print sebelum D (≤ 7 hari), belum keluar sebelum D | ya (sisa kemarin) |
-| TA | di-print D, **batas kirim MP ≤ D**; resi tanpa batas kirim (Lazada, reseller): **pesanan s/d D 12.00** | ya (standar MP) |
-| TB | TikTok, pesanan s/d D 15.00, **batas kirim MP D+1** (atau kosong) | ya (tambahan operasional) |
-| TX | TikTok, pesanan s/d D 15.00, batas kirim MP ≥ D+2 | tidak, boleh besok |
+| KX | **B ≤ D-2**: lewat lebih dari 24 jam dari batas kirim | tidak dihitung sama sekali (otomatis dibatalkan MP, berlaku semua MP) |
+| KA | di-print sebelum D, **B = D** (atau D-1: terlambat, belum lewat 24 jam) | ya (sisa kemarin) |
+| KB | di-print sebelum D, B ≥ D+1 | tidak, belum jatuh tempo |
+| TA | di-print D, **B ≤ D** (semua MP; biasanya pesanan 00.00–12.00) | ya |
+| TB | TikTok, pesanan **12.00–15.00** hari D (lewat 12.00 s/d 15.00), **B = D+1** | ya (tambahan operasional) |
+| TX | TikTok lainnya dengan pesanan s/d 15.00: pesanan pagi yang B = D+1 (dibayar sore), atau B ≥ D+2 | tidak, boleh besok |
 | TC | lainnya | tidak, boleh besok |
 
-- **Standar MP = batas kirim MP**, bukan jam pesan (diputuskan user 24 Sep
-  2026). Jam 12.00 hanya perkiraannya: dari resi Shopee 23 Sep yang dipesan
-  s/d 12.00, 3.439 berbatas kirim hari itu dan hanya 9 berbatas kirim besok
-  (mis. SPXID069641016539 dipesan 22 Sep 19.34 dan SPXID065758032289 dipesan
-  23 Sep 00.24, keduanya baru ter-upload 16.34 dengan batas kirim 24 Sep).
-  Menurut MP resi seperti itu boleh keluar besok, jadi tidak ikut wajib.
-  Sebelum 24 Sep grup TA memakai "pesanan s/d 12.00" untuk semua MP, dan resi
-  berbatas kirim hari ini yang dipesan sesudah jam masuk grup TM (jaring
-  pengaman); TM kini sudah tercakup TA.
+- **B (batas kirim efektif)** = tanggal `tanggal_bataskirim`. Resi tanpa batas
+  kirim dari upload (Lazada, reseller; ±1.100 resi per 2 minggu; TikTok selalu
+  punya): hari pesan bila pesanan s/d 12.00, selain itu besoknya.
+- **Contoh 21 Sep** (alasan aturan ini, dari user 24 Sep sore):
+  GTL7249585327 dan GTL7253355237 (TikTok) dipesan 21 Sep 00.08 dan 10.13 tetapi
+  batas kirimnya 22 Sep dan baru ter-upload 16.52: pembeli baru bayar sore, jadi
+  boleh keluar 22 Sep (TX). SPXID067708609229 berbatas kirim 17 Sep, pada 21 Sep
+  sudah lewat > 24 jam → KX. Hasil: rekap 21 Sep **100%**.
+- **Riwayat aturan**: 24 Sep pagi TA = "pesanan s/d 12.00" untuk semua MP dan
+  semua sisa kemarin wajib; 24 Sep 13.46 TA = batas kirim ≤ D, TB = TikTok s/d
+  15.00 berbatas ≤ D+1 (sehingga TikTok pagi yang dibayar sore ikut wajib);
+  24 Sep sore aturan tabel di atas. Dari resi Shopee 23 Sep yang dipesan s/d
+  12.00, 3.439 berbatas kirim hari itu dan hanya 9 berbatas besok (dibayar sore).
 - **Jam pesan** = `tanggal_pesan` dari Jubelio (kosong → `tanggal_printresi`).
-  Pesanan tepat 12.00 atau 15.00 ikut wajib.
+  Pesanan tepat 12.00 masuk jendela 00.00–12.00; tepat 15.00 masih ikut TB.
 - **TikTok vs Tokopedia**: awalan `no_pesanan` `TT-` (keduanya ber-`id_marketplace`
   3); `id_marketplace` 5 adalah data TikTok lama.
 - **Batas kirim MP** = `tanggal_bataskirim` (selalu 23.59.59, dibandingkan per
-  tanggal; nilai `0000-00-00` dianggap kosong). Lazada dan reseller tidak
-  membawa batas kirim dari upload (±1.100 resi per 2 minggu), jadi mengikuti
-  aturan 12.00.
+  tanggal; nilai `0000-00-00` dianggap kosong).
 - Resi dihitung sejak **ter-upload**. Pesanan yang baru ter-upload dua hari
   kemudian tetap masuk grup wajib begitu ada (contoh nyata: pesanan 22 Sep malam
   ter-upload 24 Sep 09.26, batas kirim MP 24 Sep).
@@ -140,13 +148,16 @@ dibiarkan (tidak dibaca kode lagi; aturan proyek melarang DELETE).
 - Untuk tanggal lalu, scan dihitung s/d 23.59.59 tanggal itu, tetapi status
   cancel/keluar memakai status **sekarang** (status tidak punya riwayat).
 
-## 4. Sisa ≤ 7 hari dan resi lama
+## 4. Sisa dan resi lama
 
-Sisa dihitung untuk resi yang di-print ≤ 7 hari sebelum D. Per 23 Sep ada
-**234 resi** lebih tua (PROCESSING atau status kosong, terlama Okt 2025) yang
-tidak pernah keluar dan tidak pernah cancel. Kalau ikut dihitung, "belum
-keluar" tidak akan pernah nol. Jumlahnya ditampilkan terpisah di ikon ⓘ kartu
-Wajib keluar sebagai "perlu dicek".
+Resi sisa dibaca untuk yang di-print ≤ 7 hari sebelum D; yang lebih tua pasti
+sudah lewat 24 jam dari batas kirimnya (otomatis dibatalkan MP) sehingga tidak
+perlu dibaca. Resi dalam jendela itu yang lewat 24 jam (KX) tidak dihitung;
+jumlah yang belum keluar ditulis di ikon ⓘ kartu Wajib keluar. Hitungan
+terpisah "234 resi lama perlu dicek" (resi > 7 hari yang status IRESIS-nya
+masih PROCESSING) dihapus 24 Sep sore: menurut aturan 24 jam semuanya sudah
+batal di MP. Barang fisik dari resi seperti itu yang sempat dipick tetap perlu
+dikembalikan ke rak (urusan alur paket cancel, `docs/PAKET_CANCEL.md`).
 
 ## 5. 1 Qty dan >1 Qty
 
@@ -204,21 +215,20 @@ mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):
   1.465 keluar, Lazada dan Tokopedia semua keluar. Resi yang "belum dipick"
   ternyata baru ter-upload 24 Sep (upload terlambat, bukan kesalahan gudang).
 - Tidak ada scan ganda di picker, packer, maupun HO pada 23 Sep.
-- Rekap 23 Sep (produksi, 24 Sep): aturan lama (pesanan s/d 12.00) wajib
-  7.956, belum picker/packer/HO 5/6/6. Aturan §2: wajib **7.946**, belum
-  **3/4/4** = JY1721848707, JY1724158697, GTL7250416617 (TikTok dipesan
-  14.28–14.40, ter-upload 16.34/16.46, sesudah picking tutup 15.43) +
-  SPXID067708609229 (cancel di Shopee, status IRESIS masih PROCESSING). Begitu
-  resi terakhir itu discan di Scan Cek Cancel: **3/3/3**, sama dengan hitungan
-  user. Diuji juga dengan transaksi di-rollback di `iresis_dev`.
+- Rekap produksi dengan aturan §2 (dihitung 24 Sep sore): **21 Sep 100%**
+  (wajib 7.966, belum 0/0/0); 22 Sep belum 1/1/1 (JY1745410117, TikTok 12.44
+  berbatas 23 Sep); **23 Sep belum 3/3/3** = JY1721848707, JY1724158697,
+  GTL7250416617 (TikTok dipesan 14.28–14.40, ter-upload 16.34/16.46 sesudah
+  picking tutup 15.43). Aturan pagi 24 Sep memberi 23 Sep 5/6/6. Pencatatan
+  cancel lewat `tblcancelorder` diuji dengan transaksi di-rollback di `iresis_dev`.
 - Angka menu di `iresis_dev` (salinan 23 Sep 13.30) cocok dengan putar ulang
   data produksi pada jam yang sama, dengan selisih 2–6 resi karena status resi
   di salinan itu belum diperbarui.
 
 ## 8. Kinerja
 
-Hitungan utama ±1,7 detik di atas data seukuran produksi (termasuk hitungan
-resi lama dan cek Daftar Cancel Order lewat indeks unik `noresi`, +0,15 dtk). Hal yang membuatnya
+Hitungan utama ±1,3 detik di atas data seukuran produksi (termasuk hitungan
+cek Daftar Cancel Order lewat indeks unik `noresi`). Hal yang membuatnya
 cepat (sebelumnya 10 detik), jangan dibongkar tanpa mengukur ulang:
 
 - `NOT EXISTS` ke `tblresikeluar` dengan syarat tanggal membuat MariaDB 10.4
@@ -227,7 +237,7 @@ cepat (sebelumnya 10 detik), jangan dibongkar tanpa mengukur ulang:
 - Resi sisa disaring lebih dulu lewat status: yang statusnya sudah
   keluar/cancel sebelum hari D tidak dicek scan HO-nya.
 - Hasil disimpan di `application/cache/pkh_*.json`: 55 detik untuk hari ini,
-  10 menit untuk tanggal lalu, 30 menit untuk hitungan resi lama (±0,4 detik).
+  10 menit untuk tanggal lalu.
   Kunci berkas (`pkh_*.lock`) memastikan hanya satu request yang menghitung;
   layar lain menunggu lalu memakai hasilnya. Jadi berapa pun layar yang membuka
   menu ini, beban DB tetap ±1 detik per menit.
