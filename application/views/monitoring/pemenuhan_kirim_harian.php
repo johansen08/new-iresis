@@ -192,7 +192,6 @@
 .pkh-sku{display:grid;gap:2px}
 .pkh-sku div{white-space:nowrap}
 .pkh-sku .q{font-weight:700;color:var(--pkh-ink)}
-.pkh-sku .rak{color:var(--pkh-muted);font-size:12px}
 .pkh-kecil{font-size:12.5px;color:var(--pkh-muted)}
 .pkh-nowrap{white-space:nowrap}
 .pkh-rs mark{background:#ffe58a;color:var(--pkh-text);border-radius:2px;padding:0 1px}
@@ -332,7 +331,7 @@
       <div class="pkh-tabs" id="pkh-m-tabs" role="tablist" aria-label="Tahap"></div>
       <div class="pkh-cari">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <input type="search" id="pkh-m-cari" placeholder="Cari no resi, no pesanan, SKU, rak, atau nama picker" autocomplete="off" aria-label="Cari">
+        <input type="search" id="pkh-m-cari" placeholder="Cari no resi, no pesanan, SKU, atau nama picker" autocomplete="off" aria-label="Cari">
         <button type="button" class="pkh-bersih" id="pkh-m-cari-x" aria-label="Kosongkan pencarian" hidden>&#x2715;</button>
       </div>
       <div class="pkh-filter">
@@ -710,7 +709,7 @@
       if (pop.grup && r.g !== pop.grup) return false;
       if (pop.posisi && posisiM(r) !== pop.posisi) return false;
       if (q) {
-        var teks = (r.r + ' ' + r.p + ' ' + r.pn + ' ' + r.sku.map(function (s) { return s[0] + ' ' + s[2]; }).join(' ')).toUpperCase();
+        var teks = (r.r + ' ' + r.p + ' ' + r.pn + ' ' + r.sku.map(function (s) { return s[0]; }).join(' ')).toUpperCase();
         if (teks.indexOf(q) < 0) return false;
       }
       return true;
@@ -772,13 +771,13 @@
           : r.pk ? '<span class="pkh-chip w">' + (r.pk === '-' ? 'Sudah dipick' : 'Dipick ' + waktuM(r.pk, d.tanggal)) + '</span>' + (r.pn ? '<div class="pkh-kecil">' + tandai(r.pn) + '</div>' : '')
           : '<span class="pkh-chip b">Belum dipick</span>';
         var sku = r.sku.length ? r.sku.map(function (s) {
-          return '<div><span class="pkh-mono">' + tandai(s[0]) + '</span> <span class="q">×' + s[1] + '</span>' + (s[2] ? ' <span class="rak">· rak ' + tandai(s[2]) + '</span>' : '') + '</div>';
+          return '<div><span class="pkh-mono">' + tandai(s[0]) + '</span> <span class="q">×' + s[1] + '</span></div>';
         }).join('') : '<span class="pkh-kecil">tanpa rincian</span>';
         return '<tr>' +
           '<td data-l="No resi"><div><div class="pkh-mono pkh-resi">' + tandai(r.r) + '</div>' + (chips ? '<div class="pkh-chips">' + chips + '</div>' : '') + '</div></td>' +
           '<td data-l="No pesanan"><div class="pkh-mono pkh-pes">' + (r.p ? tandai(r.p) : '–') + '</div></td>' +
           '<td data-l="MP" class="pkh-nowrap">' + esc(r.mp) + '</td>' +
-          '<td data-l="Kurir"><div><div class="pkh-nowrap">' + esc(r.k) + '</div>' + (r.kj ? '<div class="pkh-kecil">tutup ' + esc(r.kj.replace(':', '.')) + '</div>' : '') + '</div></td>' +
+          '<td data-l="Kurir" class="pkh-nowrap">' + esc(r.k) + '</td>' +
           '<td data-l="SKU × Qty"><div class="pkh-sku">' + sku + '</div></td>' +
           '<td data-l="Masuk IRESIS" class="pkh-nowrap"><div>' + waktuM(r.up, d.tanggal) + '<div class="pkh-kecil">pesan ' + waktuM(r.ps, d.tanggal) + '</div></div></td>' +
           '<td data-l="Batas kirim" class="pkh-nowrap"><div>' + (r.bk && r.bk < d.tanggal ? '<span class="pkh-chip b">' + tglPendek(r.bk) + ' · lewat</span>' : tglPendek(r.bk)) + '</div></td>' +

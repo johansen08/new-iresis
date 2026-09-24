@@ -68,7 +68,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 3;
+    const VERSI_CACHE = 4;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -116,8 +116,8 @@ class Pemenuhan_kirim_fcd extends CI_Model
      * popup "Lihat detail" dan unduhan Excel. Memakai subquery yang sama dengan
      * angka kotak (sql_per_resi), jadi resi di daftar = resi yang dihitung
      * "belum". Satu baris per resi, kunci dipendekkan supaya JSON-nya kecil:
-     *   id, r no resi, p no pesanan, mp, k kurir, kj jam tutup kurir,
-     *   sku [[sku, qty, rak]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
+     *   id, r no resi, p no pesanan, mp, k kurir,
+     *   sku [[sku, qty]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
      *   g grup, up masuk IRESIS, ps jam pesan, bk batas kirim,
      *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing.
      * Belum picker = pk ''; belum packer = pc ''; belum HO = semua baris.
@@ -150,7 +150,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
             $rows = [];
             foreach ($inti as $z) {
                 $id = (int) $z['id'];
-                $r  = isset($rinci[$id]) ? $rinci[$id] : ['r' => '', 'p' => '', 'mp' => '-', 'k' => '-', 'kj' => '', 'pn' => '', 'sku' => []];
+                $r  = isset($rinci[$id]) ? $rinci[$id] : ['r' => '', 'p' => '', 'mp' => '-', 'k' => '-', 'pn' => '', 'sku' => []];
                 $kat = (int) $z['kat'];
                 $rows[] = [
                     'id'  => $id,
@@ -158,7 +158,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'p'   => $r['p'],
                     'mp'  => $r['mp'],
                     'k'   => $r['k'],
-                    'kj'  => $r['kj'],
                     'sku' => $r['sku'],
                     'j'   => $kat <= 1 ? 1 : ($kat <= 4 ? 2 : 0),
                     'g'   => $z['grup'],
@@ -183,7 +182,9 @@ class Pemenuhan_kirim_fcd extends CI_Model
     /**
      * No resi, no pesanan, marketplace, kurir, picker pertama, dan SKU per resi.
      * Dua query per 1.000 id (indeks PK dan id_resi). Kolom toko tidak diambil:
-     * kosong di semua resi (dicek 24 Sep 2026).
+     * kosong di semua resi (dicek 24 Sep 2026). No rak dan tblkurir.jam_batas_kirim
+     * juga tidak (user: rak tidak perlu; jam kurir tidak terverifikasi dan tidak
+     * dipakai menu lain).
      */
     protected function rincian_resi(array $ids)
     {
@@ -191,7 +192,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         foreach (array_chunk(array_map('intval', $ids), 1000) as $potong) {
             $daftar = implode(',', $potong);
             $q = $this->db->query("
-                SELECT p.id_printresi AS id, p.noresi, m.nama_marketplace AS mp, k.nama_kurir AS kurir, k.jam_batas_kirim AS jam_kurir,
+                SELECT p.id_printresi AS id, p.noresi, m.nama_marketplace AS mp, k.nama_kurir AS kurir,
                        (SELECT g.nama_pegawai FROM tblresiambilbarang a JOIN tblpegawai g ON g.kode_pegawai = a.yangambil_pegawai
                         WHERE a.id_resi = p.id_printresi ORDER BY a.tanggal_resiambilbarang LIMIT 1) AS picker
                 FROM tblprintresi p
@@ -200,7 +201,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 WHERE p.id_printresi IN ($daftar)
             ");
             $d = $this->db->query("
-                SELECT id_resi, no_pesanan, sku, jumlah, no_rak FROM tbldetailprintresi
+                SELECT id_resi, no_pesanan, sku, jumlah FROM tbldetailprintresi
                 WHERE id_resi IN ($daftar) ORDER BY id_resi, id_detail_resi
             ");
             if (!$q || !$d) {
@@ -213,7 +214,6 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'p'   => '',
                     'mp'  => $r['mp'] ?: '-',
                     'k'   => $r['kurir'] ?: '-',
-                    'kj'  => (string) $r['jam_kurir'],
                     // "AHMAD - PICKER - 0339" → "AHMAD"
                     'pn'  => $r['picker'] ? trim(explode(' - ', $r['picker'])[0]) : '',
                     'sku' => [],
@@ -225,7 +225,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 if (!isset($hasil[$id])) {
                     continue;
                 }
-                $hasil[$id]['sku'][] = [(string) $r['sku'], (int) $r['jumlah'], (string) $r['no_rak']];
+                $hasil[$id]['sku'][] = [(string) $r['sku'], (int) $r['jumlah']];
                 $pesanan[$id][$r['no_pesanan']] = TRUE;
             }
             foreach ($pesanan as $id => $p) {

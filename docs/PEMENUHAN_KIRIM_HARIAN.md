@@ -44,11 +44,13 @@ popup daftar resi:
 
 - Tab tahap: Belum picker / Belum packer / Belum HO, dengan jumlahnya.
 - Kolom: no resi (label Sisa kemarin / TikTok s/d 15.00), no pesanan,
-  marketplace, kurir + jam tutup kurir (`tblkurir.jam_batas_kirim`), SKU × qty
-  + rak, masuk IRESIS + jam pesan, batas kirim (merah bila lewat), posisi
-  (belum dipick / dipick jam + nama picker / packing jam). **Toko tidak
-  ditampilkan**: `tblprintresi.toko` kosong di semua resi.
-- Cari (no resi, no pesanan, SKU, rak, nama picker; kata yang cocok disorot),
+  marketplace, kurir, SKU × qty, masuk IRESIS + jam pesan, batas kirim (merah
+  bila lewat), posisi (belum dipick / dipick jam + nama picker / packing jam).
+  **Tidak ditampilkan**: toko (`tblprintresi.toko` kosong di semua resi), no rak
+  (user: tidak perlu), dan jam tutup kurir `tblkurir.jam_batas_kirim` (sempat
+  tampil di rilis H/I; kolom itu tidak diisi/dipakai menu mana pun sehingga
+  kebenarannya tidak terverifikasi).
+- Cari (no resi, no pesanan, SKU, nama picker; kata yang cocok disorot),
   filter marketplace, kurir, jenis, kelompok wajib, posisi; urut; 50 baris per
   halaman; di layar sempit baris menjadi kartu.
 - **Salin no resi**: seluruh hasil filter ke clipboard (bila browser menolak,
