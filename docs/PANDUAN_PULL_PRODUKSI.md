@@ -781,3 +781,38 @@ layar.
 
 Ikuti A.9. Baris setelan `pkh_jam_upload_terlambat` boleh dibiarkan; versi lama
 tidak membacanya.
+
+---
+
+## I. Rilis 24 September 2026 (sore) — Pemenuhan Kirim Harian: aturan wajib ikut batas kirim MP
+
+Isi rilis (koreksi dari user sesudah rilis H):
+
+1. Wajib keluar = sisa kemarin + resi yang **batas kirim MP ≤ hari ini**
+   (standar MP; Lazada/reseller tanpa batas kirim tetap pesanan s/d 12.00) +
+   pesanan **TikTok s/d 15.00** (tambahan operasional). Sebelumnya bagian MP
+   memakai "pesanan s/d 12.00", sehingga resi Shopee yang dipesan pagi tetapi
+   batas kirimnya besok ikut dihitung wajib.
+2. Tampilan **Upload telat** dari rilis H dihapus; kotak kembali "Belum" +
+   tombol Lihat detail.
+3. Resi yang dicatat di **Daftar Cancel Order** (Tim Resi → Scan Cek Cancel)
+   keluar dari semua angka, tanpa menunggu status CANCELED dari upload Jubelio.
+
+| Branch | Perubahan |
+|---|---|
+| `fix/pkh-aturan-batas-kirim` | `Pemenuhan_kirim_fcd.php` (grup TA, grup TM dihapus, cek `tblcancelorder`, kolom `telat` dihapus, `VERSI_CACHE` 3), view, kolom Excel "Upload Telat" dihapus, setelan `pkh_jam_upload_terlambat` dikeluarkan dari migrasi, smoke test |
+
+Tidak ada migrasi baru dan `BOOTSTRAP_VERSI` tidak naik (tetap `2026-09-24.2`).
+Baris setelan `pkh_jam_upload_terlambat` yang sudah terbentuk dibiarkan.
+
+### I.1 Verifikasi
+
+Buka menu, pilih **23 Sep 2026**: wajib keluar **7.946**, kotak Picker
+"Belum: 3", Packer dan HO "Belum: 4" (3 resi TikTok + SPXID067708609229).
+Sesudah tim resi scan SPXID067708609229 di Scan Cek Cancel dan cache 10 menit
+lewat, Packer dan HO menjadi "Belum: 3". Tidak ada baris oranye "Upload telat".
+
+### I.2 Kalau perlu kembali ke versi sebelumnya
+
+`git reset --hard 6901460` (A.9). Tidak ada perubahan database yang perlu
+dikembalikan.

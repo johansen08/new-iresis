@@ -23,16 +23,13 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
 
 - **Resi masuk hari ini**: resi yang di-upload ke IRESIS pada tanggal itu,
   dipecah jadi wajib keluar hari ini dan boleh keluar besok.
-- **Wajib keluar hari ini** dengan rinciannya: sisa kemarin, pesanan s/d 12.00,
-  dan TikTok 12.00–15.00. Satu baris tambahan muncul hanya bila jaring pengaman
-  batas kirim MP menangkap sesuatu (§2).
-- **Picker / Packer / HO (keluar)**: jumlah sudah, persen, dan belum. Kotak
-  Packer diberi bingkai karena packing adalah tahap paling lama. Bila ada,
-  baris oranye **Upload telat** memisahkan resi yang di-upload sesudah picking
-  tutup dari "Belum" milik gudang (§2.1).
+- **Wajib keluar hari ini** dengan rinciannya: sisa kemarin, batas kirim MP
+  hari ini (standar MP), dan TikTok s/d 15.00 (tambahan operasional) (§2).
+- **Picker / Packer / HO (keluar)**: jumlah sudah, persen, belum, dan tombol
+  **Lihat detail** (§1.1). Kotak Packer diberi bingkai karena packing adalah
+  tahap paling lama.
 - **Detail Belum Selesai** (bisa dilipat): belum picker/packer/HO per
-  **1 Qty** dan **>1 Qty**, plus baris **Upload telat** bila ada. Baris Total
-  tetap menjumlah semuanya.
+  **1 Qty** dan **>1 Qty**.
 - **Detail OT/Perbantuan** (bisa dilipat): input jumlah packer (bawaan 8) dan
   batas per packer (bawaan 120). Keduanya bisa diubah dan hasilnya langsung
   dihitung ulang (§6).
@@ -42,19 +39,18 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
 ### 1.1 Lihat detail dan unduh Excel
 
 Diminta user 24 Sep 2026 (prototipe disetujui lebih dulu). Di kotak
-Picker/Packer/HO ada tombol **Lihat detail** di samping "Belum" dan **Lihat**
-di samping "Upload telat". Keduanya membuka popup daftar resi:
+Picker/Packer/HO ada tombol **Lihat detail** di samping "Belum" yang membuka
+popup daftar resi:
 
 - Tab tahap: Belum picker / Belum packer / Belum HO, dengan jumlahnya.
-- Kolom: no resi (label Upload telat / Sisa kemarin), no pesanan,
+- Kolom: no resi (label Sisa kemarin / TikTok s/d 15.00), no pesanan,
   marketplace, kurir + jam tutup kurir (`tblkurir.jam_batas_kirim`), SKU × qty
   + rak, masuk IRESIS + jam pesan, batas kirim (merah bila lewat), posisi
   (belum dipick / dipick jam + nama picker / packing jam). **Toko tidak
   ditampilkan**: `tblprintresi.toko` kosong di semua resi.
 - Cari (no resi, no pesanan, SKU, rak, nama picker; kata yang cocok disorot),
-  filter Belum gudang / Upload telat / Semua, marketplace, kurir, jenis,
-  kelompok wajib, posisi; urut; 50 baris per halaman; di layar sempit baris
-  menjadi kartu.
+  filter marketplace, kurir, jenis, kelompok wajib, posisi; urut; 50 baris per
+  halaman; di layar sempit baris menjadi kartu.
 - **Salin no resi**: seluruh hasil filter ke clipboard (bila browser menolak,
   mis. lewat http di IP LAN, teksnya ditampilkan terpilih untuk Ctrl+C).
 - **Unduh Excel**: browser mengirim id resi hasil filter (urutan layar); server
@@ -69,73 +65,67 @@ dibuka dan disimpan di cache berkas seperti angka (55 dtk / 10 menit);
 cari/filter/halaman dikerjakan di browser. Ukuran: ±1 MB JSON untuk ±4.000
 resi (pagi hari, sebelum picking), ±1 dtk query. Excel 2.672 resi ±4 dtk, 50 MB.
 
-## 2. Aturan wajib keluar hari D
+## 2. Aturan wajib keluar hari D (standar operasional)
 
-Setiap resi masuk ke tepat satu grup:
+Menu ini mengukur **standar operasional**, bukan standar MP saja:
+standar operasional = standar MP + tambahan TikTok s/d 15.00. Setiap resi
+masuk ke tepat satu grup:
 
 | Grup | Syarat | Wajib hari D? |
 |---|---|---|
 | KA | di-print sebelum D (≤ 7 hari), belum keluar sebelum D | ya (sisa kemarin) |
-| TA | di-print D, **masuk s/d D 12.00** | ya (aturan semua MP) |
-| TB | TikTok, masuk s/d D 15.00, **batas kirim MP D atau D+1** (atau kosong) | ya (target operasional TikTok) |
-| TM | batas kirim MP ≤ D, tapi masuk sesudah jam | ya (jaring pengaman) |
-| TX | TikTok, masuk s/d D 15.00, batas kirim MP ≥ D+2 | tidak, boleh besok |
+| TA | di-print D, **batas kirim MP ≤ D**; resi tanpa batas kirim (Lazada, reseller): **pesanan s/d D 12.00** | ya (standar MP) |
+| TB | TikTok, pesanan s/d D 15.00, **batas kirim MP D+1** (atau kosong) | ya (tambahan operasional) |
+| TX | TikTok, pesanan s/d D 15.00, batas kirim MP ≥ D+2 | tidak, boleh besok |
 | TC | lainnya | tidak, boleh besok |
 
-- **Jam masuk** = `tanggal_pesan` dari Jubelio (kosong → `tanggal_printresi`).
-  Pesanan tepat 12.00 atau 15.00 ikut wajib. Aturan jam sama dengan laporan
-  pengiriman "wajib keluar" (`Receipt_fcd::BATAS_WAJIB_KELUAR`/`_TT`).
+- **Standar MP = batas kirim MP**, bukan jam pesan (diputuskan user 24 Sep
+  2026). Jam 12.00 hanya perkiraannya: dari resi Shopee 23 Sep yang dipesan
+  s/d 12.00, 3.439 berbatas kirim hari itu dan hanya 9 berbatas kirim besok
+  (mis. SPXID069641016539 dipesan 22 Sep 19.34 dan SPXID065758032289 dipesan
+  23 Sep 00.24, keduanya baru ter-upload 16.34 dengan batas kirim 24 Sep).
+  Menurut MP resi seperti itu boleh keluar besok, jadi tidak ikut wajib.
+  Sebelum 24 Sep grup TA memakai "pesanan s/d 12.00" untuk semua MP, dan resi
+  berbatas kirim hari ini yang dipesan sesudah jam masuk grup TM (jaring
+  pengaman); TM kini sudah tercakup TA.
+- **Jam pesan** = `tanggal_pesan` dari Jubelio (kosong → `tanggal_printresi`).
+  Pesanan tepat 12.00 atau 15.00 ikut wajib.
 - **TikTok vs Tokopedia**: awalan `no_pesanan` `TT-` (keduanya ber-`id_marketplace`
   3); `id_marketplace` 5 adalah data TikTok lama.
 - **Batas kirim MP** = `tanggal_bataskirim` (selalu 23.59.59, dibandingkan per
-  tanggal). Lazada tidak membawa batas kirim dari upload, jadi hanya mengikuti
+  tanggal; nilai `0000-00-00` dianggap kosong). Lazada dan reseller tidak
+  membawa batas kirim dari upload (±1.100 resi per 2 minggu), jadi mengikuti
   aturan 12.00.
 - Resi dihitung sejak **ter-upload**. Pesanan yang baru ter-upload dua hari
   kemudian tetap masuk grup wajib begitu ada (contoh nyata: pesanan 22 Sep malam
   ter-upload 24 Sep 09.26, batas kirim MP 24 Sep).
 
-### 2.1 Upload telat
+### 2.1 Riwayat: "upload telat" (dicabut)
 
-Resi wajib hari D yang **di-upload ke IRESIS hari D sesudah jam setelan**
-`pkh_jam_upload_terlambat` (bawaan **16.00**, dibandingkan dengan
-`tanggal_printresi`) disebut *upload telat*. Aturan wajibnya tidak berubah:
-resi itu tetap dihitung di angka wajib, sudah, dan persen. Yang berubah hanya
-cara menampilkan sisanya:
-
-- Kotak Picker/Packer/HO: **Belum** hanya menghitung tanggungan gudang; upload
-  telat ditulis di baris sendiri di bawahnya.
-- Detail Belum Selesai: baris 1 Qty / >1 Qty tanpa upload telat, baris
-  **Upload telat (sesudah 16.00)** terpisah, Total = semuanya.
-- Hitungan OT/perbantuan **tidak** memasukkan upload telat.
-- Resi sisa (di-print sebelum D) tidak pernah dihitung telat di hari D; resi
-  upload telat hari D-1 muncul di hari D sebagai sisa kemarin biasa.
-
-Alasannya (diminta user 24 Sep): picking berhenti ±15.20–15.50 setiap hari
-sejak 17 Sep, sementara upload terakhir hari itu biasanya 16.00–17.00. Resi
-wajib di upload itu tidak mungkin dikerjakan hari yang sama, jadi tampil
-sebagai "belum" padahal keterlambatannya di hulu. Contoh 23 Sep: picker
-terakhir 15.43, upload 16.34 (536 resi) dan 16.46 (69 resi); 5 di antaranya
-wajib (pesanan Shopee sebelum 12.00, TikTok sebelum 15.00) dan baru keluar 24
-Sep 09.13–09.31, masih dalam batas kirim MP 24 Sep.
-
-Data produksi 14–23 Sep (resi wajib, tidak cancel):
-
-| Upload sesudah | Resi wajib per hari | Keluar hari yang sama |
-|---|---|---|
-| 15.30 | 1–6 | 2 resi (15 dan 17 Sep) |
-| **16.00** | **1–6** | **tidak ada** |
-
-Karena itu bawaannya 16.00. Nilai setelan diperiksa format `HH:MM`; nilai
-yang tidak sah jatuh ke 16.00.
+Rilis H (24 Sep 13.14) sempat memisahkan resi wajib yang di-upload sesudah
+16.00 sebagai "Upload telat". User tidak memerlukannya: tujuan menu hanya
+"wajib keluar sudah selesai atau belum, kalau belum mana saja". Sesudah aturan
+TA memakai batas kirim MP (§2), resi Shopee yang baru ter-upload sore dengan
+batas kirim besok otomatis menjadi boleh besok, dan resi TikTok s/d 15.00 yang
+ter-upload sore memang tetap wajib. Tampilan, kolom, dan filter upload telat
+dihapus. Baris setelan `pkh_jam_upload_terlambat` di `tb_config_operasional`
+dibiarkan (tidak dibaca kode lagi; aturan proyek melarang DELETE).
 
 ## 3. Cancel, keluar, dan tahap
 
 - **Cancel dikeluarkan dari semua angka** (wajib, picker, packer, HO), termasuk
   yang sudah sempat discan: `status_pesanan` `CANCELED` atau `REQUEST_CANCEL`
-  (daftar yang sama dengan `Cancel_order_fcd::STATUS_CANCEL`), atau `batal = '1'`.
-  Status cancel datang lewat upload Jubelio, jadi angka bisa turun sedikit
-  sesudah upload. Yang ditampilkan di ikon ⓘ: cancel yang di-print hari itu +
-  resi lama yang cancel-nya tercatat hari itu (`modified_at`).
+  (daftar yang sama dengan `Cancel_order_fcd::STATUS_CANCEL`), `batal = '1'`,
+  **atau noresi-nya ada di Daftar Cancel Order** (`tblcancelorder`, diisi menu
+  Tim Resi → Scan Cek Cancel atau sinkron Jubelio). Status cancel dari upload
+  Jubelio hanya diperbarui untuk pesanan H-3 (`scripts/auto_upload_resi.py`),
+  jadi resi lama yang cancel di marketplace bisa tetap PROCESSING di IRESIS
+  (contoh SPXID067708609229, dipick 17 Sep, cancel di Shopee). Untuk resi
+  seperti itu tim resi cukup scan di **Scan Cek Cancel**; resi langsung keluar
+  dari angka (sejak 24 Sep 2026, keputusan user). Meja scan picker/packer/HO
+  belum menolak resi yang hanya tercatat di Daftar Cancel Order. Yang
+  ditampilkan di ikon ⓘ: cancel yang di-print hari itu + resi lama yang
+  cancel-nya tercatat hari itu (`modified_at` atau `tblcancelorder.created_at`).
 - **Sudah keluar** = ada scan HO (`tblresikeluar`), atau status MP sudah
   `SHIPPED` / `COMPLETED` / `RETURNED` tanpa scan HO sama sekali. Status itu baru
   berubah **sesudah** HO: dari 7.981 resi yang di-HO 23 Sep, 7.981 berubah jadi
@@ -195,15 +185,16 @@ mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):
 | `pkh_jam_selesai_packer` | `18:00` |
 | `pkh_default_packer` | `8` |
 | `pkh_batas_per_packer` | `120` |
-| `pkh_jam_upload_terlambat` | `16:00` (§2.1, sejak `BOOTSTRAP_VERSI` 2026-09-24.2) |
 
-Paket upload telat tidak ikut beban per packer (§2.1).
+(`pkh_jam_upload_terlambat` dari `BOOTSTRAP_VERSI` 2026-09-24.2 tidak dipakai lagi, §2.1.)
 
 ## 7. Hasil verifikasi data (produksi, 15–24 Sep 2026)
 
-- **Aturan jam cocok dengan batas kirim MP**: tidak ada satu pun pesanan
-  Shopee, Tokopedia, atau TikTok yang masuk sesudah batas jam tetapi batas kirim
-  MP-nya hari itu juga. Grup TM (jaring pengaman) = 0 di semua hari.
+- **Jam pesan vs batas kirim MP** (dasar keputusan §2): pesanan sesudah
+  12.00 tidak pernah berbatas kirim hari itu juga (15–24 Sep). Pesanan s/d
+  12.00 hampir selalu berbatas kirim hari itu, kecuali segelintir yang baru
+  siap/ter-upload sore (23 Sep: 9 Shopee, 1 Tokopedia, 2 TikTok berbatas
+  kirim besok; yang TikTok tetap wajib lewat TB).
 - TikTok 12.00–15.00: 28% memang berbatas kirim MP hari itu. Yang berbatas
   **lusa** hanya muncul Jumat 18 Sep (454 dari 669) dan Sabtu 19 Sep (384 dari
   591); tampaknya TikTok memperpanjang batas di akhir pekan (lihat §9).
@@ -211,19 +202,21 @@ Paket upload telat tidak ikut beban per packer (§2.1).
   1.465 keluar, Lazada dan Tokopedia semua keluar. Resi yang "belum dipick"
   ternyata baru ter-upload 24 Sep (upload terlambat, bukan kesalahan gudang).
 - Tidak ada scan ganda di picker, packer, maupun HO pada 23 Sep.
-- Rekap 23 Sep (produksi, 24 Sep): wajib 7.956, belum picker/packer/HO 5/6/6.
-  Sesudah §2.1: Belum 0/1/1 + upload telat 5/5/5. Satu-satunya "belum"
-  gudang adalah resi Shopee 17 Sep yang dipick tapi tak pernah dipacking dan
-  ternyata sudah cancel di marketplace; statusnya tetap PROCESSING di IRESIS
-  karena upload otomatis hanya menarik pesanan 3 hari terakhir
-  (`scripts/auto_upload_resi.py`).
+- Rekap 23 Sep (produksi, 24 Sep): aturan lama (pesanan s/d 12.00) wajib
+  7.956, belum picker/packer/HO 5/6/6. Aturan §2: wajib **7.946**, belum
+  **3/4/4** = JY1721848707, JY1724158697, GTL7250416617 (TikTok dipesan
+  14.28–14.40, ter-upload 16.34/16.46, sesudah picking tutup 15.43) +
+  SPXID067708609229 (cancel di Shopee, status IRESIS masih PROCESSING). Begitu
+  resi terakhir itu discan di Scan Cek Cancel: **3/3/3**, sama dengan hitungan
+  user. Diuji juga dengan transaksi di-rollback di `iresis_dev`.
 - Angka menu di `iresis_dev` (salinan 23 Sep 13.30) cocok dengan putar ulang
   data produksi pada jam yang sama, dengan selisih 2–6 resi karena status resi
   di salinan itu belum diperbarui.
 
 ## 8. Kinerja
 
-Hitungan utama ±1 detik di atas data seukuran produksi. Hal yang membuatnya
+Hitungan utama ±1,7 detik di atas data seukuran produksi (termasuk hitungan
+resi lama dan cek Daftar Cancel Order lewat indeks unik `noresi`, +0,15 dtk). Hal yang membuatnya
 cepat (sebelumnya 10 detik), jangan dibongkar tanpa mengukur ulang:
 
 - `NOT EXISTS` ke `tblresikeluar` dengan syarat tanggal membuat MariaDB 10.4
@@ -249,7 +242,7 @@ cepat (sebelumnya 10 detik), jangan dibongkar tanpa mengukur ulang:
    24 Sep) menganggapnya boleh besok. Dampaknya hanya di akhir pekan (§7).
    Kalau bonus traffic TikTok tetap berlaku untuk pengiriman hari yang sama,
    syarat batas kirim di grup TB bisa dicabut (satu baris `CASE` di
-   `hitung_grup()`).
+   `sql_per_resi()`).
 2. **REQUEST_CANCEL** dikeluarkan dari angka, tetapi meja Picker, Packer, HO, dan
    NDD hanya menolak `CANCELED`. Pada 23 Sep ada 3 resi REQUEST_CANCEL: 1 sudah
    di-HO, 2 sudah dipacking. Kalau memang harus ditahan, meja scan perlu diberi
