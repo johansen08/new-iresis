@@ -30,7 +30,7 @@ Backlog ini menurunkan PRD menjadi pekerjaan yang bisa diambil satu per satu. Su
 | B-13 | Paket cancel tahap 2: Cek Paket Cancel | P2 | L | Terhambat Q6 | F-44 |
 | B-14 | Paket cancel tahap 3: batch ke display | P2 | L | Setelah B-13 | F-44 |
 | B-15 | Daftar uji regresi manual per meja | P2 | S | Selesai (`7949cd2`) | §10 tanpa test |
-| B-16 | Smoke test CLI untuk endpoint scan | P2 | M | Siap | §10 tanpa test, §6 |
+| B-16 | Smoke test CLI untuk endpoint scan | P2 | M | Selesai (`0bed5cc`) | §10 tanpa test, §6 |
 | B-17 | Jajaki API retur Jubelio | P2 | M | Siap (riset) | §10 Jubelio |
 | B-18 | Perbarui dokumen yang usang | P2 | S | Siap | *temuan* |
 | B-19 | Tutup folder `graft/` dari akses HTTP | P1 | S | Selesai (`75f24ad`) | *temuan* |
@@ -212,7 +212,7 @@ Buat satu checklist di `docs/` yang dijalankan di `iresis-dev` sebelum pull ke p
 
 ### B-16 · Smoke test CLI untuk endpoint scan
 
-`M` · Siap · PRD §10, §6 "Keandalan respons"
+`M` · Selesai (`0bed5cc`, [`tests/smoke_scan.php`](../tests/smoke_scan.php), cara pakai di [`UJI_REGRESI.md`](UJI_REGRESI.md) §2.3) · PRD §10, §6 "Keandalan respons"
 
 Buat script PHP CLI yang memanggil endpoint scan utama di `iresis-dev` dengan resi uji, lalu memeriksa bahwa balasannya JSON valid dengan status yang diharapkan. Script ini menangkap kasus "satu byte keluaran nyasar" sebelum sampai ke lantai gudang. Simpan di `tests/`, tambahkan `tests` ke aturan blokir `.htaccess` baris 10 (lihat B-19: folder yang tidak disebut di sana bisa dibuka lewat HTTP), dan tolak eksekusi selain lewat CLI.
 
@@ -236,4 +236,4 @@ Unggah resi sudah punya jalur API v2 (`core-api`), tetapi retur masih bergantung
 1. **Minggu ini, tanpa menunggu.** B-03, lalu cek hasil B-01 pada 2 Okt pagi. B-15 dan B-19 sudah selesai. Sambil itu, jawab Q1–Q7.
 2. **Berikutnya.** B-08 dan B-09 (pekerjaan pertama menurut PRD §2), lalu B-04 dan B-05.
 3. **Begitu keputusan masuk.** B-02, B-10, B-11, dan B-12. Hampir semuanya kerja operasional, bukan kode.
-4. **Setelah itu.** B-13 → B-14, lalu B-06, B-16, B-07, dan B-17. B-18 bisa diselipkan kapan saja.
+4. **Setelah itu.** B-13 → B-14, lalu B-06, B-07, dan B-17 (B-16 sudah selesai). B-18 bisa diselipkan kapan saja.
