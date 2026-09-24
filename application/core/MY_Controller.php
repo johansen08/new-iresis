@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-09-24.1';
+    const BOOTSTRAP_VERSI = '2026-09-24.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1692,7 +1692,7 @@ class MY_Controller extends CI_Controller
 
     /**
      * Menu "Pemenuhan Kirim Harian" di grup TIM MONITORING, paling atas
-     * (docs/PEMENUHAN_KIRIM_HARIAN.md), plus tiga setelan bawaannya di
+     * (docs/PEMENUHAN_KIRIM_HARIAN.md), plus empat setelan bawaannya di
      * tb_config_operasional. Setelan yang sudah ada tidak ditimpa.
      *
      * Hak akses disalin dari menu saudaranya, Laporan Pesanan Masuk (per 24 Sep
@@ -1737,9 +1737,11 @@ class MY_Controller extends CI_Controller
         }
 
         $setelan = [
-            'pkh_jam_selesai_packer' => ['18:00', 'Jam selesai kerja packer (menu Pemenuhan Kirim Harian)'],
-            'pkh_default_packer'     => ['8', 'Jumlah packer bawaan di hitungan OT/perbantuan (menu Pemenuhan Kirim Harian)'],
-            'pkh_batas_per_packer'   => ['120', 'Batas paket >1 Qty per packer sampai jam selesai (menu Pemenuhan Kirim Harian)'],
+            'pkh_jam_selesai_packer'   => ['18:00', 'Jam selesai kerja packer (menu Pemenuhan Kirim Harian)'],
+            'pkh_default_packer'       => ['8', 'Jumlah packer bawaan di hitungan OT/perbantuan (menu Pemenuhan Kirim Harian)'],
+            'pkh_batas_per_packer'     => ['120', 'Batas paket >1 Qty per packer sampai jam selesai (menu Pemenuhan Kirim Harian)'],
+            // 2026-09-24.2: resi wajib yang di-upload sesudah jam ini dipisah sebagai "upload telat"
+            'pkh_jam_upload_terlambat' => ['16:00','Resi wajib yang di-upload sesudah jam ini dipisah sebagai upload telat (menu Pemenuhan Kirim Harian)'],
         ];
         foreach ($setelan as $kunci => $isi) {
             if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {

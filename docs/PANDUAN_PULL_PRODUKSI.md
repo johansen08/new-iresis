@@ -728,3 +728,45 @@ menghapus:
 
 Saat kode dipasang lagi, kembalikan `isactive = 1` manual. Migrasi hanya
 membuat menu yang belum ada. Berkas `application/cache/pkh_*` boleh dibiarkan.
+
+---
+
+## H. Rilis 24 September 2026 (lanjutan) — Pemenuhan Kirim Harian: upload telat
+
+Isi rilis: resi wajib yang di-upload ke IRESIS **sesudah 16.00** (picking sudah
+tutup) dipisah dari "Belum" di kotak Picker/Packer/HO dan diberi baris sendiri
+di Detail Belum Selesai. Angka wajib dan persen tidak berubah. Hitungan
+OT/perbantuan tidak lagi memasukkan resi itu. Aturan dan datanya:
+`docs/PEMENUHAN_KIRIM_HARIAN.md` §2.1.
+
+| Branch | Perubahan |
+|---|---|
+| `feature/pkh-upload-telat` | `Pemenuhan_kirim_fcd.php` (kolom `telat` di query, hasil `telat`, setelan baru, versi cache), view `monitoring/pemenuhan_kirim_harian.php`, 1 setelan di migrasi `MY_Controller.php` |
+
+Riwayat git tidak ditulis ulang, jadi pakai `git pull` biasa (A.5).
+
+### H.1 Database — 1 setelan, otomatis lewat migrasi
+
+`BOOTSTRAP_VERSI` naik ke **`2026-09-24.2`**. Request pertama setelah pull
+(A.7) menambah 1 baris `tb_config_operasional` bila belum ada:
+`pkh_jam_upload_terlambat` = `16:00`. Menu dan hak akses tidak berubah. Cache
+lama `application/cache/pkh_snap_*` tidak dibaca lagi (kunci cache baru
+`pkh_snap2_*`) dan boleh dibiarkan.
+
+### H.2 Verifikasi
+
+```powershell
+Get-Content application\cache\bootstrap_migrasi.txt
+& C:\xampp\mysql\bin\mysql.exe -u root iresis_prod -e "SELECT kunci, nilai FROM tb_config_operasional WHERE kunci LIKE 'pkh_%';"
+```
+
+Harus tampil penanda `2026-09-24.2` dan **empat** baris `pkh_*`. Lalu buka
+menu, pilih tanggal **23 Sep 2026**: kotak Picker "Belum: 0" dengan baris
+oranye "Upload telat: 5", Packer dan HO "Belum: 1" dengan "Upload telat: 5";
+persen tetap 99,9%. (Kalau status SPXID067708609229 sudah diperbarui jadi
+CANCELED, Packer dan HO menjadi "Belum: 0".)
+
+### H.3 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Baris setelan `pkh_jam_upload_terlambat` boleh dibiarkan; versi lama
+tidak membacanya.
