@@ -20,6 +20,12 @@ C:/xampp/php/php.exe -l application/controllers/Retur.php
 ```
 
 ```bash
+# Smoke test endpoint scan lewat HTTP (hanya di folder dev; butuh uji_username/uji_password di secrets.php).
+# Exit 0 = lulus, 1 = gagal, 2 = tidak bisa mulai. --baca-saja = tanpa menulis data. Lihat docs/UJI_REGRESI.md §2.3.
+C:/xampp/php/php.exe tests/smoke_scan.php
+```
+
+```bash
 # Dependency (Guzzle, PhpSpreadsheet, Pusher)
 composer install
 ```
