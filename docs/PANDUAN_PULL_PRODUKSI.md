@@ -854,3 +854,19 @@ Koreksi aturan Pemenuhan Kirim Harian dari user (`PEMENUHAN_KIRIM_HARIAN.md` §2
 Branch `fix/pkh-aturan-bayar-24jam`, hanya model/controller/view; tanpa
 migrasi, `VERSI_CACHE` 5. Verifikasi: pilih **21 Sep 2026** → ketiga kotak
 100%, "Belum: 0"; pilih **23 Sep** → Belum 3/3/3 (tiga resi TikTok 12–15).
+
+---
+
+## M. Rilis 25 September 2026 — TikTok 12–15 wajib bila resi masuk ≤ 15.15, nama MP TikTok
+
+1. Resi TikTok yang dipesan 12.00–15.00 dengan batas kirim besok hanya wajib
+   keluar hari itu bila resinya masuk IRESIS paling lambat **15.15** (masuk
+   sesudahnya = pembeli bayar sesudah 15.00 → boleh besok). Jam yang dipakai
+   adalah jam upload ke IRESIS (`tanggal_printresi`, label "Tanggal Proses Resi"),
+   jadi **tim resi perlu mengupload batch sore paling lambat 15.15**.
+2. Popup dan Excel menampilkan MP **TikTok** untuk no pesanan `TT-` dan
+   **Tokopedia** untuk `TP-` (keduanya `id_marketplace` 3 di database).
+
+Branch `fix/pkh-tiktok-1515-nama-mp`, hanya model dan view; tanpa migrasi,
+`VERSI_CACHE` 6. Verifikasi: pilih **15 Sep** dan **23 Sep** → 100%; buka
+Lihat detail hari ini → resi `TT-` tertulis TikTok.

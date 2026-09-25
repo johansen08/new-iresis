@@ -471,8 +471,8 @@
       '<li><span>Semua MP · batas kirim hari ini</span><b>' + fmt(n('TA')) + '</b></li>' +
       '<li><span>TikTok 12.00–15.00 · batas kirim besok</span><b>' + fmt(n('TB')) + '</b></li>';
     pasangInfo($id('pkh-info-wajib'),
-      '<p>Wajib keluar (standar operasional) = sisa kemarin yang batas kirimnya hari ini + pesanan semua MP yang <b>batas kirim</b>-nya hari ini (pembeli sudah bayar; biasanya pesanan 00.00–12.00) + pesanan <b>TikTok 12.00–15.00</b> yang batas kirimnya besok.</p>' +
-      '<p>Pesanan pagi yang batas kirimnya besok berarti baru dibayar sore, jadi boleh keluar besok' +
+      '<p>Wajib keluar (standar operasional) = sisa kemarin yang batas kirimnya hari ini + pesanan semua MP yang <b>batas kirim</b>-nya hari ini (pembeli sudah bayar; biasanya pesanan 00.00–12.00) + pesanan <b>TikTok 12.00–15.00</b> yang batas kirimnya besok dan resinya sudah masuk IRESIS paling lambat 15.15.</p>' +
+      '<p>Pesanan pagi yang batas kirimnya besok, atau resi TikTok yang baru masuk sesudah 15.15, berarti baru dibayar sore, jadi boleh keluar besok' +
       (n('TX') ? ' (' + fmt(n('TX')) + ' pesanan TikTok hari ini)' : '') + '. Resi tanpa batas kirim (Lazada, reseller) memakai jam pesan: s/d 12.00 wajib hari itu.</p>' +
       '<p><b>Tidak dihitung:</b> ' + fmt(d.cancel_hari_ini) + ' resi cancel hari ini (CANCELED / REQUEST_CANCEL, atau dicatat di Daftar Cancel Order)' +
       (kedaluwarsa ? ' dan ' + fmt(kedaluwarsa) + ' resi yang lewat lebih dari 24 jam dari batas kirim (otomatis dibatalkan MP)' : '') + '.</p>');
