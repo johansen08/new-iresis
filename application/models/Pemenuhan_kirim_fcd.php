@@ -15,7 +15,9 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *  - Wajib keluar hari D = sisa hari sebelumnya yang batas kirimnya D (atau D-1,
  *      belum lewat 24 jam)
  *    + resi hari D yang batas kirim MP-nya ≤ D (semua MP)
- *    + pesanan TikTok 12.00–15.00 hari D yang batas kirim MP-nya D+1.
+ *    + pesanan TikTok 12.00–15.00 hari D yang batas kirim MP-nya D+1 dan resinya
+ *      sudah masuk IRESIS paling lambat D 15.15 (bayar sesudah 15.00 → resi baru
+ *      terproses sesudah itu → boleh besok).
  *    Resi tanpa batas kirim (Lazada, reseller): batas = hari pesan bila pesanan
  *    s/d 12.00, selain itu besoknya.
  *  - Resi yang lewat lebih dari 24 jam dari batas kirim (batas ≤ D-2) otomatis
@@ -37,6 +39,12 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
     const JAM_WAJIB_SEMUA_MP = '12:00:00';
     const JAM_WAJIB_TIKTOK   = '15:00:00';
+    /**
+     * Batas jam resi TikTok 12.00–15.00 masuk IRESIS (tanggal_printresi = jam
+     * upload, bukan jam bayar/proses Jubelio). Pembeli yang bayar tepat 15.00
+     * resinya terproses paling lambat 15.15 (standar operasional dari user).
+     */
+    const JAM_PROSES_TIKTOK  = '15:15:00';
 
     /** Status marketplace yang berarti paket sudah keluar gudang. */
     const STATUS_KELUAR = ['SHIPPED', 'COMPLETED', 'RETURNED'];
@@ -74,7 +82,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 5;
+    const VERSI_CACHE = 6;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -216,7 +224,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 $hasil[(int) $r['id']] = [
                     'r'   => (string) $r['noresi'],
                     'p'   => '',
-                    'mp'  => $r['mp'] ?: '-',
+                    'mp'  => $r['mp'] ? ($r['mp'] === 'Tiktok' ? 'TikTok' : trim($r['mp'])) : '-',
                     'k'   => $r['kurir'] ?: '-',
                     // "AHMAD - PICKER - 0339" → "AHMAD"
                     'pn'  => $r['picker'] ? trim(explode(' - ', $r['picker'])[0]) : '',
@@ -234,6 +242,14 @@ class Pemenuhan_kirim_fcd extends CI_Model
             }
             foreach ($pesanan as $id => $p) {
                 $hasil[$id]['p'] = implode(', ', array_keys($p));
+                // TikTok dan Tokopedia sama-sama tercatat id_marketplace 3 (Tokopedia);
+                // pembedanya awalan no pesanan: TT- = TikTok, TP- = Tokopedia.
+                $awal = strtoupper(substr((string) array_key_first($p), 0, 3));
+                if ($awal === 'TT-') {
+                    $hasil[$id]['mp'] = 'TikTok';
+                } elseif ($awal === 'TP-') {
+                    $hasil[$id]['mp'] = 'Tokopedia';
+                }
             }
         }
         return $hasil;
@@ -303,6 +319,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $d7     = $this->db->escape(date('Y-m-d', strtotime($tanggal . ' -' . self::HARI_SISA . ' day')) . ' 00:00:00');
         $d12    = $this->db->escape($tanggal . ' ' . self::JAM_WAJIB_SEMUA_MP);
         $d15    = $this->db->escape($tanggal . ' ' . self::JAM_WAJIB_TIKTOK);
+        $d1515  = $this->db->escape($tanggal . ' ' . self::JAM_PROSES_TIKTOK);
         $per    = $this->db->escape($per_jam);
         $cancel = $this->daftar_sql(self::STATUS_CANCEL);
         $keluar = $this->daftar_sql(self::STATUS_KELUAR);
@@ -324,8 +341,11 @@ class Pemenuhan_kirim_fcd extends CI_Model
                            -- semua MP: batas kirim hari ini = pembeli sudah bayar (biasanya pesanan 00.00–12.00)
                            WHEN y.btk_ef <= $d_hari THEN 'TA'
                            -- tambahan operasional: TikTok 12.00–15.00 yang batas kirimnya besok
-                           WHEN y.tt = 1 AND y.masuk > $d12 AND y.masuk <= $d15 AND y.btk_ef = $d1 THEN 'TB'
-                           -- TikTok s/d 15.00 lainnya: pesanan pagi yang baru dibayar sore, atau batas lusa
+                           -- dan resinya masuk IRESIS s/d 15.15 (masuk sesudahnya = dibayar sesudah 15.00)
+                           WHEN y.tt = 1 AND y.masuk > $d12 AND y.masuk <= $d15 AND y.btk_ef = $d1
+                                AND y.printed_at <= $d1515 THEN 'TB'
+                           -- TikTok s/d 15.00 lainnya: dibayar sore (pesanan pagi berbatas besok, atau resi
+                           -- 12.00–15.00 yang baru masuk sesudah 15.15), atau batas lusa
                            WHEN y.tt = 1 AND y.masuk <= $d15 THEN 'TX'
                            ELSE 'TC'
                        END AS grup,
