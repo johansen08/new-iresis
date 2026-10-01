@@ -344,6 +344,52 @@
       </div>
     </div>
 
+    <!-- ── Breakdown Tahap Resi JNT-KAV-DPR Kargo ── -->
+    <?php if (!empty($kargo_breakdown) && $kargo_breakdown['total'] > 0): ?>
+    <div class="sr-table-card">
+      <div class="sr-table-title">
+        <i class="fa fa-dolly" style="color:var(--sr-amber)"></i>
+        Tahap Resi JNT-KAV-DPR &ndash; Kargo
+        <span class="badge-title"><?= number_format($kargo_breakdown['total']) ?> resi</span>
+      </div>
+      <p style="margin:-6px 0 14px;color:#90a4ae;font-size:.82rem">
+        Dihitung dari tanggal cetak resi (bukan tanggal keluar) supaya resi yang belum terkirim tetap kelihatan posisinya.
+      </p>
+      <div class="sr-cards" style="margin-bottom:0">
+        <div class="sr-card total-1sku">
+          <div class="sr-card-label">Belum Diambil</div>
+          <div class="sr-card-val"><?= number_format($kargo_breakdown['belum_diambil']) ?></div>
+          <div class="sr-card-sub">Resi baru dicetak</div>
+          <span class="sr-card-icon"><i class="fa fa-file-alt"></i></span>
+        </div>
+        <div class="sr-card total-29sku">
+          <div class="sr-card-label">Picker</div>
+          <div class="sr-card-val"><?= number_format($kargo_breakdown['picker']) ?></div>
+          <div class="sr-card-sub">Sudah diambil, belum packing</div>
+          <span class="sr-card-icon"><i class="fa fa-walking"></i></span>
+        </div>
+        <div class="sr-card total-spec">
+          <div class="sr-card-label">Packing</div>
+          <div class="sr-card-val"><?= number_format($kargo_breakdown['packing']) ?></div>
+          <div class="sr-card-sub">Sudah packing, belum HO</div>
+          <span class="sr-card-icon"><i class="fa fa-box"></i></span>
+        </div>
+        <div class="sr-card total-reg">
+          <div class="sr-card-label">HO</div>
+          <div class="sr-card-val"><?= number_format($kargo_breakdown['ho']) ?></div>
+          <div class="sr-card-sub">Sudah handover, belum keluar</div>
+          <span class="sr-card-icon"><i class="fa fa-people-carry"></i></span>
+        </div>
+        <div class="sr-card total-banyak">
+          <div class="sr-card-label">Sudah Keluar</div>
+          <div class="sr-card-val"><?= number_format($kargo_breakdown['sudah_keluar']) ?></div>
+          <div class="sr-card-sub">Terkirim</div>
+          <span class="sr-card-icon"><i class="fa fa-check-circle"></i></span>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <!-- ── Detail Table per Kurir ── -->
     <?php if (!empty($detail_data)): ?>
     <div class="sr-table-card">
