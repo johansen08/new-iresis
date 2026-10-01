@@ -1,5 +1,15 @@
 # Analisis Program IRESIS (BEVERRA - Manajemen Resi)
 
+> **Diaudit ulang 1 Okt 2026.** Dokumen ini snapshot arsitektur tingkat
+> tinggi, dibuat 2025-01-27 dan sejak itu jarang diperbarui — beberapa bagian
+> (schema database, daftar controller) sempat menyebut tabel/file yang tidak
+> pernah ada atau sudah tidak ada di kode. Bagian yang salah sudah diperbaiki
+> di audit ini berdasarkan isi repo & `SHOW TABLES` langsung ke `iresis_prod`.
+> Untuk detail yang lebih sering berubah dan lebih dalam, rujuk juga
+> `CLAUDE.md`, `HANDOFF.md` §2, `docs/DATABASE_STRUCTURE.md`, dan
+> `docs/WORKFLOW_DIAGRAM.md` — dokumen itu bisa juga drift seiring waktu,
+> jadi kalau ragu, cek langsung ke kode/DB.
+
 ## 📋 Ringkasan Eksekutif
 
 **IRESIS** adalah sistem manajemen warehouse/fulfillment center berbasis **CodeIgniter 3** yang digunakan untuk mengelola proses penerimaan, picking, packing, dan pengiriman resi/order. Sistem ini dirancang khusus untuk operasional gudang dengan fitur tracking KPI dan monitoring performa karyawan.
@@ -10,16 +20,21 @@
 
 ### **Framework & Teknologi**
 - **Framework**: CodeIgniter 3 (PHP)
-- **Database**: MySQL (database: `iresis-dev`)
-- **PHP Version**: 7.4.33
+- **Database**: MariaDB/MySQL. Nama database **tidak** di-hardcode di `database.php` —
+  diambil dari `application/config/secrets.php` (gitignored) lewat `iresis_secret('db_database', 'iresis_prod')`,
+  jadi bawaannya `iresis_prod` di produksi. Lihat bagian "Database Config" di bawah.
+- **PHP Version**: pin platform Composer `7.4.33`, tapi mesin ini sudah menjalankannya di **PHP 8.2** (lihat commit `e48446d` untuk tambalan kompatibilitasnya — jangan anggap 7.4.33 masih versi runtime aktual).
 - **Dependencies**:
   - Guzzle HTTP Client (v7.9) - untuk API calls
   - PhpSpreadsheet (v1.12) - untuk export Excel
   - DomPDF - untuk generate PDF
+  - Pusher PHP SDK - notifikasi realtime (lihat `Notification.php` / `Pusher_lib.php`)
 
 ### **Struktur Direktori**
+Nama folder root berbeda-beda per mesin (`new-iresis` di PC produksi; lihat
+`docs/LINGKUNGAN_DEV.md` untuk status folder dev) — isinya sama:
 ```
-iresis-dev/
+<folder-root>/
 ├── application/          # Kode aplikasi utama
 │   ├── config/          # Konfigurasi (database, routes, dll)
 │   ├── controllers/     # Controller (logika bisnis)
@@ -59,7 +74,7 @@ iresis-dev/
 **Model**: `Picking_fcd.php`
 
 **Fitur Khusus**:
-- Tracking status performa picker (NORMAL, FAST, dll)
+- Tracking status performa picker (`NORMAL_PICKER`, `1_SKU_PICKER`)
 - Logging performa harian untuk KPI
 - Audio alerts untuk notifikasi
 
@@ -74,7 +89,7 @@ iresis-dev/
 **Model**: `Packer_fcd.php`
 
 **Fitur Khusus**:
-- Tracking status performa packer (GTL, NDD, 1_SKU, dll)
+- Tracking status performa packer (`NORMAL_PACKER`, `1_SKU_PACKER`, `GTL`, `NDD`, dll — lihat daftar lengkap di §"Fitur KPI & Performance")
 - Validasi item sebelum packing
 - Problem type tracking
 
@@ -105,19 +120,20 @@ iresis-dev/
 **Model**: `Kpi_fcd.php`, `Status_performa_fcd.php`
 
 **Fitur**:
-- Tracking performa berdasarkan status (NORMAL, FAST, GTL, NDD, dll)
+- Tracking performa berdasarkan status (lihat daftar kode di §"Fitur KPI & Performance")
 - Target harian per status
 - Export Excel untuk laporan
 - Dashboard real-time
 
 ### 7. **Reporting System**
 - **Receipt Reports**: Laporan resi (in process, shipped, daily, dll)
-- **Production Team Report**: Laporan tim produksi
-- **Shipping Report**: Laporan pengiriman
+- **Production Team Report**: Laporan tim produksi (tab 0/1/2, lihat `report/get-production-team-report-data-tab*` di `routes.php`)
+- **Shipping Report**: Laporan pengiriman (termasuk split JNT-KAV-DPR Reguler/Kargo dan breakdown tahap, sejak 1 Okt 2026)
 - **Retur Report**: Laporan retur
 - **Export Excel**: Semua laporan bisa di-export ke Excel
 
-**Controller**: `Report.php`, `Report_production_team.php`
+**Controller**: `Report.php` (satu controller untuk semua laporan di atas — tidak ada `Report_production_team.php` terpisah)
+**Model**: `Receipt_fcd.php`
 
 ### 8. **User & Access Management**
 - **User Management**: CRUD user
@@ -129,13 +145,15 @@ iresis-dev/
 **Model**: `User_fcd.php`, `Menu_fcd.php`, `Access_fcd.php`
 
 ### 9. **Master Data**
-- **Marketplace**: Master marketplace (Shopee, Lazada, dll)
-- **Courier**: Master kurir (JNE, JNT, Ninja, dll)
+- **Marketplace**: Master marketplace (Shopee, Lazada, Tokopedia, Tiktok, Akulaku, Reseller)
+- **Courier**: Master kurir (JNE, JNT/JNT-FIERRA/JNT-KAV-DPR, Ninja, Sicepat, dll — lihat `tblkurir`)
 - **Employee**: Master karyawan
 - **SKU**: Master SKU
-- **Location**: Master lokasi/rak
 
-**Controller**: `Marketplace.php`, `Courrier.php`, `Employee.php`, `Sku.php`, `Location.php`
+**Controller**: `Marketplace.php`, `Courrier.php`, `Employee.php`, `Sku.php`
+**Model**: `Marketplace_fcd.php`, `Courrier_fcd.php`, `Employee_fcd.php`, `Sku_fcd.php`
+
+Tidak ada controller "Location" terpisah — riwayat rak (`tblrak_history`) ditangani di `Accounting.php` (`accounting/get-rak-history`).
 
 ### 10. **Customer Service (CS)**
 - **Laporan Kurangan Picker**: Laporan item kurang
@@ -194,28 +212,38 @@ Alur, kondisi, skenario, dan keputusan desainnya lengkap di
 
 ## 📊 Database Schema (Key Tables)
 
+> Nama tabel di bawah dicocokkan langsung ke `SHOW TABLES` di `iresis_prod`
+> (1 Okt 2026). Versi sebelumnya dokumen ini menyebut beberapa nama yang
+> **tidak pernah ada** di skema (`tblpicking`, `tblpacker`, `tblhandover`,
+> `tblretur`, `tblakses`, `tblemployee`) — sudah diganti dengan nama aslinya.
+> Untuk daftar kolom lengkap per tabel, lihat `docs/DATABASE_STRUCTURE.md`
+> (dokumen itu juga perlu dicek ulang terhadap skema asli sebelum dipakai
+> sebagai acuan pasti — beberapa nama tabel di sana, mis. `tbllokasi`,
+> `tblrole`, juga tidak ditemukan di `SHOW TABLES`).
+
 ### **Core Tables**
-1. **tblprintresi** - Data resi/order
+1. **tblprintresi** - Data resi/order (resi keluar dari HO dicatat lewat `tblresikeluar.id_resi`)
 2. **tbldetailprintresi** - Detail item per resi
-3. **tblpicking** - Data picking
-4. **tblpacker** - Data packing
-5. **tblhandover** - Data handover
-6. **tblretur** - Data retur
+3. **tblresiambilbarang** - Data picking (bukan `tblpicking`)
+4. **tblpacking** - Data packing (bukan `tblpacker`)
+5. **tblscan_ho** - Data handover/scan keluar HO (bukan `tblhandover`); ada juga `tblscan_ndd` untuk alur NDD
+6. **tblresikeluar** - Resi yang sudah keluar/terkirim
+7. **tblbukaretur**, **tblresiretur** - Data retur (bukan `tblretur`)
 
 ### **KPI Tables**
-1. **tblmasterstatusperforma** - Master status performa
+1. **tblmasterstatusperforma** - Master status performa (kode_status, lihat daftar di §"Fitur KPI & Performance" di bawah)
 2. **tblstatusperforma** - Log status performa harian
-3. **tblkpi** - Data KPI harian
+3. **tblkpi**, **tblsummarykpiharian**, **tbltargetkpiharian** - Data & target KPI harian
 
 ### **User & Access Tables**
 1. **tbluser** - Data user
-2. **tblmenu** - Master menu
-3. **tblakses** - Akses per role
+2. **menu** - Master menu (bukan `tblmenu`)
+3. **roleaccess**, **tblhakakses** - Akses per role (bukan `tblakses`)
 
 ### **Master Data Tables**
 1. **tblmarketplace** - Master marketplace
 2. **tblkurir** - Master kurir
-3. **tblemployee** - Master karyawan
+3. **tblpegawai** - Master karyawan (bukan `tblemployee`)
 4. **tblsku** - Master SKU
 
 ---
@@ -283,12 +311,16 @@ Sistem menggunakan audio alerts untuk notifikasi:
 ## 📝 Konfigurasi Penting
 
 ### **Database Config** (`application/config/database.php`)
+Tidak ada kredensial di file ini — semua nilai diambil lewat `iresis_secret('kunci', 'bawaan')`
+dari `application/config/secrets.php` (gitignored, lihat `secrets.php.example`):
 ```php
-hostname: 127.0.0.1
-username: root
-password: (kosong)
-database: iresis-dev
+'hostname' => iresis_secret('db_hostname', '127.0.0.1'),
+'username' => iresis_secret('db_username', 'root'),
+'password' => iresis_secret('db_password', ''),
+'database' => iresis_secret('db_database', 'iresis_prod'),
 ```
+Nilai bawaan (`root`/kosong/`iresis_prod`) di atas cuma dipakai kalau `secrets.php` tidak
+mengisi kunci itu — aplikasi `exit()` dengan pesan jelas kalau `secrets.php` sendiri tidak ada.
 
 ### **Base URL** (`application/config/config.php`)
 - Auto-detect dari `$_SERVER`
@@ -321,19 +353,19 @@ Base controller dengan:
 ## 📈 Fitur KPI & Performance
 
 ### **Status Performa Picker**
+Kode aktual di `tblmasterstatusperforma` (1 Okt 2026) — tidak ada `FAST_PICKER`:
 - NORMAL_PICKER
-- FAST_PICKER
-- (dapat dikonfigurasi)
+- 1_SKU_PICKER
 
 ### **Status Performa Packer**
+- NORMAL_PACKER (bukan `NORMAL`)
+- 1_SKU_PACKER (bukan `1_SKU`)
 - GTL (Good To Live)
 - NDD (Next Day Delivery)
-- 1_SKU (Single SKU)
 - MOONKLAZ
 - PAYUNG
 - QTY_BANYAK
 - NINJA
-- NORMAL
 
 ### **KPI Tracking**
 - Tracking per user per hari
@@ -347,17 +379,17 @@ Base controller dengan:
 ## 🚀 Cara Menjalankan
 
 ### **Requirements**
-- PHP 7.4.33
-- MySQL/MariaDB
-- Web server (Apache/Nginx)
+- PHP 7.4.33 nominal (pin Composer), berjalan aktual di PHP 8.2
+- MariaDB/MySQL
+- Web server (Apache)
 - Composer
 
 ### **Setup**
-1. Clone/Download project
+1. Clone project
 2. Install dependencies: `composer install`
-3. Setup database: Import SQL files
-4. Konfigurasi database di `application/config/database.php`
-5. Set permissions untuk `application/logs/`
+3. Buat database kosong, lalu biarkan `MY_Controller::jalankan_bootstrap_sekali()` membuat skema & menu lewat migrasi kode saat request pertama (lihat §"Migrasi Database") — bukan import file SQL manual
+4. Salin `secrets.php.example` → `application/config/secrets.php`, isi kredensial DB dan kunci lain (lihat `CLAUDE.md` §"Kredensial")
+5. Set permissions untuk `application/logs/`, `application/cache/`
 6. Akses via browser
 
 ### **Scripts**
@@ -365,13 +397,20 @@ Base controller dengan:
 
 ---
 
-## 📦 File SQL Penting
+## 📦 Migrasi Database
 
-1. **production_setup.sql** - Setup database production
-2. **create_kpi_tables_v2.sql** - Setup tabel KPI
-3. **final_kpi_parent_menu.sql** - Setup menu KPI
-4. **fix_kpi_menu_access.sql** - Fix akses menu KPI
-5. **patch.sql** - Patch database
+File-file SQL yang pernah disebut di sini (`production_setup.sql`, `create_kpi_tables_v2.sql`, dkk.)
+**tidak ada** di repo ini — kemungkinan nama dari proyek template lain atau versi lama yang sudah
+dihapus. Mekanisme migrasi yang aktual sekarang:
+
+- **`MY_Controller::jalankan_bootstrap_sekali()`** menjalankan deretan `run_*_migrations()` (DDL +
+  auto-create menu/hak akses) **sekali per versi**, dijaga konstanta `BOOTSTRAP_VERSI`
+  (format `YYYY-MM-DD.n`) dan penanda file `application/cache/bootstrap_migrasi.txt`. Menambah
+  migrasi/menu baru **wajib** menaikkan `BOOTSTRAP_VERSI` — itu satu-satunya pemicu migrasi jalan
+  ulang di server lain.
+- **`sql_migrations/*.sql`** (19 file per audit ini) adalah arsip/referensi SQL per fitur
+  (mis. `purchasing_migration.sql`, `retur_display_batch.sql`, `rak_history_migration.sql`) —
+  bukan dijalankan otomatis, dan folder ini diblokir dari akses HTTP langsung (lihat `.htaccess`).
 
 ---
 
@@ -405,26 +444,31 @@ Base controller dengan:
 
 ## 🎯 Rekomendasi Pengembangan
 
+> Daftar usulan, **belum ada satu pun yang dikerjakan** per 1 Okt 2026 (tanda
+> ✅ di versi sebelumnya dokumen ini menyesatkan — bukan berarti selesai).
+> CSRF/XSS masih sengaja dimatikan dan password masih MD5, lihat
+> "Risiko yang sudah diketahui" di `CLAUDE.md`.
+
 ### **Short Term**
-1. ✅ Enable CSRF protection
-2. ✅ Upgrade password hashing ke bcrypt
-3. ✅ Add input validation
-4. ✅ Improve error handling
-5. ✅ Add logging untuk audit trail
+1. Enable CSRF protection
+2. Upgrade password hashing ke bcrypt
+3. Add input validation
+4. Improve error handling
+5. Add logging untuk audit trail
 
 ### **Medium Term**
-1. ✅ API documentation
-2. ✅ Unit testing
-3. ✅ Code refactoring
-4. ✅ Performance optimization
-5. ✅ Mobile responsive improvements
+1. API documentation
+2. Unit testing
+3. Code refactoring
+4. Performance optimization
+5. Mobile responsive improvements
 
 ### **Long Term**
-1. ✅ Migrate ke CodeIgniter 4
-2. ✅ Implement caching (Redis/Memcached)
-3. ✅ Real-time dashboard dengan WebSocket
-4. ✅ Mobile app
-5. ✅ Microservices architecture
+1. Migrate ke CodeIgniter 4
+2. Implement caching (Redis/Memcached)
+3. Real-time dashboard dengan WebSocket
+4. Mobile app
+5. Microservices architecture
 
 ---
 
@@ -439,5 +483,5 @@ Untuk pertanyaan atau pengembangan lebih lanjut, silakan analisis kode di:
 ---
 
 **Dokumen ini dibuat untuk membantu memahami struktur dan fungsionalitas sistem IRESIS.**
-**Terakhir diupdate: 2025-01-27**
+**Dibuat: 2025-01-27 · Diaudit & diperbaiki: 2026-10-01**
 
