@@ -170,6 +170,11 @@ tidak bocor ke halaman lain di SPA.
 4. **HO tidak pernah meloloskan resi** yang belum packing/belum picker, dan
    tidak membuat baris packing atas nama packer (opsi ini ditolak karena
    mengotori KPI/waktu packing dan butuh pemetaan `tblpegawai`→`tbluser`).
+   **Per 1 Okt 2026 ada pengecualian yang disengaja**: menu "Selesaikan
+   Sekarang (Tanpa Scan Ulang)" (§12) sekarang membolehkan HO meloloskan
+   resi lewat no absen, atas permintaan bisnis eksplisit (bukan bug) --
+   risikonya ditahan dengan validasi roster aktif dan **tanpa pencatatan
+   KPI sama sekali** untuk baris yang dibuat lewat jalur itu.
 5. **Unik per `(noresi, lost_type)`** di jalur baru. `Lost_scan_packer_fcd::save()`
    lama menolak duplikat per `noresi` saja, jadi tidak dipakai untuk PICKER.
 6. `tbllostscanpacker.nama_packer` tetap diisi `tblpegawai.nama_pegawai`
@@ -242,3 +247,61 @@ resi tanpa item sebagai "tidak ditemukan" (penjaga anti barcode non-resi).
 Kombinasi minimum: resi belum picker (skenario B/C), resi picker-belum-packing
 (A), resi lengkap (kontrol), resi kurir Shopee (ditolak di mode NDD). Script
 contoh ada di `dev_tools/` (gitignored).
+
+## 12. Selesaikan Langsung Tanpa Scan Ulang (per 1 Okt 2026)
+
+Tambahan di panel lost scan **Scan Paket NDD New** (HO): di bawah dropdown
+"Simpan Lost Scan" yang lama (tetap ada, tidak berubah -- resi tetap tidak
+lolos lewat jalur itu), ada blok baru dengan input **No Absen Picker**
+(muncul hanya kalau resi `NOT_PICKED`) dan **No Absen Packer** (selalu
+muncul), checkbox konfirmasi fisik, dan tombol **Selesaikan Sekarang (Tanpa
+Scan Ulang)**.
+
+"No absen" = `tblpegawai.kode_pegawai` (satu-satunya ID di `tblpegawai`,
+tidak ada kolom absen terpisah). HO menelepon packer/picker yang bersangkutan,
+minta nomor itu, lalu ketik di panel -- resi langsung lolos ke HO/NDD saat
+tombol ditekan, **tanpa** paket diantar fisik dan **tanpa** scan ulang oleh
+picker/packer.
+
+Ini adalah pengecualian yang **disengaja** terhadap keputusan desain §6 poin
+4 (yang masih berlaku untuk jalur lama/dropdown "Simpan"), diminta secara
+eksplisit lewat permintaan bisnis, bukan bug. Risiko integritas data ditahan
+dengan:
+
+- **Validasi roster aktif**, bukan percaya mentah nomor yang diketik:
+  - No absen picker divalidasi ke `tblpegawai` (`status_aktif = 'AKTIF'`) --
+    sama dengan validasi `Lost_scan_picker_fcd::tambah_picker()`.
+  - No absen packer divalidasi ke akun packer aktif (`tbluser.hakakses = 4`,
+    `isactive = 1`, terhubung ke `tblpegawai`) -- query sama dengan
+    `Scan_paket_ndd_new_fcd::daftar_packer()`, difilter ke satu
+    `kode_pegawai`. Ini sekaligus menyelesaikan masalah pemetaan
+    `tblpegawai`→`tbluser` yang jadi alasan §6 poin 4 menolak opsi ini dulu:
+    kalau nomor tidak match akun packer aktif, ditolak (`PACKER_TIDAK_VALID`),
+    tidak ada baris packing dengan FK kosong/salah.
+- **Tidak ada pencatatan KPI** untuk baris picking/packing yang dibuat lewat
+  jalur ini -- sama seperti precedent `tambah_picker()` (§6 poin 3): tidak
+  adil mengkreditkan KPI untuk kerja yang tidak benar-benar dilakukan ulang.
+- Baris yang dibuat ditandai `nama_komputer`/`keterangan` = `LOST SCAN HO
+  LANGSUNG`, berbeda dari baris normal maupun dari `LOST SCAN PICKER`
+  (`tambah_picker()`), supaya laporan bisa membedakan "benar discan ulang"
+  vs "diselesaikan administratif oleh HO".
+- Kalau resi ini sudah di antrean tim picker (`tbllostscanpicker_pending`
+  status `PENDING`), baris itu otomatis ditutup `SELESAI_LUAR` saat
+  diselesaikan dari sini -- tidak menggantung.
+- `tbllostscanpacker` tetap dicatat (dup-dicek per `(noresi, lost_type)`)
+  supaya Laporan Lost Scan lama tetap konsisten.
+
+Setelah baris picking/packing sintetis dibuat (kalau belum ada), endpoint
+memanggil `Scan_logistic_fcd::save_scan()` **apa adanya** (bukan logika
+duplikat) untuk benar-benar memasukkan `tblresikeluar`/`tblscan_ndd` --
+sama seperti scan HO/NDD normal, dikreditkan ke petugas HO yang memproses.
+
+| Endpoint (POST) | Fungsi |
+|---|---|
+| `scan-paket-ndd-new/selesaikan-lost-scan` | `Lost_scan_selesai_fcd::proses()` (insert picking/packing sintetis bila perlu, tutup antrean picker bila ada) lalu `Scan_logistic_fcd::save_scan()` |
+
+File terkait: `application/models/Lost_scan_selesai_fcd.php` (baru),
+`application/controllers/Scan_paket_ndd_new.php::selesaikan_lost_scan()`,
+`application/views/scan_paket_ndd_new/index.php` (blok `#ls_selesai_block`).
+Tidak ada migrasi/perubahan skema -- "no absen" memakai kolom
+`tblpegawai.kode_pegawai` yang sudah ada.

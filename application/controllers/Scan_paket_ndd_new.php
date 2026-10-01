@@ -33,6 +33,7 @@ class Scan_paket_ndd_new extends MY_Controller
         $this->load->model('lost_scan_packer_fcd');
         $this->load->model('scan_paket_ndd_new_fcd');
         $this->load->model('lost_scan_picker_fcd');
+        $this->load->model('lost_scan_selesai_fcd');
     }
 
     public function index()
@@ -200,6 +201,67 @@ class Scan_paket_ndd_new extends MY_Controller
         }
 
         $this->make_ajax_response(400, $lapor['message'], $data);
+    }
+
+    /**
+     * Selesaikan resi lost scan (picker dan/atau packer) LANGSUNG lewat no
+     * absen, tanpa antar fisik ke picker/packer untuk scan ulang -- jalur
+     * baru yang disengaja menyimpang dari docs/LOST_SCAN.md §6 poin 4 lama.
+     * Lihat docs/LOST_SCAN.md §12 untuk alasan & rincian.
+     *
+     * lost_scan_selesai_fcd->proses() memastikan baris picking/packing ada
+     * (insert kalau belum, pakai no absen yang diberikan). Kalau berhasil,
+     * baru panggil scan_logistic_fcd->save_scan() apa adanya -- itu yang
+     * benar-benar memasukkan tblresikeluar/tblscan_ndd, sama seperti save()
+     * normal di atas, supaya tidak ada logika ganda.
+     */
+    public function selesaikan_lost_scan()
+    {
+        $t_masuk = microtime(true);
+
+        if ($this->input->method() != 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $noresi      = trim((string) $this->input->post('noresi'));
+        $kode_picker = trim((string) $this->input->post('kode_picker'));
+        $kode_packer = trim((string) $this->input->post('kode_packer'));
+        $is_ndd      = $this->input->post('is_ndd');
+        $type        = ($is_ndd === 'true') ? 'NDD' : 'HO';
+
+        if ($noresi === '') {
+            $this->make_ajax_response(400, 'Nomor resi kosong');
+        }
+
+        $proses = $this->lost_scan_selesai_fcd->proses(
+            $noresi,
+            $kode_picker !== '' ? $kode_picker : null,
+            $kode_packer !== '' ? $kode_packer : null,
+            $this->data['user']
+        );
+
+        if (isset($proses['error'])) {
+            $this->make_ajax_response($proses['code'], $proses['message'], $this->tempel_waktu([
+                'EXCEPTION_CODE' => $proses['kode'],
+            ], $t_masuk));
+        }
+
+        $save = $this->scan_logistic_fcd->save_scan($noresi, $this->data['user'], $type);
+
+        if (isset($save['error'])) {
+            $code = isset($save['code']) ? $save['code'] : 400;
+            $data = isset($save['data']) ? $save['data'] : [];
+            $this->make_ajax_response($code, $save['message'], $this->tempel_waktu($data, $t_masuk));
+        }
+
+        $msg = 'Resi diselesaikan langsung tanpa scan ulang';
+        $this->make_ajax_response(201, $msg, $this->tempel_waktu([
+            'type'         => $save['type'],
+            'ho_inserted'  => !empty($save['ho_inserted']),
+            'ndd_inserted' => !empty($save['ndd_inserted']),
+            'nama_picker'  => $proses['nama_picker'],
+            'nama_packer'  => $proses['nama_packer'],
+        ], $t_masuk));
     }
 
     /** Kolom antrean picker yang ditampilkan panel; null bila tidak ada. */

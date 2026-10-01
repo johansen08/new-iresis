@@ -123,6 +123,31 @@
                                     Catat lewat <a href="lost_scan_packer/input" class="link">menu Lost Scan Packer</a>.
                                 </p>
                             <?php endif; ?>
+
+                            <hr style="margin: 18px 0; border-top: 1px dashed #f39c12;">
+                            <div id="ls_selesai_block">
+                                <p style="color: #a94442; font-weight: 600; margin-bottom: 8px;">
+                                    <i class="fa fa-exclamation-triangle"></i> Atau selesaikan sekarang tanpa antar fisik ke
+                                    picker/packer (konfirmasi lewat telepon ke yang bersangkutan):
+                                </p>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                                    <div id="ls_wrap_no_absen_picker" style="display: none;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #666;">No Absen Picker</label>
+                                        <input type="number" id="ls_no_absen_picker" class="form-control" placeholder="contoh: 123" style="width: 140px;">
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #666;">No Absen Packer</label>
+                                        <input type="number" id="ls_no_absen_packer" class="form-control" placeholder="contoh: 123" style="width: 140px;">
+                                    </div>
+                                </div>
+                                <label style="font-weight: 500; display: block; margin-bottom: 8px;">
+                                    <input type="checkbox" id="ls_konfirmasi_selesai">
+                                    Saya pastikan barang sudah benar-benar diambil &amp; dipacking fisik
+                                </label>
+                                <button type="button" class="btn btn-danger" id="ls_selesaikan" disabled style="font-weight: 700;">
+                                    <i class="fa fa-flag-checkered"></i> Selesaikan Sekarang (Tanpa Scan Ulang)
+                                </button>
+                            </div>
                         </div>
 
                         <div id="ls_mode_info" style="display: none;">
@@ -474,6 +499,7 @@ $(document).ready(function() {
         $("#ls_teks_alasan").html(lsBelumPicker ? TEKS_BELUM_PICKER : TEKS_BELUM_PACKING);
         $("#ls_antrean_picker").hide();
         $("#ls_lapor_wrap").hide();
+        $("#ls_wrap_no_absen_picker").toggle(lsBelumPicker);
         setModeSimpan();
         $("#panel_lost_scan").show();
         fokusPacker();
@@ -553,6 +579,14 @@ $(document).ready(function() {
         $("#ls_mode_simpan").show();
         $("#ls_simpan").prop("disabled", false);
         resetPilihanPacker();
+        resetSelesaikanLangsung();
+    }
+
+    function resetSelesaikanLangsung() {
+        $("#ls_no_absen_picker").val('');
+        $("#ls_no_absen_packer").val('');
+        $("#ls_konfirmasi_selesai").prop('checked', false);
+        $("#ls_selesaikan").prop('disabled', true);
     }
 
     function setModeInfo(catatan) {
@@ -586,6 +620,7 @@ $(document).ready(function() {
         lsBelumPicker = false;
         lsAdaAntrean = false;
         $("#panel_lost_scan").hide();
+        resetSelesaikanLangsung();
         $("#noresi").focus();
     }
 
@@ -635,6 +670,72 @@ $(document).ready(function() {
             }
         });
     }
+
+    // ===== SELESAIKAN LANGSUNG (TANPA SCAN ULANG) =====
+    // Jalur baru: HO memasukkan no absen picker/packer dan resi langsung
+    // dianggap selesai -- lihat docs/LOST_SCAN.md §12. Checkbox konfirmasi
+    // wajib dicentang dulu supaya tombol ini tidak keklik tidak sengaja.
+    $("#ls_konfirmasi_selesai").on('change', function() {
+        $("#ls_selesaikan").prop('disabled', !$(this).is(':checked'));
+    });
+
+    function selesaikanLangsung() {
+        if (!lsResi) return;
+
+        var resi = lsResi;
+        var noAbsenPicker = $("#ls_no_absen_picker").val().trim();
+        var noAbsenPacker = $("#ls_no_absen_packer").val().trim();
+
+        if (lsBelumPicker && noAbsenPicker === '') {
+            noty({ text: 'Isi no absen picker dulu', layout: 'topRight', type: 'warning', timeout: 2500 });
+            $("#ls_no_absen_picker").focus();
+            return;
+        }
+        if (noAbsenPacker === '') {
+            noty({ text: 'Isi no absen packer dulu', layout: 'topRight', type: 'warning', timeout: 2500 });
+            $("#ls_no_absen_packer").focus();
+            return;
+        }
+
+        $("#ls_selesaikan").prop("disabled", true);
+
+        $.ajax({
+            url: "scan-paket-ndd-new/selesaikan-lost-scan",
+            type: "POST",
+            data: {
+                noresi: resi,
+                kode_picker: noAbsenPicker,
+                kode_packer: noAbsenPacker,
+                is_ndd: $("#is_ndd").val()
+            },
+            dataType: "json",
+            success: function(r) {
+                if (r.code === 201) {
+                    var d = r.data || {};
+                    var teksRiwayat = 'LOST SCAN SELESAI LANGSUNG (tanpa scan ulang)';
+                    if (d.nama_picker) teksRiwayat += ' -- picker: ' + d.nama_picker;
+                    if (d.nama_packer) teksRiwayat += ' -- packer: ' + d.nama_packer;
+
+                    if (d.ndd_inserted) bumpCounter("#total_scan_ndd_display");
+                    if (d.ho_inserted) bumpCounter("#total_scan_ho_display");
+
+                    noty({ text: r.message + ': ' + resi, layout: 'topRight', type: 'success', timeout: 4000 });
+                    pushHistory(resi, teksRiwayat, true, null);
+                    playTag('audio-alert');
+                    tutupPanelLostScan();
+                } else {
+                    noty({ text: r.message || 'Gagal menyelesaikan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
+                    $("#ls_selesaikan").prop("disabled", false);
+                }
+            },
+            error: function() {
+                noty({ text: 'Kesalahan sistem saat menyelesaikan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
+                $("#ls_selesaikan").prop("disabled", false);
+            }
+        });
+    }
+
+    $("#ls_selesaikan").on('click', selesaikanLangsung);
 
     $("#ls_simpan").on('click', simpanLostScan);
     $("#ls_tutup").on('click', tutupPanelLostScan);
