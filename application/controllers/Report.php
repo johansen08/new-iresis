@@ -842,10 +842,14 @@ class Report extends MY_Controller
             $start_date = explode(" - ", $reportrange)[0];
             $end_date = explode(" - ", $reportrange)[1];
 
-            $data['list_data']     = $this->receipt_fcd->get_data_shipping_report($start_date, $end_date)->result_array();
-            $data['grand_total']   = $this->receipt_fcd->get_grand_total_data_shipping_report($start_date, $end_date);
-            $data['detail_data']   = $this->receipt_fcd->get_shipping_report_detail($start_date, $end_date);
-            $data['cat_totals']    = $this->receipt_fcd->get_shipping_report_category_totals($start_date, $end_date);
+            $data['list_data']       = $this->receipt_fcd->get_data_shipping_report($start_date, $end_date)->result_array();
+            $data['grand_total']     = $this->receipt_fcd->get_grand_total_data_shipping_report($start_date, $end_date);
+            $data['detail_data']     = $this->receipt_fcd->get_shipping_report_detail($start_date, $end_date);
+            $data['cat_totals']      = $this->receipt_fcd->get_shipping_report_category_totals($start_date, $end_date);
+            // Breakdown tahap resi JNT-KAV-DPR Kargo (picker/packing/HO/keluar)
+            // dipakai tim HO & tim Resi -- filternya tanggal_printresi, bukan
+            // tanggal_resikeluar, supaya resi yang masih di picker ikut terhitung.
+            $data['kargo_breakdown'] = $this->receipt_fcd->get_kargo_breakdown_tahap($start_date, $end_date);
         }
 
         $data['reportrange'] = $reportrange;

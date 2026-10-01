@@ -2625,7 +2625,7 @@ class Receipt_fcd extends CI_Model
     {
         $sql = "
             SELECT
-                COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
+                " . self::SQL_NAMA_KURIR_SPLIT_KARGO . " AS nama_kurir,
                 COUNT(DISTINCT rk.id_resi) AS total,
                 COUNT(DISTINCT CASE WHEN agg.unique_skus = 1 AND agg.total_qty = 1
                                      AND (spp.kode_status = '1_SKU_PICKER'
@@ -2654,7 +2654,7 @@ class Receipt_fcd extends CI_Model
             ) agg ON agg.id_resi = pr.id_printresi
             WHERE rk.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
               AND rk.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
-            GROUP BY k.nama_kurir
+            GROUP BY " . self::SQL_NAMA_KURIR_SPLIT_KARGO . "
             ORDER BY total DESC
         ";
         return $this->db->query($sql)->result_array();
@@ -2702,6 +2702,55 @@ class Receipt_fcd extends CI_Model
     }
 
     /**
+     * Breakdown tahap untuk resi JNT-KAV-DPR Kargo (lihat NAMA_KURIR_SPLIT_KARGO):
+     * tim HO dan tim Resi perlu tahu posisi resi kargo yang BELUM keluar
+     * (masih di picker/packing/HO), bukan cuma yang sudah terkirim seperti
+     * di get_shipping_report_detail(). Filternya pakai tanggal_printresi
+     * (kapan resi dicetak), bukan tanggal_resikeluar, supaya resi yang masih
+     * nyangkut di tahap awal (belum punya tanggal_resikeluar) tetap terhitung.
+     * Tahap ditentukan dari jejak paling jauh yang sudah dicapai resi itu;
+     * EXISTS dipakai (bukan LEFT JOIN) karena tblpacking/tblscan_ho/
+     * tblresikeluar tidak unik per id_resi -- LEFT JOIN akan menggandakan baris.
+     */
+    function get_kargo_breakdown_tahap($start_date, $end_date)
+    {
+        $sql = "
+            SELECT tahap, COUNT(*) AS total FROM (
+                SELECT
+                    CASE
+                        WHEN EXISTS (SELECT 1 FROM tblresikeluar rk WHERE rk.id_resi = pr.id_printresi) THEN 'sudah_keluar'
+                        WHEN EXISTS (SELECT 1 FROM tblscan_ho ho WHERE ho.id_resi = pr.id_printresi) THEN 'ho'
+                        WHEN EXISTS (SELECT 1 FROM tblpacking pk WHERE pk.id_resi = pr.id_printresi) THEN 'packing'
+                        WHEN EXISTS (SELECT 1 FROM tblresiambilbarang rab WHERE rab.id_resi = pr.id_printresi) THEN 'picker'
+                        ELSE 'belum_diambil'
+                    END AS tahap
+                FROM tblprintresi pr
+                INNER JOIN tblkurir k ON k.id_kurir = pr.id_kurir
+                WHERE k.nama_kurir = " . $this->db->escape(self::NAMA_KURIR_SPLIT_KARGO) . "
+                  AND pr.noresi REGEXP '^[0-9]+$'
+                  AND pr.tanggal_printresi >= " . $this->db->escape($start_date) . "
+                  AND pr.tanggal_printresi <= " . $this->db->escape($end_date) . "
+            ) x
+            GROUP BY tahap
+        ";
+        $rows = $this->db->query($sql)->result_array();
+
+        $hasil = array(
+            'belum_diambil' => 0,
+            'picker'        => 0,
+            'packing'       => 0,
+            'ho'            => 0,
+            'sudah_keluar'  => 0,
+        );
+        foreach ($rows as $r) {
+            $hasil[$r['tahap']] = (int) $r['total'];
+        }
+        $hasil['total'] = array_sum($hasil);
+
+        return $hasil;
+    }
+
+    /**
      * Aturan "wajib keluar" untuk laporan pengiriman (ekspor Excel).
      *
      * Setiap paket yang di-HO pada hari D digolongkan menurut jam pesanannya
@@ -2727,6 +2776,25 @@ class Receipt_fcd extends CI_Model
     );
     const ID_MARKETPLACE_TIKTOK = 5;
     const LABEL_TIKTOK          = 'TikTok';
+
+    /**
+     * JNT-KAV-DPR membawa dua layanan berbeda yang disatukan sebagai satu
+     * kurir: J&T Express (reguler) dan J&T Cargo. Keduanya tidak punya
+     * id_kurir terpisah, tapi formatnya konsisten — dicek manual terhadap
+     * contoh resi nyata (reguler JY1842047834 dkk, kargo 201797636953):
+     * resi J&T Express selalu diawali huruf (seri JX/JY/JD), sedangkan
+     * resi J&T Cargo murni angka. Dipakai untuk memecah baris "JNT-KAV-DPR"
+     * jadi "JNT-KAV-DPR - Reguler" / "JNT-KAV-DPR - Kargo" di laporan
+     * pengiriman tanpa mengubah kurir lain.
+     */
+    const NAMA_KURIR_SPLIT_KARGO = 'JNT-KAV-DPR';
+    const SQL_NAMA_KURIR_SPLIT_KARGO = "
+        CASE
+            WHEN k.nama_kurir = 'JNT-KAV-DPR' THEN
+                CONCAT(k.nama_kurir, ' - ', CASE WHEN pr.noresi REGEXP '^[0-9]+$' THEN 'Kargo' ELSE 'Reguler' END)
+            ELSE COALESCE(k.nama_kurir, '- Tidak diketahui -')
+        END
+    ";
 
     // Kategori resi mengikuti get_shipping_report_detail(); 'lainnya' menampung
     // resi tanpa detail SKU supaya jumlah kategori selalu = total.
@@ -2808,7 +2876,11 @@ class Receipt_fcd extends CI_Model
                    COUNT(*)             AS total
             FROM (
                 SELECT $mp_case AS mp,
-                       COALESCE(k.nama_kurir, '- Tidak diketahui -') AS nama_kurir,
+                       CASE
+                           WHEN k.nama_kurir = " . $this->db->escape(self::NAMA_KURIR_SPLIT_KARGO) . " THEN
+                               CONCAT(k.nama_kurir, ' - ', CASE WHEN t.noresi REGEXP '^[0-9]+$' THEN 'Kargo' ELSE 'Reguler' END)
+                           ELSE COALESCE(k.nama_kurir, '- Tidak diketahui -')
+                       END AS nama_kurir,
                        CASE
                            WHEN t.unique_skus = 1 AND t.total_qty = 1
                                 AND (pick.id_resi IS NOT NULL OR pack.id_resi IS NOT NULL) THEN 'spesial'
@@ -2826,6 +2898,7 @@ class Receipt_fcd extends CI_Model
                        END AS kelas
                 FROM (
                     SELECT rk.id_resi, rk.tanggal_resikeluar, pr.id_marketplace, pr.id_kurir,
+                           MIN(pr.noresi)              AS noresi,
                            COALESCE(NULLIF(pr.tanggal_pesan, '0000-00-00 00:00:00'), pr.tanggal_printresi) AS masuk,
                            COUNT(DISTINCT dr.sku)      AS unique_skus,
                            SUM(dr.jumlah)              AS total_qty,
