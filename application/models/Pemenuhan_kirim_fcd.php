@@ -82,7 +82,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 6;
+    const VERSI_CACHE = 7;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -131,7 +131,10 @@ class Pemenuhan_kirim_fcd extends CI_Model
      *   id, r no resi, p no pesanan, mp, k kurir,
      *   sku [[sku, qty]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
      *   g grup, up masuk IRESIS, ps jam pesan, bk batas kirim,
-     *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing.
+     *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing,
+     *   st status pesanan MP sekarang (mis. READY_TO_SHIP, SHIPPED) untuk badge di kolom MP —
+     *   status ini bisa sudah SHIPPED meski baris tetap muncul di "belum" (lihat §3 docs:
+     *   untuk tanggal lalu status memakai kondisi sekarang, bukan riwayat per tanggal).
      * Belum picker = pk ''; belum packer = pc ''; belum HO = semua baris.
      */
     public function daftar_belum($tanggal)
@@ -143,7 +146,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
         return $this->hitung_sekali($kunci, $umur, function () use ($tanggal, $hari_ini, $per_jam) {
             $q = $this->db->query("
-                SELECT z.id, z.grup, z.kat, z.pick_at, z.pack_at, z.picker_c, z.printed_at, z.masuk, z.btk
+                SELECT z.id, z.grup, z.kat, z.pick_at, z.pack_at, z.picker_c, z.printed_at, z.masuk, z.btk, z.st
                 FROM (" . $this->sql_per_resi($tanggal, $per_jam) . ") z
                 WHERE z.batal = 0 AND z.grup IN ('KA', 'TA', 'TB') AND z.keluar_at IS NULL
                 ORDER BY z.printed_at, z.id
@@ -179,6 +182,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'pk'  => $z['pick_at'] ? $jam($z['pick_at']) : ($z['picker_c'] ? '-' : ''),
                     'pn'  => $z['pick_at'] ? $r['pn'] : '',
                     'pc'  => $jam($z['pack_at']),
+                    'st'  => $z['st'],
                 ];
             }
             return [

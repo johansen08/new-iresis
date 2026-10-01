@@ -192,6 +192,7 @@
 .pkh-chip.w{background:var(--pkh-warn-soft);color:var(--pkh-warn)}
 .pkh-chip.b{background:var(--pkh-bad-soft);color:var(--pkh-bad)}
 .pkh-chip.a{background:var(--pkh-accent-soft);color:var(--pkh-accent)}
+.pkh-chip.ok{background:var(--pkh-ok-soft);color:var(--pkh-ok)}
 .pkh-sku{display:grid;gap:2px}
 .pkh-sku div{white-space:nowrap}
 .pkh-sku .q{font-weight:700;color:var(--pkh-ink)}
@@ -640,6 +641,11 @@
     return s.slice(0, 10) === tgl ? jam : (+s.slice(8, 10)) + ' ' + BLN[+s.slice(5, 7)] + ' ' + jam;
   }
   function tglPendek(s) { return s ? (+s.slice(8, 10)) + ' ' + BLN[+s.slice(5, 7)] : '–'; }
+  var STATUS_KELUAR_MP = ['SHIPPED', 'COMPLETED', 'RETURNED'];
+  function labelStatusMp(st) {   // "READY_TO_SHIP" -> "Ready To Ship"
+    if (!st) return '';
+    return st.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
   function diTahap(r, i) { return i === 0 ? r.pk === '' : i === 1 ? r.pc === '' : true; }
   function posisiM(r) { return r.pc ? 'pack' : (r.pk ? 'pick' : 'belum'); }
   function barisTahap() { var i = pop.tahap; return pop.data ? pop.data.rows.filter(function (r) { return diTahap(r, i); }) : []; }
@@ -782,7 +788,7 @@
         return '<tr>' +
           '<td data-l="No resi"><div><div class="pkh-mono pkh-resi">' + tandai(r.r) + '</div>' + (chips ? '<div class="pkh-chips">' + chips + '</div>' : '') + '</div></td>' +
           '<td data-l="No pesanan"><div class="pkh-mono pkh-pes">' + (r.p ? tandai(r.p) : '–') + '</div></td>' +
-          '<td data-l="MP" class="pkh-nowrap">' + esc(r.mp) + '</td>' +
+          '<td data-l="MP" class="pkh-nowrap"><div>' + esc(r.mp) + (r.st ? '<div class="pkh-chips"><span class="pkh-chip' + (STATUS_KELUAR_MP.indexOf(r.st) > -1 ? ' ok' : '') + '">' + esc(labelStatusMp(r.st)) + '</span></div>' : '') + '</div></td>' +
           '<td data-l="Kurir" class="pkh-nowrap">' + esc(r.k) + '</td>' +
           '<td data-l="SKU × Qty"><div class="pkh-sku">' + sku + '</div></td>' +
           '<td data-l="Masuk IRESIS" class="pkh-nowrap"><div>' + waktuM(r.up, d.tanggal) + '<div class="pkh-kecil">pesan ' + waktuM(r.ps, d.tanggal) + '</div></div></td>' +
