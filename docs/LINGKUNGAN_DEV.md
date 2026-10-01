@@ -1,11 +1,24 @@
 # Lingkungan Dev (`iresis-dev`)
 
+> **Status per 1 Okt 2026 — folder ini TIDAK ADA di PC produksi
+> (`C:\xampp\htdocs\new-iresis`).** Dicek langsung: `C:\xampp\htdocs\iresis-dev`
+> tidak ditemukan di mesin ini. Semua instruksi "kerjakan/uji di dev dulu" di
+> dokumen ini dan di `docs/UJI_REGRESI.md`, `docs/DEVELOPMENT_STANDARDS.md` §6,
+> `docs/PRD.md` tidak bisa diikuti apa adanya di PC ini sampai folder dev
+> dibuat ulang (lihat §6 di bawah). Sampai saat itu, pekerjaan di PC produksi
+> ini memakai branch git (`feature/*`/`fix/*` dari `master`) langsung di
+> `new-iresis`, dengan risiko: karena hanya ada satu working directory, isi
+> file di folder itu ikut berubah begitu branch di-checkout — jadi 16 klien
+> LAN langsung melihat kode branch yang sedang aktif, bukan cuma `master`.
+> Kembalikan ke `master` (`git checkout master`) begitu selesai menguji.
+
 Dibuat 23 September 2026. Sebelumnya semua pengembangan dilakukan langsung di
 folder produksi `C:\xampp\htdocs\new-iresis`, sehingga setiap simpan file langsung
 dipakai 16 klien LAN. Contohnya 21 Sep 2026: urutan edit yang terbalik di
 `MY_Controller` membuat 22 request scan gagal dalam 16 detik. Sekarang
-pengembangan dan uji coba dilakukan di folder dev. Folder produksi hanya
-menerima `git pull`.
+pengembangan dan uji coba **seharusnya** dilakukan di folder dev. Folder produksi
+**seharusnya** hanya menerima `git pull` — lihat catatan status di atas untuk
+kondisi aktual PC ini.
 
 ## 1. Peta produksi vs dev
 
