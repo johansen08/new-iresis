@@ -236,10 +236,10 @@ class Monitoring extends MY_Controller
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(13);
 
         $kolom = ['No Resi', 'No Pesanan', 'Marketplace', 'Kurir', 'SKU x Qty', 'Total Qty', 'Jenis', 'Kelompok',
-                  'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing'];
-        $huruf = range('A', 'O');
+                  'Masuk IRESIS', 'Jam Pesan', 'Batas Kirim', 'Posisi', 'Jam Pick', 'Picker', 'Jam Packing', 'Packer'];
+        $huruf = range('A', 'P');
         $ws->fromArray($kolom, NULL, 'A4');
-        $ws->getStyle('A4:O4')->getFont()->setBold(true);
+        $ws->getStyle('A4:P4')->getFont()->setBold(true);
 
         $baris = 5;
         foreach ($rows as $r) {
@@ -249,7 +249,7 @@ class Monitoring extends MY_Controller
                 implode(', ', array_map(function ($s) { return $s[0] . ' x' . $s[1]; }, $r['sku'])),
                 array_sum(array_column($r['sku'], 1)),
                 $jenis[$r['j']] ?? '', $grup[$r['g']] ?? $r['g'],
-                $r['up'], $r['ps'], $r['bk'], $posisi, $r['pk'] === '-' ? '' : $r['pk'], $r['pn'], $r['pc'],
+                $r['up'], $r['ps'], $r['bk'], $posisi, $r['pk'] === '-' ? '' : $r['pk'], $r['pn'], $r['pc'], $r['pcn'],
             ];
             foreach ($nilai as $i => $v) {
                 // teks eksplisit: no resi/pesanan angka panjang tidak boleh jadi 1,23E+15
@@ -266,7 +266,7 @@ class Monitoring extends MY_Controller
         }
         $ws->getColumnDimension('A')->setAutoSize(false)->setWidth(24);   // judul di A1 jangan melebarkan kolom resi
         $ws->freezePane('A5');
-        $ws->setAutoFilter('A4:O' . ($baris - 1));
+        $ws->setAutoFilter('A4:P' . ($baris - 1));
 
         $nama = preg_replace('/[^A-Za-z0-9]+/', '_', $judul) . '_' . $tanggal . ($daftar['hari_ini'] ? '_' . str_replace(':', '', $daftar['jam_data']) : '') . '.xlsx';
         while (ob_get_level() > 0) {

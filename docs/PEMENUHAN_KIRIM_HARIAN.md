@@ -46,7 +46,12 @@ popup daftar resi:
 - Tab tahap: Belum picker / Belum packer / Belum HO, dengan jumlahnya.
 - Kolom: no resi (label Sisa kemarin / TikTok 12–15), no pesanan,
   marketplace, kurir, SKU × qty, masuk IRESIS + jam pesan, batas kirim (merah
-  bila lewat), posisi (belum dipick / dipick jam + nama picker / packing jam).
+  bila lewat), posisi — menampilkan **setiap tahap yang sudah lewat** sekaligus
+  (belum dipick; atau dipick jam lengkap + nama picker; dan bila sudah packing,
+  ditambah packing jam lengkap + nama packer di bawahnya — bukan saling
+  menimpa, supaya resi yang sudah packing tetap kelihatan kapan dan siapa yang
+  memickingnya). Belum ada kolom "oleh siapa" untuk scan HO karena tab Belum
+  HO hanya berisi resi yang justru belum pernah discan HO.
   **Tidak ditampilkan**: toko (`tblprintresi.toko` kosong di semua resi), no rak
   (user: tidak perlu), dan jam tutup kurir `tblkurir.jam_batas_kirim` (sempat
   tampil di rilis H/I; kolom itu tidak diisi/dipakai menu mana pun sehingga
