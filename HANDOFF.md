@@ -58,7 +58,7 @@ Script Python terkait (folder `scripts/`):
 ## 5. Cron Jobs (token-protected, via `Cron.php`)
 
 Semua endpoint butuh `?token=<cron_token di secrets.php>` atau dijalankan via CLI:
-- `cron/finalisasi_video`, `cron/tutup_video_menggantung` — pemeliharaan video packing (task scheduler).
+- `cron/finalisasi_video`, `cron/tutup_video_menggantung` — pemeliharaan video packing (task scheduler). Alur lengkap fitur rekaman (tujuan untuk CS, spesifikasi teknis, siklus hidup berkas) ada di `docs/VIDEO_PACKING.md`.
 - `cron/auto_upload_resi`, `cron/auto_upload_retur_jubelio` — endpoint upload yang dipanggil script Python di atas.
 
 ## 6. Menjalankan Project

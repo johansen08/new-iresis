@@ -24,27 +24,34 @@
 
     // --- Setelan yang paling mungkin perlu disesuaikan di lapangan ----------
     // Diminta 1080p supaya label resi/SKU terbaca jelas saat video diputar
-    // untuk cek komplain. Ini hanya permintaan (constraint `ideal`): webcam
-    // 720p tetap jalan dengan mode terbaiknya (panel memberi tanda oranye),
-    // dan webcam 4MP/2K akan memberi mode 1080p-nya. Kalau ingin merekam
-    // penuh 2560x1440, cukup ubah dua angka ini -- tapi beban encode CPU dan
-    // ukuran berkas ikut naik ~1,8x.
+    // untuk cek komplain. Kualitas diutamakan di atas ukuran berkas (keputusan
+    // 2026-10-01): dicoba dulu sebagai constraint KERAS (`min` + `ideal`) lewat
+    // constraintKeras() di bawah, supaya webcam yang sanggup 1080p benar-benar
+    // dipaksa ke 1080p, bukan sekadar "diminta". Kalau webcam-nya cuma 720p,
+    // getUserMedia menolak constraint keras itu (OverconstrainedError) dan
+    // bukaKamera() otomatis mencoba ulang pakai constraintLunak() (`ideal`
+    // saja) supaya PC itu tetap bisa packing walau videonya di bawah 1080p.
+    // Kalau ingin merekam penuh 2560x1440, cukup ubah dua angka ini -- tapi
+    // beban encode CPU ikut naik.
     var LEBAR_IDEAL      = 1920;
     var TINGGI_IDEAL     = 1080;
     var FPS_IDEAL        = 15;
-    // Ukuran berkas ditentukan bitrate, bukan resolusi: rekaman sudah lossy
-    // sejak keluar dari encoder browser, jadi kompresi di server (zip, atau
-    // encode ulang "tanpa mengurangi kualitas") tidak mengecilkannya --
-    // diukur: gzip hemat 2,8%, re-encode H.264 CRF 20-23 malah membesar
-    // 1,5-2,6x karena encoder ikut menyimpan noise webcam. Satu-satunya jalan
-    // hemat adalah codec yang lebih efisien saat merekam: VP9 memberi
-    // kualitas visual setara VP8 pada bitrate ~25-30% lebih rendah, jadi
-    // bitrate-nya dipisah per codec (lihat pilihCodec()).
-    //   VP9 2,0 Mbps  = ~15 MB per menit rekaman (~900 MB/jam per PC)
-    //   VP8 2,7 Mbps  = ~20 MB per menit rekaman (~1,2 GB/jam per PC)
-    // Kalau resolusi diubah, kedua bitrate harus ikut disesuaikan.
-    var BITRATE_VP9      = 2000000;
-    var BITRATE_VP8      = 2700000;
+    // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
+    // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
+    // berkas (keputusan 2026-10-01). Rekaman sudah lossy sejak keluar dari
+    // encoder browser, jadi kompresi di server (zip, atau encode ulang "tanpa
+    // mengurangi kualitas") tidak mengecilkannya -- diukur: gzip hemat 2,8%,
+    // re-encode H.264 CRF 20-23 malah membesar 1,5-2,6x karena encoder ikut
+    // menyimpan noise webcam. VP9 memberi kualitas visual setara VP8 pada
+    // bitrate ~25-30% lebih rendah, jadi bitrate-nya dipisah per codec (lihat
+    // pilihCodec()).
+    //   VP9 8,0 Mbps  = ~60 MB per menit rekaman (~3,6 GB/jam per PC)
+    //   VP8 10,0 Mbps = ~75 MB per menit rekaman (~4,5 GB/jam per PC)
+    // PASTIKAN ruang disk server cukup untuk 16 PC packer merekam paralel
+    // dengan angka ini sebelum dipakai produksi. Kalau resolusi diubah, kedua
+    // bitrate harus ikut disesuaikan.
+    var BITRATE_VP9      = 8000000;
+    var BITRATE_VP8      = 10000000;
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
@@ -345,6 +352,38 @@
         }).catch(function () { /* daftar kamera bukan hal kritis */ });
     }
 
+    /**
+     * Constraint video keras: `min` + `ideal` 1080p. `min` adalah constraint
+     * sungguhan -- getUserMedia menolak (OverconstrainedError) kalau webcam
+     * tidak sanggup, jadi ini dicoba dulu supaya webcam yang sebenarnya mampu
+     * 1080p tidak diam-diam diberi mode lebih rendah oleh browser.
+     */
+    function constraintKeras(deviceId) {
+        var video = {
+            width:     { min: LEBAR_IDEAL,  ideal: LEBAR_IDEAL },
+            height:    { min: TINGGI_IDEAL, ideal: TINGGI_IDEAL },
+            frameRate: { ideal: FPS_IDEAL }
+        };
+        if (deviceId) video.deviceId = { ideal: deviceId };
+        return video;
+    }
+
+    /**
+     * Constraint lunak: cuma `ideal`, selalu berhasil (browser memberi mode
+     * terdekat yang disanggupi webcam). Jalur cadangan untuk webcam di bawah
+     * 1080p -- lihat tampilkanResolusi() untuk tanda oranye kalau ini yang
+     * terpakai.
+     */
+    function constraintLunak(deviceId) {
+        var video = {
+            width:     { ideal: LEBAR_IDEAL },
+            height:    { ideal: TINGGI_IDEAL },
+            frameRate: { ideal: FPS_IDEAL }
+        };
+        if (deviceId) video.deviceId = { ideal: deviceId };
+        return video;
+    }
+
     function bukaKamera() {
         if (stream) {
             statusKamera = 'siap';
@@ -353,42 +392,45 @@
 
         statusKamera = 'membuka';
 
-        var video = {
-            width:     { ideal: LEBAR_IDEAL },
-            height:    { ideal: TINGGI_IDEAL },
-            frameRate: { ideal: FPS_IDEAL }
-        };
-
         var pilihan = '';
         try { pilihan = window.localStorage.getItem(KUNCI_KAMERA) || ''; } catch (e) {}
-        if (pilihan) {
-            video.deviceId = { ideal: pilihan };
+
+        function pakaiStream(s) {
+            stream = s;
+            statusKamera = 'siap';
+            el.video.srcObject = s;
+            setStatus('Kamera siap', '#5cb85c');
+            tampilkanResolusi();
+            // Dibaca ulang setelah frame pertama masuk: getSettings() bisa
+            // masih kosong tepat setelah getUserMedia selesai.
+            el.video.addEventListener('loadedmetadata', tampilkanResolusi, { once: true });
+            isiDaftarKamera();
+            return s;
+        }
+
+        function gagalTotal(err) {
+            statusKamera = 'gagal';
+            setStatus('Kamera gagal: ' + (err.name || err.message), '#d9534f');
+            setInfo('<span style="color:#d9534f">Scan resi baru DITOLAK sampai kamera hidup. ' +
+                'Izinkan akses kamera di browser, lalu buka ulang menu ini.</span>' +
+                htmlJalurDarurat());
+            pasangKlikJalurDarurat();
+            throw err;
         }
 
         // Sengaja tanpa audio: bukti packing cukup gambarnya, dan tanpa track
         // suara rekaman lebih ringan (tidak ada encode Opus, tidak minta izin
         // mikrofon). Sisi server (ffmpeg -an) mengasumsikan hal yang sama.
-        return navigator.mediaDevices.getUserMedia({ video: video, audio: false })
-            .then(function (s) {
-                stream = s;
-                statusKamera = 'siap';
-                el.video.srcObject = s;
-                setStatus('Kamera siap', '#5cb85c');
-                tampilkanResolusi();
-                // Dibaca ulang setelah frame pertama masuk: getSettings() bisa
-                // masih kosong tepat setelah getUserMedia selesai.
-                el.video.addEventListener('loadedmetadata', tampilkanResolusi, { once: true });
-                isiDaftarKamera();
-                return s;
-            })
-            .catch(function (err) {
-                statusKamera = 'gagal';
-                setStatus('Kamera gagal: ' + (err.name || err.message), '#d9534f');
-                setInfo('<span style="color:#d9534f">Scan resi baru DITOLAK sampai kamera hidup. ' +
-                    'Izinkan akses kamera di browser, lalu buka ulang menu ini.</span>' +
-                    htmlJalurDarurat());
-                pasangKlikJalurDarurat();
-                throw err;
+        return navigator.mediaDevices.getUserMedia({ video: constraintKeras(pilihan), audio: false })
+            .then(pakaiStream)
+            .catch(function (errKeras) {
+                // Constraint keras ditolak -- kemungkinan besar webcam-nya
+                // memang tidak sanggup 1080p. Coba lagi dengan constraint
+                // lunak sebelum menyerah, supaya PC itu tetap bisa packing
+                // (videonya di bawah 1080p, bukan gagal total).
+                return navigator.mediaDevices.getUserMedia({ video: constraintLunak(pilihan), audio: false })
+                    .then(pakaiStream)
+                    .catch(gagalTotal);
             });
     }
 

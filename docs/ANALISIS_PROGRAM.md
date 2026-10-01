@@ -142,6 +142,7 @@ iresis-dev/
 - **Retur Complain**: Manajemen komplain
 - **Masalah Picker**: Tracking masalah picker (versi lama, `cs/masalah-picker`)
 - **Daftar Masalah Picker New** (`masalah-picker-new`, controller `Masalah_picker_new.php` + model `Masalah_picker_new_fcd.php`, sejak 17 Sep 2026): proses semua masalah pending sekaligus dan cetak slip per picker — picker terdeteksi otomatis dari `tblresiambilbarang`, nama packer ikut tercetak, LEBIH AMBIL diproses tanpa cetak, baris slip urut rak lantai 1-2-3. Tiap proses tercatat di `tblmasalahpicker_proses(_item)` untuk cetak ulang. Berdiri sendiri dari menu lama supaya yang lama tetap bisa dipakai.
+- **Video Packing** (`cs/video-packing`, sejak 19 Sep 2026): cari rekaman video packing per nomor resi, putar langsung atau siapkan versi MP4 untuk dikirim ke pelanggan lewat WhatsApp — bukti objektif saat menangani komplain barang salah/kurang/rusak. Akses saat ini masih dibatasi webmaster (uji coba). Detail lengkap: `docs/VIDEO_PACKING.md`.
 
 **Controller**: `Cs.php`, `Masalah_picker_new.php`
 

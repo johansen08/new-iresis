@@ -870,3 +870,57 @@ migrasi, `VERSI_CACHE` 5. Verifikasi: pilih **21 Sep 2026** → ketiga kotak
 Branch `fix/pkh-tiktok-1515-nama-mp`, hanya model dan view; tanpa migrasi,
 `VERSI_CACHE` 6. Verifikasi: pilih **15 Sep** dan **23 Sep** → 100%; buka
 Lihat detail hari ini → resi `TT-` tertulis TikTok.
+
+---
+
+## N. Rilis 1 Oktober 2026 — rekaman webcam packer: kualitas diutamakan di atas ukuran berkas
+
+Permintaan user: video packing **jangan dikompres**, kualitas diutamakan.
+Hanya `assets/js/packer_video.js` yang berubah perilakunya; sisi server
+(upload potongan, remux, antrian MP4, halaman Video Packing CS) tidak
+berubah. **Tidak ada migrasi, tidak ada SQL.** Kembali pakai `git pull`
+biasa (A.5).
+
+| Perubahan | Sebelumnya | Sekarang |
+|---|---|---|
+| Bitrate VP9 | 2,0 Mbps | **8,0 Mbps** |
+| Bitrate VP8 | 2,7 Mbps | **10,0 Mbps** |
+| Constraint resolusi 1080p | `ideal` saja (browser boleh turunkan diam-diam) | `min` + `ideal` dicoba dulu (`constraintKeras()`); kalau webcam tidak sanggup, otomatis jatuh ke `ideal` saja (`constraintLunak()`) |
+
+### N.1 Kapasitas disk `C:\video-packing\` — WAJIB dicek sebelum pull
+
+Kenaikan bitrate ini **~4x** dari rilis E (19 Sep). Perkiraan baru:
+
+| Setelan | Per PC per jam | ~30 PC × 6 jam/hari |
+|---|---|---|
+| 1080p VP9 2,0 Mbps (rilis E, sebelum ini) | ≈ 900 MB | ≈ 160 GB/hari |
+| **1080p VP9 8,0 Mbps (rilis ini)** | **≈ 3,6 GB** | **≈ 650 GB/hari** |
+| 1080p VP8 10,0 Mbps (PC yang jatuh ke VP8) | ≈ 4,5 GB | ≈ 810 GB/hari |
+
+Angka ini jauh di atas kapasitas yang pernah dicek di B.6/E.1 (±375 GB sisa
+drive C: per 15 Sep 2026). **Wajib dicek ulang kapasitas disk dan kebijakan
+retensi sebelum pull** — lihat perintah PowerShell di E.1. Kalau sisa ruang
+tidak cukup, pilihannya: pindahkan `video_packing_dir` di `secrets.php` ke
+drive lain dengan kapasitas besar, perketat retensi (hapus/pindah rekaman
+lama lebih cepat), atau turunkan `BITRATE_VP9`/`BITRATE_VP8` di
+`packer_video.js` (konsekuensinya kualitas ikut turun, berlawanan dengan
+tujuan rilis ini).
+
+### N.2 Verifikasi di sisi pengguna
+
+- **Packer**: buka Scan Resi Packer (Webcam) → panel kamera menampilkan
+  `Resolusi: 1920×1080 @ 15 fps · VP9` tanpa warna oranye di PC yang
+  webcam-nya memang sanggup 1080p (constraint keras berhasil). PC dengan
+  webcam di bawah 1080p tetap oranye seperti sebelumnya (jatuh ke constraint
+  lunak) — ini bukan kesalahan, catat PC-nya.
+- Perhatikan CPU PC packer saat merekam (Task Manager → chrome): bitrate
+  8-10 Mbps lebih berat dari 2-2,7 Mbps sebelumnya. Kalau preview kamera
+  patah-patah atau PC melambat saat packing, laporkan PC-nya.
+- Browser packer harus memuat `packer_video.js` versi baru: `main.php`
+  menambahkan `?v=<filemtime>` otomatis, jadi cukup muat ulang halaman (F5).
+
+### N.3 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9 — tidak ada data yang perlu dipulihkan. Rekaman yang sudah
+terlanjur dibuat dengan bitrate tinggi tetap bisa diputar dan dikonversi
+MP4 oleh versi lama (server tidak pernah membedakan bitrate/codec).
