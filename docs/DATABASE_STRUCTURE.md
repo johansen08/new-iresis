@@ -1,5 +1,14 @@
 # Struktur Database & Model IRESIS
 
+> **Diaudit ulang 1 Okt 2026.** Sebagian tabel di dokumen ini (Core Tables,
+> Lost Scan Tables) sudah pernah diverifikasi ketat sebelumnya dan masih
+> akurat. Bagian lain (§User & Access, sebagian §KPI, §Master Data, dan
+> beberapa method di §Model Structure) ternyata menyebut nama tabel/kolom/
+> method yang **tidak pernah ada** — sudah diperbaiki di audit ini
+> berdasarkan `SHOW CREATE TABLE` langsung ke `iresis_prod` dan `grep` ke
+> kode model. Kalau ragu pada bagian yang belum ditandai "diverifikasi",
+> cek ulang ke DB/kode — dokumen ini historis dan bisa drift lagi.
+
 ## 📊 Database Schema Overview
 
 ### **Core Tables**
@@ -14,17 +23,21 @@
 - batal (varchar: '' = tidak batal, '1' = batal — penjaga membandingkan string)
 - tanggal_printresi
 - status_pesanan (nilai nyata di produksi: PROCESSING, SHIPPED, COMPLETED, CANCELED, RETURNED, REQUEST_CANCEL, NULL — status dari marketplace, BUKAN tahapan gudang; tahapan gudang dibaca dari ada/tidaknya baris di tblresiambilbarang/tblpacking/tblresikeluar)
-- created_by (FK → tbluser)
+- created_by (varchar — **bukan** FK int ke tbluser; diisi teks dari proses upload, bisa nama/username apa saja)
 - created_at
 ```
 
 #### 2. **tbldetailprintresi** - Detail Item per Resi
 ```sql
-- id_detail (PK)
+- id_detail_resi (PK)                     -- bukan id_detail
 - id_resi (FK → tblprintresi)
+- no_pesanan
 - sku
 - jumlah
 - no_rak
+- status_kurangan (DEFAULT 'Tidak'), qty_kurang, tanggal_scan_kurangan,
+  jenis_penyelesaian_kurangan, note_kurangan, sku_pengganti,
+  tanggal_selesai_kurangan, user_selesai_kurangan   -- alur Kurangan Picker
 ```
 
 #### 3. **tblresiambilbarang** (tblpicking) - Data Picking
@@ -105,15 +118,32 @@ pernah ada.
 Diisi bersamaan dengan `tblresikeluar` saat mode HO+NDD di Scan Paket NDD;
 kurir Shopee tidak pernah masuk ke sini.
 
-#### 6. **tblretur** - Data Retur
+#### 6. **tblresiretur** / **tblbukaretur** - Data Retur (bukan `tblretur`, yang tidak pernah ada)
 ```sql
-- id_retur (PK)
-- noresi_retur
-- noresi_asal
-- tanggal_terima
-- tanggal_buka
-- status (TERIMA, BUKA, COMPLAIN)
+-- tblresiretur: resi retur yang diterima (scan terima)
+- id_resiretur (PK)
+- id_resi (FK → tblprintresi)
+- id_kurir (FK → tblkurir)
+- id_marketplace (FK → tblmarketplace)
+- noresi
+- tanggal_resiretur
+- status_detail, status_retur
+- is_update, is_komplain, is_shipped_retur
+
+-- tblbukaretur: hasil buka retur per SKU (1 resi retur bisa banyak baris SKU)
+- id_bukaretur (PK)
+- resi_buka                 -- noresi retur
+- sku, qty, sku_pergantian
+- status_buka, status_detail_buka
+- alasan_ditolak, harga, no_pesanan, toko, sumber_input (scan|import)
+- is_komplain (0=retur biasa, 1=komplain — mengikuti tblresiretur)
+- tanggal_buka_retur, id_pegawai, created_at, updated_at
+- status_acc, acc_by
 ```
+Tabel retur lain yang juga ada: `tblreturklaim`, `tblreturcomplain`,
+`tblreturjubelio`, `tblreturverifikasi`, `tblretur_display_batch(_detail)`,
+`tblcancel_paket`/`tblcancel_paket_tolak` (lihat §23–24 di bawah). Tidak ada
+satu pun tabel bernama `tblretur`.
 
 ---
 
@@ -122,29 +152,29 @@ kurir Shopee tidak pernah masuk ke sini.
 #### 7. **tblmasterstatusperforma** - Master Status Performa
 ```sql
 - id_statusperforma (PK)
-- kode_status (UNIQUE) - NORMAL, FAST, GTL, NDD, dll
+- kode_status (UNIQUE)
 - role - PICKER atau PACKER
 - status_name
 - deskripsi
-- target_harian
+- target_harian (DEFAULT 50)
 - isactive
 - createdby, created
 - updatedby, updated
 ```
 
-**Status Performa Picker:**
-- `NORMAL_PICKER` - Picking normal
-- `FAST_PICKER` - Picking cepat
+**Status Performa Picker** (isi aktual tabel, 1 Okt 2026 — tidak ada `FAST_PICKER`):
+- `NORMAL_PICKER`
+- `1_SKU_PICKER`
 
 **Status Performa Packer:**
+- `NORMAL_PACKER` (bukan `NORMAL`)
+- `1_SKU_PACKER` (bukan `1_SKU`)
 - `GTL` - Good To Live
 - `NDD` - Next Day Delivery
-- `1_SKU` - Single SKU Order
-- `MOONKLAZ` - Moonklaz Order
-- `PAYUNG` - Payung Order
-- `QTY_BANYAK` - Large Quantity Order
-- `NINJA` - Ninja Express Order
-- `NORMAL` - Normal Order
+- `MOONKLAZ`
+- `PAYUNG`
+- `QTY_BANYAK`
+- `NINJA`
 
 #### 8. **tblstatusperforma** - Log Status Performa Harian
 ```sql
@@ -152,81 +182,92 @@ kurir Shopee tidak pernah masuk ke sini.
 - id_user (FK → tbluser)
 - id_statusperforma (FK → tblmasterstatusperforma)
 - tanggal (DATE)
-- jam_login (TIME)
+- jam_login (TIME, nullable)
 - isactive
 - createdby, created
 - updatedby, updated
 - UNIQUE KEY (id_user, tanggal)
 ```
 
-#### 9. **tblkpi** - Data KPI Harian
+#### 9. **tblkpi** - Log Transaksi KPI (bukan "total_scan/target_harian/achievement" — kolomnya beda)
 ```sql
-- id_kpi (PK)
+- id_log (PK)                              -- bukan id_kpi
 - id_user (FK → tbluser)
-- id_statusperforma (FK → tblmasterstatusperforma)
+- id_statusperforma (FK → tblmasterstatusperforma, ON DELETE CASCADE)
 - tanggal (DATE)
-- total_scan
-- target_harian
-- achievement
+- tipe_transaksi (ENUM: PACKER, PICKER)
+- jumlah_resi (DEFAULT 1)
 - createdby, created
 - updatedby, updated
 ```
+Target & pencapaian harian **tidak disimpan di tabel ini** — dihitung saat
+tampil, digabung dengan `tbltargetkpiharian` (lihat #10).
 
-#### 10. **tbltargetkpi** - Target KPI
+#### 10. **tbltargetkpiharian** - Target KPI Harian (bukan `tbltargetkpi`)
 ```sql
 - id_target (PK)
-- id_user (FK → tbluser)
-- id_statusperforma (FK → tblmasterstatusperforma)
+- id_user
 - tanggal (DATE)
-- target_harian
-- isactive
-- createdby, created
-- updatedby, updated
+- target_resi (DEFAULT 0)
+- role (varchar — bukan FK ke tblmasterstatusperforma)
+- UNIQUE KEY (id_user, tanggal, role)
 ```
+Tidak ada kolom `isactive`, `createdby/created/updatedby/updated`, atau
+`id_statusperforma` di tabel ini.
 
 ---
 
 ### **User & Access Tables**
 
+> Tabel-tabel ini di versi sebelumnya dokumen diberi nama yang tidak pernah
+> ada di skema (`tblmenu`, `tblakses`, `tblrole`) — sudah diganti ke nama
+> aslinya (`menu`, `roleaccess`, `tblhakakses`).
+
 #### 11. **tbluser** - Master User
 ```sql
 - id_user (PK)
-- username (UNIQUE)
+- username                    -- TIDAK ada UNIQUE constraint di DB; dijaga di level aplikasi saja
 - password (MD5)
-- name
-- hakakses (FK → tblrole)
-- akses
 - nama_komputer
-- last_login
-- bypass (boolean)
+- hakakses (int)              -- id role; TIDAK ada FK beneran, cocokkan manual ke tblhakakses.id_hakakses
+- id_pegawai (FK → tblpegawai, nullable)
+- name, email
+- lastlogin, last_activity
 - isactive
+- createdby, created, updatedby, updated
+- bypass (tinyint, DEFAULT 0)
+- status_performer
+- foto
 ```
+Tidak ada kolom `akses` terpisah dari `hakakses`.
 
-#### 12. **tblmenu** - Master Menu
+#### 12. **menu** - Master Menu (bukan `tblmenu`)
 ```sql
-- id_menu (PK)
-- nama_menu
-- url
+- id (PK)                     -- bukan id_menu
+- parentid (FK → menu.id — self reference, bukan parent_id)
+- name                        -- bukan nama_menu
+- uri                         -- bukan url
 - icon
-- parent_id (FK → tblmenu)
-- urutan
+- sortorder                   -- bukan urutan
+- description
 - isactive
+- createdby, created, updatedby, updated
 ```
 
-#### 13. **tblakses** - Access Control
+#### 13. **roleaccess** - Access Control (bukan `tblakses`; struktur beda total)
 ```sql
-- id_akses (PK)
-- id_role (FK → tblrole)
-- id_menu (FK → tblmenu)
-- isactive
+- id (PK)
+- menuid (varchar)            -- bukan id_menu int FK
+- roleid (varchar)            -- bukan id_role int FK; bisa berisi beberapa role sekaligus
+- createdby, created
 ```
 
-#### 14. **tblrole** - Master Role
+#### 14. **tblhakakses** - Master Role (bukan `tblrole`)
 ```sql
-- id_role (PK)
-- nama_role
-- isactive
+- id_hakakses (PK)            -- bukan id_role
+- akses                       -- nama role; bukan nama_role
 ```
+Tidak ada kolom `isactive` di tabel ini.
 
 ---
 
@@ -261,33 +302,39 @@ kurir Shopee tidak pernah masuk ke sini.
 
 #### 17. **tblpegawai** - Master Karyawan
 ```sql
-- id_pegawai (PK)
-- kode_pegawai
+- kode_pegawai (PK, auto-increment)    -- bukan id_pegawai; ini SATU-SATUNYA id, bukan kode terpisah
 - nama_pegawai
-- status_aktif (AKTIF/NONAKTIF)
+- status_aktif (varchar, nilai aktual: AKTIF/NONAKTIF)
 ```
 
 #### 18. **tblnamaambilbarang** - Master Picker
 ```sql
-- id_pegawai (FK → tblpegawai)
+- id_namaambilbarang (PK)
+- id_pegawai (FK → tblpegawai.kode_pegawai)
 - status_aktif
 ```
 
 #### 19. **tblsku** - Master SKU
 ```sql
-- id_sku (PK)
-- sku
+- id_sku (PK, varchar)        -- kode SKU ITU SENDIRI jadi primary key, bukan auto-increment int; tidak ada kolom "sku" terpisah
 - nama_sku
-- link_foto
-- isactive
+- nama_bundle, bundle, variasi
+- hpp (decimal)
+- lokasi, no_rak, no_rak_gudang   -- rak tersimpan langsung di sini, bukan tabel master terpisah
+- total_stok
+- link_foto, foto_lokal        -- foto_lokal diisi cron sinkron_foto_sku (lihat CLAUDE.md)
+- berat (gram)
+- is_special, was_special, jenis_packing
+- updated
 ```
+Tidak ada kolom `isactive`.
 
-#### 20. **tbllokasi** - Master Lokasi/Rak
-```sql
-- id_lokasi (PK)
-- no_rak
-- isactive
-```
+Tidak ada tabel master lokasi/rak terpisah (`tbllokasi` di versi sebelumnya
+dokumen ini **tidak pernah ada**) — rak tersimpan sebagai kolom `lokasi`/
+`no_rak`/`no_rak_gudang` di `tblsku` itu sendiri. Riwayat perubahan rak ada
+di **`tblrak_history`** (`id_sku`, `jenis`, `rak_lama`, `rak_baru`, `sumber`,
+`id_pegawai`, `created_at`), ditulis lewat menu Accounting
+(`accounting/get-rak-history`).
 
 ---
 
@@ -392,14 +439,13 @@ Kedua tabel dibuat `MY_Controller::run_paket_cancel_migration()`
 
 ```
 tbluser
-  ├─→ tblprintresi (created_by)
   ├─→ tblresiambilbarang (admin_pegawai)
   ├─→ tblpacking (packer_pegawai)
   ├─→ tblresikeluar (id_pegawai)
   ├─→ tblscan_ndd (id_pegawai)
   ├─→ tblstatusperforma (id_user)
   ├─→ tblkpi (id_user)
-  ├─→ tbltargetkpi (id_user)
+  ├─→ tbltargetkpiharian (id_user)
   ├─→ tbllostscanpacker (created_by)
   └─→ tbllostscanpicker_pending (dilaporkan_oleh, diproses_oleh)
 
@@ -421,22 +467,24 @@ tbllostscanpicker_pending
 tblmasterstatusperforma
   ├─→ tblstatusperforma (id_statusperforma)
   ├─→ tblkpi (id_statusperforma)
-  ├─→ tbltargetkpi (id_statusperforma)
   ├─→ tblresiambilbarang (status_performa_id)
   └─→ tblpacking (status_performa_id)
+(tbltargetkpiharian TIDAK punya FK ke tblmasterstatusperforma -- lihat #10)
 
 tblpegawai
   ├─→ tblnamaambilbarang (id_pegawai)
   ├─→ tblresiambilbarang (yangambil_pegawai)
+  ├─→ tbluser (id_pegawai)
   └─→ tbllostscanpicker_pending (kode_picker)
 
-tblmenu
-  ├─→ tblmenu (parent_id) - Self reference
-  └─→ tblakses (id_menu)
+menu
+  └─→ menu (parentid) - Self reference
 
-tblrole
-  └─→ tblakses (id_role)
-  └─→ tbluser (hakakses)
+tblhakakses
+  └─→ tbluser (hakakses, dicocokkan manual -- bukan FK database beneran)
+
+roleaccess
+  -- menuid/roleid berupa varchar, dicocokkan manual ke menu.id / tblhakakses.id_hakakses saat ambil_menu_tree()
 ```
 
 ---
@@ -460,12 +508,17 @@ Methods:
 
 #### **Picking_fcd.php**
 ```php
-Methods:
-- get_picker($status) - Get list picker
+Methods (diverifikasi 1 Okt 2026 -- get_picker_detail()/get_picker_by_date()
+di versi sebelumnya dokumen ini TIDAK PERNAH ADA):
+- get_picker($picker_status_aktif) - Get list picker
+- get_next_picker_rr() - Round-robin pemilihan picker berikutnya
 - save($picking, $user, $mode) - Save picking data
-- get_total_scan_user($user_id) - Get total scan per user
-- get_picker_detail($noresi) - Get picker detail
-- get_picker_by_date($date, $user_id) - Get picker by date
+- save_picker($picker)
+- get_data($data) / get_total_data($data) - List + count picking
+- destroy_picker($id_namaambilbarang)
+- get_total_scan_user($id_user) - Get total scan per user
+- get_total_scan_preorder_user($id_user)
+- process_kpi_queue() + beberapa method log_kpi_transaksi*() (private) -- antrean KPI async
 ```
 
 #### **Packer_fcd.php**
@@ -479,14 +532,23 @@ Methods:
 
 #### **Kpi_fcd.php**
 ```php
-Methods:
-- get_status_performa($id) - Get status performa
-- get_status_performa_by_kategori($kategori) - Get by role
-- get_status_id_by_name($status_name) - Get ID by name
-- log_status_performa($user_id, $status_id) - Log status
-- get_user_status_performa($user_id) - Get user status
-- get_kpi_data($filters) - Get KPI data
-- save_target_kpi($target, $user_id) - Save target
+Methods (diverifikasi 1 Okt 2026 -- get_kpi_data()/save_target_kpi() di
+versi sebelumnya dokumen ini TIDAK PERNAH ADA; model ini jauh lebih besar
+dari yang didokumentasikan sebelumnya, ~25 method):
+- get_status_performa($id) / get_status_performa_by_kategori($kategori)
+- save_status_performa($status, $user_id)
+- get_status_id_by_name($status_name)
+- log_status_performa($user_id, $status_id, $tanggal) / log_status_performa_with_target(...)
+- get_user_status_performa($user_id, $tanggal)
+- log_transaksi_harian($user_id, $status_id, $tipe_transaksi, $jumlah_resi, $tanggal) / get_transaksi_harian(...)
+- get_kpi_dashboard/get_kpi_by_status/get_kpi_summary/get_kpi_summary_cards($start, $end, ...)
+- get_top_performers($start, $end, $limit)
+- update_kpi_harian($tanggal)
+- get_daily_performance_chart/get_daily_trend_data/get_daily_performance($start, $end)
+- get_status_performance_comparison/get_status_performa_cards($start, $end, ...)
+- get_realtime_performance($tanggal) / get_user_performance_today($user_id, $tanggal)
+- get_total_receipts_processed/get_total_shipped_receipts/get_total_pending_receipts/get_total_retur_receipts($start, $end)
+- get_avg_processing_time/get_picker_productivity/get_packer_productivity($start, $end)
 ```
 
 ---
@@ -536,13 +598,20 @@ WHERE k.tanggal BETWEEN ? AND ?
 
 ## 📝 Indexes (Recommended)
 
+> Dicek ulang 1 Okt 2026: `idx_receipt_noresi` sudah ada (sebagai `UNIQUE KEY
+> noresi`), dan `tblkpi`/`tblstatusperforma` sudah punya index/UNIQUE yang
+> fungsinya sama dengan yang "direkomendasikan" di bawah (`fk_kpi_user`,
+> `fk_kpi_status`, `idx_kpi_user_date_type`, `user_date_UNIQUE(id_user,
+> tanggal)`) — baris itu dicoret, tidak perlu dibuat lagi. Yang masih
+> benar-benar belum ada: `idx_receipt_status`, `idx_receipt_created`,
+> `idx_picking_user`, `idx_picking_date` (index tunggal; `tblresiambilbarang`
+> cuma punya `id_resi` UNIQUE).
+
 ```sql
--- Performance indexes
-CREATE INDEX idx_receipt_noresi ON tblprintresi(noresi);
+-- Performance indexes yang BELUM ada (per 1 Okt 2026):
 CREATE INDEX idx_receipt_status ON tblprintresi(status_pesanan);
 CREATE INDEX idx_receipt_created ON tblprintresi(created_at);
 
-CREATE INDEX idx_picking_resi ON tblresiambilbarang(id_resi);
 CREATE INDEX idx_picking_user ON tblresiambilbarang(admin_pegawai);
 CREATE INDEX idx_picking_date ON tblresiambilbarang(tanggal_resiambilbarang);
 
@@ -556,10 +625,11 @@ CREATE INDEX idx_picking_date ON tblresiambilbarang(tanggal_resiambilbarang);
 -- tblresiambilbarang: id_resi UNIQUE
 -- tbllostscanpacker : idx_lostscan_date(created_at)
 
-CREATE INDEX idx_kpi_user_date ON tblkpi(id_user, tanggal);
-CREATE INDEX idx_kpi_status ON tblkpi(id_statusperforma);
-
-CREATE INDEX idx_status_user_date ON tblstatusperforma(id_user, tanggal);
+-- SUDAH ADA, jangan dibuat ulang (dicek 1 Okt 2026):
+-- tblprintresi      : UNIQUE noresi
+-- tblkpi            : fk_kpi_user(id_user), fk_kpi_status(id_statusperforma),
+--                      idx_kpi_user_date_type(id_user, tipe_transaksi, tanggal, created)
+-- tblstatusperforma : UNIQUE user_date_UNIQUE(id_user, tanggal)
 ```
 
 ---
@@ -604,4 +674,5 @@ INPUT → VALIDATION → PROCESS → DATABASE → RESPONSE
 ---
 
 **Dokumen ini menjelaskan struktur database dan model yang digunakan dalam sistem IRESIS.**
+**Diaudit & diperbaiki: 2026-10-01**
 
