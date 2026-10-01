@@ -197,6 +197,7 @@
 .pkh-sku div{white-space:nowrap}
 .pkh-sku .q{font-weight:700;color:var(--pkh-ink)}
 .pkh-kecil{font-size:12.5px;color:var(--pkh-muted)}
+.pkh-stage+.pkh-stage{margin-top:6px}
 .pkh-nowrap{white-space:nowrap}
 .pkh-rs mark{background:#ffe58a;color:var(--pkh-text);border-radius:2px;padding:0 1px}
 .pkh-kosong{padding:40px 20px;text-align:center;color:var(--pkh-muted)}
@@ -780,9 +781,9 @@
     $id('pkh-m-body').innerHTML = '<table class="pkh-rs"><thead><tr><th>No resi</th><th>No pesanan</th><th>MP</th><th>Kurir</th><th>SKU × Qty</th><th>Masuk IRESIS</th><th>Batas kirim</th><th>Posisi</th></tr></thead><tbody>' +
       hasil.slice(a, b).map(function (r) {
         var chips = r.g === 'KA' ? '<span class="pkh-chip">Sisa kemarin</span>' : (r.g === 'TB' ? '<span class="pkh-chip a">TikTok 12–15</span>' : '');
-        var pos = r.pc ? '<span class="pkh-chip a">Packing ' + waktuM(r.pc, d.tanggal) + '</span>'
-          : r.pk ? '<span class="pkh-chip w">' + (r.pk === '-' ? 'Sudah dipick' : 'Dipick ' + waktuM(r.pk, d.tanggal)) + '</span>' + (r.pn ? '<div class="pkh-kecil">' + tandai(r.pn) + '</div>' : '')
-          : '<span class="pkh-chip b">Belum dipick</span>';
+        var pos = (r.pk ? '<div class="pkh-stage"><div class="pkh-chip w">' + (r.pk === '-' ? 'Sudah dipick' : 'Dipick ' + waktuM(r.pk, d.tanggal)) + '</div>' + (r.pn ? '<div class="pkh-kecil">oleh ' + tandai(r.pn) + '</div>' : '') + '</div>' : '') +
+          (r.pc ? '<div class="pkh-stage"><div class="pkh-chip a">Packing ' + waktuM(r.pc, d.tanggal) + '</div>' + (r.pcn ? '<div class="pkh-kecil">oleh ' + tandai(r.pcn) + '</div>' : '') + '</div>' : '') +
+          (!r.pk && !r.pc ? '<span class="pkh-chip b">Belum dipick</span>' : '');
         var sku = r.sku.length ? r.sku.map(function (s) {
           return '<div><span class="pkh-mono">' + tandai(s[0]) + '</span> <span class="q">×' + s[1] + '</span></div>';
         }).join('') : '<span class="pkh-kecil">tanpa rincian</span>';

@@ -85,7 +85,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 8;
+    const VERSI_CACHE = 9;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -135,7 +135,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
      *   id, r no resi, p no pesanan, mp, k kurir,
      *   sku [[sku, qty]], j jenis (1 = 1 Qty, 2 = >1 Qty, 0 = tanpa rincian),
      *   g grup, up masuk IRESIS, ps jam pesan, bk batas kirim,
-     *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing,
+     *   pk jam pick ('' belum, '-' terlewat tapi sudah packing), pn picker, pc jam packing, pcn packer,
      *   st status pesanan MP sekarang (mis. READY_TO_SHIP, SHIPPED) untuk badge di kolom MP —
      *   status ini bisa sudah SHIPPED meski baris tetap muncul di "belum" (lihat §3 docs:
      *   untuk tanggal lalu status memakai kondisi sekarang, bukan riwayat per tanggal).
@@ -169,7 +169,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
             $rows = [];
             foreach ($inti as $z) {
                 $id = (int) $z['id'];
-                $r  = isset($rinci[$id]) ? $rinci[$id] : ['r' => '', 'p' => '', 'mp' => '-', 'k' => '-', 'pn' => '', 'sku' => []];
+                $r  = isset($rinci[$id]) ? $rinci[$id] : ['r' => '', 'p' => '', 'mp' => '-', 'k' => '-', 'pn' => '', 'pcn' => '', 'sku' => []];
                 $kat = (int) $z['kat'];
                 $rows[] = [
                     'id'  => $id,
@@ -186,6 +186,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'pk'  => $z['pick_at'] ? $jam($z['pick_at']) : ($z['picker_c'] ? '-' : ''),
                     'pn'  => $z['pick_at'] ? $r['pn'] : '',
                     'pc'  => $jam($z['pack_at']),
+                    'pcn' => $z['pack_at'] ? $r['pcn'] : '',
                     'st'  => $z['st'],
                 ];
             }
@@ -214,7 +215,9 @@ class Pemenuhan_kirim_fcd extends CI_Model
             $q = $this->db->query("
                 SELECT p.id_printresi AS id, p.noresi, m.nama_marketplace AS mp, k.nama_kurir AS kurir,
                        (SELECT g.nama_pegawai FROM tblresiambilbarang a JOIN tblpegawai g ON g.kode_pegawai = a.yangambil_pegawai
-                        WHERE a.id_resi = p.id_printresi ORDER BY a.tanggal_resiambilbarang LIMIT 1) AS picker
+                        WHERE a.id_resi = p.id_printresi ORDER BY a.tanggal_resiambilbarang LIMIT 1) AS picker,
+                       (SELECT g.nama_pegawai FROM tblpacking k2 JOIN tblpegawai g ON g.kode_pegawai = k2.packer_pegawai
+                        WHERE k2.id_resi = p.id_printresi ORDER BY k2.tanggal_packing LIMIT 1) AS packer
                 FROM tblprintresi p
                 LEFT JOIN tblmarketplace m ON m.id_marketplace = p.id_marketplace
                 LEFT JOIN tblkurir k ON k.id_kurir = p.id_kurir
@@ -236,6 +239,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                     'k'   => $r['kurir'] ?: '-',
                     // "AHMAD - PICKER - 0339" → "AHMAD"
                     'pn'  => $r['picker'] ? trim(explode(' - ', $r['picker'])[0]) : '',
+                    'pcn' => $r['packer'] ? trim(explode(' - ', $r['packer'])[0]) : '',
                     'sku' => [],
                 ];
             }
