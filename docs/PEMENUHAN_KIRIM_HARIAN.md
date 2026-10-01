@@ -152,6 +152,19 @@ dibiarkan (tidak dibaca kode lagi; aturan proyek melarang DELETE).
   belum menolak resi yang hanya tercatat di Daftar Cancel Order. Yang
   ditampilkan di ikon ⓘ: cancel yang di-print hari itu + resi lama yang
   cancel-nya tercatat hari itu (`modified_at` atau `tblcancelorder.created_at`).
+- **Pesanan "kilat" Shopee dikeluarkan dari semua angka** juga (sejak 1 Okt
+  2026, ditemukan user). Cirinya `no_pesanan` **22 karakter**
+  (`SP-YYMMDD` + kode 16 karakter, contoh `SP-260929AAR62TKRZBKVY`), beda dari
+  pesanan Shopee biasa yang **17 karakter** (`SP-YYMMDD` + kode 8 karakter).
+  Tipe ini difulfill Shopee sendiri (bukan lewat gudang IRESIS) sehingga tidak
+  pernah discan picker/packer/HO — ditemukan ada yang nyangkut `PROCESSING`
+  sejak Februari 2026 tanpa pernah tersentuh. Kasus pemicu: 30 Sep 2026, satu
+  batch upload 09:20:07 berisi 35 resi tipe ini membuat rekap tampil 99,5%
+  padahal semua resi yang memang wajib diproses gudang sudah 100% keluar.
+  Deteksi: `MAX(no_pesanan LIKE 'SP-%' AND LENGTH(no_pesanan) > 17)` per resi
+  (`Pemenuhan_kirim_fcd::sql_per_resi()`), digabung ke kolom `batal` yang sama
+  dengan cancel. Jumlahnya ditampilkan terpisah di ikon ⓘ (`kilat_hari_ini`),
+  tidak dicampur ke angka cancel.
 - **Sudah keluar** = ada scan HO (`tblresikeluar`), atau status MP sudah
   `SHIPPED` / `COMPLETED` / `RETURNED` tanpa scan HO sama sekali. Status itu baru
   berubah **sesudah** HO: dari 7.981 resi yang di-HO 23 Sep, 7.981 berubah jadi

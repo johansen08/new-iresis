@@ -24,6 +24,9 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    dibatalkan MP, jadi tidak dihitung sama sekali.
  *  - Cancel (CANCELED / REQUEST_CANCEL / batal = 1, atau tercatat di Daftar
  *    Cancel Order `tblcancelorder`) keluar dari semua angka.
+ *  - Pesanan "kilat" Shopee (no_pesanan 22 karakter, bukan 17 seperti biasa)
+ *    difulfill Shopee sendiri dan tidak pernah lewat picking IRESIS — keluar
+ *    dari semua angka juga (sejak 1 Okt 2026).
  *  - "Sudah keluar" = ada scan HO, atau status MP SHIPPED / COMPLETED /
  *    RETURNED tanpa scan HO (status itu baru berubah sesudah HO).
  *  - Tahap bertingkat: yang sudah keluar pasti terhitung sudah packer dan
@@ -82,7 +85,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
     ];
 
     /** Naikkan bila bentuk hasil snapshot()/daftar_belum() berubah, supaya cache lama tidak terbaca. */
-    const VERSI_CACHE = 7;
+    const VERSI_CACHE = 8;
 
     const ISTIRAHAT_MULAI   = '12:00';
     const ISTIRAHAT_SELESAI = '13:00';
@@ -116,6 +119,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 'jam_data'        => substr($per_jam, 11, 5),
                 'grup'            => $grup['grup'],
                 'cancel_hari_ini' => $grup['cancel'],
+                'kilat_hari_ini'  => $grup['kilat'],
                 'packer_aktif'    => $this->packer_aktif($per_jam),
                 'setelan'         => $this->setelan(),
                 'detik_kategori'  => self::DETIK_PACKING,
@@ -261,7 +265,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
 
     /**
      * Satu query: per grup × kategori → [diterima, sudah picker, sudah packer,
-     * sudah keluar, keluar tanpa scan HO], plus jumlah cancel hari itu.
+     * sudah keluar, keluar tanpa scan HO], plus jumlah cancel dan pesanan kilat hari itu.
      */
     protected function hitung_grup($tanggal, $per_jam)
     {
@@ -273,7 +277,8 @@ class Pemenuhan_kirim_fcd extends CI_Model
                    SUM(z.batal = 0 AND z.packer_c IS NOT NULL)        AS pack,
                    SUM(z.batal = 0 AND z.keluar_at IS NOT NULL)       AS keluar,
                    SUM(z.batal = 0 AND z.keluar_at IS NOT NULL AND z.ho_at IS NULL) AS tanpa_ho,
-                   SUM(z.batal = 1 AND (z.printed_at >= $d OR z.modified_at >= $d OR z.cancel_catat >= $d)) AS cancel
+                   SUM(z.batal = 1 AND z.kilat = 0 AND (z.printed_at >= $d OR z.modified_at >= $d OR z.cancel_catat >= $d)) AS cancel,
+                   SUM(z.kilat = 1 AND (z.printed_at >= $d OR z.modified_at >= $d)) AS kilat_n
             FROM (" . $this->sql_per_resi($tanggal, $per_jam) . ") z
             GROUP BY z.grup, z.kat
         ";
@@ -287,8 +292,10 @@ class Pemenuhan_kirim_fcd extends CI_Model
         $kosong = array_fill(0, self::JUMLAH_KATEGORI, [0, 0, 0, 0, 0]);
         $grup = array_fill_keys(self::GRUP, $kosong);
         $cancel = 0;
+        $kilat = 0;
         foreach ($q->result_array() as $r) {
             $cancel += (int) $r['cancel'];
+            $kilat += (int) $r['kilat_n'];
             if (!isset($grup[$r['grup']])) {
                 continue;
             }
@@ -296,7 +303,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                 (int) $r['dit'], (int) $r['pick'], (int) $r['pack'], (int) $r['keluar'], (int) $r['tanpa_ho'],
             ];
         }
-        return ['grup' => $grup, 'cancel' => $cancel];
+        return ['grup' => $grup, 'cancel' => $cancel, 'kilat' => $kilat];
     }
 
     /**
@@ -379,7 +386,7 @@ class Pemenuhan_kirim_fcd extends CI_Model
                                        COALESCE(x.modified_at, x.printed_at), NULL)) AS keluar_at
                     FROM (
                         SELECT c.*,
-                               IF(c.batal_status = 1 OR c.cancel_catat IS NOT NULL, 1, 0) AS batal,
+                               IF(c.batal_status = 1 OR c.cancel_catat IS NOT NULL OR c.kilat = 1, 1, 0) AS batal,
                                (SELECT MIN(a.tanggal_resiambilbarang) FROM tblresiambilbarang a WHERE a.id_resi = c.id) AS pick_min,
                                (SELECT MIN(k.tanggal_packing) FROM tblpacking k WHERE k.id_resi = c.id)                 AS pack_min,
                                (SELECT MIN(h.tanggal_resikeluar) FROM tblresikeluar h WHERE h.id_resi = c.id)           AS ho_min
@@ -394,6 +401,11 @@ class Pemenuhan_kirim_fcd extends CI_Model
                                    IF(UPPER(TRIM(COALESCE(p.status_pesanan, ''))) IN ($cancel) OR p.batal = '1', 1, 0) AS batal_status,
                                    COALESCE(NULLIF(p.tanggal_pesan, '0000-00-00 00:00:00'), p.tanggal_printresi) AS masuk,
                                    IF(p.id_marketplace = 5 OR MAX(d.no_pesanan LIKE 'TT-%') = 1, 1, 0) AS tt,
+                                   -- Shopee 'pengiriman kilat': no_pesanan 22 karakter (SP-YYMMDD + kode 16 karakter),
+                                   -- bukan 17 karakter seperti pesanan Shopee biasa. Tipe ini difulfill Shopee sendiri,
+                                   -- tidak pernah masuk proses picking IRESIS (ditemukan 1 Okt 2026: ada yang nyangkut
+                                   -- PROCESSING sejak Feb 2026 tanpa pernah di-scan picker) — dikeluarkan dari semua angka.
+                                   IF(MAX(d.no_pesanan LIKE 'SP-%' AND LENGTH(d.no_pesanan) > 17) = 1, 1, 0) AS kilat,
                                    COUNT(DISTINCT d.sku) AS u,
                                    COALESCE(SUM(d.jumlah), 0) AS q,
                                    COALESCE(MAX(s.is_special), 0) AS sp

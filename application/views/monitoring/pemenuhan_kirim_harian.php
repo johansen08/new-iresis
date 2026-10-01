@@ -252,7 +252,7 @@
 
   <section class="pkh-top">
     <div class="pkh-card">
-      <div class="pkh-label">Resi masuk hari ini<span class="pkh-info" data-tip="Resi yang di-upload ke IRESIS pada tanggal ini. Resi cancel tidak dihitung."></span></div>
+      <div class="pkh-label">Resi masuk hari ini<span class="pkh-info" data-tip="Resi yang di-upload ke IRESIS pada tanggal ini. Resi cancel dan pesanan kilat Shopee tidak dihitung."></span></div>
       <div class="num" id="pkh-masuk">–</div>
       <div class="pkh-note" id="pkh-masuk-note"></div>
     </div>
@@ -476,6 +476,7 @@
       '<p>Pesanan pagi yang batas kirimnya besok, atau resi TikTok yang baru masuk sesudah 15.15, berarti baru dibayar sore, jadi boleh keluar besok' +
       (n('TX') ? ' (' + fmt(n('TX')) + ' pesanan TikTok hari ini)' : '') + '. Resi tanpa batas kirim (Lazada, reseller) memakai jam pesan: s/d 12.00 wajib hari itu.</p>' +
       '<p><b>Tidak dihitung:</b> ' + fmt(d.cancel_hari_ini) + ' resi cancel hari ini (CANCELED / REQUEST_CANCEL, atau dicatat di Daftar Cancel Order)' +
+      (d.kilat_hari_ini ? ', ' + fmt(d.kilat_hari_ini) + ' pesanan kilat Shopee hari ini (no_pesanan 22 karakter, difulfill Shopee sendiri, tidak lewat picking IRESIS)' : '') +
       (kedaluwarsa ? ' dan ' + fmt(kedaluwarsa) + ' resi yang lewat lebih dari 24 jam dari batas kirim (otomatis dibatalkan MP)' : '') + '.</p>');
     var tahap = [   // [judul, indeks kolom, kelas, teks ⓘ]
       ['Picker', 1, '', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
