@@ -271,7 +271,7 @@ flowchart LR
     D[iresis-dev] --> DD[(iresis_dev<br/>salinan prod)]
 ```
 
-Folder `iresis-dev` dan DB `iresis_dev` terpisah total dari produksi (user MariaDB sendiri tanpa akses ke `iresis_prod`). Perubahan dikerjakan di dev, di-merge ke `master`, di-push, lalu di-`git pull` di folder produksi. Lihat [`LINGKUNGAN_DEV.md`](LINGKUNGAN_DEV.md) dan [`PANDUAN_PULL_PRODUKSI.md`](PANDUAN_PULL_PRODUKSI.md).
+Folder `iresis-dev` dan DB `iresis_dev` **seharusnya** terpisah total dari produksi (user MariaDB sendiri tanpa akses ke `iresis_prod`). Perubahan dikerjakan di dev, di-merge ke `master`, di-push, lalu di-`git pull` di folder produksi. Lihat [`LINGKUNGAN_DEV.md`](LINGKUNGAN_DEV.md) dan [`PANDUAN_PULL_PRODUKSI.md`](PANDUAN_PULL_PRODUKSI.md) — **per 1 Okt 2026 folder `iresis-dev` tidak ada di PC produksi**, lihat catatan status di `LINGKUNGAN_DEV.md`.
 
 **Pola teknis yang wajib diikuti**
 

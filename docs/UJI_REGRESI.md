@@ -1,10 +1,18 @@
 # Uji Regresi Manual per Meja
 
-Dibuat 23 September 2026 (backlog B-15). Checklist ini dijalankan di
-`iresis-dev` sebelum perubahan di-merge ke `master` lalu di-pull ke produksi.
-Repo ini tidak punya test otomatis, jadi hanya checklist ini yang bisa
-menunjukkan bahwa alur scan tetap sama setelah kode diubah, terutama saat
-refactor.
+Dibuat 23 September 2026 (backlog B-15). Checklist ini **seharusnya**
+dijalankan di `iresis-dev` sebelum perubahan di-merge ke `master` lalu
+di-pull ke produksi. Repo ini tidak punya test otomatis, jadi hanya checklist
+ini yang bisa menunjukkan bahwa alur scan tetap sama setelah kode diubah,
+terutama saat refactor.
+
+> **Catatan (per 1 Okt 2026):** di PC produksi, folder `iresis-dev` di §2
+> langkah 1 tidak selalu ada — cek dulu dengan `ls C:\xampp\htdocs\iresis-dev`.
+> Kalau tidak ada (lihat `docs/LINGKUNGAN_DEV.md`), checklist §5–§11 yang
+> butuh login & scan sungguhan lewat browser tidak bisa dijalankan apa adanya;
+> smoke test CLI (§2.3) juga menolak jalan tanpa DB `iresis_dev`. Minimal yang
+> tetap bisa dilakukan tanpa folder dev: syntax check tiap file PHP yang
+> berubah, dan verifikasi logika query langsung ke DB lewat `SELECT` read-only.
 
 Satu putaran penuh memakai lima resi uji yang berjalan dari satu meja ke meja
 berikutnya, ditambah satu file Excel Jubelio. Tiap meja diuji dengan resi

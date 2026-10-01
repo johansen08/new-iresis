@@ -32,9 +32,20 @@ composer install
 
 Aplikasi berjalan di Apache XAMPP pada port **80** (dan 443 untuk LAN HTTPS): `http://localhost/new-iresis/`. Login pakai akun dari tabel `tbluser`.
 
-**Dua folder di PC yang sama (sejak 23 Sep 2026):**
+**Dua folder di PC yang sama (sejak 23 Sep 2026) — seharusnya:**
 - `C:\xampp\htdocs\new-iresis` adalah **produksi**. Folder ini melayani 16 klien LAN, dan setiap simpan file langsung live. Jangan edit di sini; folder ini hanya menerima `git pull` (`docs/PANDUAN_PULL_PRODUKSI.md`).
 - `C:\xampp\htdocs\iresis-dev` adalah tempat **pengembangan**: `http://localhost/iresis-dev/`, DB `iresis_dev` (salinan prod) lewat user MariaDB `iresis_dev` yang tidak punya akses ke `iresis_prod`. Cookie session, Pusher, dan folder video dipisah lewat `secrets.php`. Kerjakan dan uji di sini, merge, push, lalu pull di produksi. Detailnya di `docs/LINGKUNGAN_DEV.md`.
+
+> **Kondisi aktual PC ini (dicek 1 Okt 2026): `iresis-dev` TIDAK ADA.** Mesin
+> ini hanya punya `new-iresis`, dan itu dipakai sebagai PC produksi. Artinya
+> working directory default untuk sesi Claude Code di PC ini **adalah folder
+> produksi** — jangan asumsikan ada folder dev untuk diedit duluan. Sebelum
+> mengedit kode di sini: buat branch (`feature/*`/`fix/*` dari `master`),
+> jangan commit ke `master` langsung, dan beri tahu user bahwa checkout branch
+> di working directory ini langsung mengubah apa yang disajikan ke 16 klien
+> LAN (tidak ada isolasi dev). Kembalikan ke `master` sesegera mungkin setelah
+> selesai diuji. Kalau user minta lingkungan dev dibuat ulang, ikuti
+> `docs/LINGKUNGAN_DEV.md` §6.
 
 ```bash
 "C:/xampp/mysql/bin/mysql.exe" -u root -e "SHOW DATABASES;"

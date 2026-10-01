@@ -111,6 +111,11 @@ Branch utama proyek ini adalah **`master`**. Branch `development` sudah dihapus 
 4. **Hapus branch dengan `-d`, JANGAN `-D`.** Huruf kecil akan menolak jika masih ada commit yang belum termerge — itu pengaman agar tidak ada pekerjaan yang hilang.
 5. **Remote `origin`** = `https://github.com/johansen08/new-iresis.git` (sejak 2026-09-12). Setelah merge ke `master`, jalankan `git push origin master`.
 6. **Kerjakan di folder dev, bukan di produksi** (sejak 2026-09-23). Branch, uji, dan merge dilakukan di `C:\xampp\htdocs\iresis-dev`. Folder produksi `new-iresis` hanya menarik hasilnya lewat `git pull`. Lihat `docs/LINGKUNGAN_DEV.md`.
+   > **Per 1 Okt 2026, folder `iresis-dev` tidak ada di PC produksi** — lihat
+   > catatan status di `docs/LINGKUNGAN_DEV.md`. Sampai dibuat ulang, langkah
+   > 1–4 di atas (branch, commit, merge `--no-ff`, hapus `-d`) tetap dipakai,
+   > tapi dijalankan langsung di `new-iresis` dengan kesadaran bahwa checkout
+   > branch di folder itu langsung terlihat oleh 16 klien LAN.
 
 ---
 
