@@ -75,6 +75,21 @@
     // ada di sidebar pengguna, jadi hak akses per role tetap berlaku.
     var URI_MENU_BIASA   = 'packer/scan_packer';
     var JEDA_ALIH_HTTPS_MS = 2500; // beri waktu membaca pesan sebelum dialihkan
+    // Dipakai pantauHalaman() di bawah untuk membedakan "packer pindah menu"
+    // dari "sedang menunggu respons AJAX scan". plugins.js mengganti seluruh
+    // .page-content-wrap (termasuk #scan-packer-webcam-root) dengan spinner
+    // loading SETIAP submit scan, bukan cuma saat pindah menu -- dan satu
+    // scan di server menjalankan beberapa query sekaligus (cek double-scan,
+    // detail resi, detail picker, total scan), jadi responsnya bisa lebih
+    // lambat dari perkiraan semula terutama kalau PC/jaringan sedang berat.
+    // Ambang lama (3 x 2 detik = 4-6 detik) terbukti ketutup duluan sebelum
+    // scan kedua yang sah sempat diproses -- rekaman berhenti dan kamera
+    // mati padahal packing belum selesai. Dinaikkan jauh di atas waktu
+    // respons AJAX yang wajar, supaya hanya pindah menu sungguhan (yang
+    // elemen root-nya hilang TERUS, bukan cuma sekali muncul lagi) yang
+    // mematikan kamera.
+    var JEDA_PANTAU_HALAMAN_MS   = 2000;
+    var AMBANG_HILANG_HALAMAN    = 12;   // 12 x 2 detik = 24 detik
     // -----------------------------------------------------------------------
 
     var stream = null;
@@ -732,9 +747,12 @@
     // terekam tetap tersimpan) dan kamera dilepas supaya lampunya mati.
     //
     // Penanda juga hilang sesaat setiap kali SPA mengganti isi halaman -- saat
-    // spinner "loading" tampil. Karena itu baru dianggap benar-benar pindah
-    // setelah beberapa kali pemeriksaan berturut-turut, supaya rekaman yang
-    // sedang jalan tidak ikut terpotong oleh jeda muat halaman.
+    // spinner "loading" tampil, termasuk selama submit scan menunggu respons
+    // server. Karena itu baru dianggap benar-benar pindah menu setelah
+    // AMBANG_HILANG_HALAMAN kali pemeriksaan berturut-turut gagal menemukan
+    // penanda (lihat definisinya di atas untuk alasan angkanya), supaya
+    // rekaman yang sedang jalan tidak ikut terpotong oleh jeda muat halaman
+    // normal.
     function pantauHalaman() {
         var hilang = 0;
 
@@ -746,12 +764,12 @@
 
             if (!panel || panel.style.display === 'none') return;
 
-            if (++hilang < 3) return;
+            if (++hilang < AMBANG_HILANG_HALAMAN) return;
 
             hentikan();
             tutupKamera();
             tampilkanPanel(false);
-        }, 2000);
+        }, JEDA_PANTAU_HALAMAN_MS);
     }
 
     window.PackerVideo = {
