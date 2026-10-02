@@ -137,17 +137,7 @@ class Lost_scan_selesai_fcd extends CI_Model
                 return $this->batal($prev_debug, 400, 'No absen packer belum diisi', 'PACKER_KOSONG');
             }
 
-            // Query sama dengan Scan_paket_ndd_new_fcd::daftar_packer(), difilter
-            // ke satu kode_pegawai -- memastikan hanya akun packer AKTIF yang
-            // bisa dipakai, karena tblpacking.packer_pegawai adalah tbluser.id_user.
-            $packer = $this->db->query(
-                "SELECT u.id_user, p.kode_pegawai, p.nama_pegawai
-                 FROM tbluser u
-                 JOIN tblpegawai p ON p.kode_pegawai = u.id_pegawai
-                 WHERE u.hakakses = ? AND u.isactive = 1 AND p.kode_pegawai = ?
-                 LIMIT 1",
-                [self::ROLE_PACKER, $kode_packer_input]
-            )->row();
+            $packer = $this->resolve_packer($kode_packer_input);
             if (!$packer) {
                 return $this->batal($prev_debug, 400, 'No absen packer tidak ditemukan atau tidak ada akun packer aktif', 'PACKER_TIDAK_VALID');
             }
@@ -181,6 +171,119 @@ class Lost_scan_selesai_fcd extends CI_Model
             'nama_picker'  => $nama_picker,
             'nama_packer'  => $nama_packer,
         ];
+    }
+
+    /**
+     * Dipakai tombol "Simpan Lost Scan" (mode utama di panel, dipicu saat
+     * resi NOT_PACKED atau NOT_PICKED): langsung catat baris tblpacking NYATA
+     * atas nama packer sesuai no absen yang dimasukkan, tanggal_packing = saat
+     * HO klik Simpan -- bukan cuma catatan tbllostscanpacker seperti
+     * sebelumnya. Efeknya: scan HO berikutnya untuk resi ini lolos penjaga
+     * is_packed tanpa packer harus benar-benar packing ulang secara fisik.
+     *
+     * Picker TIDAK disentuh di sini -- kalau resi juga NOT_PICKED, controller
+     * tetap memakai alur lama (lapor ke antrean tim picker) setelah method
+     * ini sukses, persis seperti sebelumnya.
+     *
+     * @param string $noresi
+     * @param int    $kode_packer_input kode_pegawai packer (wajib)
+     * @param array  $user petugas HO yang klik Simpan
+     * @return array ['ok'=>TRUE, 'nama_packer'=>string] atau
+     *               ['error'=>TRUE, 'code'=>int, 'message'=>string, 'kode'=>string]
+     */
+    public function simpan_packer($noresi, $kode_packer_input, $user)
+    {
+        $kode_packer_input = (int) $kode_packer_input;
+
+        $prev_debug = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        $this->db->trans_begin();
+
+        $resi = $this->db->query(
+            "SELECT id_printresi, noresi, status_pesanan, batal, id_kurir
+             FROM tblprintresi WHERE noresi = ? LIMIT 1 FOR UPDATE",
+            [$noresi]
+        )->row();
+        if (!$resi) {
+            return $this->batal($prev_debug, 404, 'Nomor resi tidak ditemukan', 'NOT_FOUND');
+        }
+        if ($resi->status_pesanan === 'COMPLETED') {
+            return $this->batal($prev_debug, 400, 'Pesanan sudah SELESAI', 'ORDER_COMPLETED');
+        }
+        if ($resi->status_pesanan === 'CANCELED' || (string) $resi->batal === '1') {
+            $this->db->trans_rollback();
+            $this->db->db_debug = $prev_debug;
+
+            $resi->noresi = $noresi;
+            $this->load->model('cancel_paket_fcd');
+            $this->cancel_paket_fcd->catat_tolak($resi, 'HO', $user, [
+                'keterangan' => 'Simpan Lost Scan Packer ditolak -- pesanan sudah DIBATALKAN',
+            ]);
+
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Pesanan sudah DIBATALKAN', 'kode' => 'ORDER_CANCELED'];
+        }
+
+        $id_resi = (int) $resi->id_printresi;
+
+        $ada_packing = $this->db->query(
+            "SELECT id_packing FROM tblpacking WHERE id_resi = ? LIMIT 1",
+            [$id_resi]
+        )->row();
+        if ($ada_packing) {
+            return $this->batal($prev_debug, 400, 'Nomor resi sudah di-packing (Double Scan)', 'ALREADY_PACKED');
+        }
+
+        if ($kode_packer_input <= 0) {
+            return $this->batal($prev_debug, 400, 'No absen packer belum diisi', 'PACKER_KOSONG');
+        }
+
+        $packer = $this->resolve_packer($kode_packer_input);
+        if (!$packer) {
+            return $this->batal($prev_debug, 400, 'No absen packer tidak ditemukan atau tidak ada akun packer aktif', 'PACKER_TIDAK_VALID');
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->insert('tblpacking', [
+            'id_resi'            => $id_resi,
+            'tanggal_packing'    => $now,
+            'packer_pegawai'     => (int) $packer->id_user,
+            'keterangan'         => self::PENANDA_PICKING . ' (no absen ' . $kode_packer_input . ')',
+            'status_performa_id' => null,
+        ]);
+        if ($this->db->affected_rows() <= 0) {
+            return $this->batal($prev_debug, 500, 'Gagal membuat baris packing', 'SAVE_FAILED');
+        }
+
+        $this->catat_lost_scan($resi, 'PACKER', $packer->nama_pegawai, $user, $now);
+
+        if ($this->db->trans_status() === FALSE) {
+            return $this->batal($prev_debug, 500, 'Gagal menyimpan, silakan ulangi', 'SAVE_FAILED');
+        }
+
+        $this->db->trans_commit();
+        $this->db->db_debug = $prev_debug;
+
+        return ['ok' => TRUE, 'nama_packer' => $packer->nama_pegawai];
+    }
+
+    /**
+     * Resolusi no absen (kode_pegawai) ke akun packer aktif -- query sama
+     * dengan Scan_paket_ndd_new_fcd::daftar_packer(), difilter ke satu
+     * kode_pegawai. Dipakai proses() dan simpan_packer(). Memastikan hanya
+     * akun packer AKTIF yang bisa dipakai, karena tblpacking.packer_pegawai
+     * adalah tbluser.id_user, bukan tblpegawai.kode_pegawai.
+     */
+    private function resolve_packer($kode_packer_input)
+    {
+        return $this->db->query(
+            "SELECT u.id_user, p.kode_pegawai, p.nama_pegawai
+             FROM tbluser u
+             JOIN tblpegawai p ON p.kode_pegawai = u.id_pegawai
+             WHERE u.hakakses = ? AND u.isactive = 1 AND p.kode_pegawai = ?
+             LIMIT 1",
+            [self::ROLE_PACKER, $kode_packer_input]
+        )->row();
     }
 
     /**

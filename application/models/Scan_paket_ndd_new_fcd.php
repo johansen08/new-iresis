@@ -6,36 +6,11 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *
  * Sengaja tidak ada query tulis di sini: simpan scan tetap lewat
  * Scan_logistic_fcd::save_scan() dan simpan lost scan lewat
- * Lost_scan_packer_fcd::save(), supaya aturan bisnisnya satu sumber dengan
- * menu lama.
+ * Lost_scan_selesai_fcd, supaya aturan bisnisnya satu sumber dengan menu
+ * lama/fitur lain.
  */
 class Scan_paket_ndd_new_fcd extends CI_Model
 {
-    /** id_hakakses "client packer" di tblhakakses. */
-    const ROLE_PACKER = 4;
-
-    /**
-     * Daftar packer untuk dropdown lost scan.
-     *
-     * Menu Lost Scan lama menampilkan seluruh tblpegawai (139 baris, termasuk
-     * QC/INB/AFF dan beberapa nama kosong). Di sini hanya akun packer aktif
-     * yang sudah terhubung ke tblpegawai lewat tbluser.id_pegawai -- per
-     * 18 Sep 2026 seluruh 15 akun packer aktif memenuhi syarat itu. Yang
-     * dipakai sebagai nilai tetap nama_pegawai supaya Laporan Lost Scan lama
-     * membaca datanya tanpa perubahan.
-     */
-    public function daftar_packer()
-    {
-        return $this->db->query(
-            "SELECT u.id_user, p.kode_pegawai, p.nama_pegawai
-             FROM tbluser u
-             JOIN tblpegawai p ON p.kode_pegawai = u.id_pegawai
-             WHERE u.hakakses = ? AND u.isactive = 1 AND TRIM(p.nama_pegawai) <> ''
-             ORDER BY p.nama_pegawai ASC",
-            [self::ROLE_PACKER]
-        )->result_array();
-    }
-
     /**
      * Catatan lost scan terakhir untuk satu resi (tipe apa pun), beserta nama
      * pelapornya. Dipakai untuk menampilkan "sudah dicatat oleh X" tanpa
