@@ -31,9 +31,9 @@ saat hover, fokus, atau ketuk), bukan paragraf di layar.
   tahap paling lama.
 - **Detail Belum Selesai** (bisa dilipat): belum picker/packer/HO per
   **1 Qty** dan **>1 Qty**.
-- **Detail OT/Perbantuan** (bisa dilipat): input jumlah packer (bawaan 8) dan
-  batas per packer (bawaan 120). Keduanya bisa diubah dan hasilnya langsung
-  dihitung ulang (§6).
+- **Detail OT/Perbantuan** (bisa dilipat, hanya tampil untuk hari ini): input
+  jumlah packer (bawaan 8) dan batas per packer (bawaan 120). Keduanya bisa
+  diubah dan hasilnya langsung dihitung ulang (§6).
 - Pilih tanggal lain untuk melihat **rekap akhir hari** tanggal itu. Hari ini
   diperbarui otomatis tiap 1 menit. Posisi lipatan diingat per browser.
 
@@ -212,41 +212,41 @@ mengubah kelebihan paket menjadi menit OT (`Pemenuhan_kirim_fcd::DETIK_PACKING`)
 
 ## 6. Hitungan OT / Perbantuan
 
+Bagian ini **hanya tampil untuk hari ini** (sejak 2 Okt 2026): rekap tanggal
+lalu tidak punya "sisa jam kerja" untuk dihitung, jadi `<details
+id="pkh-sec-pack">` disembunyikan (`renderPacking()` keluar lebih awal bila
+`!d.hari_ini`).
+
 Model ambang yang diminta user:
 
-- **Beban per packer** = ⌈paket >1 Qty belum dipacking ÷ jumlah packer⌉.
-  Centang "Ikut hitung 1 Qty" menambahkan Reguler (bawaannya tidak dicentang;
-  user menilai 1 Qty cepat).
-- **Jumlah packer (bawaan)** (sejak 2 Okt 2026): dipasang sekali saat data
-  pertama dimuat dari jumlah akun packer **unik** yang terdeteksi scan packing
-  (bukan sinkron spesial) dalam **1 jam terakhir** (`packer_aktif()`, hanya
-  untuk hari ini) — supaya leader langsung tahu berapa packer yang sedang
-  masuk, bukan angka setelan tetap (`pkh_default_packer`, bawaan 8). Kalau
-  belum ada yang terdeteksi (pagi sebelum packing jalan) atau untuk rekap
-  tanggal lalu, dipakai setelan. Seperti batas per packer, nilai ini bisa
+- **Harus dikerjakan** = total paket belum dipacking (`belum(W, 2)`): 1 Qty +
+  >1 Qty digabung, tidak ada lagi pemisahan/centang opsional.
+- **Beban per packer** = ⌈Harus dikerjakan ÷ jumlah packer⌉.
+- **Jumlah packer (bawaan)**: dipasang sekali saat data pertama dimuat dari
+  jumlah akun packer **unik** yang terdeteksi scan packing (bukan sinkron
+  spesial) dalam **1 jam terakhir** (`packer_aktif()`, hanya untuk hari ini) —
+  supaya leader langsung tahu berapa packer yang sedang masuk, bukan angka
+  setelan tetap (`pkh_default_packer`, bawaan 8). Kalau belum ada yang
+  terdeteksi (pagi sebelum packing jalan), dipakai setelan. Nilai ini bisa
   diubah manual dan angka yang sudah diubah user tidak ditimpa ulang oleh
   refresh data tiap menit.
-- **Batas efektif** (sejak 2 Okt 2026): "batas per packer" yang diisi user
-  (bawaan 120) adalah **plafon maksimum**, bukan langsung dipakai. Untuk hari
-  ini, plafon itu diturunkan ke **kapasitas sisa waktu kerja riil** bila lebih
-  kecil: ⌊sisa menit kerja sampai jam selesai (istirahat 12.00–13.00 tidak
-  dihitung) × 60 ÷ rata-rata detik packing per paket⌋. Makin sore / mendekati
-  jam pulang packer, batas efektif makin kecil — sebelumnya batas statis sama
-  saja dipakai jam 09.00 maupun 17.00, padahal sisa waktu sudah jauh berbeda.
-  Untuk tanggal selain hari ini (rekap akhir hari), tidak ada penyesuaian jam;
-  batas efektif = batas yang diisi.
+- **Kemampuan tim** (sejak 2 Okt 2026) = jumlah packer × batas per packer ×
+  sisa jam kerja, dibulatkan ke bilangan bulat terdekat. "Batas per packer"
+  (bawaan 120, `pkh_batas_per_packer`) di sini berarti **kapasitas paket per
+  jam per packer**, bukan lagi plafon total per hari. Sisa jam kerja = sisa
+  menit kerja sampai jam selesai (istirahat 12.00–13.00 tidak dihitung) ÷ 60.
+  Makin sore / mendekati jam pulang packer, kemampuan tim makin kecil; kalau
+  sisa waktu kerja hari ini sudah 0 (lewat jam selesai), kemampuan tim jadi 0
+  dan seluruh sisa paket langsung dihitung sebagai lembur. "Batas efektif" per
+  packer (dipakai untuk beban/bar/pesan) = batas per packer × sisa jam kerja,
+  boleh pecahan (dibulatkan hanya saat ditampilkan).
 - **Cukup** bila beban ≤ 85% batas efektif; **Mepet** bila ≤ batas efektif;
   **Perlu OT / Perbantuan** bila lewat batas efektif, dengan saran: tambah
   ⌈paket ÷ batas efektif⌉ − packer orang, atau OT untuk kelebihan paket
-  (menitnya dari rata-rata waktu packing ÷ packer). Karena batas efektif
-  diturunkan dari sisa waktu riil, estimasi menit OT ini otomatis = perkiraan
-  waktu kerja total packer ÷ jumlah packer, dikurangi sisa waktu yang ada —
-  bukan lagi kelebihan dari angka tetap yang tidak terkait jam sekarang.
-  Kalau sisa waktu kerja hari ini sudah 0 (lewat jam selesai), batas efektif
-  jadi 0 dan seluruh sisa paket langsung dihitung sebagai lembur.
+  (menitnya dari rata-rata waktu packing ÷ packer).
 - Jumlah packer yang terdeteksi scan packing 1 jam terakhir, sisa waktu kerja,
-  dan kapasitas yang diturunkan darinya ada di ikon ⓘ kotak Jumlah packer dan
-  Batas per packer.
+  dan kemampuan tim yang diturunkan darinya ada di ikon ⓘ kotak Jumlah packer
+  dan Batas per packer.
 
 Setelan di `tb_config_operasional` (dibuat migrasi, bisa diubah lewat DB tanpa
 mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):
