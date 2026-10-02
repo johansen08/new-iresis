@@ -75,7 +75,7 @@
             </div>
             <div class="login-footer">
                 <div class="pull-left">
-                    &copy; 2025 BEVERRA
+                    &copy; Beverra Collection 2026
                     <p>
                         Pengguna reguler? Login <a href="login?machine_name=<?= $machine_name ?>">di sini</a>
                     </p>
