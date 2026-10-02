@@ -79,72 +79,49 @@
                     </div>
                 </form>
 
-                <!-- PANEL LOST SCAN PACKER: di luar <form> supaya Enter di input no absen
-                     tidak men-submit form scan. Muncul saat NOT_PACKED dan NOT_PICKED
-                     (yang kedua sekaligus melaporkan resi ke antrean tim picker). -->
+                <!-- PANEL LOST SCAN: di luar <form> supaya Enter di input no absen tidak
+                     men-submit form scan. Muncul saat NOT_PACKED / NOT_PICKED. Simpan
+                     mengisi data picking/packing yang kosong lalu langsung men-scan
+                     resi ke HO/NDD -- docs/LOST_SCAN.md §12. -->
                 <div id="panel_lost_scan" style="display: none; margin-top: 20px;">
                     <div class="well" style="background: #fff8e1; border: 2px solid #f39c12; border-radius: 15px; padding: 20px; margin: 0;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <div>
                                 <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #b9770e; letter-spacing: 1px;">
-                                    <i class="fa fa-user-times"></i> Lost Scan Packer
+                                    <i class="fa fa-user-times"></i> Lost Scan
                                 </div>
                                 <div id="ls_noresi" style="font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: #444;">-</div>
                             </div>
                             <button type="button" class="btn btn-default btn-sm" id="ls_tutup"><i class="fa fa-times"></i> Tutup (Esc)</button>
                         </div>
 
-                        <!-- Status antrean tim picker: berlaku untuk kedua mode di bawah -->
                         <p id="ls_antrean_picker" style="display: none; margin: 0 0 10px; padding: 8px 10px; background: #fdecea; border-left: 4px solid #dc3545; color: #721c24; font-weight: 600;">
                             <i class="fa fa-hourglass-half"></i> <span id="ls_antrean_teks"></span>
                         </p>
+                        <p id="ls_catatan_lama" style="display: none; margin: 0 0 10px; padding: 8px 10px; background: #e8f4fd; border-left: 4px solid #3498db; color: #1b4f72; font-weight: 600;">
+                            <i class="fa fa-info-circle"></i> <span id="ls_catatan_lama_teks"></span>
+                        </p>
 
-                        <div id="ls_mode_simpan">
-                            <p style="color: #666; margin-bottom: 10px;" id="ls_teks_alasan">
-                                Resi belum di-packing. Isi <b>No Absen Packer</b> yang lupa scan, lalu tekan <b>Enter</b> / klik Simpan --
-                                baris packing langsung dicatat atas nama packer itu, tanggal &amp; jam saat ini.
-                            </p>
-                            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                                <div>
-                                    <label style="font-size: 0.75rem; font-weight: 700; color: #666;">No Absen Packer</label>
-                                    <input type="number" id="ls_packer_no_absen" class="form-control" placeholder="contoh: 123" style="width: 160px;">
-                                </div>
-                                <button type="button" class="btn btn-warning" id="ls_simpan" style="font-weight: 700; white-space: nowrap;">
+                        <p style="color: #666; margin-bottom: 10px;" id="ls_teks_alasan"></p>
+
+                        <div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap;">
+                            <div id="ls_wrap_picker" class="ls-field" style="display: none;">
+                                <label>No Absen Picker</label>
+                                <input type="text" id="ls_picker_no_absen" class="form-control" autocomplete="off" inputmode="numeric" placeholder="ketik no absen / nama">
+                                <div class="ls-saran" id="ls_saran_picker"></div>
+                                <div class="ls-terpilih" id="ls_terpilih_picker"></div>
+                            </div>
+                            <div id="ls_wrap_packer" class="ls-field">
+                                <label>No Absen Packer</label>
+                                <input type="text" id="ls_packer_no_absen" class="form-control" autocomplete="off" inputmode="numeric" placeholder="ketik no absen / nama">
+                                <div class="ls-saran" id="ls_saran_packer"></div>
+                                <div class="ls-terpilih" id="ls_terpilih_packer"></div>
+                            </div>
+                            <div class="ls-field">
+                                <label>&nbsp;</label>
+                                <button type="button" class="btn btn-warning" id="ls_simpan" style="font-weight: 700; white-space: nowrap; height: 34px;">
                                     <i class="fa fa-save"></i> Simpan Lost Scan
                                 </button>
-                            </div>
-
-                            <hr style="margin: 18px 0; border-top: 1px dashed #f39c12;">
-                            <div id="ls_selesai_block">
-                                <p style="color: #a94442; font-weight: 600; margin-bottom: 8px;">
-                                    <i class="fa fa-exclamation-triangle"></i> Atau selesaikan sekarang (langsung lolos ke HO/NDD,
-                                    tanpa antar fisik ke picker/packer -- konfirmasi lewat telepon ke yang bersangkutan):
-                                </p>
-                                <div id="ls_wrap_no_absen_picker" style="display: none; margin-bottom: 8px;">
-                                    <label style="font-size: 0.75rem; font-weight: 700; color: #666;">No Absen Picker</label>
-                                    <input type="number" id="ls_no_absen_picker" class="form-control" placeholder="contoh: 123" style="width: 160px;">
-                                </div>
-                                <label style="font-weight: 500; display: block; margin-bottom: 8px;">
-                                    <input type="checkbox" id="ls_konfirmasi_selesai">
-                                    Saya pastikan barang sudah benar-benar diambil &amp; dipacking fisik
-                                </label>
-                                <button type="button" class="btn btn-danger" id="ls_selesaikan" disabled style="font-weight: 700;">
-                                    <i class="fa fa-flag-checkered"></i> Selesaikan Sekarang (Tanpa Scan Ulang)
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="ls_mode_info" style="display: none;">
-                            <p style="font-weight: 600; color: #155724; margin: 0; font-size: 1.05rem;">
-                                <i class="fa fa-check-circle"></i> <span id="ls_info_teks"></span>
-                            </p>
-                            <!-- Belum di-picker tapi belum ada di antrean tim picker (mis. PACKER
-                                 dicatat lewat menu lama): tetap bisa dilaporkan dari sini. -->
-                            <div id="ls_lapor_wrap" style="display: none; margin-top: 10px;">
-                                <button type="button" class="btn btn-danger" id="ls_lapor_picker" style="font-weight: 700;">
-                                    <i class="fa fa-bullhorn"></i> Laporkan ke Tim Picker
-                                </button>
-                                <span class="text-muted" style="margin-left: 8px;">resi belum di-picker dan belum ada di antrean tim picker</span>
                             </div>
                         </div>
                     </div>
@@ -202,6 +179,20 @@
     .mode-reguler #noresi:focus { border-color: #27ae60 !important; box-shadow: 0 0 15px rgba(39, 174, 96, 0.3) !important; }
 
     #panel_lost_scan { animation: pop-in 0.3s ease; }
+    #panel_lost_scan .ls-field { position: relative; width: 240px; }
+    #panel_lost_scan .ls-field label { display: block; font-size: 0.75rem; font-weight: 700; color: #666; margin-bottom: 3px; }
+    #panel_lost_scan .ls-saran {
+        display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
+        background: #fff; border: 1px solid #ccc; border-radius: 4px; margin-top: 2px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15); max-height: 260px; overflow-y: auto;
+    }
+    #panel_lost_scan .ls-saran-item { padding: 6px 10px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+    #panel_lost_scan .ls-saran-item.aktif, #panel_lost_scan .ls-saran-item:hover { background: #fff3cd; }
+    #panel_lost_scan .ls-saran-absen { font-weight: 800; color: #1a2a6c; min-width: 40px; }
+    #panel_lost_scan .ls-saran-nama { font-weight: 600; color: #333; flex: 1; }
+    #panel_lost_scan .ls-saran-role { font-size: 0.7rem; font-weight: 700; background: #e0e0e0; color: #555; padding: 2px 6px; border-radius: 3px; }
+    #panel_lost_scan .ls-saran-kosong { padding: 6px 10px; color: #999; font-style: italic; }
+    #panel_lost_scan .ls-terpilih { font-size: 0.8rem; font-weight: 700; color: #155724; margin-top: 3px; min-height: 1em; }
 </style>
 
 <script>
@@ -377,18 +368,18 @@ $(document).ready(function() {
     }
 
     // ===== TAMPILAN HASIL =====
-    function showSuccess(noresi, mode, data, w) {
+    function showSuccess(noresi, mode, data, w, pesanKhusus, riwayatKhusus) {
         $("#latest_resi_card").removeClass("status-error").addClass("status-success");
         $("#resi_status_icon").html('<i class="fa fa-check-circle text-success" style="animation: pop-in 0.5s;"></i>');
         $("#display_noresi").text(noresi).css("color", "#155724");
 
-        var pesan = (mode === 'ndd') ? "SCAN HO + NDD BERHASIL!" : "SCAN HO REGULER BERHASIL!";
+        var pesan = pesanKhusus || ((mode === 'ndd') ? "SCAN HO + NDD BERHASIL!" : "SCAN HO REGULER BERHASIL!");
         $("#display_message").text(pesan).css("color", "#28a745");
 
         if (data.ndd_inserted) bumpCounter("#total_scan_ndd_display");
         if (data.ho_inserted) bumpCounter("#total_scan_ho_display");
 
-        pushHistory(noresi, pesan, true, w);
+        pushHistory(noresi, riwayatKhusus || pesan, true, w);
         playCourierAudio(noresi);
     }
 
@@ -401,9 +392,8 @@ $(document).ready(function() {
         pushHistory(noresi, message, false, w);
         playErrorAudio(exceptionCode);
 
-        // Inti menu New: belum di-packing -> langsung tawarkan catat lost scan.
-        // Belum di-picker -> packer tetap wajib diisi (packer ikut lost scan),
-        // dan resi otomatis dilaporkan ke antrean tim picker saat disimpan.
+        // Inti menu New: belum di-packing -> langsung tawarkan isi packer.
+        // Belum di-picker -> picker DAN packer diisi (packer ikut lost scan).
         if (exceptionCode === 'NOT_PACKED') {
             tampilkanPanelLostScan(noresi, false);
         } else if (exceptionCode === 'NOT_PICKED') {
@@ -448,43 +438,201 @@ $(document).ready(function() {
         $("#scan_history tr:gt(7)").remove();
     }
 
-    // ===== PANEL LOST SCAN PACKER =====
+    // ===== PANEL LOST SCAN =====
     // Panel terikat ke satu resi (lsResi). Antrean scan tetap berjalan; scan
     // resi lain hanya mengganti kartu status di atas, panel tetap ada sampai
-    // disimpan atau ditutup. NOT_PACKED untuk resi lain mengganti isi panel.
+    // disimpan atau ditutup. NOT_PACKED/NOT_PICKED resi lain mengganti isinya.
+    // Satu klik Simpan mengisi picking/packing yang kosong lalu men-scan resi
+    // ke HO/NDD (docs/LOST_SCAN.md §12).
     var lsResi = null;
-    var lsBelumPicker = false; // true = ditolak NOT_PICKED, ikut lapor ke tim picker
-    var lsAdaAntrean = false;  // true = resi sudah ada di antrean tim picker (PENDING)
+    var lsPerluPicker = false;
+    var lsPerluPacker = true;
 
-    function panelLostScanAktif() {
-        return $("#panel_lost_scan").is(":visible") && $("#ls_mode_simpan").is(":visible");
+    // Bahan saran no absen, diurai di server dari nama "NAMA - JABATAN - NOABSEN":
+    // akun packer aktif dan Master Picker aktif. Daftarnya sama dengan yang
+    // divalidasi Lost_scan_selesai_fcd saat Simpan.
+    var ROSTER_PACKER = <?= json_encode($roster_packer, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var ROSTER_PICKER = <?= json_encode($roster_picker, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    var MAKS_SARAN = 8;
+
+    function esc(s) {
+        return $('<div>').text(s == null ? '' : String(s)).html();
     }
 
-    var TEKS_BELUM_PACKING =
-        'Resi belum di-packing. Isi <b>No Absen Packer</b> yang lupa scan, lalu tekan <b>Enter</b> / klik Simpan -- ' +
-        'baris packing langsung dicatat atas nama packer itu, tanggal &amp; jam saat ini.';
-    var TEKS_BELUM_PICKER =
-        '<b>Resi belum di-picker</b> -- picker dan packer sama-sama lost scan. Isi <b>No Absen Packer</b> yang lupa scan; ' +
-        'saat disimpan, resi otomatis dilaporkan ke <b>tim picker</b> untuk ditentukan picker-nya. ' +
-        'Baru setelah itu packer bisa scan ulang, lalu HO.';
+    function panelLostScanAktif() {
+        return $("#panel_lost_scan").is(":visible");
+    }
+
+    /**
+     * Input no absen dengan dropdown saran (no absen, nama, jabatan). Ketik
+     * angka -> cocok ke no absen; ketik huruf -> cocok ke nama/jabatan.
+     * Panah atas/bawah memilih, Enter mengambil saran yang disorot lalu
+     * pindah ke kolom berikutnya; Enter sekali lagi di kolom terakhir = Simpan.
+     */
+    function pasangSaran(kunci, roster, berikutnya) {
+        var $input = $("#ls_" + kunci + "_no_absen");
+        var $saran = $("#ls_saran_" + kunci);
+        var $terpilih = $("#ls_terpilih_" + kunci);
+        var hasil = [];
+        var aktif = -1;
+        var terpilih = null;
+
+        function cocokkan(q) {
+            q = $.trim(q).toLowerCase();
+            if (q === '') return roster.slice(0, MAKS_SARAN);
+
+            if (/^\d+$/.test(q)) {
+                var angka = parseInt(q, 10);
+                var persis = [], lain = [];
+                $.each(roster, function(_, p) {
+                    if (parseInt(p.no_absen, 10) === angka) persis.push(p);
+                    else if (p.no_absen.indexOf(q) !== -1) lain.push(p);
+                });
+                return persis.concat(lain).slice(0, MAKS_SARAN);
+            }
+
+            return $.grep(roster, function(p) {
+                return p.nama.toLowerCase().indexOf(q) !== -1 || p.role.toLowerCase().indexOf(q) !== -1;
+            }).slice(0, MAKS_SARAN);
+        }
+
+        function sorot() {
+            $saran.children('.ls-saran-item').each(function(i) {
+                $(this).toggleClass('aktif', i === aktif);
+                if (i === aktif) this.scrollIntoView({ block: 'nearest' });
+            });
+        }
+
+        function tampil() {
+            hasil = cocokkan($input.val());
+            aktif = hasil.length ? 0 : -1;
+            if (!hasil.length) {
+                $saran.html('<div class="ls-saran-kosong">Tidak ada yang cocok</div>').show();
+                return;
+            }
+            $saran.html($.map(hasil, function(p, i) {
+                return '<div class="ls-saran-item" data-i="' + i + '">' +
+                    '<span class="ls-saran-absen">' + esc(p.no_absen) + '</span>' +
+                    '<span class="ls-saran-nama">' + esc(p.nama) + '</span>' +
+                    '<span class="ls-saran-role">' + esc(p.role) + '</span>' +
+                    '</div>';
+            }).join('')).show();
+            sorot();
+        }
+
+        function pilih(p) {
+            terpilih = p;
+            $input.val(p.no_absen);
+            $terpilih.text('✓ ' + p.nama + ' — ' + p.role);
+            $saran.hide();
+            berikutnya().focus();
+        }
+
+        $input.on('input', function() {
+            terpilih = null;
+            $terpilih.text('');
+            tampil();
+        });
+        $input.on('focus', tampil);
+        $input.on('blur', function() { $saran.hide(); });
+
+        // mousedown (bukan click) + preventDefault: blur input tidak sempat
+        // menyembunyikan dropdown sebelum pilihan diambil.
+        $saran.on('mousedown', '.ls-saran-item', function(e) {
+            e.preventDefault();
+            pilih(hasil[$(this).data('i')]);
+        });
+
+        $input.on('keydown', function(e) {
+            var terbuka = $saran.is(':visible');
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!terbuka) { tampil(); return; }
+                if (!hasil.length) return;
+                aktif = (aktif + (e.key === 'ArrowDown' ? 1 : -1) + hasil.length) % hasil.length;
+                sorot();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (terbuka && aktif >= 0) {
+                    pilih(hasil[aktif]);
+                } else if (terpilih) {
+                    var $b = berikutnya();
+                    if ($b.is('button')) $b.click(); else $b.focus();
+                }
+            } else if (e.key === 'Escape' && terbuka) {
+                // Esc pertama hanya menutup saran, bukan panelnya.
+                e.stopPropagation();
+                $saran.hide();
+            }
+        });
+
+        return {
+            // No absen yang akan dikirim: pilihan dari saran, angka yang
+            // diketik langsung (divalidasi server), atau satu-satunya saran
+            // yang cocok dengan nama yang diketik.
+            nilai: function() {
+                if (terpilih) return terpilih.no_absen;
+                var v = $.trim($input.val());
+                if (/^\d+$/.test(v)) return v;
+                var c = cocokkan(v);
+                return (v !== '' && c.length === 1) ? c[0].no_absen : '';
+            },
+            reset: function() {
+                terpilih = null;
+                $input.val('');
+                $terpilih.text('');
+                $saran.hide();
+            },
+            fokus: function() { $input.focus(); }
+        };
+    }
+
+    var saranPicker = pasangSaran('picker', ROSTER_PICKER, function() {
+        return lsPerluPacker ? $("#ls_packer_no_absen") : $("#ls_simpan");
+    });
+    var saranPacker = pasangSaran('packer', ROSTER_PACKER, function() {
+        return $("#ls_simpan");
+    });
+
+    function aturTampilanPanel() {
+        $("#ls_wrap_picker").toggle(lsPerluPicker);
+        $("#ls_wrap_packer").toggle(lsPerluPacker);
+
+        var akhir = ', pilih dari saran, lalu <b>Enter</b> / klik Simpan -- data diisi atas nama mereka ' +
+            '(tanggal &amp; jam saat ini) dan resi <b>langsung masuk HO/NDD</b>.';
+        var teks;
+        if (lsPerluPicker && lsPerluPacker) {
+            teks = '<b>Resi belum di-picker dan belum di-packing.</b> Ketik no absen / nama <b>picker</b> dan <b>packer</b>' + akhir;
+        } else if (lsPerluPicker) {
+            teks = '<b>Resi belum di-picker</b> (packing sudah ada). Ketik no absen / nama <b>picker</b>' + akhir;
+        } else {
+            teks = '<b>Resi belum di-packing.</b> Ketik no absen / nama <b>packer</b>' + akhir;
+        }
+        $("#ls_teks_alasan").html(teks);
+    }
+
+    function fokusPertama() {
+        if (lsPerluPicker) saranPicker.fokus(); else saranPacker.fokus();
+    }
 
     function tampilkanPanelLostScan(noresi, belumPicker) {
         if (lsResi === noresi && $("#panel_lost_scan").is(":visible")) return;
 
         lsResi = noresi;
-        lsBelumPicker = !!belumPicker;
-        lsAdaAntrean = false;
+        lsPerluPicker = !!belumPicker;
+        lsPerluPacker = true;
         $("#ls_noresi").text(noresi);
-        $("#ls_teks_alasan").html(lsBelumPicker ? TEKS_BELUM_PICKER : TEKS_BELUM_PACKING);
-        $("#ls_antrean_picker").hide();
-        $("#ls_lapor_wrap").hide();
-        $("#ls_wrap_no_absen_picker").toggle(lsBelumPicker);
-        setModeSimpan();
+        $("#ls_antrean_picker, #ls_catatan_lama").hide();
+        saranPicker.reset();
+        saranPacker.reset();
+        aturTampilanPanel();
+        $("#ls_simpan").prop("disabled", false);
         $("#panel_lost_scan").show();
-        fokusPacker();
+        fokusPertama();
 
-        // Cek informatif: kalau sudah pernah dicatat, ganti ke mode info.
-        // Kalau request-nya gagal, panel simpan tetap tampil.
+        // Info tambahan: catatan lost scan lama, antrean tim picker, dan
+        // apakah packing ternyata sudah ada (kolom packer disembunyikan).
+        // Kalau request-nya gagal, panel tetap bisa dipakai.
         $.ajax({
             url: "scan-paket-ndd-new/cek-lost-scan",
             type: "POST",
@@ -494,141 +642,96 @@ $(document).ready(function() {
                 if (lsResi !== noresi) return; // panel sudah pindah ke resi lain
                 if (r.code !== 200 || !r.data) return;
                 if (r.data.antrean_picker) tampilkanAntreanPicker(r.data.antrean_picker);
-                if (r.data.sudah_dicatat) {
-                    setModeInfo(r.data.catatan);
+                if (r.data.sudah_dicatat) tampilkanCatatanLama(r.data.catatan);
+                if (r.data.sudah_packing && lsPerluPacker) {
+                    lsPerluPacker = false;
+                    aturTampilanPanel();
                 }
-                perbaruiTombolLapor();
             }
         });
     }
 
-    // Resi sudah ada di antrean tim picker: tampilkan siapa yang melapor dan
-    // kapan, supaya petugas tahu paket ini sedang menunggu dan tidak melapor
-    // ulang (server pun menolak laporan ganda).
+    function tampilkanCatatanLama(catatan) {
+        var c = catatan || {};
+        var waktu = c.created_at ? String(c.created_at).substring(0, 16) : '-';
+        $("#ls_catatan_lama_teks").text(
+            'Sudah pernah dicatat lost scan ' + (c.lost_type || '') + ' → ' + (c.nama_packer || '-') +
+            ' oleh ' + (c.nama_pelapor || '-') + ' pada ' + waktu +
+            '. Catatan itu dipakai ulang; Simpan tetap mengisi data yang masih kosong.'
+        );
+        $("#ls_catatan_lama").show();
+    }
+
     function tampilkanAntreanPicker(a) {
         var waktu = a.waktu_lapor ? String(a.waktu_lapor).substring(0, 16) : '-';
         $("#ls_antrean_teks").text(
             'Sudah dilaporkan ke tim picker oleh ' + (a.nama_pelapor || '-') + ' (' + (a.sumber || '-') +
-            ') pada ' + waktu + ' -- menunggu picker ditentukan.'
+            ') pada ' + waktu + '. Kalau disimpan dari sini, laporan itu ditutup otomatis.'
         );
         $("#ls_antrean_picker").show();
-        lsAdaAntrean = true;
-    }
-
-    // Tombol "Laporkan ke Tim Picker" hanya saat: ditolak belum di-picker,
-    // panel dalam mode info (packer sudah tercatat), dan belum ada di antrean.
-    function perbaruiTombolLapor() {
-        var tampil = lsBelumPicker && !lsAdaAntrean && $("#ls_mode_info").is(":visible");
-        $("#ls_lapor_wrap").toggle(tampil);
-        if (tampil) $("#ls_lapor_picker").prop("disabled", false).focus();
-    }
-
-    function laporKeTimPicker() {
-        if (!lsResi) return;
-        var resi = lsResi;
-        $("#ls_lapor_picker").prop("disabled", true);
-        $.ajax({
-            url: "scan-paket-ndd-new/lapor-picker",
-            type: "POST",
-            data: { noresi: resi },
-            dataType: "json",
-            success: function(r) {
-                if (lsResi !== resi) return;
-                if (r.code === 201 || (r.data && r.data.antrean_picker)) {
-                    noty({ text: r.message, layout: 'topRight', type: (r.code === 201 ? 'success' : 'warning'), timeout: 4000 });
-                    if (r.code === 201) pushHistory(resi, 'DILAPORKAN KE TIM PICKER', true, null);
-                    if (r.data && r.data.antrean_picker) tampilkanAntreanPicker(r.data.antrean_picker);
-                    perbaruiTombolLapor();
-                } else {
-                    noty({ text: r.message || 'Gagal melapor', layout: 'topRight', type: 'error', timeout: 3000 });
-                    $("#ls_lapor_picker").prop("disabled", false);
-                }
-            },
-            error: function() {
-                noty({ text: 'Kesalahan sistem saat melapor ke tim picker', layout: 'topRight', type: 'error', timeout: 3000 });
-                $("#ls_lapor_picker").prop("disabled", false);
-            }
-        });
-    }
-
-    $("#ls_lapor_picker").on('click', laporKeTimPicker);
-
-    function setModeSimpan() {
-        $("#ls_mode_info").hide();
-        $("#ls_mode_simpan").show();
-        $("#ls_simpan").prop("disabled", false);
-        resetPilihanPacker();
-        resetSelesaikanLangsung();
-    }
-
-    function resetSelesaikanLangsung() {
-        $("#ls_no_absen_picker").val('');
-        $("#ls_konfirmasi_selesai").prop('checked', false);
-        $("#ls_selesaikan").prop('disabled', true);
-    }
-
-    function setModeInfo(catatan) {
-        var c = catatan || {};
-        var waktu = c.created_at ? String(c.created_at).substring(0, 16) : '-';
-        var teks = 'Sudah dicatat lost scan ' + (c.lost_type || '') + ' → ' + (c.nama_packer || '-') +
-            ', oleh ' + (c.nama_pelapor || '-') + ' pada ' + waktu + '. Tidak perlu dicatat lagi.';
-        $("#ls_info_teks").text(teks);
-        $("#ls_mode_simpan").hide();
-        $("#ls_mode_info").show();
-        $("#ls_tutup").focus();
-    }
-
-    function resetPilihanPacker() {
-        $("#ls_packer_no_absen").val('');
-    }
-
-    function fokusPacker() {
-        $("#ls_packer_no_absen").focus();
     }
 
     function tutupPanelLostScan() {
         lsResi = null;
-        lsBelumPicker = false;
-        lsAdaAntrean = false;
+        saranPicker.reset();
+        saranPacker.reset();
         $("#panel_lost_scan").hide();
-        resetSelesaikanLangsung();
         $("#noresi").focus();
     }
 
     function simpanLostScan() {
         if (!lsResi) return;
 
-        var noAbsenPacker = $("#ls_packer_no_absen").val().trim();
-        if (noAbsenPacker === '') {
-            noty({ text: 'Isi no absen packer dulu', layout: 'topRight', type: 'warning', timeout: 2500 });
-            fokusPacker();
+        var absenPicker = lsPerluPicker ? saranPicker.nilai() : '';
+        var absenPacker = lsPerluPacker ? saranPacker.nilai() : '';
+
+        if (lsPerluPicker && absenPicker === '') {
+            noty({ text: 'Pilih picker dari saran (ketik no absen / nama)', layout: 'topRight', type: 'warning', timeout: 2500 });
+            saranPicker.fokus();
+            return;
+        }
+        if (lsPerluPacker && absenPacker === '') {
+            noty({ text: 'Pilih packer dari saran (ketik no absen / nama)', layout: 'topRight', type: 'warning', timeout: 2500 });
+            saranPacker.fokus();
             return;
         }
 
         var resi = lsResi;
+        var mode = currentMode;
         $("#ls_simpan").prop("disabled", true);
 
         $.ajax({
             url: "scan-paket-ndd-new/simpan-lost-scan",
             type: "POST",
-            data: { noresi: resi, kode_packer: noAbsenPacker, belum_picker: lsBelumPicker ? '1' : '0' },
+            data: {
+                noresi: resi,
+                no_absen_picker: absenPicker,
+                no_absen_packer: absenPacker,
+                is_ndd: (mode === 'ndd') ? 'true' : 'false'
+            },
             dataType: "json",
             success: function(r) {
+                var d = r.data || {};
                 if (r.code === 201) {
-                    var d = r.data || {};
-                    var namaPacker = d.nama_packer || ('no absen ' + noAbsenPacker);
-                    var teksRiwayat = 'LOST SCAN PACKER DICATAT (packing) → ' + namaPacker;
-                    if (d.lapor_picker === 'DIBUAT') {
-                        teksRiwayat += ' + DILAPORKAN KE TIM PICKER';
-                    } else if (d.lapor_picker === 'SUDAH_PENDING') {
-                        teksRiwayat += ' (sudah di antrean tim picker)';
-                    }
-                    noty({ text: r.message + ': ' + resi + ' → ' + namaPacker, layout: 'topRight', type: 'success', timeout: 4000 });
-                    pushHistory(resi, teksRiwayat, true, null);
-                    playTag('audio-alert');
+                    recent[resi] = Date.now();
+                    pruneRecent();
+
+                    var rincian = [];
+                    if (d.nama_picker) rincian.push('picker ' + d.nama_picker);
+                    if (d.nama_packer) rincian.push('packer ' + d.nama_packer);
+                    var tujuan = (mode === 'ndd') ? 'HO + NDD' : 'HO REGULER';
+                    var riwayat = 'LOST SCAN → ' + tujuan + (rincian.length ? ' (' + rincian.join(', ') + ', ' + d.tanggal + ')' : '');
+
+                    showSuccess(resi, mode, d, null, 'LOST SCAN DISIMPAN — MASUK ' + tujuan, riwayat);
+                    noty({ text: resi + ' — ' + r.message, layout: 'topRight', type: 'success', timeout: 5000 });
+                    tutupPanelLostScan();
+                } else if (d.data_terisi) {
+                    // Picking/packing sudah tersimpan, hanya scan HO-nya yang gagal.
+                    noty({ text: r.message, layout: 'topRight', type: 'warning', timeout: 8000 });
+                    pushHistory(resi, r.message, false, null);
                     tutupPanelLostScan();
                 } else {
-                    noty({ text: r.message || 'Gagal menyimpan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
+                    noty({ text: r.message || 'Gagal menyimpan lost scan', layout: 'topRight', type: 'error', timeout: 4000 });
                     $("#ls_simpan").prop("disabled", false);
                 }
             },
@@ -639,83 +742,8 @@ $(document).ready(function() {
         });
     }
 
-    // ===== SELESAIKAN LANGSUNG (TANPA SCAN ULANG) =====
-    // Jalur baru: HO memasukkan no absen picker/packer dan resi langsung
-    // dianggap selesai -- lihat docs/LOST_SCAN.md §12. Checkbox konfirmasi
-    // wajib dicentang dulu supaya tombol ini tidak keklik tidak sengaja.
-    $("#ls_konfirmasi_selesai").on('change', function() {
-        $("#ls_selesaikan").prop('disabled', !$(this).is(':checked'));
-    });
-
-    function selesaikanLangsung() {
-        if (!lsResi) return;
-
-        var resi = lsResi;
-        var noAbsenPicker = $("#ls_no_absen_picker").val().trim();
-        var noAbsenPacker = $("#ls_packer_no_absen").val().trim();
-
-        if (lsBelumPicker && noAbsenPicker === '') {
-            noty({ text: 'Isi no absen picker dulu', layout: 'topRight', type: 'warning', timeout: 2500 });
-            $("#ls_no_absen_picker").focus();
-            return;
-        }
-        if (noAbsenPacker === '') {
-            noty({ text: 'Isi no absen packer dulu', layout: 'topRight', type: 'warning', timeout: 2500 });
-            $("#ls_no_absen_packer").focus();
-            return;
-        }
-
-        $("#ls_selesaikan").prop("disabled", true);
-
-        $.ajax({
-            url: "scan-paket-ndd-new/selesaikan-lost-scan",
-            type: "POST",
-            data: {
-                noresi: resi,
-                kode_picker: noAbsenPicker,
-                kode_packer: noAbsenPacker,
-                is_ndd: $("#is_ndd").val()
-            },
-            dataType: "json",
-            success: function(r) {
-                if (r.code === 201) {
-                    var d = r.data || {};
-                    var teksRiwayat = 'LOST SCAN SELESAI LANGSUNG (tanpa scan ulang)';
-                    if (d.nama_picker) teksRiwayat += ' -- picker: ' + d.nama_picker;
-                    if (d.nama_packer) teksRiwayat += ' -- packer: ' + d.nama_packer;
-
-                    if (d.ndd_inserted) bumpCounter("#total_scan_ndd_display");
-                    if (d.ho_inserted) bumpCounter("#total_scan_ho_display");
-
-                    noty({ text: r.message + ': ' + resi, layout: 'topRight', type: 'success', timeout: 4000 });
-                    pushHistory(resi, teksRiwayat, true, null);
-                    playTag('audio-alert');
-                    tutupPanelLostScan();
-                } else {
-                    noty({ text: r.message || 'Gagal menyelesaikan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
-                    $("#ls_selesaikan").prop("disabled", false);
-                }
-            },
-            error: function() {
-                noty({ text: 'Kesalahan sistem saat menyelesaikan lost scan', layout: 'topRight', type: 'error', timeout: 3000 });
-                $("#ls_selesaikan").prop("disabled", false);
-            }
-        });
-    }
-
-    $("#ls_selesaikan").on('click', selesaikanLangsung);
-
     $("#ls_simpan").on('click', simpanLostScan);
     $("#ls_tutup").on('click', tutupPanelLostScan);
-
-    // Enter di input no absen packer langsung memicu Simpan -- field ini
-    // dipakai scanner-gun-speed (telepon packer, ketik nomor, Enter).
-    $("#ls_packer_no_absen").on('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); $("#ls_simpan").click(); }
-    });
-    $("#ls_no_absen_picker").on('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); $("#ls_selesaikan").click(); }
-    });
 
     // Esc = tutup panel.
     $(document).on('keydown', function(e) {
