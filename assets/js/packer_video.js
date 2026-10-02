@@ -9,7 +9,8 @@
  *
  * Alurnya mengikuti aturan double-scan yang sudah ada:
  *   scan ke-1 resi X  -> mulai merekam
- *   scan ke-2 resi X  -> resi tersimpan, rekaman ditutup lalu diunggah
+ *   scan ke-2 resi X  -> resi tersimpan, rekaman jalan terus EKOR_REKAM_MS lagi
+ *                        lalu ditutup dan diunggah (lihat tutupDenganEkor())
  *
  * Rekaman dikirim per potongan (lihat JEDA_CHUNK_MS) supaya muat di batas
  * upload PHP bawaan XAMPP dan supaya bagian yang sudah naik tetap aman kalau
@@ -44,7 +45,7 @@
     // re-encode H.264 CRF 20-23 malah membesar 1,5-2,6x karena encoder ikut
     // menyimpan noise webcam. VP9 memberi kualitas visual setara VP8 pada
     // bitrate ~25-30% lebih rendah, jadi bitrate-nya dipisah per codec (lihat
-    // pilihCodec()).
+    // KANDIDAT_CODEC).
     //   VP9 8,0 Mbps  = ~60 MB per menit rekaman (~3,6 GB/jam per PC)
     //   VP8 10,0 Mbps = ~75 MB per menit rekaman (~4,5 GB/jam per PC)
     // PASTIKAN ruang disk server cukup untuk 16 PC packer merekam paralel
@@ -52,7 +53,45 @@
     // bitrate harus ikut disesuaikan.
     var BITRATE_VP9      = 8000000;
     var BITRATE_VP8      = 10000000;
+    // H.264 (dari encoder GPU maupun OpenH264 di CPU) pada bitrate sama kurang
+    // efisien dibanding VP9 -- jadi disamakan dengan VP8.
+    var BITRATE_H264     = 10000000;
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
+
+    // Codec yang boleh dipakai. Yang terpilih ditentukan pilihCodecTerbaik():
+    // codec yang punya encoder GPU di PC itu selalu didahulukan, urut sesuai
+    // daftar ini.
+    //
+    // Alasannya diukur di produksi (2 Okt 2026, PC F19-11): VP9 1080p yang
+    // di-encode CPU cuma menghasilkan 4-8 fps dari 15 fps yang diminta, dan
+    // ujung rekaman hilang rata-rata 2-4 detik (sampai ±9 detik) -- frame yang
+    // masih antre di encoder dibuang Chrome saat recorder.stop(). Rekaman 720p
+    // VP8 di PC yang sama (16-19 Sep) utuh. Encoder GPU tidak membebani CPU,
+    // jadi 1080p bisa tetap dipertahankan.
+    //
+    // `webcodecs` adalah string codec WebCodecs yang dipakai punyaEncoderGpu()
+    // untuk menanyakan encoder GPU; H.264 ditanya dua profil karena encoder
+    // GPU tertentu hanya menyediakan salah satunya.
+    var KANDIDAT_CODEC = [
+        { mime: 'video/webm;codecs=vp9',  label: 'VP9',   bitrate: BITRATE_VP9,
+          webcodecs: ['vp09.00.40.08'] },
+        { mime: 'video/webm;codecs=h264', label: 'H.264', bitrate: BITRATE_H264,
+          webcodecs: ['avc1.640028', 'avc1.42E028'] },
+        { mime: 'video/webm;codecs=vp8',  label: 'VP8',   bitrate: BITRATE_VP8,
+          webcodecs: ['vp8'] }
+    ];
+    // Urutan kalau TIDAK ada satu pun encoder GPU: yang paling ringan di CPU
+    // dulu. Diuji 2 Okt 2026 di Chromium 152 (PC server, kamera canvas 1080p
+    // @ 15 fps): H.264 dan VP8 sama-sama ±14-15 fps, VP9 cuma ±1 fps. Di PC
+    // packer belum diukur -- kalau ffprobe menunjukkan VP8 lebih lancar dari
+    // H.264 di sana, tukar saja urutannya.
+    var URUTAN_CPU = ['H.264', 'VP8', 'VP9'];
+
+    // Setelah scan kedua, kamera merekam sekian lama lagi baru recorder.stop()
+    // dipanggil. stop() membuang frame yang masih antre di encoder, jadi tanpa
+    // ekor ini detik-detik penutup packing -- termasuk momen scan kedua yang
+    // justru paling dibutuhkan CS -- tidak pernah masuk ke berkas.
+    var EKOR_REKAM_MS    = 3000;
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
     // memang wajar memakan satu jam, jadi batasnya diberi kelonggaran di atas itu
@@ -118,6 +157,12 @@
     var mentokBatas = {};
     var timerMaks = null;
     var timerDurasi = null;
+    var timerEkor = null;     // ekor rekaman setelah scan kedua, lihat tutupDenganEkor()
+
+    // Hasil pilihCodecTerbaik(): { mime, label, bitrate, gpu }. gpu bernilai
+    // true/false, atau null kalau browser tidak bisa ditanya.
+    var codecAktif = null;
+    var codecDicari = null;   // Promise deteksi, supaya cuma jalan sekali
     var uploadUrl = null;
     var panel = null;
     var el = {};
@@ -293,14 +338,34 @@
             return;
         }
 
-        var codec = window.MediaRecorder ? pilihCodec().label : '';
         var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '') +
-            (codec ? ' · ' + codec : '');
+            labelCodec();
         var kurang = lebar < LEBAR_IDEAL || tinggi < TINGGI_IDEAL;
-        el.resolusi.textContent = kurang
-            ? teks + ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)'
-            : teks;
-        el.resolusi.style.color = kurang ? '#f0ad4e' : '';
+        // VP9 1080p di CPU terbukti tidak sanggup real-time (lihat
+        // URUTAN_CPU): videonya patah-patah dan ujungnya terpotong. Ditandai
+        // oranye supaya PC seperti ini cepat dikenali. H.264/VP8 di CPU tidak
+        // ikut ditandai -- diuji tetap ±15 fps.
+        var cpuBerat = !!(codecAktif && codecAktif.gpu === false &&
+            codecAktif.label === 'VP9' && !kurang);
+
+        if (kurang) {
+            teks += ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)';
+        } else if (cpuBerat) {
+            teks += ' (VP9 tanpa encoder GPU, video bisa patah-patah)';
+        }
+
+        el.resolusi.textContent = teks;
+        el.resolusi.style.color = (kurang || cpuBerat) ? '#f0ad4e' : '';
+    }
+
+    /** ' · VP9 (GPU)' dan semacamnya, atau '' kalau codec belum ditentukan. */
+    function labelCodec() {
+        if (!codecAktif || !codecAktif.label) return '';
+
+        var encoder = codecAktif.gpu === true ? ' (GPU)'
+            : (codecAktif.gpu === false ? ' (CPU)' : '');
+
+        return ' · ' + codecAktif.label + encoder;
     }
 
     function tampilkanPanel(tampil) {
@@ -420,6 +485,9 @@
             // masih kosong tepat setelah getUserMedia selesai.
             el.video.addEventListener('loadedmetadata', tampilkanResolusi, { once: true });
             isiDaftarKamera();
+            // Codec ditentukan begitu kamera hidup, bukan menunggu scan
+            // pertama, supaya panel sudah menampilkan GPU/CPU sejak awal.
+            pilihCodecTerbaik().then(tampilkanResolusi);
             return s;
         }
 
@@ -488,6 +556,7 @@
             terakhir: !!terakhir,
             kode: sesiRef.kode,
             noresi: sesiRef.noresi,
+            mime: sesiRef.mime,
             seq: sesiRef.seq++,
             durasi: Math.round((Date.now() - sesiRef.mulai) / 1000)
         });
@@ -554,6 +623,10 @@
         fd.append('seq', item.seq);
         fd.append('terakhir', item.terakhir ? 1 : 0);
         fd.append('durasi', item.durasi);
+        // Codec rekaman dicatat server di tblvideopacking.mime_type, supaya
+        // bisa ditelusuri PC mana yang merekam dengan codec apa. Remux dan
+        // konversi MP4 sendiri membaca codec langsung dari berkasnya.
+        fd.append('mime', item.mime || '');
         fd.append('chunk', item.blob, item.kode + '-' + item.seq + '.webm');
 
         var ulang = function (alasan) {
@@ -612,42 +685,158 @@
         return !!(recorder && recorder.state === 'recording');
     }
 
-    /**
-     * Codec rekaman beserta bitrate yang cocok untuknya.
-     *
-     * VP9 didahulukan karena lebih hemat pada kualitas yang sama (lihat
-     * catatan BITRATE_VP9). VP8 tetap cadangan untuk browser lama. Keduanya
-     * tetap WebM, jadi sisi server (remux, konversi MP4, halaman CS) tidak
-     * perlu tahu codec mana yang dipakai. Codec yang terpilih dipajang di
-     * panel supaya PC yang jatuh ke VP8 bisa dikenali dari lapangan.
-     */
-    function pilihCodec() {
-        var kandidat = [
-            { mime: 'video/webm;codecs=vp9', label: 'VP9', bitrate: BITRATE_VP9 },
-            { mime: 'video/webm;codecs=vp8', label: 'VP8', bitrate: BITRATE_VP8 },
-            { mime: 'video/webm',            label: 'WebM', bitrate: BITRATE_VP8 }
-        ];
+    function salinCodec(k, gpu) {
+        return { mime: k.mime, label: k.label, bitrate: k.bitrate, gpu: gpu };
+    }
 
-        for (var i = 0; i < kandidat.length; i++) {
-            if (MediaRecorder.isTypeSupported(kandidat[i].mime)) return kandidat[i];
+    /**
+     * Apakah PC ini punya encoder GPU untuk codec ini di 1080p.
+     *
+     * Ditanyakan lewat WebCodecs (VideoEncoder.isConfigSupported dengan
+     * hardwareAcceleration 'prefer-hardware'), yang hanya menjawab supported
+     * kalau encoder hardware-nya memang ada. MediaRecorder memakai encoder GPU
+     * yang sama, jadi ini dipakai sebagai penanda -- bukti akhirnya tetap fps
+     * berkas hasil rekaman (ffprobe).
+     *
+     * Bukan MediaCapabilities.encodingInfo({type: 'record'}): Chrome terbaru
+     * (diuji di Chrome 152) sudah menolak type 'record' dengan TypeError.
+     *
+     * @return Promise<boolean|null> null kalau browser tidak bisa ditanya.
+     */
+    function punyaEncoderGpu(k) {
+        var VE = window.VideoEncoder;
+        if (!VE || typeof VE.isConfigSupported !== 'function') {
+            return Promise.resolve(null);
         }
-        return { mime: '', label: '', bitrate: BITRATE_VP8 };
+
+        var tanya = k.webcodecs.map(function (codec) {
+            return VE.isConfigSupported({
+                codec:                codec,
+                width:                LEBAR_IDEAL,
+                height:               TINGGI_IDEAL,
+                bitrate:              k.bitrate,
+                framerate:            FPS_IDEAL,
+                hardwareAcceleration: 'prefer-hardware'
+            }).then(function (hasil) {
+                return !!(hasil && hasil.supported);
+            }).catch(function () {
+                return null;
+            });
+        });
+
+        return Promise.all(tanya).then(function (jawab) {
+            if (jawab.indexOf(true) !== -1) return true;
+            if (jawab.indexOf(false) !== -1) return false;
+            return null;
+        });
+    }
+
+    /**
+     * Tentukan codec rekaman untuk PC ini, sekali saja per halaman.
+     *
+     * Codec yang punya encoder GPU didahulukan (urut KANDIDAT_CODEC); kalau tidak
+     * ada, dipakai yang paling ringan di CPU (urut URUTAN_CPU). Semuanya WebM
+     * dari sisi browser; H.264 di dalamnya sebenarnya kontainer Matroska, dan
+     * sisi server (Video_ffmpeg) yang menyesuaikan format remux dan MP4-nya.
+     *
+     * Tidak pernah gagal: kalau deteksinya error, jatuh ke codec pertama yang
+     * didukung, persis perilaku sebelum deteksi GPU ada.
+     *
+     * @return Promise<object> salinan kandidat + gpu (true/false/null).
+     */
+    function pilihCodecTerbaik() {
+        if (codecDicari) return codecDicari;
+
+        var didukung = KANDIDAT_CODEC.filter(function (k) {
+            return MediaRecorder.isTypeSupported(k.mime);
+        });
+
+        if (!didukung.length) {
+            // Browser yang tidak mengenal satu pun: biarkan MediaRecorder memilih
+            // sendiri (mime kosong) seperti dulu.
+            codecAktif = { mime: '', label: '', bitrate: BITRATE_VP8, gpu: null };
+            codecDicari = Promise.resolve(codecAktif);
+            return codecDicari;
+        }
+
+        codecDicari = Promise.all(didukung.map(punyaEncoderGpu)).then(function (gpu) {
+            for (var i = 0; i < didukung.length; i++) {
+                if (gpu[i] === true) return salinCodec(didukung[i], true);
+            }
+
+            // Tidak ada GPU. Kalau browser memang tidak bisa ditanya (null),
+            // tetap pakai urutan CPU -- pilihan paling aman untuk PC packer.
+            var bisaDitanya = gpu.some(function (g) { return g !== null; });
+            for (var j = 0; j < URUTAN_CPU.length; j++) {
+                for (var n = 0; n < didukung.length; n++) {
+                    if (didukung[n].label === URUTAN_CPU[j]) {
+                        return salinCodec(didukung[n], bisaDitanya ? false : null);
+                    }
+                }
+            }
+
+            return salinCodec(didukung[0], bisaDitanya ? false : null);
+        }).catch(function () {
+            return salinCodec(didukung[0], null);
+        }).then(function (codec) {
+            codecAktif = codec;
+            return codec;
+        });
+
+        return codecDicari;
+    }
+
+    /**
+     * Buat MediaRecorder dengan codec terpilih. Kalau browser menolak codec
+     * itu saat dibuat (mis. encoder GPU-nya gagal disiapkan), codec lain
+     * dicoba urut KANDIDAT_CODEC -- lebih baik rekaman jalan dengan codec
+     * cadangan daripada packing tanpa video.
+     */
+    function buatRecorder() {
+        var urutan = [codecAktif].concat(KANDIDAT_CODEC.filter(function (k) {
+            return !codecAktif || k.mime !== codecAktif.mime;
+        }));
+
+        var errTerakhir = null;
+        for (var i = 0; i < urutan.length; i++) {
+            var k = urutan[i];
+            if (!k) continue;
+            if (k.mime && !MediaRecorder.isTypeSupported(k.mime)) continue;
+
+            var opsi = { videoBitsPerSecond: k.bitrate };
+            if (k.mime) opsi.mimeType = k.mime;
+
+            try {
+                var rec = new MediaRecorder(stream, opsi);
+                if (k !== codecAktif) {
+                    codecAktif = salinCodec(k, null);
+                    tampilkanResolusi();
+                }
+                return rec;
+            } catch (e) {
+                errTerakhir = e;
+            }
+        }
+
+        throw errTerakhir || new Error('MediaRecorder tidak bisa dibuat');
     }
 
     function jalankanRekaman(noresi) {
-        var codec = pilihCodec();
-        var opsi  = { videoBitsPerSecond: codec.bitrate };
-        if (codec.mime) opsi.mimeType = codec.mime;
-
         var rec;
         try {
-            rec = new MediaRecorder(stream, opsi);
+            rec = buatRecorder();
         } catch (e) {
             setStatus('Rekam gagal: ' + e.message, '#d9534f');
             return;
         }
 
-        var sesiIni = { kode: kodeSesiBaru(), noresi: noresi, mulai: Date.now(), seq: 0 };
+        var sesiIni = {
+            kode:   kodeSesiBaru(),
+            noresi: noresi,
+            mulai:  Date.now(),
+            seq:    0,
+            mime:   codecAktif ? codecAktif.mime : ''
+        };
         recorder = rec;
         sesi = sesiIni;
 
@@ -703,6 +892,7 @@
     function bersihkanTimer() {
         if (timerMaks) { window.clearTimeout(timerMaks); timerMaks = null; }
         if (timerDurasi) { window.clearInterval(timerDurasi); timerDurasi = null; }
+        if (timerEkor) { window.clearTimeout(timerEkor); timerEkor = null; }
     }
 
     function mulai(noresi) {
@@ -722,10 +912,19 @@
         }
 
         bukaKamera().then(function () {
+            return pilihCodecTerbaik();
+        }).then(function () {
             jalankanRekaman(noresi);
         }).catch(function () { /* pesan error sudah ditampilkan di panel */ });
     }
 
+    /**
+     * Hentikan rekaman SEKARANG, tanpa ekor.
+     *
+     * Dipakai untuk semua penutupan yang bukan akhir packing: ganti resi,
+     * Batal Scan, pindah menu, tab ditutup, batas durasi. Ekor yang sedang
+     * berjalan ikut dipotong.
+     */
     function hentikan() {
         bersihkanTimer();
 
@@ -738,6 +937,40 @@
         // Sisa buffer keluar sendiri sebagai potongan penutup lewat
         // ondataavailable; variabel recorder/sesi dibereskan di onstop.
         try { recorder.stop(); } catch (e) {}
+    }
+
+    /**
+     * Tutup rekaman di akhir packing (scan kedua / tombol Submit): kamera
+     * dibiarkan merekam EKOR_REKAM_MS lagi, baru hentikan().
+     *
+     * Kalau resi berikutnya keburu discan selama ekor berjalan, mulai()
+     * memanggil hentikan() dan ekornya terpotong -- rekaman lama tetap
+     * tertutup rapi, hanya lebih pendek.
+     */
+    function tutupDenganEkor() {
+        if (!sedangMerekam()) {
+            bersihkanTimer();
+            return;
+        }
+
+        if (timerEkor) {
+            return; // sudah dalam ekor; jangan diperpanjang
+        }
+
+        // Batas durasi tidak relevan lagi; resinya sudah ditutup server.
+        if (timerMaks) { window.clearTimeout(timerMaks); timerMaks = null; }
+
+        setStatus('Merekam penutup...', '#f0ad4e');
+
+        var recIni = recorder;
+        timerEkor = window.setTimeout(function () {
+            timerEkor = null;
+            // Recorder sudah berganti (resi baru) atau sudah berhenti sendiri:
+            // tidak ada yang perlu ditutup lagi di sini.
+            if (recorder === recIni) {
+                hentikan();
+            }
+        }, EKOR_REKAM_MS);
     }
 
     // Halaman Scan Resi Packer (Webcam) ditandai #scan-packer-webcam-root --
@@ -824,9 +1057,9 @@
             // diproses -- termasuk saat ditolak (resi sudah di-packing, pesanan
             // batal, dsb.) -- jadi rekaman harus ikut ditutup supaya tidak
             // menyatu dengan percobaan berikutnya dan menggantung sampai batas
-            // durasi.
+            // durasi. Ditutup dengan ekor supaya momen scan kedua ikut terekam.
             if (opsi.status === 'auto_save_success' || opsi.status === 'auto_save_failed') {
-                hentikan();
+                tutupDenganEkor();
                 return;
             }
 
@@ -840,7 +1073,8 @@
             bukaKamera().catch(function () {});
         },
 
-        selesai: function () { hentikan(); },
+        /** Packing selesai lewat tombol Submit: ditutup dengan ekor, sama seperti scan kedua. */
+        selesai: function () { tutupDenganEkor(); },
 
         /**
          * Buang rekaman yang sedang berjalan, bukan sekadar menutupnya.

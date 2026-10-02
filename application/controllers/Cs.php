@@ -2233,7 +2233,11 @@ class Cs extends MY_Controller
             exit;
         }
 
-        $mime = !empty($row->mime_type) ? $row->mime_type : 'video/webm';
+        // mime_type sekarang menyimpan codec juga ('video/webm;codecs=h264'),
+        // tapi yang dikirim ke player cukup jenis kontainernya -- sama seperti
+        // sebelum codec dicatat. Chrome mengenali isinya sendiri, termasuk
+        // H.264 dalam Matroska yang dihasilkan MediaRecorder.
+        $mime = !empty($row->mime_type) ? strtok($row->mime_type, ';') : 'video/webm';
 
         $this->alirkan_berkas($path, $mime, $row->nama_file, $this->input->get('unduh') ? 'attachment' : 'inline');
     }

@@ -924,3 +924,63 @@ tujuan rilis ini).
 Ikuti A.9 — tidak ada data yang perlu dipulihkan. Rekaman yang sudah
 terlanjur dibuat dengan bitrate tinggi tetap bisa diputar dan dikonversi
 MP4 oleh versi lama (server tidak pernah membedakan bitrate/codec).
+
+## O. Rilis 2 Oktober 2026 — rekaman webcam 1080p utuh sampai scan kedua
+
+Laporan user: video packing **tidak tersimpan sampai akhir**. Data produksi
+(PC F19-11) menunjukkan rata-rata 1,7–4,4 detik ujung rekaman hilang sejak
+1080p VP9 (21 Sep), maksimal ±9 detik, dengan fps efektif 4–8 dari 15.
+Penyebab: encoder VP9 di CPU tidak sanggup 1080p real-time, dan Chrome
+membuang frame yang masih antre saat `recorder.stop()`. Rincian di
+`docs/VIDEO_PACKING.md` §4.1. User memilih **tetap 1080p**, jadi:
+
+| Perubahan | Sebelumnya | Sekarang |
+|---|---|---|
+| Codec | Selalu VP9 (VP8 kalau tidak didukung) | Dipilih per PC: encoder GPU dulu (VP9 → H.264 → VP8), tanpa GPU H.264 → VP8 → VP9 |
+| Panel kamera | `... · VP9` | `... · H.264 (GPU)` / `(CPU)`; hanya `VP9 (CPU)` yang oranye |
+| Akhir rekaman | `stop()` langsung saat scan kedua / Submit | Merekam 3 detik lagi (ekor), baru `stop()`; resi baru di tengah ekor tetap langsung menutup rekaman lama |
+| `tblvideopacking.mime_type` | Selalu `video/webm` | `video/webm;codecs=vp9` / `…h264` / `…vp8` (kolom sudah ada, varchar 60) |
+| Remux (`Video_ffmpeg::remux_webm`) | Selalu `-f webm` | `-f matroska` untuk H.264 (`-f webm` ditolak ffmpeg) |
+| MP4 untuk CS (`ke_mp4`) | Selalu transcode libx264 | Rekaman H.264 cukup disalin (`-c copy`, < 1 detik); gagal → transcode seperti dulu |
+
+**Tidak ada migrasi, tidak ada SQL, tidak perlu naik `BOOTSTRAP_VERSI`.**
+File yang berubah: `assets/js/packer_video.js`,
+`application/controllers/Packer.php`, `application/controllers/Cs.php`,
+`application/libraries/Video_ffmpeg.php`, dan dokumen.
+
+Diuji 2 Okt 2026 tanpa menyentuh produksi: perekam asli dengan kamera palsu
+(canvas 1080p berisi jam berjalan) di Chromium 152. Frame terakhir video
+menunjukkan jam 17,8 detik untuk scan kedua pada 14,87 detik — momen scan
+kedua ikut terekam. Di CPU yang sama H.264 dan VP8 ±14–15 fps, VP9 ±1 fps
+(dan tetap terpotong ±2 detik walau diberi ekor). Remux dan MP4 jalur salin
+diuji pada rekaman H.264 hasil perekam itu, pemutaran dan seek diuji lewat
+Range seperti `Cs::alirkan_berkas`. **Encoder GPU belum bisa diuji di sini**
+(PC server ini tidak punya), jadi buktinya harus diambil di PC packer (O.2).
+
+### O.1 Kapasitas disk
+
+H.264 10 Mbps ≈ 4,5 GB per PC per jam — setara VP8 di N.1. Cek ulang sisa
+ruang `video_packing_dir` (sekarang `D:/video-packing/`) sebelum dibuka ke
+semua packer.
+
+### O.2 Verifikasi di sisi pengguna
+
+- **Packer** (F5 dulu supaya `packer_video.js` baru termuat): panel kamera
+  menampilkan `Resolusi: 1920×1080 @ 15 fps · <codec> (GPU)` atau
+  `(CPU)`. `(CPU)` berarti PC itu tidak punya encoder GPU yang dikenali
+  Chrome — catat PC-nya dan cek fps berkasnya. `VP9 (CPU)` oranye berarti
+  H.264 dan VP8 tidak tersedia di browser itu; rekamannya akan patah-patah.
+- Setelah scan kedua, status panel menjadi **Merekam penutup...** ±3 detik,
+  lalu **Video tersimpan**.
+- **CS**: buka Video Packing, putar rekaman baru → bisa diputar dan digeser
+  ke tengah; **Siapkan MP4** untuk rekaman H.264 selesai dalam hitungan detik.
+- **IT**: bandingkan fps efektif berkas baru dengan sebelumnya (perintah di
+  `docs/VIDEO_PACKING.md` §4.1). Target ≥ 13 fps dan selisih "detik hilang"
+  mendekati 0.
+
+### O.3 Kalau perlu kembali ke versi sebelumnya
+
+Ikuti A.9. Perhatian: rekaman **H.264** yang sudah terlanjur dibuat tidak
+bisa di-remux versi lama (`-f webm` menolak H.264) — finalisasinya akan
+GAGAL setelah 5 percobaan. Berkasnya tetap utuh dan tetap bisa diputar; MP4
+tetap bisa dibuat versi lama lewat transcode.
