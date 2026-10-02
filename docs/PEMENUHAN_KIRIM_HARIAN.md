@@ -217,12 +217,36 @@ Model ambang yang diminta user:
 - **Beban per packer** = ⌈paket >1 Qty belum dipacking ÷ jumlah packer⌉.
   Centang "Ikut hitung 1 Qty" menambahkan Reguler (bawaannya tidak dicentang;
   user menilai 1 Qty cepat).
-- **Cukup** bila beban ≤ 85% batas; **Mepet** bila ≤ batas; **Perlu OT /
-  Perbantuan** bila lewat batas, dengan saran: tambah ⌈paket ÷ batas⌉ − packer
-  orang, atau OT untuk kelebihan paket (menitnya dari rata-rata waktu packing).
-- Jumlah packer yang terdeteksi scan packing 1 jam terakhir dan sisa waktu
-  kerja sampai jam selesai (istirahat 12.00–13.00 tidak dihitung) ada di ikon ⓘ,
-  sebagai pembanding angka yang diisi user.
+- **Jumlah packer (bawaan)** (sejak 2 Okt 2026): dipasang sekali saat data
+  pertama dimuat dari jumlah akun packer **unik** yang terdeteksi scan packing
+  (bukan sinkron spesial) dalam **1 jam terakhir** (`packer_aktif()`, hanya
+  untuk hari ini) — supaya leader langsung tahu berapa packer yang sedang
+  masuk, bukan angka setelan tetap (`pkh_default_packer`, bawaan 8). Kalau
+  belum ada yang terdeteksi (pagi sebelum packing jalan) atau untuk rekap
+  tanggal lalu, dipakai setelan. Seperti batas per packer, nilai ini bisa
+  diubah manual dan angka yang sudah diubah user tidak ditimpa ulang oleh
+  refresh data tiap menit.
+- **Batas efektif** (sejak 2 Okt 2026): "batas per packer" yang diisi user
+  (bawaan 120) adalah **plafon maksimum**, bukan langsung dipakai. Untuk hari
+  ini, plafon itu diturunkan ke **kapasitas sisa waktu kerja riil** bila lebih
+  kecil: ⌊sisa menit kerja sampai jam selesai (istirahat 12.00–13.00 tidak
+  dihitung) × 60 ÷ rata-rata detik packing per paket⌋. Makin sore / mendekati
+  jam pulang packer, batas efektif makin kecil — sebelumnya batas statis sama
+  saja dipakai jam 09.00 maupun 17.00, padahal sisa waktu sudah jauh berbeda.
+  Untuk tanggal selain hari ini (rekap akhir hari), tidak ada penyesuaian jam;
+  batas efektif = batas yang diisi.
+- **Cukup** bila beban ≤ 85% batas efektif; **Mepet** bila ≤ batas efektif;
+  **Perlu OT / Perbantuan** bila lewat batas efektif, dengan saran: tambah
+  ⌈paket ÷ batas efektif⌉ − packer orang, atau OT untuk kelebihan paket
+  (menitnya dari rata-rata waktu packing ÷ packer). Karena batas efektif
+  diturunkan dari sisa waktu riil, estimasi menit OT ini otomatis = perkiraan
+  waktu kerja total packer ÷ jumlah packer, dikurangi sisa waktu yang ada —
+  bukan lagi kelebihan dari angka tetap yang tidak terkait jam sekarang.
+  Kalau sisa waktu kerja hari ini sudah 0 (lewat jam selesai), batas efektif
+  jadi 0 dan seluruh sisa paket langsung dihitung sebagai lembur.
+- Jumlah packer yang terdeteksi scan packing 1 jam terakhir, sisa waktu kerja,
+  dan kapasitas yang diturunkan darinya ada di ikon ⓘ kotak Jumlah packer dan
+  Batas per packer.
 
 Setelan di `tb_config_operasional` (dibuat migrasi, bisa diubah lewat DB tanpa
 mengubah kode; nilai yang sudah ada tidak ditimpa migrasi):

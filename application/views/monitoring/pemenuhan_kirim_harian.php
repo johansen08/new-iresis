@@ -518,35 +518,55 @@
     var detikRata = paket ? kat.reduce(function (s, k) { return s + belum(W, 2, [k]) * d.detik_kategori[k]; }, 0) / paket : 0;
     var beban = Math.ceil(paket / P);   // paket tidak bisa dibagi pecahan
     var sisa = sisaMenitKerja(d);
+    // Batas efektif = batas yang diisi user, DITURUNKAN ke kapasitas sisa waktu kerja
+    // riil bila itu lebih kecil — supaya makin sore/mendekati jam pulang, ambangnya
+    // makin ketat (bukan angka tetap sepanjang hari seperti sebelumnya).
+    var kapasitas = d.hari_ini ? (detikRata > 0 ? Math.floor(sisa * 60 / detikRata) : B) : B;
+    var batasEfektif = d.hari_ini ? Math.min(B, kapasitas) : B;
 
-    pasangInfo($id('pkh-info-packer'), 'Default ' + d.setelan.default_packer + ', bisa diubah. Terdeteksi scan packing dalam 1 jam terakhir: <b>' + fmt(d.packer_aktif) + ' orang</b>.');
-    pasangInfo($id('pkh-info-batas'), 'Default ' + d.setelan.default_batas + ': paket &gt;1 Qty paling banyak yang masih sanggup dikerjakan 1 packer sampai jam ' +
-      d.setelan.jam_selesai.replace(':', '.') + '. ' + (d.hari_ini ? 'Sisa waktu kerja sekarang: <b>' + (sisa > 0 ? dur(sisa) : 'sudah lewat') + '</b>.' : ''));
+    var pakaiTerdeteksi = d.hari_ini && d.packer_aktif > 0;
+    pasangInfo($id('pkh-info-packer'),
+      (pakaiTerdeteksi
+        ? 'Bawaan dari akun packer (unik) yang terdeteksi scan packing dalam 1 jam terakhir: <b>' + fmt(d.packer_aktif) + ' orang</b>.'
+        : 'Belum ada akun packer yang terdeteksi scan packing dalam 1 jam terakhir, jadi bawaan memakai setelan: <b>' + fmt(d.setelan.default_packer) + ' orang</b>.')
+      + ' Bisa diubah manual kapan saja.');
+    pasangInfo($id('pkh-info-batas'), 'Default ' + d.setelan.default_batas + ': plafon maksimum paket &gt;1 Qty per packer. ' +
+      (d.hari_ini ?
+        'Sisa waktu kerja sekarang sampai jam ' + d.setelan.jam_selesai.replace(':', '.') + ': <b>' + (sisa > 0 ? dur(sisa) : 'sudah lewat') + '</b>' +
+        ', setara ±<b>' + fmt(kapasitas) + ' paket</b> per packer' +
+        (batasEfektif < B ? ' — dipakai sebagai <b>batas efektif</b> karena lebih kecil dari plafon di atas.' : ' — masih di bawah plafon, jadi plafon yang dipakai.') :
+        'Tanggal ini bukan hari ini, jadi dipakai apa adanya tanpa penyesuaian jam.'));
     $id('pkh-per').textContent = fmt(beban);
-    $id('pkh-per-of').textContent = 'paket / batas ' + fmt(B);
+    $id('pkh-per-of').textContent = 'paket / batas ' + fmt(batasEfektif);
     $id('pkh-per-cap').innerHTML = '<b>' + fmt(paket) + '</b> paket ' + (state.satuQty ? '' : '&gt;1 Qty ') + 'belum dipacking ÷ <b>' + P + '</b> packer';
     $id('pkh-1qty-text').textContent = 'Ikut hitung 1 Qty (' + fmt(belum(W, 2, [1])) + ' paket)';
 
     var st, aksi;
     if (!paket) { st = 'ok'; aksi = '<b>Tidak ada sisa paket yang dihitung.</b>'; }
-    else if (beban <= B * MEPET) { st = 'ok'; aksi = '<b>Tenaga cukup.</b><span>Beban ' + fmt(beban) + ' paket per packer, masih di bawah batas ' + fmt(B) + '.</span>'; }
-    else if (beban <= B) { st = 'warn'; aksi = '<b>Mepet.</b><span>Beban ' + fmt(beban) + ' paket per packer, mendekati batas ' + fmt(B) + '. Siapkan cadangan orang.</span>'; }
+    else if (batasEfektif <= 0) {
+      st = 'bad';
+      var ot0 = dur(paket * detikRata / 60 / P, true);
+      aksi = '<b>Sudah lewat jam ' + d.setelan.jam_selesai.replace(':', '.') + ': seluruh sisa butuh lembur, ±' + ot0 + ' untuk ' + P + ' packer (±' + fmt(paket) + ' paket).</b>' +
+        '<span>Sisa waktu kerja hari ini sudah habis.</span>';
+    }
+    else if (beban <= batasEfektif * MEPET) { st = 'ok'; aksi = '<b>Tenaga cukup.</b><span>Beban ' + fmt(beban) + ' paket per packer, masih di bawah batas ' + fmt(batasEfektif) + '.</span>'; }
+    else if (beban <= batasEfektif) { st = 'warn'; aksi = '<b>Mepet.</b><span>Beban ' + fmt(beban) + ' paket per packer, mendekati batas ' + fmt(batasEfektif) + '. Siapkan cadangan orang.</span>'; }
     else {
       st = 'bad';
-      var tambah = Math.ceil(paket / B) - P, lebih = paket - P * B;
+      var tambah = Math.ceil(paket / batasEfektif) - P, lebih = paket - P * batasEfektif;
       var ot = dur(lebih * detikRata / 60 / P, true);
       aksi = '<b>Perlu OT / Perbantuan: tambah ' + fmt(tambah) + ' packer, atau OT ±' + ot + ' untuk ' + P + ' packer (±' + fmt(lebih) + ' paket).</b>' +
-        '<span>Beban ' + fmt(beban) + ' paket per packer, lewat batas ' + fmt(B) + '.</span>';
+        '<span>Beban ' + fmt(beban) + ' paket per packer, lewat batas ' + fmt(batasEfektif) + ' (sisa waktu kerja sekarang).</span>';
     }
     var LBL = { ok: 'Cukup', warn: 'Mepet', bad: 'Perlu OT / Perbantuan' };
     $id('pkh-sec-pack').className = 'pkh-sec ' + st;
     $id('pkh-action').className = 'pkh-action ' + st;
     $id('pkh-action').innerHTML = aksi;
     var bar = $id('pkh-load-bar');
-    bar.style.width = Math.min(100, B ? beban / B * 100 : 0) + '%';
+    bar.style.width = Math.min(100, batasEfektif ? beban / batasEfektif * 100 : 100) + '%';
     bar.className = st;
     $id('pkh-pack-pill').innerHTML = '<span class="pkh-pill ' + st + '">' + LBL[st] + '</span>';
-    $id('pkh-pack-meta').innerHTML = paket ? '<b>' + fmt(beban) + '</b> paket per packer · batas ' + fmt(B) + ' · ' + P + ' packer' : 'Tidak ada sisa';
+    $id('pkh-pack-meta').innerHTML = paket ? '<b>' + fmt(beban) + '</b> paket per packer · batas ' + fmt(batasEfektif) + ' · ' + P + ' packer' : 'Tidak ada sisa';
   }
 
   function render() {
@@ -558,8 +578,15 @@
 
   function pakaiData(d) {
     state.data = d;
-    // bawaan dari setelan hanya dipasang sekali; angka yang sudah diubah user tetap dipakai
-    if (state.packer === null) { state.packer = d.setelan.default_packer; $id('pkh-packer').value = state.packer; }
+    // bawaan hanya dipasang sekali; angka yang sudah diubah user tetap dipakai.
+    // Jumlah packer: bawaan dari akun packer (unik) yang terdeteksi aktif scan
+    // packing 1 jam terakhir — supaya leader langsung tahu berapa packer yang
+    // sedang masuk, bukan angka setelan tetap. Kalau belum ada yang terdeteksi
+    // (mis. pagi sebelum packing jalan, atau rekap tanggal lalu), pakai setelan.
+    if (state.packer === null) {
+      state.packer = (d.hari_ini && d.packer_aktif > 0) ? d.packer_aktif : d.setelan.default_packer;
+      $id('pkh-packer').value = state.packer;
+    }
     if (state.batas === null) { state.batas = d.setelan.default_batas; $id('pkh-batas').value = state.batas; }
     tampilGalat('');
     render();
