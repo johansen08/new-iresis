@@ -12,6 +12,7 @@
   --pkh-ink:#0a2345;--pkh-text:#1d2939;--pkh-muted:#5b6b82;--pkh-line:#dfe4ec;--pkh-line-strong:#c4cedb;
   --pkh-accent:#1463c9;--pkh-accent-soft:#e4eefc;
   --pkh-ok:#227a3a;--pkh-ok-soft:#e3f3e7;--pkh-warn:#9a5200;--pkh-warn-soft:#fdf0db;--pkh-bad:#c42b2b;--pkh-bad-soft:#fde6e4;
+  --pkh-picker-soft:#e7f6ec;--pkh-packer-soft:#fdf6dd;--pkh-ho-soft:#fbe8f0;
   /* padding sendiri: halaman lain dapat jarak dari .row > .col-*, halaman ini tidak memakainya,
      jadi tanpa ini isi menempel ke sidebar dan tombol tema di tepi kanan pada layar sempit */
   box-sizing:border-box;max-width:1184px;margin:0 auto;padding:20px 32px 32px;
@@ -50,6 +51,9 @@
 .pkh-parts b{color:var(--pkh-ink)}
 .pkh-stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .pkh-stage.key{border:2px solid var(--pkh-accent);padding:17px 19px}
+.pkh-stage.picker{background:var(--pkh-picker-soft)}
+.pkh-stage.packer{background:var(--pkh-packer-soft)}
+.pkh-stage.ho{background:var(--pkh-ho-soft)}
 .pkh-stage .row-n{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:8px}
 .pkh-stage .num{font-size:38px}
 .pkh-stage .pct{font-weight:700;color:var(--pkh-ink);font-size:18px}
@@ -480,9 +484,9 @@
       (d.kilat_hari_ini ? ', ' + fmt(d.kilat_hari_ini) + ' pesanan kilat Shopee hari ini (no_pesanan 22 karakter, difulfill Shopee sendiri, tidak lewat picking IRESIS)' : '') +
       (kedaluwarsa ? ' dan ' + fmt(kedaluwarsa) + ' resi yang lewat lebih dari 24 jam dari batas kirim (otomatis dibatalkan MP)' : '') + '.</p>');
     var tahap = [   // [judul, indeks kolom, kelas, teks ⓘ]
-      ['Picker', 1, '', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
-      ['Packer', 2, 'key', 'Resi wajib yang sudah discan packer, termasuk Spesial yang otomatis ter-pack saat dipick. Resi yang sudah keluar ikut terhitung walau scan packer-nya terlewat.'],
-      ['HO (keluar)', 3, '', 'Keluar = sudah discan HO, atau status marketplace sudah SHIPPED / COMPLETED / RETURNED.' + (tanpaHO ? ' Termasuk <b>' + fmt(tanpaHO) + '</b> resi yang keluar tanpa scan HO.' : '')]
+      ['Picker', 1, 'picker', 'Resi wajib yang sudah discan picker. Resi yang sudah dipacking atau sudah keluar ikut terhitung walau scan picker-nya terlewat.'],
+      ['Packer', 2, 'key packer', 'Resi wajib yang sudah discan packer, termasuk Spesial yang otomatis ter-pack saat dipick. Resi yang sudah keluar ikut terhitung walau scan packer-nya terlewat.'],
+      ['HO (keluar)', 3, 'ho', 'Keluar = sudah discan HO, atau status marketplace sudah SHIPPED / COMPLETED / RETURNED.' + (tanpaHO ? ' Termasuk <b>' + fmt(tanpaHO) + '</b> resi yang keluar tanpa scan HO.' : '')]
     ];
     $id('pkh-stages').innerHTML = tahap.map(function (t, i) {
       var sudah = total(W, t[1]), sisa = belum(W, t[1]);
