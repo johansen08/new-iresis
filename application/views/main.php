@@ -214,14 +214,6 @@
 				<?= $content ?>
 			</div>
 			<!-- END PAGE CONTENT WRAPPER -->
-
-            <!-- FOOTER -->
-            <div class="row">
-                <div class="col-md-12 text-center" style="padding: 20px; color: #888; border-top: 1px solid #eee; margin-top: 20px;">
-                    © ashari wibowo - beverra @2026
-                </div>
-            </div>
-            <!-- END FOOTER -->
 		</div>
 		<!-- END PAGE CONTENT -->
 	</div>

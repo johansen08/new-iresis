@@ -203,7 +203,7 @@
             </div>
             <div class="login-footer">
                 <div class="text-center">
-                    &copy; ashari wibowo - beverra @2026
+                    &copy; Beverra Collection 2026
                     <p style="margin-top: 5px;">
                         Login dengan scanner <a href="login?machine_name=<?= $machine_name ?>&using_scanner=1">di sini</a>
                     </p>
