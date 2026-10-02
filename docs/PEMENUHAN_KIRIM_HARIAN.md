@@ -217,6 +217,15 @@ Model ambang yang diminta user:
 - **Beban per packer** = ⌈paket >1 Qty belum dipacking ÷ jumlah packer⌉.
   Centang "Ikut hitung 1 Qty" menambahkan Reguler (bawaannya tidak dicentang;
   user menilai 1 Qty cepat).
+- **Jumlah packer (bawaan)** (sejak 2 Okt 2026): dipasang sekali saat data
+  pertama dimuat dari jumlah akun packer **unik** yang terdeteksi scan packing
+  (bukan sinkron spesial) dalam **1 jam terakhir** (`packer_aktif()`, hanya
+  untuk hari ini) — supaya leader langsung tahu berapa packer yang sedang
+  masuk, bukan angka setelan tetap (`pkh_default_packer`, bawaan 8). Kalau
+  belum ada yang terdeteksi (pagi sebelum packing jalan) atau untuk rekap
+  tanggal lalu, dipakai setelan. Seperti batas per packer, nilai ini bisa
+  diubah manual dan angka yang sudah diubah user tidak ditimpa ulang oleh
+  refresh data tiap menit.
 - **Batas efektif** (sejak 2 Okt 2026): "batas per packer" yang diisi user
   (bawaan 120) adalah **plafon maksimum**, bukan langsung dipakai. Untuk hari
   ini, plafon itu diturunkan ke **kapasitas sisa waktu kerja riil** bila lebih

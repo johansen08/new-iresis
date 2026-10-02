@@ -524,7 +524,12 @@
     var kapasitas = d.hari_ini ? (detikRata > 0 ? Math.floor(sisa * 60 / detikRata) : B) : B;
     var batasEfektif = d.hari_ini ? Math.min(B, kapasitas) : B;
 
-    pasangInfo($id('pkh-info-packer'), 'Default ' + d.setelan.default_packer + ', bisa diubah. Terdeteksi scan packing dalam 1 jam terakhir: <b>' + fmt(d.packer_aktif) + ' orang</b>.');
+    var pakaiTerdeteksi = d.hari_ini && d.packer_aktif > 0;
+    pasangInfo($id('pkh-info-packer'),
+      (pakaiTerdeteksi
+        ? 'Bawaan dari akun packer (unik) yang terdeteksi scan packing dalam 1 jam terakhir: <b>' + fmt(d.packer_aktif) + ' orang</b>.'
+        : 'Belum ada akun packer yang terdeteksi scan packing dalam 1 jam terakhir, jadi bawaan memakai setelan: <b>' + fmt(d.setelan.default_packer) + ' orang</b>.')
+      + ' Bisa diubah manual kapan saja.');
     pasangInfo($id('pkh-info-batas'), 'Default ' + d.setelan.default_batas + ': plafon maksimum paket &gt;1 Qty per packer. ' +
       (d.hari_ini ?
         'Sisa waktu kerja sekarang sampai jam ' + d.setelan.jam_selesai.replace(':', '.') + ': <b>' + (sisa > 0 ? dur(sisa) : 'sudah lewat') + '</b>' +
@@ -573,8 +578,15 @@
 
   function pakaiData(d) {
     state.data = d;
-    // bawaan dari setelan hanya dipasang sekali; angka yang sudah diubah user tetap dipakai
-    if (state.packer === null) { state.packer = d.setelan.default_packer; $id('pkh-packer').value = state.packer; }
+    // bawaan hanya dipasang sekali; angka yang sudah diubah user tetap dipakai.
+    // Jumlah packer: bawaan dari akun packer (unik) yang terdeteksi aktif scan
+    // packing 1 jam terakhir — supaya leader langsung tahu berapa packer yang
+    // sedang masuk, bukan angka setelan tetap. Kalau belum ada yang terdeteksi
+    // (mis. pagi sebelum packing jalan, atau rekap tanggal lalu), pakai setelan.
+    if (state.packer === null) {
+      state.packer = (d.hari_ini && d.packer_aktif > 0) ? d.packer_aktif : d.setelan.default_packer;
+      $id('pkh-packer').value = state.packer;
+    }
     if (state.batas === null) { state.batas = d.setelan.default_batas; $id('pkh-batas').value = state.batas; }
     tampilGalat('');
     render();
