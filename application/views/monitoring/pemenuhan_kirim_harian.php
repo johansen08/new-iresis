@@ -137,9 +137,6 @@
 .pkh-ot-ringkas .itm.bad .v{color:var(--pkh-bad)}
 .pkh-ot-ringkas .itm.warn .v{color:var(--pkh-warn)}
 @media (max-width:760px){.pkh-ot-ringkas{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.pkh-incl-row{display:flex;align-items:center;gap:4px;margin-top:18px}
-.pkh-incl{display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer;margin:0;font-weight:400}
-.pkh-incl input{width:16px;height:16px;margin:0;accent-color:var(--pkh-accent)}
 .pkh-action{margin-top:14px;border-radius:10px;padding:14px 16px;font-size:17px;line-height:1.45}
 .pkh-action b{font-weight:700}
 .pkh-action.ok{background:var(--pkh-ok-soft);color:var(--pkh-ok)}
@@ -298,7 +295,7 @@
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <div>
-          <div class="pkh-sum-title">Detail OT/Perbantuan<span class="pkh-info" data-tip="<p><b>Beban per packer</b> = paket &gt;1 Qty yang belum dipacking ÷ jumlah packer.</p><p><b>Cukup</b> bila beban paling banyak 85% dari batas; <b>Mepet</b> bila sampai batas; <b>Perlu OT / Perbantuan</b> bila lewat batas.</p>"></span></div>
+          <div class="pkh-sum-title">Detail OT/Perbantuan<span class="pkh-info" data-tip="<p><b>Beban per packer</b> = total paket belum dipacking ÷ jumlah packer.</p><p><b>Kemampuan tim</b> = jumlah packer × batas per packer × sisa jam kerja.</p><p><b>Cukup</b> bila beban paling banyak 85% dari batas; <b>Mepet</b> bila sampai batas; <b>Perlu OT / Perbantuan</b> bila lewat batas. Hanya tampil untuk hari ini.</p>"></span></div>
           <div class="pkh-sum-meta" id="pkh-pack-meta"></div>
         </div>
       </div>
@@ -336,10 +333,6 @@
           <div class="pkh-load" aria-hidden="true"><i id="pkh-load-bar"></i><span class="cap-mark"></span></div>
           <div class="cap" id="pkh-per-cap"></div>
         </div>
-      </div>
-      <div class="pkh-incl-row">
-        <label class="pkh-incl" for="pkh-with-1qty"><input type="checkbox" id="pkh-with-1qty"><span id="pkh-1qty-text"></span></label>
-        <span class="pkh-info" data-tip="Biasanya tidak perlu dihitung karena 1 Qty cepat dipacking. Centang bila sisa 1 Qty sangat banyak. Spesial tidak ikut karena otomatis ter-pack saat dipick."></span>
       </div>
       <div class="pkh-action" id="pkh-action"></div>
     </div>
@@ -403,7 +396,7 @@
   var MEPET = 0.85;
   var BATAS_INPUT = { packer: { min: 1, max: 60, langkah: 1 }, batas: { min: 1, max: 999, langkah: 10 } };
   var TIP_SUB = 'Hari ini diperbarui otomatis tiap 1 menit. Pilih tanggal lain untuk melihat rekap akhir hari tanggal itu.';
-  var state = { data: null, packer: null, batas: null, satuQty: false, memuat: false };
+  var state = { data: null, packer: null, batas: null, memuat: false };
   var root = document.getElementById('pkh-root');
   var $id = function (id) { return document.getElementById(id); };
 
@@ -529,43 +522,39 @@
 
   function renderPacking(W) {
     var d = state.data, P = state.packer, B = state.batas;
-    // 1 Qty yang lewat meja packer hanya Reguler; Spesial otomatis ter-pack saat dipick
-    var kat = state.satuQty ? [1].concat(LEBIH_QTY) : LEBIH_QTY;
-    var paket = kat.reduce(function (s, k) { return s + belum(W, 2, [k]); }, 0);
-    var detikRata = paket ? kat.reduce(function (s, k) { return s + belum(W, 2, [k]) * d.detik_kategori[k]; }, 0) / paket : 0;
+    // Detail OT/Perbantuan cuma relevan untuk hari ini — rekap tanggal lalu
+    // tidak punya "sisa jam kerja" untuk dihitung.
+    $id('pkh-sec-pack').hidden = !d.hari_ini;
+    if (!d.hari_ini) return;
+
+    var paket = belum(W, 2);   // total belum packing: 1 Qty + >1 Qty
+    var detikRata = paket ? SEMUA.reduce(function (s, k) { return s + belum(W, 2, [k]) * d.detik_kategori[k]; }, 0) / paket : 0;
     var beban = Math.ceil(paket / P);   // paket tidak bisa dibagi pecahan
     var sisa = sisaMenitKerja(d);
-    // Batas efektif = batas yang diisi user, DITURUNKAN ke kapasitas sisa waktu kerja
-    // riil bila itu lebih kecil — supaya makin sore/mendekati jam pulang, ambangnya
-    // makin ketat (bukan angka tetap sepanjang hari seperti sebelumnya).
-    var kapasitas = d.hari_ini ? (detikRata > 0 ? Math.floor(sisa * 60 / detikRata) : B) : B;
-    var batasEfektif = d.hari_ini ? Math.min(B, kapasitas) : B;
-    var kemampuanTim = batasEfektif * P;
+    var jamSisa = sisa / 60;
+    // Kemampuan tim = jumlah packer × batas per packer (paket/jam) × sisa jam kerja.
+    var batasEfektif = B * jamSisa;         // kapasitas per packer untuk sisa waktu
+    var kemampuanTim = Math.round(P * batasEfektif);   // harus bilangan bulat
 
     // ringkasan selalu tampil begitu bagian dibuka, tidak perlu hover ⓘ
-    $id('pkh-ot-jam').textContent = d.hari_ini ? d.jam_data.replace(':', '.') : d.label_tanggal;
-    $id('pkh-ot-sisa').textContent = !d.hari_ini ? 'rekap akhir hari'
-      : sisa > 0 ? dur(sisa) : 'sudah lewat ' + d.setelan.jam_selesai.replace(':', '.');
+    $id('pkh-ot-jam').textContent = d.jam_data.replace(':', '.');
+    $id('pkh-ot-sisa').textContent = sisa > 0 ? dur(sisa) : 'sudah lewat ' + d.setelan.jam_selesai.replace(':', '.');
     $id('pkh-ot-kemampuan').textContent = fmt(kemampuanTim) + ' paket';
     $id('pkh-ot-kebutuhan').textContent = fmt(paket) + ' paket';
     $id('pkh-ot-kebutuhan-box').className = 'itm' + (!paket ? '' : paket > kemampuanTim ? ' bad' : paket > kemampuanTim * MEPET ? ' warn' : '');
 
-    var pakaiTerdeteksi = d.hari_ini && d.packer_aktif > 0;
+    var pakaiTerdeteksi = d.packer_aktif > 0;
     pasangInfo($id('pkh-info-packer'),
       (pakaiTerdeteksi
         ? 'Bawaan dari akun packer (unik) yang terdeteksi scan packing dalam 1 jam terakhir: <b>' + fmt(d.packer_aktif) + ' orang</b>.'
         : 'Belum ada akun packer yang terdeteksi scan packing dalam 1 jam terakhir, jadi bawaan memakai setelan: <b>' + fmt(d.setelan.default_packer) + ' orang</b>.')
       + ' Bisa diubah manual kapan saja.');
-    pasangInfo($id('pkh-info-batas'), 'Default ' + d.setelan.default_batas + ': plafon maksimum paket &gt;1 Qty per packer. ' +
-      (d.hari_ini ?
-        'Sisa waktu kerja sekarang sampai jam ' + d.setelan.jam_selesai.replace(':', '.') + ': <b>' + (sisa > 0 ? dur(sisa) : 'sudah lewat') + '</b>' +
-        ', setara ±<b>' + fmt(kapasitas) + ' paket</b> per packer' +
-        (batasEfektif < B ? ' — dipakai sebagai <b>batas efektif</b> karena lebih kecil dari plafon di atas.' : ' — masih di bawah plafon, jadi plafon yang dipakai.') :
-        'Tanggal ini bukan hari ini, jadi dipakai apa adanya tanpa penyesuaian jam.'));
+    pasangInfo($id('pkh-info-batas'), 'Default ' + d.setelan.default_batas + ' paket per jam per packer. ' +
+      'Sisa waktu kerja sekarang sampai jam ' + d.setelan.jam_selesai.replace(':', '.') + ': <b>' + (sisa > 0 ? dur(sisa) : 'sudah lewat') + '</b>' +
+      ', setara ±<b>' + fmt(batasEfektif) + ' paket</b> per packer, total tim ±<b>' + fmt(kemampuanTim) + ' paket</b>.');
     $id('pkh-per').textContent = fmt(beban);
     $id('pkh-per-of').textContent = 'paket / batas ' + fmt(batasEfektif);
-    $id('pkh-per-cap').innerHTML = '<b>' + fmt(paket) + '</b> paket ' + (state.satuQty ? '' : '&gt;1 Qty ') + 'belum dipacking ÷ <b>' + P + '</b> packer';
-    $id('pkh-1qty-text').textContent = 'Ikut hitung 1 Qty (' + fmt(belum(W, 2, [1])) + ' paket)';
+    $id('pkh-per-cap').innerHTML = '<b>' + fmt(paket) + '</b> paket belum dipacking ÷ <b>' + P + '</b> packer';
 
     var st, aksi;
     if (!paket) { st = 'ok'; aksi = '<b>Tidak ada sisa paket yang dihitung.</b>'; }
@@ -658,7 +647,6 @@
       render();
     });
   });
-  $id('pkh-with-1qty').addEventListener('change', function (e) { state.satuQty = e.target.checked; render(); });
   $id('pkh-tanggal').addEventListener('change', function (e) { if (e.target.value) muat(e.target.value); });
   $id('pkh-muat').addEventListener('click', function () { muat($id('pkh-tanggal').value); });
 
