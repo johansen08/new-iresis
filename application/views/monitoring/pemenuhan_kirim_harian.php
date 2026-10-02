@@ -130,6 +130,13 @@
 .pkh-load .cap-mark{position:absolute;left:85%;top:0;bottom:0;border-left:2px solid var(--pkh-surface)}
 .pkh-per .cap{margin-top:8px}
 .pkh-per .cap b{color:var(--pkh-ink)}
+.pkh-ot-ringkas{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.pkh-ot-ringkas .itm{background:var(--pkh-surface-2);border:1px solid var(--pkh-line);border-radius:10px;padding:9px 12px}
+.pkh-ot-ringkas .k{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--pkh-muted);white-space:nowrap}
+.pkh-ot-ringkas .v{display:block;margin-top:3px;font-family:Outfit,Inter,sans-serif;font-weight:600;font-size:17px;color:var(--pkh-ink);line-height:1.25}
+.pkh-ot-ringkas .itm.bad .v{color:var(--pkh-bad)}
+.pkh-ot-ringkas .itm.warn .v{color:var(--pkh-warn)}
+@media (max-width:760px){.pkh-ot-ringkas{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .pkh-incl-row{display:flex;align-items:center;gap:4px;margin-top:18px}
 .pkh-incl{display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer;margin:0;font-weight:400}
 .pkh-incl input{width:16px;height:16px;margin:0;accent-color:var(--pkh-accent)}
@@ -298,6 +305,12 @@
       <div class="pkh-sum-r"><span id="pkh-pack-pill"></span><span class="pkh-sum-act"></span></div>
     </summary>
     <div class="pkh-sec-body">
+      <div class="pkh-ot-ringkas" id="pkh-ot-ringkas">
+        <div class="itm"><span class="k">Jam sekarang</span><span class="v" id="pkh-ot-jam"></span></div>
+        <div class="itm"><span class="k">Sisa ke jam selesai</span><span class="v" id="pkh-ot-sisa"></span></div>
+        <div class="itm"><span class="k">Kemampuan tim</span><span class="v" id="pkh-ot-kemampuan"></span></div>
+        <div class="itm" id="pkh-ot-kebutuhan-box"><span class="k">Harus dikerjakan</span><span class="v" id="pkh-ot-kebutuhan"></span></div>
+      </div>
       <div class="pkh-calc">
         <div class="pkh-inputs">
           <div>
@@ -527,6 +540,15 @@
     // makin ketat (bukan angka tetap sepanjang hari seperti sebelumnya).
     var kapasitas = d.hari_ini ? (detikRata > 0 ? Math.floor(sisa * 60 / detikRata) : B) : B;
     var batasEfektif = d.hari_ini ? Math.min(B, kapasitas) : B;
+    var kemampuanTim = batasEfektif * P;
+
+    // ringkasan selalu tampil begitu bagian dibuka, tidak perlu hover ⓘ
+    $id('pkh-ot-jam').textContent = d.hari_ini ? d.jam_data.replace(':', '.') : d.label_tanggal;
+    $id('pkh-ot-sisa').textContent = !d.hari_ini ? 'rekap akhir hari'
+      : sisa > 0 ? dur(sisa) : 'sudah lewat ' + d.setelan.jam_selesai.replace(':', '.');
+    $id('pkh-ot-kemampuan').textContent = fmt(kemampuanTim) + ' paket';
+    $id('pkh-ot-kebutuhan').textContent = fmt(paket) + ' paket';
+    $id('pkh-ot-kebutuhan-box').className = 'itm' + (!paket ? '' : paket > kemampuanTim ? ' bad' : paket > kemampuanTim * MEPET ? ' warn' : '');
 
     var pakaiTerdeteksi = d.hari_ini && d.packer_aktif > 0;
     pasangInfo($id('pkh-info-packer'),
