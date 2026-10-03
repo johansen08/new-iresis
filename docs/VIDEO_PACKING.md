@@ -1,7 +1,9 @@
 # Rekaman Video Packing (Scan Resi Packer Webcam)
 
 Rilis awal 19 September 2026 (resolusi 1080p + VP9); kualitas rekaman
-dinaikkan lagi 1 Oktober 2026 (lihat §7). Dokumen ini rujukan utama fitur
+dinaikkan lagi 1 Oktober 2026, lalu 2 Oktober 2026 codec dipilih per PC
+(encoder GPU didahulukan) dan rekaman diberi ekor setelah scan kedua supaya
+ujungnya tidak terpotong (lihat §4.1 dan §7). Dokumen ini rujukan utama fitur
 rekaman video packing — `HANDOFF.md` §2 dan `docs/ANALISIS_PROGRAM.md` hanya
 menunjuk ke sini.
 
@@ -74,8 +76,13 @@ packer buka menu Scan Resi Packer (Webcam)
             │                                              pernah di-scan
             │
             └──► scan resi sama lagi, ≥ jeda minimum   → tersimpan ke tblpacking,
-                  rekaman DIHENTIKAN & diunggah (status SELESAI)
+                  kamera merekam 3 detik lagi (ekor), lalu rekaman
+                  DIHENTIKAN & diunggah (status SELESAI)
 ```
+
+Ekor 3 detik (`EKOR_REKAM_MS`) juga berlaku untuk tombol Submit. Kalau resi
+berikutnya keburu discan selama ekor berjalan, rekaman lama langsung ditutup
+dan rekaman resi baru dimulai — tidak ada dua rekaman yang berjalan bersamaan.
 
 Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 ([application/controllers/Packer.php](../application/controllers/Packer.php)).
@@ -109,10 +116,53 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
 | Frame rate | 15 fps | Cukup untuk konten packing yang relatif statis |
-| Codec | VP9 (fallback VP8 di browser lama) | WebM, tanpa perlu server tahu codec mana yang dipakai |
-| Bitrate | VP9 8,0 Mbps / VP8 10,0 Mbps | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026) |
+| Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
+| Bitrate | VP9 8,0 Mbps / H.264 10,0 Mbps / VP8 10,0 Mbps | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026) |
+| Ekor setelah scan kedua | 3 detik (`EKOR_REKAM_MS`) | `recorder.stop()` membuang frame yang masih antre di encoder; tanpa ekor, momen scan kedua tidak terekam |
 | Audio | **Tidak ada** | Sejak awal tidak pernah ada track audio — bukti packing cukup gambarnya |
 | Potongan unggah | Tiap 2 detik | Supaya muat batas upload PHP dan bagian yang sudah naik tetap aman kalau tab ditutup mendadak |
+
+### 4.1 Kenapa codec dipilih per PC (temuan 2 Okt 2026)
+
+Data produksi PC F19-11 sejak rilis 1080p VP9 (21 Sep) menunjukkan rekaman
+**tidak utuh sampai akhir**:
+
+| Periode | Setelan | Rata-rata detik hilang per video |
+|---|---|---|
+| 16–19 Sep | 720p VP8 1,2 Mbps | 0,1–0,3 |
+| 21–28 Sep | 1080p VP9 2 Mbps | 1,7–1,8 |
+| 1–2 Okt | 1080p dipaksa, VP9 8 Mbps | 2,3–2,6 (maks. ±9) |
+
+"Detik hilang" = (jam scan kedua − jam potongan pertama diterima + 2 detik)
+− durasi berkas menurut ffprobe. Frame rate efektif berkasnya hanya 4–8 fps
+dari 15 yang diminta, dengan pola khas encoder kewalahan: ±8 frame pertama
+rapat (15 fps), sesudahnya renggang 0,25–1 detik. VP9 1080p yang di-encode
+CPU tidak sanggup real-time; frame yang masih antre dibuang saat
+`recorder.stop()`.
+
+Supaya 1080p tetap dipertahankan, `pilihCodecTerbaik()` di
+`packer_video.js` menanyakan encoder GPU lewat WebCodecs
+(`VideoEncoder.isConfigSupported` dengan `hardwareAcceleration:
+'prefer-hardware'`). **Bukan** `MediaCapabilities.encodingInfo({type:
+'record'})` — Chrome 152 sudah menolak type itu. Panel kamera menampilkan
+hasilnya, mis. `Resolusi: 1920×1080 @ 15 fps · H.264 (GPU)`. Hanya `VP9 (CPU)`
+yang ditandai oranye: uji 2 Okt 2026 di Chromium 152 (kamera canvas 1080p @
+15 fps, CPU yang sama) memberi H.264 ±14–15 fps, VP8 ±14–15 fps, VP9 ±1 fps —
+dan rekaman VP9 itu tetap kehilangan ±2 detik ujungnya walau sudah diberi
+ekor. Jadi pemilihan codec adalah perbaikan utamanya; ekor hanya pengaman.
+
+Rekaman H.264 berkontainer Matroska (tetap bernama `.webm`). Sisi server
+membaca codec dari berkasnya (`Video_ffmpeg::codec_video()`): remux memakai
+`-f matroska` untuk H.264 (`-f webm` ditolak ffmpeg), dan MP4 untuk CS cukup
+disalin tanpa encode ulang (hitungan detik, kualitas asli). Chrome memutar
+berkas ini lewat halaman CS seperti WebM biasa.
+
+**Cara memastikan di lapangan:** fps efektif berkas =
+`jumlah frame ÷ durasi` dari ffprobe
+(`ffprobe -v error -select_streams v:0 -count_packets -show_entries
+stream=nb_read_packets -of csv=p=0 <berkas>` dibagi `format=duration`).
+Target ≥ 13 fps. Kalau PC tanpa GPU masih jauh di bawah itu, tukar urutan
+`URUTAN_CPU` atau turunkan resolusi khusus PC tersebut.
 
 Sumber: [assets/js/packer_video.js](../assets/js/packer_video.js). Riwayat
 perubahan setelan bitrate/resolusi ada di
@@ -197,6 +247,7 @@ terpasang), ditandai "terlalu lama" ke CS.
 | 15 Sep 2026 | 1280×720 | VP8 1,2 Mbps | Setelan awal, diturunkan dari 1080p karena kapasitas disk |
 | 19 Sep 2026 | 1920×1080 (`ideal` saja) | VP9 2,0 Mbps / VP8 2,7 Mbps | Rilis 1080p+VP9 pertama |
 | 1 Okt 2026 | 1920×1080 (`min`+`ideal`, dipaksa) | VP9 8,0 Mbps / VP8 10,0 Mbps | Kualitas diutamakan di atas ukuran berkas atas permintaan user |
+| 2 Okt 2026 | 1920×1080 (tetap) | Encoder GPU didahulukan (VP9/H.264/VP8), H.264 10,0 Mbps; ekor 3 detik | Ujung rekaman terpotong karena encoder CPU tidak sanggup 1080p VP9 (§4.1) |
 
 Detail lengkap tiap rilis (termasuk estimasi kapasitas disk) ada di
 `docs/PANDUAN_PULL_PRODUKSI.md` bagian **B.6**, **E**, dan **N**.

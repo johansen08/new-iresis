@@ -15,6 +15,11 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *     ke H.264 memakan ~15 detik per menit video, jadi hanya dikerjakan atas
  *     permintaan (lihat Cs::minta_video_mp4 dan Cron::finalisasi_video).
  *
+ * Rekaman bisa VP9/VP8 (WebM) atau H.264 (Matroska ber-nama .webm, dari
+ * encoder GPU -- lihat KANDIDAT_CODEC di assets/js/packer_video.js). Codec-nya
+ * dibaca dari berkas lewat codec_video(): remux memakai kontainer yang sah
+ * untuk codec itu, dan H.264 cukup disalin ke MP4 tanpa encode ulang.
+ *
  * Lokasi binary dibaca dari kunci `ffmpeg_path` di secrets.php; kalau tidak
  * ada, dipakai `ffmpeg` dari PATH. ffprobe diasumsikan ada di folder yang sama.
  * Kalau ffmpeg tidak terpasang, semua method mengembalikan gagal dengan pesan
@@ -87,6 +92,47 @@ class Video_ffmpeg
     }
 
     /**
+     * Nama codec video pertama menurut ffprobe ('vp9', 'vp8', 'h264', ...),
+     * atau '' kalau tidak terbaca.
+     *
+     * Dibaca dari berkasnya, bukan dari tblvideopacking.mime_type: rekaman lama
+     * tidak mencatat codec, dan isi berkas yang menentukan kontainer apa yang
+     * sah untuknya.
+     */
+    public function codec_video($path)
+    {
+        $keluaran = '';
+        $kode = $this->jalankan([
+            $this->ffprobe, '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'csv=p=0',
+            $path,
+        ], $keluaran, 60);
+
+        if ($kode !== 0) {
+            return '';
+        }
+
+        $baris = preg_split('/\R/', trim($keluaran));
+
+        return strtolower(trim((string) $baris[0]));
+    }
+
+    /**
+     * Format kontainer ffmpeg untuk remux rekaman ber-codec ini.
+     *
+     * Kontainer WebM hanya sah untuk VP8/VP9/AV1. Rekaman H.264 dari encoder
+     * GPU (lihat KANDIDAT_CODEC di packer_video.js) sebenarnya Matroska --
+     * dipaksa ke -f webm, ffmpeg menolaknya. Nama berkasnya tetap .webm supaya
+     * nama, folder, dan halaman CS tidak perlu tahu codec apa yang dipakai.
+     */
+    private function format_remux($codec)
+    {
+        return ($codec === '' || in_array($codec, ['vp8', 'vp9', 'av1'], TRUE)) ? 'webm' : 'matroska';
+    }
+
+    /**
      * Tulis ulang kontainer WebM di tempat supaya punya durasi dan cues.
      *
      * Hasil ditulis ke berkas sementara dulu, diperiksa, baru menggantikan yang
@@ -109,7 +155,7 @@ class Video_ffmpeg
             $this->ffmpeg, '-v', 'error', '-y',
             '-i', $path,
             '-c', 'copy',
-            '-f', 'webm',
+            '-f', $this->format_remux($this->codec_video($path)),
             $sementara,
         ], $keluaran, self::BATAS_DETIK_REMUX);
 
@@ -157,6 +203,18 @@ class Video_ffmpeg
         }
 
         $sementara = $tujuan . '.tmp';
+
+        // Rekaman yang sudah H.264 (encoder GPU) cukup dipindah kontainernya:
+        // hitungan detik, dan kualitasnya persis rekaman asli. Kalau gagal --
+        // mis. profil/pixel format yang tidak cocok untuk MP4 -- jatuh ke
+        // transcode biasa di bawah.
+        if ($this->codec_video($sumber) === 'h264') {
+            $hasil = $this->salin_ke_mp4($sumber, $tujuan, $sementara);
+            if ($hasil['sukses']) {
+                return $hasil;
+            }
+        }
+
         $keluaran  = '';
         $kode = $this->jalankan([
             $this->ffmpeg, '-v', 'error', '-y',
@@ -174,6 +232,56 @@ class Video_ffmpeg
         if ($kode !== 0 || !is_file($sementara) || filesize($sementara) === 0) {
             @unlink($sementara);
             return $this->gagal('ffmpeg transcode gagal (kode ' . $kode . '): ' . trim($keluaran));
+        }
+
+        if (!@rename($sementara, $tujuan)) {
+            @unlink($sementara);
+            return $this->gagal('Tidak bisa menaruh hasil MP4 di ' . $tujuan);
+        }
+
+        return ['sukses' => TRUE, 'ukuran' => (int) filesize($tujuan), 'pesan' => ''];
+    }
+
+    /**
+     * MP4 dari rekaman H.264 tanpa encode ulang (-c copy + faststart).
+     *
+     * Hasilnya hanya dipakai kalau durasinya terbaca dan pixel format-nya
+     * 4:2:0 -- syarat yang sama dengan yang dipaksakan transcode di ke_mp4()
+     * (-pix_fmt yuv420p) supaya bisa diputar di iPhone/WhatsApp.
+     *
+     * @return array Sama dengan ke_mp4().
+     */
+    private function salin_ke_mp4($sumber, $tujuan, $sementara)
+    {
+        $keluaran = '';
+        $kode = $this->jalankan([
+            $this->ffmpeg, '-v', 'error', '-y',
+            '-i', $sumber,
+            '-an',
+            '-c:v', 'copy',
+            '-movflags', '+faststart',
+            '-f', 'mp4',
+            $sementara,
+        ], $keluaran, self::BATAS_DETIK_REMUX);
+
+        if ($kode !== 0 || !is_file($sementara) || filesize($sementara) === 0
+            || $this->durasi_detik($sementara) <= 0) {
+            @unlink($sementara);
+            return $this->gagal('Salin H.264 ke MP4 gagal (kode ' . $kode . '): ' . trim($keluaran));
+        }
+
+        $pix = '';
+        $this->jalankan([
+            $this->ffprobe, '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=pix_fmt',
+            '-of', 'csv=p=0',
+            $sementara,
+        ], $pix, 60);
+
+        if (!in_array(strtolower(trim($pix)), ['yuv420p', 'yuvj420p'], TRUE)) {
+            @unlink($sementara);
+            return $this->gagal('Pixel format ' . trim($pix) . ' tidak cocok untuk MP4 ponsel.');
         }
 
         if (!@rename($sementara, $tujuan)) {

@@ -51,6 +51,18 @@ class Packer extends MY_Controller
     /** Kelonggaran untuk selisih jam browser-server dan waktu tempuh permintaan. */
     const TOLERANSI_TUTUP_DETIK = 60;
 
+    /**
+     * Nilai mime_type rekaman yang boleh dicatat dari browser. Harus sejalan
+     * dengan KANDIDAT_CODEC di assets/js/packer_video.js; nilai lain dicatat
+     * sebagai 'video/webm' polos.
+     */
+    const MIME_VIDEO_BOLEH = [
+        'video/webm',
+        'video/webm;codecs=vp8',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=h264',
+    ];
+
 
 	function __construct()
 	{
@@ -775,6 +787,14 @@ class Packer extends MY_Controller
         $terakhir  = (int) $this->input->post('terakhir') === 1;
         $durasi    = (int) $this->input->post('durasi');
 
+        // Codec yang dipilih browser (lihat KANDIDAT_CODEC di packer_video.js),
+        // hanya untuk dicatat. Daftar putih, karena nilainya ikut tersimpan dan
+        // dikirim balik sebagai Content-Type saat CS memutar videonya.
+        $mime = strtolower(trim((string) $this->input->post('mime')));
+        if (!in_array($mime, self::MIME_VIDEO_BOLEH, TRUE)) {
+            $mime = 'video/webm';
+        }
+
         // Kode sesi ikut jadi nama berkas, jadi harus dikunci ketat supaya tidak
         // bisa dipakai keluar dari folder upload.
         if (!preg_match('/^[A-Za-z0-9]{10,40}$/', $kode_sesi)) {
@@ -861,7 +881,7 @@ class Packer extends MY_Controller
                 'nama_file'     => $nama,
                 'folder'        => $folder,
                 'bagian'        => $bagian,
-                'mime_type'     => 'video/webm',
+                'mime_type'     => $mime,
                 'status'        => $terakhir ? 'SELESAI' : 'MEREKAM',
                 'durasi_detik'  => $terakhir && $durasi > 0 ? $durasi : 0,
                 'ukuran_byte'   => (int) @filesize($path),
