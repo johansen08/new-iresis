@@ -94,6 +94,9 @@ $route['picker/kurangan-picker'] = 'picker/kurangan_picker';
 $route['picker/save-kurangan-picker'] = 'picker/save_kurangan_picker';
 $route['picker/get-kurangan-picker-data'] = 'picker/get_kurangan_picker_data';
 $route['picker/get-kurangan-picker-data/(:any)'] = 'picker/get_kurangan_picker_data/$1';
+$route['picker/upload-resi-spesial'] = 'picker/upload_resi_spesial';
+$route['picker/validasi-upload-resi-spesial'] = 'picker/validasi_upload_resi_spesial';
+$route['picker/simpan-upload-resi-spesial'] = 'picker/simpan_upload_resi_spesial';
 
 $route['packer/scan-packer'] = 'packer/scan_packer';
 $route['packer/scan-packer-webcam'] = 'packer/scan_packer_webcam';

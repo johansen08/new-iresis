@@ -1,5 +1,7 @@
 <?php
 
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
 class Picker extends MY_Controller
 {
     private static $status_cache = array(); // Simple static cache for status IDs
@@ -499,6 +501,196 @@ class Picker extends MY_Controller
     public function search_picker()
     {
         $this->show();
+    }
+
+    /**
+     * Menu TIM RESI -> "Upload Resi Spesial": upload file Excel berisi No
+     * Resi sekaligus untuk SATU Nama Picker dengan status performa
+     * 1_SKU_PICKER, tanpa scan satu per satu. Dua langkah:
+     * validasi_upload_resi_spesial() (baca-saja, tampilkan mana yang
+     * valid/tidak) lalu simpan_upload_resi_spesial() (baru menulis, setelah
+     * admin konfirmasi).
+     */
+    public function upload_resi_spesial()
+    {
+        $data['roster_picker'] = $this->picking_fcd->roster_picker_aktif();
+
+        $this->show($data);
+    }
+
+    /**
+     * Baca file Excel, cocokkan kolom "No Resi", lalu klasifikasikan tiap
+     * No Resi TANPA menulis apa pun ke DB -- supaya admin bisa melihat mana
+     * yang valid/tidak sebelum menekan Simpan.
+     */
+    public function validasi_upload_resi_spesial()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        if (!isset($_FILES['resiFile']) || $_FILES['resiFile']['error'] != 0) {
+            $this->make_ajax_response(400, 'File tidak ditemukan atau gagal diunggah');
+        }
+
+        $ekstensi = strtolower(pathinfo($_FILES['resiFile']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ekstensi, ['xlsx', 'xls'], true)) {
+            $this->make_ajax_response(400, "Format file .$ekstensi tidak didukung. Unggah file .xlsx atau .xls.");
+        }
+
+        ini_set('memory_limit', '3072M');
+        ini_set('max_execution_time', 0);
+        set_time_limit(0);
+
+        try {
+            $reader = IOFactory::createReader(IOFactory::identify($_FILES['resiFile']['tmp_name']));
+            $reader->setReadDataOnly(true);
+            $spreadsheet = $reader->load($_FILES['resiFile']['tmp_name']);
+            $baris = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        } catch (Throwable $e) {
+            log_message('error', 'Gagal baca file Upload Resi Spesial: ' . $e->getMessage());
+            $this->make_ajax_response(400, 'File tidak terbaca sebagai Excel: ' . $e->getMessage());
+        }
+
+        if (count($baris) < 2) {
+            $this->make_ajax_response(400, 'File kosong atau tidak ada baris data di bawah header');
+        }
+
+        // Cari kolom "No Resi" dari baris header (baris pertama), longgar
+        // terhadap spasi/huruf besar-kecil -- user boleh menempel apa adanya
+        // hasil export Jubelio (kolom No Picklist/SKU/No Pesanan ikut ada
+        // tapi tidak dipakai; Picking_fcd::save() sudah menarik sendiri isi
+        // resi dari tbldetailprintresi berdasarkan No Resi).
+        $header = array_shift($baris);
+        $kolom_noresi = null;
+        foreach ($header as $kolom => $judul) {
+            $judul_bersih = strtolower(trim((string) $judul));
+            if ($judul_bersih === 'no resi' || $judul_bersih === 'noresi' || $judul_bersih === 'no. resi') {
+                $kolom_noresi = $kolom;
+                break;
+            }
+        }
+
+        if ($kolom_noresi === null) {
+            $this->make_ajax_response(400, 'Kolom "No Resi" tidak ditemukan di file. Pastikan baris pertama berisi header kolom, salah satunya "No Resi".');
+        }
+
+        // Kumpulkan No Resi per baris file (urutan dipertahankan untuk
+        // deteksi duplikat), lalu unik-kan untuk query ke DB.
+        $noresi_per_baris = [];
+        foreach ($baris as $row) {
+            $nilai = trim((string) ($row[$kolom_noresi] ?? ''));
+            if ($nilai === '') continue;
+            $noresi_per_baris[] = $nilai;
+        }
+
+        if (empty($noresi_per_baris)) {
+            $this->make_ajax_response(400, 'Tidak ada No Resi terisi di file');
+        }
+
+        $hitung = array_count_values($noresi_per_baris);
+        $noresi_unik = array_keys($hitung);
+
+        $klasifikasi = $this->picking_fcd->cek_batch_noresi($noresi_unik);
+
+        $valid = [];
+        $tidak_valid = [];
+        foreach ($noresi_unik as $noresi) {
+            if ($hitung[$noresi] > 1) {
+                $tidak_valid[] = ['noresi' => $noresi, 'alasan' => 'Duplikat di dalam file (' . $hitung[$noresi] . 'x)'];
+                continue;
+            }
+
+            $status = $klasifikasi[$noresi]['status'] ?? 'NOT_FOUND';
+            if ($status === 'OK') {
+                $valid[] = $noresi;
+            } else {
+                $tidak_valid[] = ['noresi' => $noresi, 'alasan' => $klasifikasi[$noresi]['alasan']];
+            }
+        }
+
+        $this->make_ajax_response(200, 'Validasi selesai', [
+            'total_baris'       => count($noresi_per_baris),
+            'total_unik'        => count($noresi_unik),
+            'total_valid'       => count($valid),
+            'total_tidak_valid' => count($tidak_valid),
+            'valid'             => $valid,
+            'tidak_valid'       => $tidak_valid,
+        ]);
+    }
+
+    /**
+     * Simpan resi yang sudah dikonfirmasi admin dari hasil
+     * validasi_upload_resi_spesial(). Status performa DIPAKSA ke
+     * 1_SKU_PICKER di server -- bukan dipercaya dari client -- sesuai tujuan
+     * menu ini (upload batch picking 1 SKU). Setiap baris tetap lewat
+     * Picking_fcd::save() yang sama dengan scan manual, jadi aturan
+     * double-scan/batal/selesai divalidasi ULANG di sini (bukan cuma
+     * mengandalkan pratinjau) untuk menutup celah balapan dengan scan lain
+     * yang terjadi di antara validasi dan klik Simpan.
+     */
+    public function simpan_upload_resi_spesial()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $id_pegawaipicker = $this->input->post('id_pegawaipicker');
+        $list_noresi = $this->input->post('list_noresi');
+
+        if (empty($id_pegawaipicker)) {
+            $this->make_ajax_response(400, 'Nama Picker belum dipilih');
+        }
+
+        if (empty($list_noresi) || !is_array($list_noresi)) {
+            $this->make_ajax_response(400, 'Tidak ada No Resi yang dikonfirmasi untuk disimpan');
+        }
+
+        $this->load->model('kpi_fcd');
+        $status_id = $this->kpi_fcd->get_status_id_by_name('1_SKU_PICKER');
+        if (empty($status_id)) {
+            $this->make_ajax_response(500, 'Status performa 1_SKU_PICKER tidak ditemukan di master data');
+        }
+
+        ini_set('memory_limit', '3072M');
+        ini_set('max_execution_time', 0);
+        set_time_limit(0);
+
+        $berhasil = [];
+        $gagal = [];
+
+        foreach ($list_noresi as $noresi) {
+            $noresi = trim((string) $noresi);
+            if ($noresi === '') continue;
+
+            $picking = [
+                'noresi'             => $noresi,
+                'yangambil_pegawai'  => $id_pegawaipicker,
+                'pending'            => '',
+                'status_performa_id' => $status_id,
+            ];
+
+            $save = $this->picking_fcd->save($picking, $this->data['user']);
+
+            if (isset($save['error'])) {
+                $gagal[] = ['noresi' => $noresi, 'alasan' => $save['message']];
+                continue;
+            }
+
+            if ($save['affected_rows'] > 0) {
+                $berhasil[] = $noresi;
+            } else {
+                $gagal[] = ['noresi' => $noresi, 'alasan' => NOTHING_TO_SAVE];
+            }
+        }
+
+        $this->make_ajax_response(201, 'Upload Resi Spesial selesai diproses', [
+            'total_diminta'  => count($list_noresi),
+            'total_berhasil' => count($berhasil),
+            'total_gagal'    => count($gagal),
+            'berhasil'       => $berhasil,
+            'gagal'          => $gagal,
+        ]);
     }
 
     public function process_kpi_queue()
