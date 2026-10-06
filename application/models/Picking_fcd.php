@@ -220,10 +220,15 @@ class Picking_fcd extends CI_Model
     }
 
     /**
-     * Saran "Nama Picker" untuk menu Upload Resi Spesial: Master Picker aktif,
-     * himpunan yang sama dengan dropdown Scan Resi Picker (get_picker('AKTIF')).
-     * Format sama dengan roster lost scan (Scan_paket_ndd_new_fcd::roster_picker())
-     * supaya pola ketik-no-absen/nama-nya konsisten di seluruh aplikasi.
+     * Saran "Nama Picker" untuk menu Upload Resi Spesial: dari Master Picker
+     * aktif (himpunan yang sama dengan dropdown Scan Resi Picker,
+     * get_picker('AKTIF')) -- tapi disaring HANYA yang jabatannya "PICKER" di
+     * nama ("NAMA - JABATAN - NOABSEN"). Master Picker ikut diisi pegawai
+     * dari departemen lain (QC, INB, HVN, HO, dll, lihat SELECT manual 6 Okt
+     * 2026) yang pernah dipakai sebagai cadangan picker -- saran di menu ini
+     * sengaja tidak menampilkan mereka. Format hasil sama dengan roster lost
+     * scan (Scan_paket_ndd_new_fcd::roster_picker()) supaya pola ketik-no-
+     * absen/nama-nya konsisten di seluruh aplikasi.
      */
     function roster_picker_aktif()
     {
@@ -237,10 +242,16 @@ class Picking_fcd extends CI_Model
                 continue;
             }
             $nama = array_shift($bagian);
+            $role = $bagian ? implode(' - ', $bagian) : '-';
+
+            if (strcasecmp($role, 'PICKER') !== 0) {
+                continue;
+            }
+
             $hasil[] = [
                 'no_absen'     => sprintf('%04d', (int) $absen),
                 'nama'         => $nama,
-                'role'         => $bagian ? implode(' - ', $bagian) : '-',
+                'role'         => $role,
                 'id_pegawai'   => $r['id_pegawai'],
             ];
         }

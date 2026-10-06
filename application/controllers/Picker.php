@@ -593,11 +593,15 @@ class Picker extends MY_Controller
 
         $klasifikasi = $this->picking_fcd->cek_batch_noresi($noresi_unik);
 
+        // Duplikat di dalam file dipisah dari tidak valid DB (NOT_FOUND/
+        // ALREADY_PICKED/dll) supaya tampilan validasi bisa membedakan "ini
+        // salah tempel 2x" dari "ini memang bermasalah di sistem".
         $valid = [];
         $tidak_valid = [];
+        $duplikat = [];
         foreach ($noresi_unik as $noresi) {
             if ($hitung[$noresi] > 1) {
-                $tidak_valid[] = ['noresi' => $noresi, 'alasan' => 'Duplikat di dalam file (' . $hitung[$noresi] . 'x)'];
+                $duplikat[] = ['noresi' => $noresi, 'alasan' => 'Muncul ' . $hitung[$noresi] . 'x di file'];
                 continue;
             }
 
@@ -614,8 +618,10 @@ class Picker extends MY_Controller
             'total_unik'        => count($noresi_unik),
             'total_valid'       => count($valid),
             'total_tidak_valid' => count($tidak_valid),
+            'total_duplikat'    => count($duplikat),
             'valid'             => $valid,
             'tidak_valid'       => $tidak_valid,
+            'duplikat'          => $duplikat,
         ]);
     }
 
