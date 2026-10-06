@@ -219,6 +219,91 @@ class Picking_fcd extends CI_Model
         }
     }
 
+    /**
+     * Saran "Nama Picker" untuk menu Upload Resi Spesial: Master Picker aktif,
+     * himpunan yang sama dengan dropdown Scan Resi Picker (get_picker('AKTIF')).
+     * Format sama dengan roster lost scan (Scan_paket_ndd_new_fcd::roster_picker())
+     * supaya pola ketik-no-absen/nama-nya konsisten di seluruh aplikasi.
+     */
+    function roster_picker_aktif()
+    {
+        $rows = $this->get_picker('AKTIF')->result_array();
+
+        $hasil = [];
+        foreach ($rows as $r) {
+            $bagian = array_map('trim', explode('-', (string) $r['nama_pegawai']));
+            $absen  = array_pop($bagian);
+            if (count($bagian) < 1 || !ctype_digit($absen) || (int) $absen <= 0) {
+                continue;
+            }
+            $nama = array_shift($bagian);
+            $hasil[] = [
+                'no_absen'     => sprintf('%04d', (int) $absen),
+                'nama'         => $nama,
+                'role'         => $bagian ? implode(' - ', $bagian) : '-',
+                'id_pegawai'   => $r['id_pegawai'],
+            ];
+        }
+
+        usort($hasil, function ($a, $b) {
+            return strcmp($a['no_absen'], $b['no_absen']);
+        });
+
+        return $hasil;
+    }
+
+    /**
+     * Klasifikasi satu batch No Resi untuk pratinjau Upload Resi Spesial --
+     * SATU query, bukan N query per baris file. Aturan kelayakannya sengaja
+     * disalin dari pengecekan di save() (bukan dipanggil balik dari sana)
+     * karena di sini sifatnya hanya pratinjau baca-saja, belum ada transaksi
+     * yang perlu di-rollback. Keputusan final tetap lewat save() saat
+     * disimpan -- kalau di antara pratinjau dan konfirmasi ada yang berubah
+     * (mis. keduluan di-picker oleh scan manual), save() yang akan menolaknya.
+     *
+     * @param string[] $list_noresi
+     * @return array noresi => ['status' => OK|NOT_FOUND|ALREADY_PICKED|ORDER_CANCELED|ORDER_COMPLETED, 'alasan' => string]
+     */
+    function cek_batch_noresi(array $list_noresi)
+    {
+        $hasil = [];
+        if (empty($list_noresi)) {
+            return $hasil;
+        }
+
+        // WHERE IN dalam potongan supaya daftar panjang tidak membuat satu
+        // query raksasa dengan ribuan placeholder.
+        foreach (array_chunk($list_noresi, 500) as $potongan) {
+            $rows = $this->db
+                ->select('pr.noresi, pr.status_pesanan, pr.batal, rab.id_resiambilbarang')
+                ->from('tblprintresi pr')
+                ->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi', 'left')
+                ->where_in('pr.noresi', $potongan)
+                ->get()
+                ->result();
+
+            foreach ($rows as $row) {
+                if ($row->status_pesanan == 'COMPLETED') {
+                    $hasil[$row->noresi] = ['status' => 'ORDER_COMPLETED', 'alasan' => 'Pesanan sudah SELESAI'];
+                } elseif ($row->status_pesanan == 'CANCELED' || $row->batal == '1' || $row->batal == 1) {
+                    $hasil[$row->noresi] = ['status' => 'ORDER_CANCELED', 'alasan' => 'Pesanan sudah DIBATALKAN'];
+                } elseif (!empty($row->id_resiambilbarang)) {
+                    $hasil[$row->noresi] = ['status' => 'ALREADY_PICKED', 'alasan' => 'Sudah di-picker (Double Scan)'];
+                } else {
+                    $hasil[$row->noresi] = ['status' => 'OK', 'alasan' => ''];
+                }
+            }
+        }
+
+        foreach ($list_noresi as $noresi) {
+            if (!isset($hasil[$noresi])) {
+                $hasil[$noresi] = ['status' => 'NOT_FOUND', 'alasan' => 'Nomor resi tidak ditemukan'];
+            }
+        }
+
+        return $hasil;
+    }
+
     function save_picker($picker)
     {
         $existing_picker = $this->db->get_where('tblnamaambilbarang', ['id_pegawai' => $picker['id_pegawai']])->row_array();
