@@ -26,6 +26,7 @@
 }
 #urs-page .card-head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 #urs-page .card-title{display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700;}
+#urs-page .card-title svg{width:16px; height:16px; flex:none;}
 
 #urs-page .info{position:relative; display:inline-flex;}
 #urs-page .info-btn{
@@ -86,8 +87,8 @@
   cursor:pointer; transition:border-color .12s ease, background .12s ease;
 }
 #urs-page .drop:hover, #urs-page .drop.dragover{border-color:var(--urs-accent); background:var(--urs-accent-weak);}
-#urs-page .drop svg{color:var(--urs-muted); flex:none;}
-#urs-page .drop .txt{min-width:0;}
+#urs-page .drop svg{width:17px; height:17px; color:var(--urs-muted); flex:none;}
+#urs-page .drop .txt{min-width:0; flex:1;}
 #urs-page .drop .t{font-size:13px; font-weight:700; line-height:1.3;}
 #urs-page .drop .s{font-size:11px; color:var(--urs-muted); line-height:1.3;}
 #urs-page .file-chip{
@@ -95,7 +96,7 @@
   background:var(--urs-bg-surface-2); border-radius:9px; padding:8px 10px;
 }
 #urs-page .file-chip.show{display:flex;}
-#urs-page .file-chip svg{flex:none; color:var(--urs-accent);}
+#urs-page .file-chip svg{width:18px; height:18px; flex:none; color:var(--urs-accent);}
 #urs-page .file-chip .nm{font-size:13px; font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 #urs-page .file-chip .sz{font-size:11px; color:var(--urs-muted);}
 #urs-page .file-chip button{border:none; background:transparent; color:var(--urs-muted); cursor:pointer; font-size:15px; padding:2px;}
