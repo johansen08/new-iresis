@@ -265,7 +265,13 @@
     </div>
   </div>
 
-  <button class="btn btn-ghost" id="urs_btn_reset" style="align-self:flex-start;">Upload batch baru</button>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="urs_btn_cetak">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      Cetak Ringkasan
+    </button>
+    <button class="btn btn-ghost" id="urs_btn_reset">Upload batch baru</button>
+  </div>
 </div>
 </div>
 
@@ -468,6 +474,73 @@
     $('#urs_step_badge').text('Langkah 1/3');
   });
 
+  // ---- langkah 3 -> cetak ringkasan hasil simpan ----
+  var ringkasanTerakhir = null;
+
+  function cetakRingkasan(r){
+    if (!r) return;
+
+    // Format sama dengan "Print Thermal" di menu Tim Picker -> Scan Resi
+    // Picker (application/views/picker/scan_picker.php): kertas 100mm,
+    // monospace, @page 100mm x 150mm, window 400x600 -- supaya hasil cetak
+    // konsisten antar menu di printer thermal yang sama.
+    // Satu tabel 3 kolom (No. / No Resi / Status) -- bentuknya sama dengan
+    // tabel Rak/SKU/Qty di print-area scan_picker.php, cuma isinya beda.
+    var baris = function(){
+      var gabungan = [];
+      $.each(r.berhasil || [], function(_, noresi){ gabungan.push({ noresi: noresi, status: 'OK' }); });
+      $.each(r.gagal || [], function(_, x){ gabungan.push({ noresi: x.noresi, status: x.alasan || 'GAGAL' }); });
+
+      if (gabungan.length === 0) {
+        return '<tr style="border-bottom: 1px dashed #ccc;"><td colspan="3" style="padding: 5px 0; text-align:center;">Tidak ada</td></tr>';
+      }
+      return $.map(gabungan, function(item, i){
+        return '<tr style="border-bottom: 1px dashed #ccc;">' +
+          '<td style="padding: 5px 0;">' + (i + 1) + '</td>' +
+          '<td style="padding: 5px 0;">' + esc(item.noresi) + '</td>' +
+          '<td style="text-align: right; padding: 5px 0; font-weight: bold;">' + esc(item.status) + '</td>' +
+        '</tr>';
+      }).join('');
+    };
+
+    var printContents = '' +
+      '<div style="width: 100mm; font-family: monospace; font-size: 14px; padding: 5px;">' +
+        '<h3 style="text-align: center; margin: 0 0 10px 0;">UPLOAD RESI SPESIAL SUMMARY</h3>' +
+        '<p style="margin: 0;">Picker : ' + esc(r.picker_nama) + ' (' + esc(r.picker_no_absen) + ')</p>' +
+        '<p style="margin: 0;">Waktu  : ' + esc(r.waktu) + '</p>' +
+        '<p style="margin: 0;">Status Performa: 1_SKU_PICKER</p>' +
+        '<p style="margin: 0; margin-bottom: 10px; font-weight: bold; font-size: 16px;">Total: ' + r.total_diminta + ' <span style="font-weight: normal; font-size: 14px;">(Berhasil ' + r.total_berhasil + ', Gagal ' + r.total_gagal + ')</span></p>' +
+        '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">' +
+          '<thead><tr style="border-bottom: 1px solid #000; border-top: 1px solid #000;">' +
+            '<th style="text-align: left; padding: 5px 0;">No.</th>' +
+            '<th style="text-align: left; padding: 5px 0;">No Resi</th>' +
+            '<th style="text-align: right; padding: 5px 0;">Status</th>' +
+          '</tr></thead>' +
+          '<tbody>' + baris() + '</tbody>' +
+        '</table>' +
+        '<p style="text-align: center;">--- END OF SUMMARY ---</p>' +
+      '</div>';
+
+    var printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) {
+      noty({ text: 'Popup diblokir browser. Izinkan popup untuk mencetak ringkasan.', layout: 'topRight', type: 'warning', timeout: 4000 });
+      return;
+    }
+    printWindow.document.write('<html><head><title>Print Summary</title>');
+    printWindow.document.write('<style>@page { margin: 0; size: 100mm 150mm; } body { margin: 0; padding: 10px; background-color: #fff; }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(printContents);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+
+    printWindow.onload = function(){
+      printWindow.focus();
+      printWindow.print();
+    };
+  }
+
+  $('#urs_btn_cetak').on('click', function(){ cetakRingkasan(ringkasanTerakhir); });
+
   // ---- langkah 2 -> simpan ----
   $('#urs_btn_simpan').on('click', function(){
     if (noresiValidTerakhir.length === 0) return;
@@ -497,6 +570,12 @@
         $('#urs_stat_bad_save_n').text(d.total_gagal);
         isiDaftarAlasan($('#urs_pop_gagal_save'), d.gagal || []);
 
+        ringkasanTerakhir = $.extend({}, d, {
+          picker_nama: chosen.nama,
+          picker_no_absen: chosen.no_absen,
+          waktu: new Date().toLocaleString('id-ID')
+        });
+
         $('#urs_card_validasi').attr('hidden', true);
         $('#urs_card_simpan').attr('hidden', false);
         $('#urs_step_badge').text('Langkah 3/3');
@@ -517,6 +596,7 @@
   });
 
   $('#urs_btn_reset').on('click', function(){
+    ringkasanTerakhir = null;
     $('#urs_card_simpan').attr('hidden', true);
     $('#urs_card_validasi').attr('hidden', true);
     $('#urs_step_badge').text('Langkah 1/3');
