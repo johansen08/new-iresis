@@ -81,13 +81,15 @@
 #urs-page .combo-item .kosong{color:var(--urs-muted); font-weight:400;}
 
 #urs-page .drop{
-  border:1.5px dashed var(--urs-border); border-radius:10px; padding:16px; text-align:center;
+  display:flex; align-items:center; gap:9px;
+  border:1.5px dashed var(--urs-border); border-radius:9px; padding:9px 12px;
   cursor:pointer; transition:border-color .12s ease, background .12s ease;
 }
 #urs-page .drop:hover, #urs-page .drop.dragover{border-color:var(--urs-accent); background:var(--urs-accent-weak);}
-#urs-page .drop svg{color:var(--urs-muted);}
-#urs-page .drop .t{font-size:13px; font-weight:700; margin-top:6px;}
-#urs-page .drop .s{font-size:11.5px; color:var(--urs-muted); margin-top:2px;}
+#urs-page .drop svg{color:var(--urs-muted); flex:none;}
+#urs-page .drop .txt{min-width:0;}
+#urs-page .drop .t{font-size:13px; font-weight:700; line-height:1.3;}
+#urs-page .drop .s{font-size:11px; color:var(--urs-muted); line-height:1.3;}
 #urs-page .file-chip{
   display:none; align-items:center; gap:8px; border:1px solid var(--urs-border);
   background:var(--urs-bg-surface-2); border-radius:9px; padding:8px 10px;
@@ -187,9 +189,11 @@
     <label class="field-label">File Excel</label>
     <input type="file" id="urs_file_input" accept=".xlsx,.xls" hidden>
     <div class="drop" id="urs_dropzone">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto;"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>
-      <div class="t">Pilih atau tarik file .xlsx</div>
-      <div class="s">Wajib ada kolom &ldquo;No Resi&rdquo;</div>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>
+      <div class="txt">
+        <div class="t">Pilih atau tarik file .xlsx</div>
+        <div class="s">Wajib ada kolom &ldquo;No Resi&rdquo;</div>
+      </div>
     </div>
     <div class="file-chip" id="urs_file_chip">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
