@@ -484,39 +484,37 @@
     // Picker (application/views/picker/scan_picker.php): kertas 100mm,
     // monospace, @page 100mm x 150mm, window 400x600 -- supaya hasil cetak
     // konsisten antar menu di printer thermal yang sama.
-    // Satu tabel 3 kolom (No. / No Resi / Status) -- bentuknya sama dengan
-    // tabel Rak/SKU/Qty di print-area scan_picker.php, cuma isinya beda.
-    var baris = function(){
-      var gabungan = [];
-      $.each(r.berhasil || [], function(_, noresi){ gabungan.push({ noresi: noresi, status: 'OK' }); });
-      $.each(r.gagal || [], function(_, x){ gabungan.push({ noresi: x.noresi, status: x.alasan || 'GAGAL' }); });
-
-      if (gabungan.length === 0) {
-        return '<tr style="border-bottom: 1px dashed #ccc;"><td colspan="3" style="padding: 5px 0; text-align:center;">Tidak ada</td></tr>';
-      }
-      return $.map(gabungan, function(item, i){
-        return '<tr style="border-bottom: 1px dashed #ccc;">' +
-          '<td style="padding: 5px 0;">' + (i + 1) + '</td>' +
-          '<td style="padding: 5px 0;">' + esc(item.noresi) + '</td>' +
-          '<td style="text-align: right; padding: 5px 0; font-weight: bold;">' + esc(item.status) + '</td>' +
-        '</tr>';
-      }).join('');
-    };
+    // Isi sama dengan summary Scan Resi Picker: Rak / SKU / Qty, urut rak lalu
+    // qty terbesar (agregat dihitung di Picker::simpan_upload_resi_spesial).
+    var items = ($.extend(true, [], r.ringkasan || [])).sort(function(a, b){
+      if (a.rak < b.rak) return -1;
+      if (a.rak > b.rak) return 1;
+      return b.qty - a.qty;
+    });
+    var totalQty = 0;
+    var baris = $.map(items, function(it){
+      totalQty += it.qty;
+      return '<tr style="border-bottom: 1px dashed #ccc;">' +
+        '<td style="padding: 5px 0;">' + (it.rak === 'NO_RAK' ? '-' : esc(it.rak)) + '</td>' +
+        '<td style="padding: 5px 0;">' + esc(it.sku) + '</td>' +
+        '<td style="text-align: right; padding: 5px 0; font-weight: bold;">' + it.qty + '</td>' +
+      '</tr>';
+    }).join('');
 
     var printContents = '' +
       '<div style="width: 100mm; font-family: monospace; font-size: 14px; padding: 5px;">' +
-        '<h3 style="text-align: center; margin: 0 0 10px 0;">UPLOAD RESI SPESIAL SUMMARY</h3>' +
-        '<p style="margin: 0;">Picker : ' + esc(r.picker_nama) + ' (' + esc(r.picker_no_absen) + ')</p>' +
+        '<h3 style="text-align: center; margin: 0 0 10px 0;">PICKING SUMMARY</h3>' +
+        '<p style="margin: 0;">Picker : ' + esc(r.picker_nama) + '</p>' +
         '<p style="margin: 0;">Waktu  : ' + esc(r.waktu) + '</p>' +
-        '<p style="margin: 0;">Status Performa: 1_SKU_PICKER</p>' +
-        '<p style="margin: 0; margin-bottom: 10px; font-weight: bold; font-size: 16px;">Total: ' + r.total_diminta + ' <span style="font-weight: normal; font-size: 14px;">(Berhasil ' + r.total_berhasil + ', Gagal ' + r.total_gagal + ')</span></p>' +
+        '<p style="margin: 0;">Total Resi: ' + r.total_berhasil + '</p>' +
+        '<p style="margin: 0; margin-bottom: 10px; font-weight: bold; font-size: 16px;">Total Qty : ' + totalQty + ' <span style="font-weight: normal; font-size: 14px;">(' + items.length + ' SKU)</span></p>' +
         '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">' +
           '<thead><tr style="border-bottom: 1px solid #000; border-top: 1px solid #000;">' +
-            '<th style="text-align: left; padding: 5px 0;">No.</th>' +
-            '<th style="text-align: left; padding: 5px 0;">No Resi</th>' +
-            '<th style="text-align: right; padding: 5px 0;">Status</th>' +
+            '<th style="text-align: left; padding: 5px 0;">Rak</th>' +
+            '<th style="text-align: left; padding: 5px 0;">SKU</th>' +
+            '<th style="text-align: right; padding: 5px 0;">Qty</th>' +
           '</tr></thead>' +
-          '<tbody>' + baris() + '</tbody>' +
+          '<tbody>' + baris + '</tbody>' +
         '</table>' +
         '<p style="text-align: center;">--- END OF SUMMARY ---</p>' +
       '</div>';

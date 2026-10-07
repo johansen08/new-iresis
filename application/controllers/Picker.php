@@ -664,6 +664,7 @@ class Picker extends MY_Controller
 
         $berhasil = [];
         $gagal = [];
+        $ringkasan = [];
 
         foreach ($list_noresi as $noresi) {
             $noresi = trim((string) $noresi);
@@ -685,12 +686,24 @@ class Picker extends MY_Controller
 
             if ($save['affected_rows'] > 0) {
                 $berhasil[] = $noresi;
+                // Agregat Rak/SKU/Qty untuk cetak thermal (sama dengan summary Scan Resi Picker).
+                foreach ($save['items'] ?? [] as $item) {
+                    $rak = !empty($item['no_rak']) ? $item['no_rak'] : 'NO_RAK';
+                    $sku = $item['sku'];
+                    $qty = ((int) $item['jumlah']) ?: 1;
+                    $kunci = $rak . '|' . $sku;
+                    if (!isset($ringkasan[$kunci])) {
+                        $ringkasan[$kunci] = ['rak' => $rak, 'sku' => $sku, 'qty' => 0];
+                    }
+                    $ringkasan[$kunci]['qty'] += $qty;
+                }
             } else {
                 $gagal[] = ['noresi' => $noresi, 'alasan' => NOTHING_TO_SAVE];
             }
         }
 
         $this->make_ajax_response(201, 'Upload Resi Spesial selesai diproses', [
+            'ringkasan'      => array_values($ringkasan),
             'total_diminta'  => count($list_noresi),
             'total_berhasil' => count($berhasil),
             'total_gagal'    => count($gagal),
