@@ -16,7 +16,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *      belum lewat 24 jam)
  *    + resi hari D yang batas kirim MP-nya ≤ D (semua MP)
  *    + pesanan TikTok 12.00–15.00 hari D yang batas kirim MP-nya D+1 dan resinya
- *      sudah masuk IRESIS paling lambat D 15.15 (bayar sesudah 15.00 → resi baru
+ *      sudah masuk IRESIS paling lambat D 15.30 (bayar sesudah 15.00 → resi baru
  *      terproses sesudah itu → boleh besok).
  *    Resi tanpa batas kirim (Lazada, reseller): batas = hari pesan bila pesanan
  *    s/d 12.00, selain itu besoknya.
@@ -45,9 +45,9 @@ class Pemenuhan_kirim_fcd extends CI_Model
     /**
      * Batas jam resi TikTok 12.00–15.00 masuk IRESIS (tanggal_printresi = jam
      * upload, bukan jam bayar/proses Jubelio). Pembeli yang bayar tepat 15.00
-     * resinya terproses paling lambat 15.15 (standar operasional dari user).
+     * resinya terproses paling lambat 15.30 (standar operasional dari user).
      */
-    const JAM_PROSES_TIKTOK  = '15:15:00';
+    const JAM_PROSES_TIKTOK  = '15:30:00';
 
     /** Status marketplace yang berarti paket sudah keluar gudang. */
     const STATUS_KELUAR = ['SHIPPED', 'COMPLETED', 'RETURNED'];
@@ -356,11 +356,11 @@ class Pemenuhan_kirim_fcd extends CI_Model
                            -- semua MP: batas kirim hari ini = pembeli sudah bayar (biasanya pesanan 00.00–12.00)
                            WHEN y.btk_ef <= $d_hari THEN 'TA'
                            -- tambahan operasional: TikTok 12.00–15.00 yang batas kirimnya besok
-                           -- dan resinya masuk IRESIS s/d 15.15 (masuk sesudahnya = dibayar sesudah 15.00)
+                           -- dan resinya masuk IRESIS s/d 15.30 (masuk sesudahnya = dibayar sesudah 15.00)
                            WHEN y.tt = 1 AND y.masuk > $d12 AND y.masuk <= $d15 AND y.btk_ef = $d1
                                 AND y.printed_at <= $d1515 THEN 'TB'
                            -- TikTok s/d 15.00 lainnya: dibayar sore (pesanan pagi berbatas besok, atau resi
-                           -- 12.00–15.00 yang baru masuk sesudah 15.15), atau batas lusa
+                           -- 12.00–15.00 yang baru masuk sesudah 15.30), atau batas lusa
                            WHEN y.tt = 1 AND y.masuk <= $d15 THEN 'TX'
                            ELSE 'TC'
                        END AS grup,
