@@ -88,8 +88,8 @@ tepat satu grup (B = batas kirim efektif, lihat di bawah):
 | KA | di-print sebelum D, **B = D** (atau D-1: terlambat, belum lewat 24 jam) | ya (sisa kemarin) |
 | KB | di-print sebelum D, B ≥ D+1 | tidak, belum jatuh tempo |
 | TA | di-print D, **B ≤ D** (semua MP; biasanya pesanan 00.00–12.00) | ya |
-| TB | TikTok, pesanan **12.00–15.00** hari D (lewat 12.00 s/d 15.00), **B = D+1**, resi **masuk IRESIS s/d D 15.30** | ya (tambahan operasional) |
-| TX | TikTok lainnya dengan pesanan s/d 15.00: pesanan pagi yang B = D+1 (dibayar sore), pesanan 12.00–15.00 yang resinya baru masuk sesudah 15.30 (dibayar sesudah 15.00), atau B ≥ D+2 | tidak, boleh besok |
+| TB | TikTok, pesanan **12.00–15.00** hari D (lewat 12.00 s/d 15.00), **B = D+1**, resi **masuk IRESIS s/d D 15.50** | ya (tambahan operasional) |
+| TX | TikTok lainnya dengan pesanan s/d 15.00: pesanan pagi yang B = D+1 (dibayar sore), pesanan 12.00–15.00 yang resinya baru masuk sesudah 15.50 (dibayar sesudah 15.00), atau B ≥ D+2 | tidak, boleh besok |
 | TC | lainnya | tidak, boleh besok |
 
 - **B (batas kirim efektif)** = tanggal `tanggal_bataskirim`. Resi tanpa batas
@@ -107,9 +107,9 @@ tepat satu grup (B = batas kirim efektif, lihat di bawah):
   12.00, 3.439 berbatas kirim hari itu dan hanya 9 berbatas besok (dibayar sore).
 - **Jam pesan** = `tanggal_pesan` dari Jubelio (kosong → `tanggal_printresi`).
   Pesanan tepat 12.00 masuk jendela 00.00–12.00; tepat 15.00 masih ikut TB.
-- **Batas 15.30 TikTok** (user, 25 Sep batas 15.15, diubah 7 Okt jadi 15.30): pembeli yang bayar tepat 15.00 resinya
-  terproses paling lambat 15.30, jadi resi TikTok 12.00–15.00 yang baru masuk
-  sesudah 15.30 berarti dibayar sesudah 15.00 (contoh JY1715599450: pesan 15 Sep
+- **Batas 15.50 TikTok** (user, 25 Sep batas 15.15, 7 Okt 15.30, lalu 15.50): pembeli yang bayar tepat 15.00 resinya
+  terproses paling lambat 15.50, jadi resi TikTok 12.00–15.00 yang baru masuk
+  sesudah 15.50 berarti dibayar sesudah 15.00 (contoh JY1715599450: pesan 15 Sep
   14.36, masuk 16.30, batas 16 Sep). Jam yang dipakai adalah **`tanggal_printresi`
   = jam upload ke IRESIS** (label "Tanggal Proses Resi" di detail resi), bukan jam
   proses atau bayar dari Jubelio: semua resi satu upload memakai jam yang sama
