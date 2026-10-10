@@ -642,7 +642,10 @@ class Picker extends MY_Controller
         }
 
         $id_pegawaipicker = $this->input->post('id_pegawaipicker');
-        $list_noresi = $this->input->post('list_noresi');
+        // Daftar resi datang sebagai satu string JSON (bukan array POST) agar
+        // tidak terpotong max_input_vars=1000 milik PHP.
+        $list_noresi = json_decode((string) $this->input->post('list_noresi'), true);
+        $jumlah_dikirim = (int) $this->input->post('jumlah_dikirim');
 
         if (empty($id_pegawaipicker)) {
             $this->make_ajax_response(400, 'Nama Picker belum dipilih');
@@ -650,6 +653,12 @@ class Picker extends MY_Controller
 
         if (empty($list_noresi) || !is_array($list_noresi)) {
             $this->make_ajax_response(400, 'Tidak ada No Resi yang dikonfirmasi untuk disimpan');
+        }
+
+        // Pengaman: jumlah yang diterima harus sama dengan yang dikirim klien,
+        // supaya tidak ada lagi pemotongan diam-diam.
+        if ($jumlah_dikirim !== count($list_noresi)) {
+            $this->make_ajax_response(400, 'Jumlah resi yang diterima server (' . count($list_noresi) . ') tidak sama dengan yang dikirim (' . $jumlah_dikirim . '). Tidak ada yang disimpan; coba lagi.');
         }
 
         $this->load->model('kpi_fcd');
