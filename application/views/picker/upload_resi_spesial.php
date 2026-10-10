@@ -554,7 +554,14 @@
     $.ajax({
       url: 'picker/simpan-upload-resi-spesial',
       type: 'post',
-      data: { id_pegawaipicker: $idPicker.val(), list_noresi: noresiValidTerakhir },
+      // Dikirim sebagai SATU field JSON: kalau array dikirim langsung, jQuery
+      // memecahnya jadi 1 variabel POST per resi dan PHP (max_input_vars=1000)
+      // diam-diam membuang semua yang di atas 1000.
+      data: {
+        id_pegawaipicker: $idPicker.val(),
+        list_noresi: JSON.stringify(noresiValidTerakhir),
+        jumlah_dikirim: noresiValidTerakhir.length
+      },
       timeout: 600000,
       success: function(res){
         if (typeof res === 'string') { try { res = JSON.parse(res); } catch(e) {} }
