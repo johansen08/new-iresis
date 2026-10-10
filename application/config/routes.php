@@ -141,6 +141,12 @@ $route['lost-scan-picker'] = 'lost_scan_picker/index';
 $route['lost-scan-picker/get-data'] = 'lost_scan_picker/get_data';
 $route['lost-scan-picker/tambah-picker'] = 'lost_scan_picker/tambah_picker';
 
+// TIM PICKER -> Bonus Picker (laporan hasil hitung bonus, baca-saja)
+$route['bonus-picker'] = 'bonus_picker/index';
+$route['bonus-picker/get-data'] = 'bonus_picker/get_data';
+$route['bonus-picker/export-excel'] = 'bonus_picker/export_excel';
+$route['bonus-picker/export-excel-detail'] = 'bonus_picker/export_excel_detail';
+
 $route['retur/scan-retur'] = 'retur/scan_retur';
 $route['retur/update-retur'] = 'retur/update_retur';
 $route['retur/update-retur-komplain'] = 'retur/update_retur_komplain';

@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-06.2';
+    const BOOTSTRAP_VERSI = '2026-10-10.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -170,6 +170,7 @@ class MY_Controller extends CI_Controller
         $this->run_paket_cancel_migration();
         $this->run_pemenuhan_kirim_harian_migration();
         $this->run_upload_resi_spesial_migration();
+        $this->run_bonus_picker_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1638,6 +1639,46 @@ class MY_Controller extends CI_Controller
 
         $role_boleh = [1, 2, 6];
         foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PICKER -> "Bonus Picker" (laporan hasil hitung, baca-saja; tidak
+     * ada tabel baru). Hak akses: webmaster (1), admin (2), tim retur (6) --
+     * harus sejalan dengan Bonus_picker::ROLE_BOLEH.
+     */
+    protected function run_bonus_picker_migration()
+    {
+        $uri = 'bonus-picker';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Bonus Picker',
+                'parentid'  => 19, // TIM PICKER
+                'uri'       => $uri,
+                'icon'      => 'fa fa-money',
+                'sortorder' => 27, // setelah Laporan Lost Scan Picker (26)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 2, 6] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
