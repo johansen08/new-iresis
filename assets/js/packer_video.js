@@ -36,7 +36,11 @@
     // beban encode CPU ikut naik.
     var LEBAR_IDEAL      = 1920;
     var TINGGI_IDEAL     = 1080;
-    var FPS_IDEAL        = 15;
+    // Dinaikkan dari 15 ke 24 fps (12 Okt 2026) supaya gerakan tangan saat
+    // packing lebih mulus. Bitrate sengaja tidak diubah: ukuran berkas per
+    // menit tetap, tapi jatah bit per frame turun ±37%, dan beban encode CPU
+    // naik ±60% di PC tanpa encoder GPU.
+    var FPS_IDEAL        = 24;
     // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
     // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
     // berkas (keputusan 2026-10-01). Rekaman sudah lossy sejak keluar dari

@@ -115,7 +115,7 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 | Setelan | Nilai | Keterangan |
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
-| Frame rate | 15 fps | Cukup untuk konten packing yang relatif statis |
+| Frame rate | 24 fps (sebelum 12 Okt 2026: 15 fps) | Gerakan tangan lebih mulus. Bitrate tidak diubah, jadi ukuran berkas tetap tapi bit per frame turun ±37% |
 | Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
 | Bitrate | VP9 8,0 Mbps / H.264 10,0 Mbps / VP8 10,0 Mbps | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026) |
 | Ekor setelah scan kedua | 3 detik (`EKOR_REKAM_MS`) | `recorder.stop()` membuang frame yang masih antre di encoder; tanpa ekor, momen scan kedua tidak terekam |
@@ -161,7 +161,8 @@ berkas ini lewat halaman CS seperti WebM biasa.
 `jumlah frame ÷ durasi` dari ffprobe
 (`ffprobe -v error -select_streams v:0 -count_packets -show_entries
 stream=nb_read_packets -of csv=p=0 <berkas>` dibagi `format=duration`).
-Target ≥ 13 fps. Kalau PC tanpa GPU masih jauh di bawah itu, tukar urutan
+Target ≥ 21 fps (dulu ≥ 13 fps saat masih 15 fps; uji codec di atas
+dilakukan pada 15 fps dan belum diulang di 24 fps). Kalau PC tanpa GPU masih jauh di bawah itu, tukar urutan
 `URUTAN_CPU` atau turunkan resolusi khusus PC tersebut.
 
 Sumber: [assets/js/packer_video.js](../assets/js/packer_video.js). Riwayat
