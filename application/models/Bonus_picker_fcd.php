@@ -13,8 +13,11 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    tipe Reject Display (id_typemasalah 5) yang tidak dikenai poin
  *    (definisi yang sama dengan Error_recap_fcd::get_picker_recap). 1 kesalahan
  *    = 20 poin. Net = total pick - poin kesalahan.
- *  - Hari petugas resi spesial = hari picker itu punya baris 1_SKU_PICKER
- *    (hasil Upload Resi Spesial). Resi hari itu tidak dihitung sama sekali:
+ *  - Hari petugas resi spesial = hari picker itu punya LEBIH BANYAK resi
+ *    1_SKU_PICKER daripada NORMAL_PICKER (hasil Upload Resi Spesial). Beberapa
+ *    baris 1_SKU_PICKER yang terselip di hari kerja normal tidak membuat harinya
+ *    spesial (29 Jun 2026: Rahman 10 resi 1 SKU vs 1.320 normal = hari normal).
+ *    Resi hari spesial tidak dihitung sama sekali:
  *    tanpa pick, tanpa kesalahan, tanpa bonus, tidak masuk capai target.
  *  - Bonus per hari: net >= 1.300 -> Rp 50.000, net 1.150-1.299 -> Rp 30.000.
  */
@@ -122,12 +125,13 @@ class Bonus_picker_fcd extends CI_Model
                                 AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
                                 AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
                                THEN 1 END) AS total_pick,
-                    MAX(rab.status_performa_id = ?) AS spesial
+                    COUNT(CASE WHEN rab.status_performa_id = ? THEN 1 END) AS resi_1sku,
+                    COUNT(CASE WHEN rab.status_performa_id = ? THEN 1 END) AS resi_normal
              FROM $db.tblresiambilbarang rab
              WHERE rab.tanggal_resiambilbarang BETWEEN ? AND ?
                AND rab.status_performa_id IN (?, ?)
              GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)",
-            [$id_normal, self::JAM_AWAL, self::JAM_AKHIR, $id_1sku, $dari, $sampai, $id_normal, $id_1sku]
+            [$id_normal, self::JAM_AWAL, self::JAM_AKHIR, $id_1sku, $id_normal, $dari, $sampai, $id_normal, $id_1sku]
         );
 
         $q_salah = $q_pick ? $this->db->query(
@@ -241,7 +245,8 @@ class Bonus_picker_fcd extends CI_Model
                 ];
             }
 
-            if ((int) $r['spesial'] === 1) {
+            // Petugas spesial: resi 1_SKU_PICKER lebih banyak daripada NORMAL_PICKER hari itu.
+            if ((int) $r['resi_1sku'] > (int) $r['resi_normal']) {
                 $hasil[$peg]['det'][] = ['tgl' => $r['tgl'], 'spesial' => true];
                 continue;
             }
