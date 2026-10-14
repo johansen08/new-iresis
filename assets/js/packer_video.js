@@ -37,9 +37,9 @@
     var LEBAR_IDEAL      = 1920;
     var TINGGI_IDEAL     = 1080;
     // Dinaikkan dari 15 ke 24 fps (12 Okt 2026) supaya gerakan tangan saat
-    // packing lebih mulus. Bitrate sengaja tidak diubah: ukuran berkas per
-    // menit tetap, tapi jatah bit per frame turun ±37%, dan beban encode CPU
-    // naik ±60% di PC tanpa encoder GPU.
+    // packing lebih mulus. Beban encode CPU naik ±60% di PC tanpa encoder GPU.
+    // Bitrate di bawah ikut dikalikan 24/15 = 1,6 supaya jatah bit per frame
+    // sama dengan saat 15 fps. Kalau fps diubah lagi, bitrate ikut disesuaikan.
     var FPS_IDEAL        = 24;
     // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
     // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
@@ -50,16 +50,18 @@
     // menyimpan noise webcam. VP9 memberi kualitas visual setara VP8 pada
     // bitrate ~25-30% lebih rendah, jadi bitrate-nya dipisah per codec (lihat
     // KANDIDAT_CODEC).
-    //   VP9 8,0 Mbps  = ~60 MB per menit rekaman (~3,6 GB/jam per PC)
-    //   VP8 10,0 Mbps = ~75 MB per menit rekaman (~4,5 GB/jam per PC)
+    // Angka di bawah = setelan 15 fps (VP9 8, VP8/H.264 10 Mbps) x 1,6 untuk
+    // 24 fps (12 Okt 2026):
+    //   VP9 12,8 Mbps = ~96 MB per menit rekaman (~5,8 GB/jam per PC)
+    //   VP8 16,0 Mbps = ~120 MB per menit rekaman (~7,2 GB/jam per PC)
     // PASTIKAN ruang disk server cukup untuk 16 PC packer merekam paralel
     // dengan angka ini sebelum dipakai produksi. Kalau resolusi diubah, kedua
     // bitrate harus ikut disesuaikan.
-    var BITRATE_VP9      = 8000000;
-    var BITRATE_VP8      = 10000000;
+    var BITRATE_VP9      = 12800000;
+    var BITRATE_VP8      = 16000000;
     // H.264 (dari encoder GPU maupun OpenH264 di CPU) pada bitrate sama kurang
     // efisien dibanding VP9 -- jadi disamakan dengan VP8.
-    var BITRATE_H264     = 10000000;
+    var BITRATE_H264     = 16000000;
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
 
     // Codec yang boleh dipakai. Yang terpilih ditentukan pilihCodecTerbaik():

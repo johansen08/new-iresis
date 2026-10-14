@@ -115,9 +115,9 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 | Setelan | Nilai | Keterangan |
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
-| Frame rate | 24 fps (sebelum 12 Okt 2026: 15 fps) | Gerakan tangan lebih mulus. Bitrate tidak diubah, jadi ukuran berkas tetap tapi bit per frame turun ±37% |
+| Frame rate | 24 fps (sebelum 12 Okt 2026: 15 fps) | Gerakan tangan lebih mulus |
 | Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
-| Bitrate | VP9 8,0 Mbps / H.264 10,0 Mbps / VP8 10,0 Mbps | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026) |
+| Bitrate | VP9 12,8 Mbps / H.264 16,0 Mbps / VP8 16,0 Mbps (sebelum 12 Okt 2026: 8 / 10 / 10 Mbps) | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026). Dikali 1,6 saat fps naik 15 → 24 supaya bit per frame tetap; ±96–120 MB per menit rekaman |
 | Ekor setelah scan kedua | 3 detik (`EKOR_REKAM_MS`) | `recorder.stop()` membuang frame yang masih antre di encoder; tanpa ekor, momen scan kedua tidak terekam |
 | Audio | **Tidak ada** | Sejak awal tidak pernah ada track audio — bukti packing cukup gambarnya |
 | Potongan unggah | Tiap 2 detik | Supaya muat batas upload PHP dan bagian yang sudah naik tetap aman kalau tab ditutup mendadak |
