@@ -190,6 +190,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       </span></span>
     </h2>
     <div class="bp-rentang" id="bp-rentang"></div>
+    <div id="bp-arsip"></div>
   </div>
 
   <div class="bp-card bp-filter">
@@ -352,6 +353,12 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
         if (r.code === 200) {
           data = siapkan(r.data.pickers); awalAktif = a; akhirAktif = b;
           $('#bp-rentang').text(tglPendek(a) + ' – ' + tglPendek(b));
+          var ars = r.data.arsip;
+          $('#bp-arsip').html(ars === 'ya'
+            ? '<span class="bp-pill sp">Termasuk data arsip <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Rentang ini menyentuh data lama yang sudah dipindah dari iresis_prod. Hasil dilengkapi otomatis dari iresis_arsip.</span></span></span>'
+            : (ars === 'gagal'
+              ? '<span class="bp-pill" style="background:#fee2e2;color:#b91c1c">Data arsip gagal dibaca <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Rentang ini butuh data dari iresis_arsip tetapi tidak terbaca. Angka di layar hanya dari iresis_prod dan bisa kurang. Coba muat ulang, atau hubungi admin kalau berulang.</span></span></span>'
+              : ''));
           render();
         } else { keadaan('fa-exclamation-triangle', esc(r.message), false); }
       },

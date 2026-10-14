@@ -55,7 +55,7 @@ class Bonus_picker extends MY_Controller
     }
 
     /** Pesan error kalau rentang (yyyy-mm-dd) tidak valid, NULL kalau lolos. */
-    private function cek_rentang($awal, $akhir)
+    private function cek_rentang($awal, $akhir, $batasi = TRUE)
     {
         $valid = function ($t) {
             $d = DateTime::createFromFormat('Y-m-d', $t);
@@ -64,7 +64,8 @@ class Bonus_picker extends MY_Controller
         if (!$valid($awal) || !$valid($akhir) || $awal > $akhir) {
             return 'Rentang tanggal tidak valid.';
         }
-        if ((strtotime($akhir) - strtotime($awal)) / 86400 + 1 > Bonus_picker_fcd::MAKS_HARI) {
+        // Batas hari hanya untuk tampilan layar; export boleh rentang panjang.
+        if ($batasi && (strtotime($akhir) - strtotime($awal)) / 86400 + 1 > Bonus_picker_fcd::MAKS_HARI) {
             return 'Rentang tanggal maksimal ' . Bonus_picker_fcd::MAKS_HARI . ' hari.';
         }
         return NULL;
@@ -81,9 +82,29 @@ class Bonus_picker extends MY_Controller
             $this->make_ajax_response(400, $salah);
         }
 
+        $pickers = $this->bonus_picker_fcd->hitung($awal, $akhir);
+
         $this->make_ajax_response(200, 'OK', [
-            'pickers' => $this->bonus_picker_fcd->hitung($awal, $akhir),
+            'pickers' => $pickers,
+            'arsip'   => $this->bonus_picker_fcd->sumber_arsip,
         ]);
+    }
+
+    /**
+     * Hitung untuk export: tanpa batas hari, dan DIBATALKAN kalau arsip
+     * dibutuhkan tapi gagal dibaca -- file Excel yang diam-diam kurang data
+     * lebih berbahaya daripada pesan gagal.
+     */
+    private function hitung_untuk_export($awal, $akhir)
+    {
+        ini_set('memory_limit', '3072M');
+        set_time_limit(0);
+
+        $hasil = $this->bonus_picker_fcd->hitung($awal, $akhir);
+        if ($this->bonus_picker_fcd->sumber_arsip === 'gagal') {
+            $this->make_ajax_response(500, 'Data arsip (iresis_arsip) gagal dibaca, export dibatalkan supaya tidak ada data yang kurang. Coba lagi atau hubungi admin.');
+        }
+        return $hasil;
     }
 
     /** Unduh Excel: No. Absen, Nama, Total Bonus, Total Capai Target. */
@@ -92,14 +113,14 @@ class Bonus_picker extends MY_Controller
         $awal  = (string) $this->input->get('awal');
         $akhir = (string) $this->input->get('akhir');
 
-        $salah = $this->cek_rentang($awal, $akhir);
+        $salah = $this->cek_rentang($awal, $akhir, FALSE);
         if ($salah !== NULL) {
             $this->make_ajax_response(400, $salah);
         }
 
-        $pickers = $this->bonus_picker_fcd->hitung($awal, $akhir);
+        $pickers = $this->hitung_untuk_export($awal, $akhir);
 
-        $xls   = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $xls  = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('Bonus Picker');
         $sheet->fromArray(['No. Absen', 'Nama', 'Total Bonus', 'Total Capai Target'], NULL, 'A1');
@@ -130,13 +151,13 @@ class Bonus_picker extends MY_Controller
         $awal  = (string) $this->input->get('awal');
         $akhir = (string) $this->input->get('akhir');
 
-        $salah = $this->cek_rentang($awal, $akhir);
+        $salah = $this->cek_rentang($awal, $akhir, FALSE);
         if ($salah !== NULL) {
             $this->make_ajax_response(400, $salah);
         }
 
         $picker = NULL;
-        foreach ($this->bonus_picker_fcd->hitung($awal, $akhir) as $p) {
+        foreach ($this->hitung_untuk_export($awal, $akhir) as $p) {
             if ($p['kode'] === $kode) {
                 $picker = $p;
                 break;
