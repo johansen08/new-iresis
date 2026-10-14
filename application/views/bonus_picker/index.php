@@ -100,6 +100,20 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   #bp-root .bp-skel td > span { display:block; height:14px; border-radius:6px; background:linear-gradient(90deg,#eef1f5 25%,#f7f9fb 50%,#eef1f5 75%); background-size:200% 100%; animation:bpshim 1.2s infinite; }
   @keyframes bpshim { from { background-position:200% 0; } to { background-position:-200% 0; } }
 
+  /* panel proses: tampil selama data dihitung supaya jelas halaman tidak macet */
+  #bp-root .bp-load { display:none; margin-bottom:14px; overflow:hidden; border-color:#bfd2fb; background:#f5f8ff; }
+  #bp-root .bp-load.on { display:block; }
+  #bp-root .bp-load .bp-indet { height:4px; background:#dbe6fd; position:relative; overflow:hidden; }
+  #bp-root .bp-load .bp-indet i { position:absolute; top:0; bottom:0; width:35%; background:var(--bp-brand); border-radius:99px; animation:bpindet 1.3s ease-in-out infinite; }
+  @keyframes bpindet { 0% { left:-35%; } 100% { left:100%; } }
+  #bp-root .bp-load .bp-loadbody { display:flex; align-items:center; gap:14px; padding:14px 16px; }
+  #bp-root .bp-load .bp-spin { font-size:22px; color:var(--bp-brand); }
+  #bp-root .bp-load .bp-lt { font-weight:700; display:flex; align-items:center; gap:6px; }
+  #bp-root .bp-load .bp-ls { font-size:12px; color:var(--bp-muted); margin-top:2px; font-variant-numeric:tabular-nums; }
+  #bp-root .bp-load .bp-lwaktu { margin-left:auto; font-size:20px; font-weight:700; color:var(--bp-brand); font-variant-numeric:tabular-nums; }
+  #bp-root .bp-btn.busy { opacity:.75; cursor:progress; }
+  @media (max-width: 767px) { #bp-root .bp-load .bp-loadbody { flex-wrap:wrap; } #bp-root .bp-load .bp-lwaktu { margin-left:0; } #bp-root .bp-load .bp-btn { width:100%; justify-content:center; } }
+
   /* ikon info (tooltip fixed supaya tidak terpotong tabel/jendela) */
   #bp-root .bp-info { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:var(--bp-brand-soft); color:var(--bp-brand);
     font-size:11px; font-weight:700; cursor:help; font-style:normal; outline:none; vertical-align:middle; }
@@ -223,6 +237,20 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       <div class="s" id="bp-s-hari-s">&nbsp;</div></div>
   </div>
 
+  <div class="bp-card bp-load" id="bp-load" role="status" aria-live="polite">
+    <div class="bp-indet"><i></i></div>
+    <div class="bp-loadbody">
+      <i class="fa fa-circle-o-notch fa-spin bp-spin"></i>
+      <div>
+        <div class="bp-lt">Sedang menghitung bonus picker
+          <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Halaman tidak macet. Rentang panjang butuh waktu lebih lama, terutama kalau data lama dari arsip ikut dibaca. Hasil tampil otomatis begitu selesai, jadi mohon jangan tutup atau muat ulang halaman.</span></span></div>
+        <div class="bp-ls" id="bp-load-sub"></div>
+      </div>
+      <div class="bp-lwaktu" id="bp-load-waktu">00:00</div>
+      <button type="button" class="bp-btn ghost sm" id="bp-load-batal" style="color:#b91c1c;border-color:#fecaca"><i class="fa fa-times"></i> Batalkan</button>
+    </div>
+  </div>
+
   <div class="bp-card bp-tabelwrap">
     <table class="bp-tbl">
       <thead><tr>
@@ -340,15 +368,52 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     });
   }
 
+  // Pemilih tanggal memicu beberapa event sekaligus (change + changeDate): digabung
+  // lewat debounce, dan permintaan identik yang masih berjalan tidak dikirim ulang.
+  var tundaMuat = null, xhrAktif = null, kunciAktif = '', timerProses = null;
+
+  // Panel proses: spinner + stopwatch selama data dihitung, supaya jelas halaman tidak macet.
+  function mmss(detik) { return ('0' + Math.floor(detik / 60)).slice(-2) + ':' + ('0' + (detik % 60)).slice(-2); }
+  function mulaiProses(a, b) {
+    var hari = Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1;
+    var mulai = Date.now();
+    clearInterval(timerProses);
+    $('#bp-load').addClass('on');
+    $('#bp-tampilkan').addClass('busy').html('<i class="fa fa-spinner fa-spin"></i> Memproses...');
+    function tik() {
+      if (!$.contains(document.documentElement, $root[0])) { clearInterval(timerProses); return; } // pindah menu
+      var dt = Math.floor((Date.now() - mulai) / 1000);
+      $('#bp-load-waktu').text(mmss(dt));
+      $('#bp-load-sub').text(hari + ' hari · ' + tglPendek(a) + ' – ' + tglPendek(b) + (dt >= 15 ? ' · masih berjalan, mohon tunggu' : ''));
+    }
+    tik();
+    timerProses = setInterval(tik, 1000);
+  }
+  function akhiriProses() {
+    clearInterval(timerProses);
+    $('#bp-load').removeClass('on');
+    $('#bp-tampilkan').removeClass('busy').html('<i class="fa fa-search"></i> Tampilkan');
+  }
   function muat() {
+    clearTimeout(tundaMuat);
+    tundaMuat = setTimeout(muatLangsung, 150);
+  }
+
+  function muatLangsung() {
     var a = keIso($('#bp-awal').val()), b = keIso($('#bp-akhir').val());
     if (!a || !b) {
       keadaan('fa-calendar-times-o', 'Format tanggal harus dd/mm/yyyy, contoh 01/10/2026.', false);
       return;
     }
+    var kunci = a + '|' + b;
+    if (xhrAktif && kunciAktif === kunci) { return; }
+    if (xhrAktif) { xhrAktif.abort(); }
+    kunciAktif = kunci;
     skeleton();
-    $.ajax({
+    mulaiProses(a, b);
+    var req = $.ajax({
       url: 'bonus-picker/get-data', type: 'POST', dataType: 'json', data: { awal: a, akhir: b },
+      complete: function () { if (xhrAktif === req) { xhrAktif = null; kunciAktif = ''; akhiriProses(); } },
       success: function (r) {
         if (r.code === 200) {
           data = siapkan(r.data.pickers); awalAktif = a; akhirAktif = b;
@@ -362,10 +427,12 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
           render();
         } else { keadaan('fa-exclamation-triangle', esc(r.message), false); }
       },
-      error: function (xhr) {
+      error: function (xhr, status) {
+        if (status === 'abort') { return; } // digantikan permintaan yang lebih baru
         keadaan('fa-exclamation-triangle', 'Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)), true);
       }
     });
+    xhrAktif = req;
   }
 
   function render() {
@@ -466,6 +533,11 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     window.location.href = '<?= base_url('bonus-picker/export-excel-detail') ?>?kode=' + kodeAktif + '&awal=' + awalAktif + '&akhir=' + akhirAktif;
   });
   $root.on('click', '#bp-tampilkan, #bp-ulang', muat);
+  $root.on('click', '#bp-load-batal', function () {
+    if (xhrAktif) { xhrAktif.abort(); }
+    akhiriProses();
+    keadaan('fa-ban', 'Pemuatan dibatalkan.', true);
+  });
   $root.on('click', '#bp-export', function () {
     var a = keIso($('#bp-awal').val()), b = keIso($('#bp-akhir').val());
     if (!a || !b) { muat(); return; } // munculkan pesan format tanggal

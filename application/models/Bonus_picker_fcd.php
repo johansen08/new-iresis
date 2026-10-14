@@ -59,123 +59,93 @@ class Bonus_picker_fcd extends CI_Model
     /**
      * Status sumber data pada panggilan hitung() terakhir:
      *  'tidak' = hanya iresis_prod (rentang masih di jendela prod),
-     *  'ya'    = prod dilengkapi iresis_arsip,
+     *  'ya'    = tanggal lama diambil dari iresis_arsip, sisanya dari prod,
      *  'gagal' = arsip dibutuhkan tapi tidak terbaca (hasil hanya dari prod,
      *            bisa kurang dari yang sebenarnya).
      */
     public $sumber_arsip = 'tidak';
 
     /**
-     * Rentang yang dimulai sebelum (hari ini - (retensi_hari - 5)) butuh arsip:
-     * purna memindahkan resi lama dari prod ke iresis_arsip (config/arsip.php).
-     * Selisih 5 hari menutup resi yang aktivitas terakhirnya mepet cutoff.
+     * Tanggal pemisah: tanggal SEBELUM ini dibaca dari iresis_arsip, mulai
+     * tanggal ini dari iresis_prod. Purna memindahkan resi lama dari prod ke
+     * arsip (config/arsip.php, retensi_hari); selisih 5 hari menutup resi yang
+     * aktivitas terakhirnya mepet cutoff. Arsip adalah superset yang disinkron
+     * tiap malam, jadi untuk tanggal lama arsip lengkap; tanggal baru selalu dari
+     * prod (arsip bisa tertinggal sampai 1 hari).
+     *
+     * Dipecah per tanggal, bukan digabung UNION per baris: tiap baris pick
+     * jatuh di tepat satu sumber sehingga tidak perlu dedup (NOT EXISTS) dan
+     * query jauh lebih cepat (uji 29 Jun-25 Sep: 18,6 dtk -> 2,7 dtk).
+     *
+     * @return string|null Y-m-d, NULL kalau arsip tidak dipakai
      */
-    private function perlu_arsip($awal)
+    private function tanggal_pemisah()
     {
         $this->config->load('arsip', TRUE);
-        $retensi = (int) $this->config->item('retensi_hari', 'arsip');
-        if ($retensi <= 0) {
-            return FALSE;
+        $nama_arsip = (string) $this->config->item('db_arsip', 'arsip');
+        $retensi    = (int) $this->config->item('retensi_hari', 'arsip');
+        // Mode Arsip: koneksi sudah menunjuk arsip itu sendiri.
+        if ($nama_arsip === '' || $nama_arsip === $this->db->database || $retensi <= 0) {
+            return NULL;
         }
-        $batas = date('Y-m-d', strtotime('-' . max($retensi - 5, 0) . ' days'));
-        return $awal <= $batas;
+        return date('Y-m-d', strtotime('-' . max($retensi - 5, 0) . ' days'));
     }
 
     /**
-     * Resi pick pada rentang, gabungan prod + arsip. Baris yang ada di prod
-     * selalu menang (prod bisa lebih baru dari arsip, mis. Update Picker);
-     * baris arsip hanya dipakai kalau PK-nya tidak ada di prod.
+     * Pick + kesalahan pada satu database untuk rentang tanggal tertentu.
      *
-     * @return array [potongan SQL "SELECT ..." , binding]
-     */
-    private function sumber_rab($dari, $sampai, $pakai_arsip)
-    {
-        $kolom = 'id_resiambilbarang, id_resi, yangambil_pegawai, tanggal_resiambilbarang, status_performa_id, nama_komputer';
-        $prod  = $this->db->escape_identifiers($this->db->database);
-        $sql   = "SELECT $kolom FROM $prod.tblresiambilbarang WHERE tanggal_resiambilbarang BETWEEN ? AND ?";
-        $bind  = [$dari, $sampai];
-
-        if ($pakai_arsip) {
-            $arsip = $this->db->escape_identifiers($this->config->item('db_arsip', 'arsip'));
-            $sql  .= " UNION ALL SELECT a.id_resiambilbarang, a.id_resi, a.yangambil_pegawai, a.tanggal_resiambilbarang, a.status_performa_id, a.nama_komputer
-                       FROM $arsip.tblresiambilbarang a
-                       WHERE a.tanggal_resiambilbarang BETWEEN ? AND ?
-                         AND NOT EXISTS (SELECT 1 FROM $prod.tblresiambilbarang p WHERE p.id_resiambilbarang = a.id_resiambilbarang)";
-            $bind[] = $dari;
-            $bind[] = $sampai;
-        }
-        return [$sql, $bind];
-    }
-
-    /** Laporan masalah picker untuk resi di CTE rab, gabungan prod + arsip (PK prod menang). */
-    private function sumber_masalah($pakai_arsip)
-    {
-        $prod = $this->db->escape_identifiers($this->db->database);
-        $sql  = "SELECT mp.id_masalahpicker, mp.id_printresi FROM $prod.tblmasalahpicker mp
-                 WHERE mp.id_printresi IN (SELECT id_resi FROM rab)";
-        if ($pakai_arsip) {
-            $arsip = $this->db->escape_identifiers($this->config->item('db_arsip', 'arsip'));
-            $sql  .= " UNION ALL SELECT a.id_masalahpicker, a.id_printresi FROM $arsip.tblmasalahpicker a
-                       WHERE a.id_printresi IN (SELECT id_resi FROM rab)
-                         AND NOT EXISTS (SELECT 1 FROM $prod.tblmasalahpicker p WHERE p.id_masalahpicker = a.id_masalahpicker)";
-        }
-        return $sql;
-    }
-
-    /**
-     * Jalankan query pick + kesalahan. Debug DB dimatikan sementara supaya
-     * kegagalan membaca arsip (DB/tabel tak ada, hak akses) tidak mencetak
-     * halaman error CI yang merusak JSON; hasilnya diulang hanya dengan prod.
+     * Hanya baris berstatus NORMAL_PICKER / 1_SKU_PICKER yang relevan (status
+     * lain tidak memengaruhi pick maupun penanda hari spesial). id_resi UNIQUE
+     * di tblresiambilbarang, jadi COUNT(*) sama dengan hitung resi distinct.
+     * Kesalahan dihitung dari tblmasalahpicker (kecil, tanpa indeks id_printresi)
+     * lalu dicari baris pick-nya lewat indeks id_resi.
      *
-     * @return array [pick[], salah[]]
+     * Debug DB dimatikan sementara agar kegagalan (DB/tabel/hak akses) tidak
+     * mencetak halaman error CI yang merusak JSON; yang memanggil menangani FALSE.
+     *
+     * @return array|FALSE [pick[], salah[]]
      */
-    private function ambil_data($dari, $sampai, $id_normal, $id_1sku, $pakai_arsip)
+    private function ambil_segmen($nama_db, $dari, $sampai, $id_normal, $id_1sku)
     {
+        $db = $this->db->escape_identifiers($nama_db);
         $debug = $this->db->db_debug;
         $this->db->db_debug = FALSE;
 
-        list($sql_rab, $bind_rab) = $this->sumber_rab($dari, $sampai, $pakai_arsip);
-        $mp = $this->sumber_masalah($pakai_arsip);
-
         $q_pick = $this->db->query(
-            "WITH rab AS ($sql_rab)
-             SELECT rab.yangambil_pegawai AS peg,
+            "SELECT rab.yangambil_pegawai AS peg,
                     DATE(rab.tanggal_resiambilbarang) AS tgl,
-                    COUNT(DISTINCT CASE WHEN rab.status_performa_id = ?
-                                         AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
-                                         AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
-                                        THEN rab.id_resi END) AS total_pick,
+                    COUNT(CASE WHEN rab.status_performa_id = ?
+                                AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
+                                AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
+                               THEN 1 END) AS total_pick,
                     MAX(rab.status_performa_id = ?) AS spesial
-             FROM rab
+             FROM $db.tblresiambilbarang rab
+             WHERE rab.tanggal_resiambilbarang BETWEEN ? AND ?
+               AND rab.status_performa_id IN (?, ?)
              GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)",
-            array_merge($bind_rab, [$id_normal, self::JAM_AWAL, self::JAM_AKHIR, $id_1sku])
+            [$id_normal, self::JAM_AWAL, self::JAM_AKHIR, $id_1sku, $dari, $sampai, $id_normal, $id_1sku]
         );
 
         $q_salah = $q_pick ? $this->db->query(
-            "WITH rab AS ($sql_rab)
-             SELECT rab.yangambil_pegawai AS peg,
+            "SELECT rab.yangambil_pegawai AS peg,
                     DATE(rab.tanggal_resiambilbarang) AS tgl,
                     COUNT(DISTINCT mp.id_masalahpicker) AS jml
-             FROM rab
-             JOIN ($mp) mp ON mp.id_printresi = rab.id_resi
-             WHERE rab.status_performa_id = ?
+             FROM $db.tblmasalahpicker mp
+             JOIN $db.tblresiambilbarang rab ON rab.id_resi = mp.id_printresi
+             WHERE rab.tanggal_resiambilbarang BETWEEN ? AND ?
+               AND rab.status_performa_id = ?
                AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
                AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
              GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)",
-            array_merge($bind_rab, [$id_normal, self::JAM_AWAL, self::JAM_AKHIR])
+            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR]
         ) : FALSE;
 
         $this->db->db_debug = $debug;
 
         if ($q_pick === FALSE || $q_salah === FALSE) {
-            if ($pakai_arsip) {
-                log_message('error', 'Bonus Picker: gagal membaca arsip, memakai data prod saja. ' . json_encode($this->db->error()));
-                $this->sumber_arsip = 'gagal';
-                return $this->ambil_data($dari, $sampai, $id_normal, $id_1sku, FALSE);
-            }
-            show_error('Bonus Picker: query gagal dijalankan.', 500);
+            log_message('error', 'Bonus Picker: query segmen ' . $nama_db . ' gagal. ' . json_encode($this->db->error()));
+            return FALSE;
         }
-
         return [$q_pick->result_array(), $q_salah->result_array()];
     }
 
@@ -193,19 +163,34 @@ class Bonus_picker_fcd extends CI_Model
             return [];
         }
 
-        $dari   = $awal . ' 00:00:00';
-        $sampai = $akhir . ' 23:59:59';
-
-        // Arsip hanya dipakai bila rentang menyentuh data yang sudah dipurna
-        // dari prod; kalau koneksi sedang di Mode Arsip, "prod" sudah arsip itu sendiri.
-        $this->config->load('arsip', TRUE);
-        $nama_arsip  = (string) $this->config->item('db_arsip', 'arsip');
-        $pakai_arsip = $nama_arsip !== '' && $nama_arsip !== $this->db->database && $this->perlu_arsip($awal);
-        if ($pakai_arsip) {
+        // Segmen [db, dari, sampai]: tanggal lama dari arsip, tanggal baru dari prod.
+        $pemisah = $this->tanggal_pemisah();
+        $segmen  = [];
+        if ($pemisah === NULL || $awal >= $pemisah) {
+            $segmen[] = [$this->db->database, $awal, $akhir];
+        } else {
             $this->sumber_arsip = 'ya';
+            $akhir_arsip = min($akhir, date('Y-m-d', strtotime($pemisah . ' -1 day')));
+            $segmen[] = [$this->config->item('db_arsip', 'arsip'), $awal, $akhir_arsip];
+            if ($akhir >= $pemisah) {
+                $segmen[] = [$this->db->database, $pemisah, $akhir];
+            }
         }
 
-        list($pick, $salah) = $this->ambil_data($dari, $sampai, $id_normal, $id_1sku, $pakai_arsip);
+        $pick = [];
+        $salah = [];
+        foreach ($segmen as $sg) {
+            $hasil = $this->ambil_segmen($sg[0], $sg[1] . ' 00:00:00', $sg[2] . ' 23:59:59', $id_normal, $id_1sku);
+            if ($hasil === FALSE) {
+                if ($sg[0] === $this->db->database) {
+                    show_error('Bonus Picker: query gagal dijalankan.', 500);
+                }
+                $this->sumber_arsip = 'gagal'; // arsip tak terbaca: lanjut dengan prod saja
+                continue;
+            }
+            $pick  = array_merge($pick, $hasil[0]);
+            $salah = array_merge($salah, $hasil[1]);
+        }
         $map_salah = [];
         foreach ($salah as $r) {
             $map_salah[$r['peg'] . '|' . $r['tgl']] = (int) $r['jml'];
