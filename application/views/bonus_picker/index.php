@@ -272,7 +272,6 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
 (function () {
   var $root = $('#bp-root');
   var TARGET = <?= (int) $aturan['target'] ?>, TIER2 = <?= (int) $aturan['tier2'] ?>, POIN = <?= (int) $aturan['poin'] ?>;
-  var MAKS_LAYAR = <?= (int) Bonus_picker_fcd::MAKS_HARI ?>;
   var data = [], sortK = 'bonus', sortDir = -1, awalAktif = '', akhirAktif = '', kodeAktif = 0;
 
   function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
@@ -345,17 +344,6 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     var a = keIso($('#bp-awal').val()), b = keIso($('#bp-akhir').val());
     if (!a || !b) {
       keadaan('fa-calendar-times-o', 'Format tanggal harus dd/mm/yyyy, contoh 01/10/2026.', false);
-      return;
-    }
-    // Tampilan layar dibatasi (sama dengan batas di server); export tidak dibatasi.
-    var hari = Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1;
-    if (hari > MAKS_LAYAR) {
-      data = []; $('#bp-arsip').empty(); $('#bp-rentang').text(tglPendek(a) + ' – ' + tglPendek(b));
-      $('#bp-s-bonus, #bp-s-picker, #bp-s-hari').text('-'); $('#bp-s-bar').hide();
-      $('#bp-s-bonus-s, #bp-s-picker-s, #bp-s-hari-s').html('&nbsp;');
-      $('#bp-rows').html('<tr class="bp-vacant"><td colspan="5" class="bp-state" style="display:table-cell"><i class="fa fa-file-excel-o"></i>' +
-        'Rentang ' + hari + ' hari terlalu panjang untuk ditampilkan di layar (maks. ' + MAKS_LAYAR + ' hari).<br>Rekap lengkapnya tetap bisa diunduh lewat Export Excel.' +
-        '<br><button type="button" class="bp-btn ghost" id="bp-export-besar"><i class="fa fa-file-excel-o"></i> Export Excel ' + tglPendek(a) + ' – ' + tglPendek(b) + '</button></td></tr>');
       return;
     }
     skeleton();
@@ -478,7 +466,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     window.location.href = '<?= base_url('bonus-picker/export-excel-detail') ?>?kode=' + kodeAktif + '&awal=' + awalAktif + '&akhir=' + akhirAktif;
   });
   $root.on('click', '#bp-tampilkan, #bp-ulang', muat);
-  $root.on('click', '#bp-export, #bp-export-besar', function () {
+  $root.on('click', '#bp-export', function () {
     var a = keIso($('#bp-awal').val()), b = keIso($('#bp-akhir').val());
     if (!a || !b) { muat(); return; } // munculkan pesan format tanggal
     window.location.href = '<?= base_url('bonus-picker/export-excel') ?>?awal=' + a + '&akhir=' + b;

@@ -26,7 +26,6 @@ class Bonus_picker_fcd extends CI_Model
     const BONUS_TIER2        = 50000;
     const JAM_AWAL           = '05:00:00';
     const JAM_AKHIR          = '17:00:00';
-    const MAKS_HARI          = 62;
 
     public static function bonus_dari_net($net)
     {

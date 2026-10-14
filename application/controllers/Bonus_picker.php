@@ -55,7 +55,7 @@ class Bonus_picker extends MY_Controller
     }
 
     /** Pesan error kalau rentang (yyyy-mm-dd) tidak valid, NULL kalau lolos. */
-    private function cek_rentang($awal, $akhir, $batasi = TRUE)
+    private function cek_rentang($awal, $akhir)
     {
         $valid = function ($t) {
             $d = DateTime::createFromFormat('Y-m-d', $t);
@@ -63,10 +63,6 @@ class Bonus_picker extends MY_Controller
         };
         if (!$valid($awal) || !$valid($akhir) || $awal > $akhir) {
             return 'Rentang tanggal tidak valid.';
-        }
-        // Batas hari hanya untuk tampilan layar; export boleh rentang panjang.
-        if ($batasi && (strtotime($akhir) - strtotime($awal)) / 86400 + 1 > Bonus_picker_fcd::MAKS_HARI) {
-            return 'Rentang tanggal maksimal ' . Bonus_picker_fcd::MAKS_HARI . ' hari.';
         }
         return NULL;
     }
@@ -81,6 +77,10 @@ class Bonus_picker extends MY_Controller
         if ($salah !== NULL) {
             $this->make_ajax_response(400, $salah);
         }
+
+        // Rentang panjang (mis. beberapa bulan + arsip) tidak dibatasi.
+        ini_set('memory_limit', '3072M');
+        set_time_limit(0);
 
         $pickers = $this->bonus_picker_fcd->hitung($awal, $akhir);
 
@@ -113,7 +113,7 @@ class Bonus_picker extends MY_Controller
         $awal  = (string) $this->input->get('awal');
         $akhir = (string) $this->input->get('akhir');
 
-        $salah = $this->cek_rentang($awal, $akhir, FALSE);
+        $salah = $this->cek_rentang($awal, $akhir);
         if ($salah !== NULL) {
             $this->make_ajax_response(400, $salah);
         }
@@ -151,7 +151,7 @@ class Bonus_picker extends MY_Controller
         $awal  = (string) $this->input->get('awal');
         $akhir = (string) $this->input->get('akhir');
 
-        $salah = $this->cek_rentang($awal, $akhir, FALSE);
+        $salah = $this->cek_rentang($awal, $akhir);
         if ($salah !== NULL) {
             $this->make_ajax_response(400, $salah);
         }
