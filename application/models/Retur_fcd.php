@@ -130,8 +130,9 @@ class Retur_fcd extends CI_Model
         $error_messages = [];
 
         foreach ($resi_list as $noresi) {
-            // Resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
-            pastikan_resi_live($noresi);
+            // Resi balik kurir (JZ… dst.) dipetakan ke resi pengiriman Iresis lewat tblreturjubelio;
+            // resi lama yang sudah diarsipkan juga ditarik dulu ke prod (docs/ARSIP_DATA.md)
+            $noresi = resolusi_noresi_retur($noresi);
             // Get receipt from tblprintresi
             $receipt = $this->db
                 ->select('id_printresi, id_kurir, id_marketplace, noresi, status_pesanan, batal')
@@ -274,8 +275,9 @@ class Retur_fcd extends CI_Model
         $error_messages = [];
 
         foreach ($resi_list as $noresi) {
-            // Resi lama yang sudah diarsipkan ditarik dulu ke prod (docs/ARSIP_DATA.md)
-            pastikan_resi_live($noresi);
+            // Resi balik kurir (JZ… dst.) dipetakan ke resi pengiriman Iresis lewat tblreturjubelio;
+            // resi lama yang sudah diarsipkan juga ditarik dulu ke prod (docs/ARSIP_DATA.md)
+            $noresi = resolusi_noresi_retur($noresi);
             // Get receipt from tblprintresi
             $receipt = $this->db
                 ->select('id_printresi, id_kurir, id_marketplace, noresi')

@@ -340,6 +340,7 @@ class Retur extends MY_Controller
 
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
+            $noresi = resolusi_noresi_retur($noresi); // resi balik kurir -> resi pengiriman Iresis
             
             // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
             $err_buka = $this->_cek_boleh_buka_retur($noresi, 0);
@@ -369,6 +370,7 @@ class Retur extends MY_Controller
 
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
+            $noresi = resolusi_noresi_retur($noresi); // resi balik kurir -> resi pengiriman Iresis
             
             // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
             $err_buka = $this->_cek_boleh_buka_retur($noresi, 0);
@@ -399,6 +401,7 @@ class Retur extends MY_Controller
 
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
+            $noresi = resolusi_noresi_retur($noresi); // resi balik kurir -> resi pengiriman Iresis
             
             // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
             $err_buka = $this->_cek_boleh_buka_retur($noresi, 1);
@@ -428,6 +431,7 @@ class Retur extends MY_Controller
 
         if ($this->input->method() == 'post' && !empty($this->input->post('noresi_buka'))) {
             $noresi = trim($this->input->post('noresi_buka'));
+            $noresi = resolusi_noresi_retur($noresi); // resi balik kurir -> resi pengiriman Iresis
             
             // Gerbang: resi tanpa catatan Terima Retur tidak boleh masuk tab Buka.
             $err_buka = $this->_cek_boleh_buka_retur($noresi, 1);
@@ -562,6 +566,7 @@ class Retur extends MY_Controller
     public function get_buka_retur_sku_data($noresi)
     {
         $noresi = urldecode($noresi);
+        $noresi = resolusi_noresi_retur($noresi);
         pastikan_resi_live($noresi); // resi lama yang sudah diarsipkan ditarik dulu ke prod
         $is_update = $this->input->get('is_update') ? true : false;
         $is_complain = $this->input->get('is_complain') ? 1 : 0;
@@ -648,6 +653,7 @@ class Retur extends MY_Controller
 		}
 
         $noresi = $this->input->post('noresi');
+        $noresi = resolusi_noresi_retur($noresi);
         $id_printresi = $this->input->post('id_printresi');
         $sku = $this->input->post('sku');
         $qty = $this->input->post('qty');
@@ -734,6 +740,7 @@ class Retur extends MY_Controller
         }
 
         $noresi = $this->input->post('noresi');
+        $noresi = resolusi_noresi_retur($noresi);
         $status_detail = $this->input->post('status_detail');
         $items_json = $this->input->post('items');
         $sku_pergantian = $this->input->post('sku_pergantian');
