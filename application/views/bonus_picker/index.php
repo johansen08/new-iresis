@@ -191,7 +191,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     <h2>Bonus Picker
       <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">
         <b>Aturan perhitungan</b><br>
-        &bull; Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Tipe masalah Reject Display tidak dikenai poin.<br>
+        &bull; Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Tipe masalah Reject Display tidak dikenai poin. Laporan masalah yang dibuat setelah pukul 17.00 pada hari pick tidak dihitung.<br>
         &bull; Net harian = total pick &minus; poin kesalahan.<br>
         &bull; Net <?= $fmt($aturan['target']) ?>&ndash;<?= $fmt($aturan['tier2'] - 1) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus1']) ?>/hari.<br>
         &bull; Net &ge; <?= $fmt($aturan['tier2']) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus2']) ?>/hari.<br>
@@ -283,7 +283,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
             <th>Total Pick</th>
             <th>Jumlah Kesalahan</th>
             <th>Poin Kesalahan
-              <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Tipe masalah Reject Display tidak dikenai poin dan tidak dihitung sebagai kesalahan.</span></span></th>
+              <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Tipe masalah Reject Display tidak dikenai poin. Laporan masalah yang dibuat setelah pukul 17.00 pada hari pick tidak dihitung.</span></span></th>
             <th>Net
               <span class="bp-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bp-tipsrc">Net = total pick &minus; poin kesalahan.<br>Emas = net &ge; <?= $fmt($aturan['tier2']) ?> (Rp <?= $fmt($aturan['bonus2']) ?>), hijau = <?= $fmt($aturan['target']) ?>&ndash;<?= $fmt($aturan['tier2'] - 1) ?> (Rp <?= $fmt($aturan['bonus1']) ?>), abu = di bawah target (tanpa bonus).</span></span></th>
             <th>Bonus</th>
