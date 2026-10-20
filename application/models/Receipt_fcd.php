@@ -1639,7 +1639,6 @@ class Receipt_fcd extends CI_Model
                             'tanggal_bataskirim'  => $combineDateTime($excelDateToPhpDate($row['H'] ?? null), $excelTimeToPhpTime($row['I'] ?? null)),
                             'tanggal_pengiriman'  => $combineDateTime($excelDateToPhpDate($row['J'] ?? null), $excelTimeToPhpTime($row['K'] ?? null)),
                             'tanggal_selesai'     => $combineDateTime($excelDateToPhpDate($row['L'] ?? null), $excelTimeToPhpTime($row['M'] ?? null)),
-                            'tanggal_retur'       => $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null)),
                             'status_pesanan'      => $row['T'] ?? null,
                             'status_wms'          => $row['W'] ?? null,
                             'modified_at'         => date('Y-m-d H:i:s'),
@@ -1649,6 +1648,15 @@ class Receipt_fcd extends CI_Model
                         // yang sudah ada (sumber data spt Jubelio core-api tidak punya field ini).
                         if (!empty($row['C'])) {
                             $batch_update_map[$noresi]['nomorpicklist'] = $row['C'];
+                        }
+                        // tanggal_retur: Excel pesanan (kolom TGL_RETUR/WAKTU_RETUR) adalah sumber
+                        // yang akurat, jadi nilai yang ada selalu menimpa. Tapi baris tanpa
+                        // tanggal retur (mis. Jubelio core-api, atau resi yang belum berstatus
+                        // RETURNED saat diunggah) TIDAK boleh mengosongkan tanggal retur yang
+                        // sudah tersimpan - kolom ini sengaja dilewati agar jatuh ke ELSE.
+                        $tgl_retur_baru = $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null));
+                        if ($tgl_retur_baru !== null && $tgl_retur_baru !== '') {
+                            $batch_update_map[$noresi]['tanggal_retur'] = $tgl_retur_baru;
                         }
                     } else {
                         $total_skip_update_same_status++;
