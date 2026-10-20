@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-10.1';
+    const BOOTSTRAP_VERSI = '2026-10-20.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -171,6 +171,7 @@ class MY_Controller extends CI_Controller
         $this->run_pemenuhan_kirim_harian_migration();
         $this->run_upload_resi_spesial_migration();
         $this->run_bonus_picker_migration();
+        $this->run_daftar_retur_penjualan_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1836,6 +1837,49 @@ class MY_Controller extends CI_Controller
         foreach ($setelan as $kunci => $isi) {
             if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {
                 $this->db->insert('tb_config_operasional', ['kunci' => $kunci, 'nilai' => $isi[0], 'keterangan' => $isi[1]]);
+            }
+        }
+    }
+
+    /**
+     * Menu "Daftar Retur Penjualan" (TIM RETUR): retur ekspedisi + umur dari tanggal retur.
+     * Hak akses disalin dari menu Laporan Retur (retur/laporan-retur) -- jangan menghapus
+     * baris roleaccess yang sudah ada.
+     */
+    protected function run_daftar_retur_penjualan_migration()
+    {
+        $uri = 'retur/daftar-retur-penjualan';
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'retur/laporan-retur'])->row();
+
+            $this->db->insert('menu', [
+                'name'        => 'Daftar Retur Penjualan',
+                'parentid'    => $saudara ? $saudara->parentid : 30,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-truck',
+                'sortorder'   => 5,
+                'description' => 'Retur ekspedisi (BARANG RETUR Jubelio) dengan umur dari tanggal retur: oranye >= 25 hari, merah >= 30 hari (wajib klaim).',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+
+            $role_boleh = $saudara
+                ? array_column($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result_array(), 'roleid')
+                : [];
+            if (empty($role_boleh)) {
+                $role_boleh = [1, 2, 6];
+            }
+            foreach (array_unique($role_boleh) as $roleid) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
             }
         }
     }
