@@ -130,7 +130,9 @@
 .dr .flow .step:first-child .i .tip{left:0;transform:none}
 .dr .flow .step:last-child .i .tip{left:auto;right:0;transform:none}
 .dr{padding:10px 14px}
-.dr .search{max-width:640px}
+.dr .search{max-width:640px;width:100%;margin:0 auto}
+.dr .top{justify-content:center}
+.dr .search input{text-align:center;padding:0 100px}
 
 </style>
 
@@ -138,7 +140,7 @@
   <div class="wrap">
     <div class="top">
       <form class="search" id="dr-form" autocomplete="off" onsubmit="return false;">
-        <input id="dr-q" type="text" aria-label="Nomor resi atau nomor pesanan" placeholder="Scan, ketik, atau tempel nomor resi / nomor pesanan (hasil muncul otomatis)" autofocus />
+        <input id="dr-q" type="text" aria-label="Nomor resi atau nomor pesanan" placeholder="No. Resi / No. Pesanan" autofocus />
         <span class="hint" id="dr-hint" aria-live="polite"></span>
       </form>
     </div>
