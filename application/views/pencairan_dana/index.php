@@ -327,7 +327,7 @@ $(document).ready(function () {
     var T = utc(HARI_INI);
     var PD = {
         from: iso(T - 29 * DAY), to: HARI_INI, mps: [], q: '', tab: 'belum', merah: false,
-        size: 10, page: 1, data: null, req: 0,
+        size: 10, page: 1, ring: null, ringKey: '', ringT: 0, xhr: null, req: 0,
         dp: { open: false, dFrom: '', dTo: '', hover: '', vy: 0, vm: 0 }, mpOpen: false
     };
 
@@ -340,25 +340,61 @@ $(document).ready(function () {
     function parameter() {
         return { start_date: PD.from, end_date: PD.to, mps: PD.mps, q: PD.q, tab: PD.tab, hanya_merah: PD.merah ? '1' : '0', size: PD.size, page: PD.page };
     }
+    // Ringkasan per marketplace disimpan di PD.ring (kunci: rentang tanggal + kotak cari). Pindah tab,
+    // halaman, ukuran halaman, marketplace, atau centang hanya mengambil baris (ring=0), sedangkan
+    // angka kartu/tab/halaman dihitung di sini dari PD.ring. Ringkasan diambil ulang bila kunci berubah,
+    // sudah lebih dari 60 detik, atau setelah upload.
+    function kunciRing() { return PD.from + '|' + PD.to + '|' + PD.q; }
+    function ringBasi() { return !PD.ring || PD.ringKey !== kunciRing() || (Date.now() - PD.ringT) > 60000; }
+
     function muat() {
         var id = ++PD.req;
+        var butuhRing = ringBasi();
+        if (!butuhRing) {
+            // angka sudah diketahui: perbarui kartu, tab, dan jumlah halaman seketika
+            var h0 = hitung();
+            if (PD.page > h0.pages) PD.page = h0.pages;
+            renderRingkas();
+        }
         $('#pd_tablewrap').addClass('memuat');
-        $.ajax({ url: BASE + 'finance/get-pencairan-dana', type: 'POST', data: parameter(), dataType: 'text', timeout: 120000 })
+        var data = parameter();
+        data.ring = butuhRing ? '1' : '0';
+        if (PD.xhr) PD.xhr.abort();   // ketikan/klik baru membatalkan permintaan yang masih berjalan
+        PD.xhr = $.ajax({ url: BASE + 'finance/get-pencairan-dana', type: 'POST', data: data, dataType: 'text', timeout: 120000 })
             .done(function (teks) {
                 if (id !== PD.req) return;
                 var r;
                 try { r = JSON.parse(teks); } catch (e) { return galat('Respons server bukan JSON: ' + teks.substring(0, 300)); }
                 if (r.code !== 200) return galat(r.message || 'Gagal memuat data.');
-                PD.data = r.data;
+                if (r.data.ring) { PD.ring = r.data.ring; PD.ringKey = kunciRing(); PD.ringT = Date.now(); }
                 PD.page = r.data.page;
-                render();
+                var h = hitung();
+                if (PD.page > h.pages && h.pages >= 1) { PD.page = h.pages; return muat(); }   // ringkasan baru lebih kecil dari yang lama
+                renderRingkas();
+                renderBaris(r.data.rows);
             })
-            .fail(function (xhr) { if (id === PD.req) galat('Gagal memuat data (' + (xhr.status || 'tanpa respons') + ').'); })
+            .fail(function (xhr, status) {
+                if (id === PD.req && status !== 'abort') galat('Gagal memuat data (' + (xhr.status || 'tanpa respons') + ').');
+            })
             .always(function () { if (id === PD.req) $('#pd_tablewrap').removeClass('memuat'); });
     }
     function galat(pesan) {
         $('#pd_tbody').empty();
         $('#pd_kosong').text(pesan).show();
+    }
+
+    // Jumlah dari PD.ring menurut marketplace terpilih (kosong = semua), tab, dan centang.
+    function hitung() {
+        var h = { n: 0, sudah: 0, kuning: 0, merah: 0 };
+        var daftar = PD.mps.length ? PD.mps : NAMA_MP;
+        if (PD.ring) daftar.forEach(function (nama) {
+            var x = PD.ring[nama];
+            if (x) { h.n += x.n; h.sudah += x.sudah; h.kuning += x.kuning; h.merah += x.merah; }
+        });
+        h.belum = h.kuning + h.merah;
+        h.total_tab = PD.tab === 'sudah' ? h.sudah : (PD.tab === 'belum' ? (PD.merah ? h.merah : h.belum) : h.n);
+        h.pages = Math.max(1, Math.ceil(h.total_tab / PD.size));
+        return h;
     }
 
     // ------------------------------------------------------------ tampilan
@@ -378,8 +414,9 @@ $(document).ready(function () {
     }
     function persen(n, total) { return total ? (n * 100 / total).toFixed(1).replace('.', ',') : '0,0'; }
 
-    function render() {
-        var d = PD.data, r = d.ringkasan;
+    function renderRingkas() {
+        var r = hitung();
+        r.total = r.n;
         $('#pd_pct_sudah').text(persen(r.sudah, r.total));
         $('#pd_n_sudah').text(angka(r.sudah));
         $('#pd_n_total').text(angka(r.total));
@@ -397,8 +434,21 @@ $(document).ready(function () {
         $('#pd_tabs .pd-tab').removeClass('on').filter('[data-tab="' + PD.tab + '"]').addClass('on');
         $('#pd_cek_wrap').toggle(PD.tab === 'belum');
 
+        var awal = r.total_tab ? (PD.page - 1) * PD.size + 1 : 0;
+        var akhir = Math.min(r.total_tab, PD.page * PD.size);
+        $('#pd_rentang_teks').text('Menampilkan ' + angka(awal) + '–' + angka(akhir) + ' dari ' + angka(r.total_tab) + ' pesanan');
+        $('#pd_hal').text(PD.page);
+        $('#pd_hal_max').text(r.pages);
+        $('#pd_prev').prop('disabled', PD.page <= 1);
+        $('#pd_next').prop('disabled', PD.page >= r.pages);
+
+        renderMp();
+        renderTglLabel();
+    }
+
+    function renderBaris(rows) {
         var h = '';
-        d.rows.forEach(function (x) {
+        rows.forEach(function (x) {
             var badge = x.status === 'sudah' ? '<span class="pd-lencana sudah">Sudah cair</span><div class="pd-selisih">' + selisihTeks(x.selisih) + '</div>'
                 : '<span class="pd-lencana ' + x.status + '">+' + x.umur + ' hari</span>';
             h += '<tr><td><span class="pd-id"><b>' + tandai(x.no) + '</b>'
@@ -409,17 +459,7 @@ $(document).ready(function () {
                 + '<td>' + badge + '</td></tr>';
         });
         $('#pd_tbody').html(h);
-        $('#pd_kosong').text(PD.q ? 'Tidak ada pesanan dengan ID yang memuat "' + PD.q + '" pada tab dan filter ini.' : 'Tidak ada pesanan pada tab dan filter ini.').toggle(d.rows.length === 0);
-
-        var awal = d.rows.length ? (d.page - 1) * PD.size + 1 : 0;
-        $('#pd_rentang_teks').text('Menampilkan ' + angka(awal) + '–' + angka(awal ? awal + d.rows.length - 1 : 0) + ' dari ' + angka(d.total_tab) + ' pesanan');
-        $('#pd_hal').text(d.page);
-        $('#pd_hal_max').text(d.pages);
-        $('#pd_prev').prop('disabled', d.page <= 1);
-        $('#pd_next').prop('disabled', d.page >= d.pages);
-
-        renderMp();
-        renderTglLabel();
+        $('#pd_kosong').text(PD.q ? 'Tidak ada pesanan dengan ID yang memuat "' + PD.q + '" pada tab dan filter ini.' : 'Tidak ada pesanan pada tab dan filter ini.').toggle(rows.length === 0);
     }
 
     // ------------------------------------------------------------ marketplace (multi pilih)
@@ -430,7 +470,7 @@ $(document).ready(function () {
         $('#pd_mp_hapus').toggle(n > 0);
         if (!PD.mpOpen) { $('#pd_mp_pop').empty(); return; }
         var jumlah = {};
-        if (PD.data) PD.data.per_mp.forEach(function (x) { jumlah[x.nama] = x.jumlah; });
+        if (PD.ring) NAMA_MP.forEach(function (nama) { jumlah[nama] = PD.ring[nama] ? PD.ring[nama].n : 0; });
         var h = '<button type="button" class="pd-lapis" data-act="mp-tutup" aria-label="Tutup pilihan marketplace"></button>'
             + '<div class="pd-pop pd-mplist">';
         NAMA_MP.forEach(function (nama) {
@@ -585,7 +625,7 @@ $(document).ready(function () {
     $('#pd_cek_merah').on('change', function () { PD.merah = this.checked; PD.page = 1; muat(); });
     $('#pd_size').on('change', function () { PD.size = parseInt(this.value, 10); PD.page = 1; muat(); });
     $('#pd_prev').on('click', function () { if (PD.page > 1) { PD.page--; muat(); } });
-    $('#pd_next').on('click', function () { if (PD.data && PD.page < PD.data.pages) { PD.page++; muat(); } });
+    $('#pd_next').on('click', function () { if (PD.page < hitung().pages) { PD.page++; muat(); } });
 
     // Ikon info: klik untuk membuka/menutup (selain hover), klik di luar menutup.
     $('#pd_wrap').on('click', '.pd-tip-btn', function (e) { e.stopPropagation(); $(this).parent().toggleClass('buka'); });
@@ -668,6 +708,7 @@ $(document).ready(function () {
         } else {
             fileSiap = false;
             $('#pd_up_simpan').prop('disabled', true).text('Simpan');
+            PD.ring = null;   // tanggal pencairan berubah: ringkasan wajib dihitung ulang
             muat();
         }
     }

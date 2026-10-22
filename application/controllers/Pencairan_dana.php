@@ -32,7 +32,12 @@ class Pencairan_dana extends MY_Controller
         ));
     }
 
-    /** Ringkasan + satu halaman daftar (JSON). */
+    /**
+     * Satu halaman daftar (JSON) dan, bila diminta (ring=1), ringkasan per marketplace.
+     * Ringkasan hanya bergantung pada rentang tanggal dan kotak cari; pindah tab, halaman, ukuran
+     * halaman, marketplace, atau centang tidak mengubahnya, jadi view menyimpannya dan mengirim
+     * ring=0 agar server cukup mengambil barisnya. Jumlah per tab/halaman dihitung di view.
+     */
     public function get_data()
     {
         if (!$this->_boleh()) {
@@ -47,50 +52,22 @@ class Pencairan_dana extends MY_Controller
 
         $size = (int) $this->input->post('size');
         if (!in_array($size, array(10, 50, 100), true)) $size = 10;
-
-        $ring = $this->pencairan_dana_fcd->ringkasan($start, $end, $cari);
-        $awalan_dipilih = $this->_awalan_dipilih($mps);
-
-        // Jumlah di daftar marketplace = semua pesanan pada rentang (tanpa filter marketplace).
-        $per_mp = array();
-        foreach (Pencairan_dana_fcd::peta_mp() as $kode => $nama) {
-            $per_mp[] = array('nama' => $nama, 'jumlah' => $ring[$kode]['n']);
-        }
-
-        // Angka kartu dan tab mengikuti filter marketplace.
-        $n = $sudah = $kuning = $merah_n = 0;
-        foreach ($awalan_dipilih as $kode) {
-            $n       += $ring[$kode]['n'];
-            $sudah   += $ring[$kode]['sudah'];
-            $kuning  += $ring[$kode]['kuning'];
-            $merah_n += $ring[$kode]['merah'];
-        }
-        $belum = $kuning + $merah_n;
-
-        if ($tab === 'sudah') {
-            $total_tab = $sudah;
-        } elseif ($tab === 'belum') {
-            $total_tab = $merah ? $merah_n : $belum;
-        } else {
-            $total_tab = $n;
-        }
-
         $halaman = max(1, (int) $this->input->post('page'));
-        $maks_hal = max(1, (int) ceil($total_tab / $size));
-        if ($halaman > $maks_hal) $halaman = $maks_hal;
+
+        $data = array('page' => $halaman);
+
+        if ($this->input->post('ring') !== '0') {
+            $ring = $this->pencairan_dana_fcd->ringkasan($start, $end, $cari);
+            $data['ring'] = array();
+            foreach (Pencairan_dana_fcd::peta_mp() as $kode => $nama) {
+                $data['ring'][$nama] = $ring[$kode];
+            }
+        }
 
         $rows = $this->pencairan_dana_fcd->daftar($start, $end, $mps, $tab, $merah, ($halaman - 1) * $size, $size, $cari);
+        $data['rows'] = $this->_baris($rows);
 
-        $this->make_ajax_response(200, 'OK', array(
-            'ringkasan' => array(
-                'total' => $n, 'sudah' => $sudah, 'kuning' => $kuning, 'merah' => $merah_n, 'belum' => $belum,
-            ),
-            'per_mp'    => $per_mp,
-            'total_tab' => $total_tab,
-            'page'      => $halaman,
-            'pages'     => $maks_hal,
-            'rows'      => $this->_baris($rows),
-        ));
+        $this->make_ajax_response(200, 'OK', $data);
     }
 
     /** Ekspor Excel sesuai filter yang sedang tampil (tanggal, marketplace, tab). Parameter lewat GET (unduhan). */
@@ -289,12 +266,6 @@ class Pencairan_dana extends MY_Controller
             if (is_string($nama) && isset($peta[$nama])) $hasil[] = $peta[$nama];
         }
         return array_values(array_unique($hasil));
-    }
-
-    /** Awalan yang berlaku untuk perhitungan angka ([] pilihan = semua marketplace). */
-    private function _awalan_dipilih($mps)
-    {
-        return empty($mps) ? array_keys(Pencairan_dana_fcd::peta_mp()) : $mps;
     }
 
     private function _tab()
