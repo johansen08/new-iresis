@@ -1,21 +1,25 @@
+<style>
+    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ptr-toolbar label { margin: 0; font-weight: 600; }
+    .ptr-toolbar .ptr-range { width: 370px; max-width: 100%; }
+    .ptr-ringkasan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; margin-bottom: 10px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
+    .ptr-total-label { color: #666; margin-right: 10px; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
+    .ptr-total-angka { font-size: 26px; font-weight: 700; color: #1f5f99; }
+    .ptr-periode { color: #666; }
+</style>
 <form action="report/export-to-excel-production-team-report-tab2" class="form-horizontal nojs" method="post" target="_blank">
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label">Rentang waktu</label>
-        <div class="col-md-3 col-xs-12">
-            <input type="text" name="reportrange" id="reportrange-production-team-tab2" class="form-control" />
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label"></label>
-        <div class="col-md-2 col-xs-12">
-            <button type="button" class="btn btn-info" id="btn-search-production-team-tab2">Tampilkan</button>
-            <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab2"><i class="fa fa-download"></i> Ekspor ke Excel</button>
-        </div>
+    <div class="ptr-toolbar">
+        <label for="reportrange-production-team-tab2">Rentang waktu</label>
+        <input type="text" name="reportrange" id="reportrange-production-team-tab2" class="form-control ptr-range" />
+        <button type="button" class="btn btn-info" id="btn-search-production-team-tab2"><i class="fa fa-refresh"></i> Tampilkan</button>
+        <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab2"><i class="fa fa-download"></i> Ekspor ke Excel</button>
     </div>
 </form>
 
-<hr>
+<div class="ptr-ringkasan">
+    <div class="ptr-total"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab2">-</span></div>
+    <div class="ptr-periode">Menampilkan: <strong id="periode-aktif-tab2">-</strong></div>
+</div>
 
 <!-- Loading Overlay -->
 <div id="loading-overlay-tab2" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
@@ -32,12 +36,9 @@
     <table class="table table-striped" id="datatable-production-team-tab2">
         <thead>
         <tr>
-            <th colspan="2" style="text-align:right">Grand Total</th>
-            <th id="grand-total-tab2">-</th>
-        </tr>
-        <tr>
             <th>Pegawai</th>
             <th>Tanggal</th>
+            <th>Jam</th>
             <th>Jumlah</th>
             <th>Status</th>
         </tr>
@@ -99,6 +100,7 @@
             'columns': [
                 { data: 'pegawai' },
                 { data: 'tanggal' },
+                { data: 'tanggal' },
                 { data: 'total' },
                 { data: 'status_performa' }
             ],
@@ -109,7 +111,7 @@
                         // Assuming role for HO is stored as "ho", "admin", "gudang", etc.
                         var roleName = row.role ? row.role.toLowerCase() : '';
                         var isInti = (roleName.indexOf('ho') !== -1 || roleName.indexOf('admin') !== -1);
-                        var badgeClass = isInti ? 'label-info' : 'label-default';
+                        var badgeClass = isInti ? 'label-primary' : 'label-default';
                         var badgeText  = isInti ? 'HO Inti' : 'Perbantuan';
                         
                         return '<div style="display:flex; align-items:center; gap:8px;">' +
@@ -123,17 +125,23 @@
                 },
                 {
                     targets: 1,
-                    className: 'text-center'
+                    className: 'text-center',
+                    render: function (data) { return String(data).split(' ')[0]; }
                 },
                 {
                     targets: 2,
+                    className: 'text-center',
+                    render: function (data) { return String(data).split(' ')[1] || '-'; }
+                },
+                {
+                    targets: 3,
                     className: 'text-center',
                     render: function (data) {
                         return '<span class="badge" style="font-size:14px; background-color:#337ab7;">' + data + '</span>';
                     }
                 },
                 {
-                    targets: 3,
+                    targets: 4,
                     className: 'text-center',
                     render: function (data) {
                         var color = '#777';
@@ -162,6 +170,15 @@
                 $('#loading-overlay-tab2').css('display', 'flex');
             },
             'drawCallback': function() {
+                $('#periode-aktif-tab2').text($('#reportrange-production-team-tab2').val());
+                $('#datatable-production-team-tab2').DataTable().columns.adjust();
+
+                // Kolom Status disembunyikan bila semua baris "Tanpa Status"
+                var api = this.api();
+                var adaStatus = api.column(4).data().toArray().some(function(v) {
+                    return String(v).toUpperCase() !== 'TANPA STATUS';
+                });
+                api.column(4).visible(adaStatus, false);
                 // Hide loading after draw
                 $('#loading-overlay-tab2').hide();
                 
@@ -173,4 +190,7 @@
             }
         });
     });
+
+    // Langsung tampilkan data hari ini tanpa perlu klik Tampilkan
+    $('#btn-search-production-team-tab2').trigger('click');
 </script>

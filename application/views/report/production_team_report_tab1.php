@@ -1,21 +1,25 @@
+<style>
+    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ptr-toolbar label { margin: 0; font-weight: 600; }
+    .ptr-toolbar .ptr-range { width: 370px; max-width: 100%; }
+    .ptr-ringkasan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; margin-bottom: 10px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
+    .ptr-total-label { color: #666; margin-right: 10px; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
+    .ptr-total-angka { font-size: 26px; font-weight: 700; color: #1f5f99; }
+    .ptr-periode { color: #666; }
+</style>
 <form action="report/export-to-excel-production-team-report-tab1" class="form-horizontal nojs" method="post" target="_blank">
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label">Rentang waktu</label>
-        <div class="col-md-3 col-xs-12">
-            <input type="text" name="reportrange" id="reportrange-production-team-tab1" class="form-control" />
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label"></label>
-        <div class="col-md-2 col-xs-12">
-            <button type="button" class="btn btn-info" id="btn-search-production-team-tab1">Tampilkan</button>
-            <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab1"><i class="fa fa-download"></i> Ekspor ke Excel</button>
-        </div>
+    <div class="ptr-toolbar">
+        <label for="reportrange-production-team-tab1">Rentang waktu</label>
+        <input type="text" name="reportrange" id="reportrange-production-team-tab1" class="form-control ptr-range" />
+        <button type="button" class="btn btn-info" id="btn-search-production-team-tab1"><i class="fa fa-refresh"></i> Tampilkan</button>
+        <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab1"><i class="fa fa-download"></i> Ekspor ke Excel</button>
     </div>
 </form>
 
-<hr>
+<div class="ptr-ringkasan">
+    <div class="ptr-total"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab1">-</span></div>
+    <div class="ptr-periode">Menampilkan: <strong id="periode-aktif-tab1">-</strong></div>
+</div>
 
 <!-- Loading Overlay -->
 <div id="loading-overlay-tab1" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
@@ -31,11 +35,6 @@
 <div style="position: relative;">
     <table class="table table-striped" id="datatable-production-team-tab1">
         <thead>
-        <tr>
-            <th colspan="4" style="text-align:right">Grand Total</th>
-            <th id="grand-total-tab1">-</th>
-            <th></th>
-        </tr>
         <tr>
             <th>Pegawai</th>
             <th>Tanggal</th>
@@ -113,7 +112,7 @@
                     render: function (data, type, row) {
                         var roleName = row.role ? row.role.toLowerCase() : '';
                         var isInti = (roleName.indexOf('packer') !== -1);
-                        var badgeClass = isInti ? 'label-success' : 'label-default';
+                        var badgeClass = isInti ? 'label-primary' : 'label-default';
                         var badgeText  = isInti ? 'Packer Inti' : 'Perbantuan';
                         
                         return '<div style="display:flex; align-items:center; gap:8px;">' +
@@ -166,6 +165,8 @@
                 $('#loading-overlay-tab1').css('display', 'flex');
             },
             'drawCallback': function() {
+                $('#periode-aktif-tab1').text($('#reportrange-production-team-tab1').val());
+                $('#datatable-production-team-tab1').DataTable().columns.adjust();
                 // Hide loading after draw
                 $('#loading-overlay-tab1').hide();
                 
@@ -177,6 +178,9 @@
             }
         });
     });
+
+    // Langsung tampilkan data hari ini tanpa perlu klik Tampilkan
+    $('#btn-search-production-team-tab1').trigger('click');
 
     // Global variables to store active packer info
     var activePackerId = null;
