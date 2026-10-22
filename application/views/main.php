@@ -162,14 +162,14 @@
 			<ul class="x-navigation x-navigation-horizontal x-navigation-panel">
 				<!-- TOGGLE NAVIGATION -->
 				<li class="xn-icon-button">
-					<a href="#" class="x-navigation-minimize"><span class="fa fa-dedent"></span></a>
+					<a href="#" class="x-navigation-minimize" title="Sembunyikan / tampilkan menu"><span class="fa fa-dedent"></span></a>
 				</li>
 				<!-- END TOGGLE NAVIGATION -->
 				
 				<!-- NOTIFICATION -->
 				<li class="xn-icon-button pull-right">
-					<a href="#"><span class="fa fa-bell"></span></a>
-					<div class="informer informer-danger" id="notif-count"><?= isset($notif_count) ? $notif_count : 0 ?></div>
+					<a href="#" title="Notifikasi"><span class="fa fa-bell"></span></a>
+					<div class="informer informer-danger" id="notif-count"<?= empty($notif_count) ? ' style="display:none"' : '' ?>><?= !empty($notif_count) && $notif_count > 99 ? '99+' : (isset($notif_count) ? $notif_count : 0) ?></div>
 					<div class="panel panel-primary animated zoomIn xn-drop-left xn-panel-dragging">
 						<div class="panel-heading">
 							<h3 class="panel-title"><span class="fa fa-bell"></span> Notifikasi</h3>
@@ -180,7 +180,7 @@
 						<div class="panel-body list-group list-group-contacts scroll" id="notif-list-container" style="height: 250px;">
 							<?php if(!empty($notif_list)): ?>
 								<?php foreach($notif_list as $notif): ?>
-									<a href="javascript:void(0);" class="list-group-item mark-read" data-id="<?= $notif['id'] ?>">
+									<a href="javascript:void(0);" class="list-group-item mark-read<?= $notif['is_read'] ? ' notif-dibaca' : '' ?>" data-id="<?= $notif['id'] ?>">
 										<div class="list-group-status <?= $notif['is_read'] ? '' : 'status-online' ?>"></div>
 										<span class="contacts-title"><?= $notif['category'] ?></span>
 										<p><?= $notif['message'] ?></p>
@@ -192,7 +192,8 @@
 							<?php endif; ?>
 						</div>
 						<div class="panel-footer text-center">
-							<a href="javascript:void(0);" id="mark-all-read">Tandai semua telah dibaca</a>
+							<small class="text-muted pull-left" id="notif-ringkas"><?= (!empty($notif_list) && !empty($notif_count) && $notif_count > count($notif_list)) ? count($notif_list) . ' terbaru dari ' . $notif_count . ' belum dibaca' : '' ?></small>
+							<a href="javascript:void(0);" id="mark-all-read">Tandai semua dibaca</a>
 						</div>
 					</div>
 				</li>
@@ -200,7 +201,7 @@
 
 				<!-- SIGN OUT -->
 				<li class="xn-icon-button pull-right">
-					<a href="#" class="mb-control" data-box="#mb-signout"><span class="fa fa-sign-out"></span></a>
+					<a href="#" class="mb-control" data-box="#mb-signout" title="Keluar"><span class="fa fa-sign-out"></span></a>
 				</li>
 				<!-- END SIGN OUT -->
 			</ul>
@@ -225,15 +226,14 @@
 	<div class="message-box animated fadeIn" data-sound="alert" id="mb-signout">
 		<div class="mb-container">
 			<div class="mb-middle">
-				<div class="mb-title"><span class="fa fa-sign-out"></span> Log <strong>Out</strong> ?</div>
+				<div class="mb-title"><span class="fa fa-sign-out"></span> <strong>Keluar</strong> dari aplikasi?</div>
 				<div class="mb-content">
-					<p>Are you sure you want to log out?</p>
-					<p>Press No if youwant to continue work. Press Yes to logout current user.</p>
+					<p>Sesi Anda akan diakhiri. Pilih Batal untuk tetap bekerja.</p>
 				</div>
 				<div class="mb-footer">
 					<div class="pull-right">
-						<a href="logout" class="btn btn-success btn-lg">Yes</a>
-						<button class="btn btn-default btn-lg mb-control-close">No</button>
+						<a href="logout" class="btn btn-success btn-lg">Ya, keluar</a>
+						<button class="btn btn-default btn-lg mb-control-close">Batal</button>
 					</div>
 				</div>
 			</div>
@@ -744,13 +744,15 @@
             global: false, // JANGAN pancing kotak merah error
             success: function(resp) {
                 if(resp.status === 'success') {
-                    $('#notif-count').text(resp.data.count);
-                    $('#notif-count-label').text(resp.data.count + ' Baru');
+                    var jml = parseInt(resp.data.count, 10) || 0;
+                    $('#notif-count').text(jml > 99 ? '99+' : jml).toggle(jml > 0);
+                    $('#notif-count-label').text(jml + ' Baru');
+                    $('#notif-ringkas').text(jml > resp.data.list.length ? resp.data.list.length + ' terbaru dari ' + jml + ' belum dibaca' : '');
                     
                     var html = '';
                     if(resp.data.list.length > 0) {
                         resp.data.list.forEach(function(n) {
-                            html += `<a href="javascript:void(0);" class="list-group-item mark-read" data-id="${n.id}">
+                            html += `<a href="javascript:void(0);" class="list-group-item mark-read${n.is_read == 0 ? '' : ' notif-dibaca'}" data-id="${n.id}">
                                         <div class="list-group-status ${n.is_read == 0 ? 'status-online' : ''}"></div>
                                         <span class="contacts-title">${n.category}</span>
                                         <p>${n.message}</p>
@@ -956,6 +958,21 @@
     .page-sidebar .xn-menu-cari { padding: 4px 10px; }
     .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
+    /* Header atas: ikon putih, tinggi sama dengan bar, judul halaman menggantikan baris breadcrumb */
+    .page-content > .x-navigation-panel > li.xn-icon-button { height: 50px; }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a { display: flex; align-items: center; justify-content: center; height: 50px; padding: 0; color: #fff !important; font-size: 16px; transition: background .15s; }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a:hover, .page-content > .x-navigation-panel > li.xn-icon-button.active > a { background: rgba(255, 255, 255, .18); }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a .fa { color: #fff; }
+    #notif-count { left: auto; right: 6px; top: 5px; min-width: 18px; height: 18px; padding: 0 4px; line-height: 14px; font-size: 10px; font-weight: 700; text-align: center; border: 2px solid #007bff; border-radius: 9px; box-sizing: content-box; pointer-events: none; }
+    .page-content > ul.breadcrumb { position: absolute; top: 0; left: 62px; right: 130px; height: 50px; margin: 0; padding: 0 8px; display: flex; align-items: center; background: transparent; z-index: 4; pointer-events: none; overflow: hidden; white-space: nowrap; }
+    .page-content > ul.breadcrumb li, .page-content > ul.breadcrumb li a { color: #fff; font-size: 15px; font-weight: 600; }
+    .page-content-wrap { padding-top: 10px; }
+    /* Panel notifikasi */
+    .x-navigation-panel .xn-drop-left { width: 380px; }
+    #notif-list-container { height: auto !important; max-height: 320px; overflow-y: auto; }
+    #notif-list-container .list-group-item { white-space: normal; }
+    #notif-list-container .notif-dibaca { opacity: .6; }
+    #notif-ringkas { line-height: 20px; }
     </style>
 </body>
 

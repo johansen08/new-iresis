@@ -104,7 +104,7 @@
             dom: '<if<t>lp>',
             'destroy': true,
             'pageLength': 50,
-            'scrollY': 'calc(100vh - 300px)',
+            'scrollY': 'calc(100vh - 270px)',
             'scrollCollapse': true,
             'processing': true,
             'serverSide': true,
