@@ -53,7 +53,7 @@
       <th>Kurir</th>
       <th>Status</th>
       <th>Batas Kirim</th>
-      <th>No. Pick List</th>
+      <th>No. Picklist</th>
       <th>Tanggal Scan</th>
       <th>Jam Scan</th>
       <th>Tanggal Pick</th>
