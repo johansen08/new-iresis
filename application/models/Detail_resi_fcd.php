@@ -37,7 +37,7 @@ class Detail_resi_fcd extends CI_Model
         }
 
         $resi = $this->db->query(
-            'SELECT t.id_printresi, t.noresi, t.toko, t.status_pesanan, t.tanggal_printresi, t.tanggal_bataskirim,
+            'SELECT t.id_printresi, t.noresi, t.status_pesanan, t.tanggal_printresi, t.tanggal_bataskirim,
                     t.tanggal_pesan, t.tanggal_pengiriman, t.tanggal_selesai, t.tanggal_pencairan, t.tanggal_retur,
                     t.nomorpicklist, t.tipe_resi, m.nama_marketplace, k.nama_kurir, u.name AS admin
              FROM tblprintresi t
@@ -61,7 +61,7 @@ class Detail_resi_fcd extends CI_Model
             'SELECT no_pesanan AS v FROM tbldetailprintresi WHERE id_resi = ? ORDER BY id_detail_resi LIMIT 1', [$id]
         );
         $d['items'] = $this->db->query(
-            'SELECT d.sku, d.jumlah, s.nama_sku, COALESCE(NULLIF(TRIM(s.no_rak), ""), "BELUM DITENTUKAN") AS no_rak
+            'SELECT d.sku, d.jumlah, COALESCE(NULLIF(TRIM(s.no_rak), ""), "BELUM DITENTUKAN") AS no_rak
              FROM tbldetailprintresi d
              LEFT JOIN tblsku s ON s.id_sku = d.sku
              WHERE d.id_resi = ?
