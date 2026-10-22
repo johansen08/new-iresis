@@ -943,6 +943,12 @@
     .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 14px; width: 20px; margin-right: 8px; }
     .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 11px; width: 16px; margin-right: 6px; }
     .page-sidebar .x-navigation li { line-height: 1.3; }
+    /* Indentasi submenu bawaan tema (margin 25 + padding 15) membuat ul meluber keluar sidebar 220px */
+    .page-sidebar .x-navigation li > ul { margin: 2px 6px 2px 8px !important; padding: 2px 0 2px 8px !important; width: auto !important; }
+    /* Sejajarkan awal ikon dan teks: semua menu utama punya garis kiri 5px (transparan bila tak berwarna), kotak ikon lebar tetap */
+    .page-sidebar .x-navigation > li:not(.xn-logo):not(.xn-profile) { border-left: 5px solid transparent; }
+    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 20px; }
+    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 16px; }
     .page-sidebar .x-navigation li li > a { white-space: normal; overflow: visible; text-overflow: clip; }
     /* Panah expand: sejajar tengah baris (top lama 17px untuk baris ~48px) */
     .page-sidebar .x-navigation > li.xn-openable::before { top: 1px; height: 31px; line-height: 31px; font-size: 12px; left: auto; right: 14px; }
