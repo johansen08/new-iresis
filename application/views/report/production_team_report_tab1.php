@@ -17,6 +17,22 @@
     .ptr-tabel .dataTables_scrollBody table { margin-bottom: 0 !important; margin-top: -1px !important; }
     .ptr-pegawai { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .ptr-pegawai .label { font-size: 10px; }
+    /* Perataan tepi: toolbar, kartu total, dan tabel berbagi tepi kiri/kanan yang sama */
+    .ptr-toolbar { margin-bottom: 8px; }
+    .ptr-total { height: 30px; padding: 0 12px; align-items: center; }
+    .ptr-total-angka { font-size: 20px; line-height: 1; }
+    .ptr-tabel .dataTables_info { float: left; padding: 0; line-height: 28px; }
+    .ptr-tabel .dataTables_filter { float: right; margin: 0 0 6px; }
+    .ptr-tabel .dataTables_filter label { margin: 0; display: flex; align-items: center; gap: 6px; }
+    .ptr-tabel .dataTables_filter input { height: 28px; margin: 0; }
+    .ptr-tabel .dataTables_scroll { clear: both; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; }
+    .ptr-tabel .dataTables_scrollBody { border-bottom: 0; }
+    .ptr-tabel .dataTables_scrollHead { border-bottom: 1px solid #ddd; }
+    .ptr-tabel .dataTables_length { float: left; margin-top: 6px; }
+    .ptr-tabel .dataTables_length label { margin: 0; display: flex; align-items: center; gap: 6px; }
+    .ptr-tabel .dataTables_length select { height: 28px; margin: 0; width: 64px; }
+    .ptr-tabel .dataTables_paginate { float: right; margin-top: 6px; }
+    .ptr-tabel .dataTables_paginate .pagination { margin: 0; }
 </style>
 
 <form action="report/export-to-excel-production-team-report-tab1" class="form-horizontal nojs" method="post" target="_blank">
