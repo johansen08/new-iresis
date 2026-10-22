@@ -22,7 +22,15 @@
   </div>
 </div>
 
+<style>
+  .tabs > .panel-body.tab-content { padding: 8px 10px; }
+</style>
 <script type="text/javascript">
+  // Header tabel di tab tersembunyi perlu disesuaikan ulang saat tab dibuka
+  $(document).off('shown.bs.tab.ptr').on('shown.bs.tab.ptr', 'a[data-toggle="tab"]', function() {
+    $($.fn.dataTable.fnTables(true)).each(function() { $(this).DataTable().columns.adjust(); });
+  });
+
   /**
    * Menentukan apakah sebuah resi wajib dikirim hari ini (untuk penanda merah).
    * @param {string} marketplace Nama marketplace (kolom Market Place)
