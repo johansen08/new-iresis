@@ -51,7 +51,7 @@ if (!function_exists('tree_to_html')) {
 
 if (!function_exists('tree_to_html_menu')) {
 
-    function tree_to_html_menu($list_menu)
+    function tree_to_html_menu($list_menu, $level = 0)
     {
         $html = '';
         foreach ($list_menu as $menu):
@@ -74,11 +74,18 @@ if (!function_exists('tree_to_html_menu')) {
                 if (stripos($menu_name, 'ACCOUNTING') !== false) $icon = 'fa fa-book';
             }
 
+            $judul = htmlspecialchars(strip_tags($menu_name), ENT_QUOTES);
+
             if (empty($menu['child'])) {
-                $html .= '<li><a href="'.$uri.'" class="link"><span class="'.$icon.'"></span> '.$menu_name.'</a></li>';
+                if ($level === 0) {
+                    // Menu tingkat atas tanpa submenu: teks dibungkus xn-text supaya hilang saat sidebar diciutkan; title jadi tooltip
+                    $html .= '<li><a href="'.$uri.'" class="link" title="'.$judul.'"><span class="'.$icon.'"></span> <span class="xn-text">'.$menu_name.'</span></a></li>';
+                } else {
+                    $html .= '<li><a href="'.$uri.'" class="link"><span class="'.$icon.'"></span> '.$menu_name.'</a></li>';
+                }
             } else {
-                $html .= '<li class="xn-openable"><a href="'.$uri.'"><span class="'.$icon.'"></span> <span class="xn-text">'.$menu_name.'</span></a><ul>';
-                $html .= tree_to_html_menu($menu['child']);
+                $html .= '<li class="xn-openable"><a href="'.$uri.'"'.($level === 0 ? ' title="'.$judul.'"' : '').'><span class="'.$icon.'"></span> <span class="xn-text">'.$menu_name.'</span></a><ul>';
+                $html .= tree_to_html_menu($menu['child'], $level + 1);
                 $html .= '</ul></li>';
             }
         endforeach;
