@@ -956,6 +956,35 @@
     .page-sidebar .x-navigation > li.xn-openable::before { top: 2px; height: 36px; line-height: 36px; font-size: 13px; left: auto; right: 14px; }
     .page-sidebar .x-navigation li li.xn-openable::before { top: 1px; height: 31px; line-height: 31px; font-size: 12px; left: auto; right: 12px; }
     .page-sidebar .xn-menu-cari { padding: 4px 10px; }
+    /* Monitor besar: sidebar dilebarkan bersama font, ikon, dan jarak (mode minimize/wide tidak ikut berubah) */
+    @media (min-width: 1900px) {
+        .page-container:not(.page-container-wide) .page-sidebar { width: 280px; }
+        .page-container:not(.page-container-wide) .page-content { margin-left: 280px; }
+        .page-sidebar .x-navigation > li > a { font-size: 16px; padding: 0 12px; min-height: 43px; box-sizing: border-box; margin: 2px 10px; width: calc(100% - 20px); }
+        .page-sidebar .x-navigation li li > a { font-size: 15px; padding: 0 8px 0 10px; min-height: 35px; box-sizing: border-box; margin: 1px 8px; width: calc(100% - 16px); }
+        .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 18px; width: 26px; flex-basis: 26px; margin-right: 10px; }
+        .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 14px; width: 20px; flex-basis: 20px; margin-right: 8px; }
+        .page-sidebar .x-navigation > li.xn-openable::before { top: 2px; height: 43px; line-height: 43px; font-size: 15px; right: 16px; }
+        .page-sidebar .x-navigation li li.xn-openable::before { top: 1px; height: 35px; line-height: 35px; font-size: 14px; right: 14px; }
+        .page-sidebar .xn-menu-cari input { font-size: 15px; padding: 7px 10px; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image { width: 48px !important; height: 48px !important; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-name { font-size: 16px; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-title { font-size: 12px; }
+    }
+    @media (min-width: 2400px) {
+        .page-container:not(.page-container-wide) .page-sidebar { width: 340px; }
+        .page-container:not(.page-container-wide) .page-content { margin-left: 340px; }
+        .page-sidebar .x-navigation > li > a { font-size: 19px; padding: 0 14px; min-height: 52px; margin: 3px 12px; width: calc(100% - 24px); }
+        .page-sidebar .x-navigation li li > a { font-size: 17px; padding: 0 10px 0 12px; min-height: 42px; margin: 1px 10px; width: calc(100% - 20px); }
+        .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 21px; width: 30px; flex-basis: 30px; margin-right: 12px; }
+        .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 16px; width: 24px; flex-basis: 24px; margin-right: 10px; }
+        .page-sidebar .x-navigation > li.xn-openable::before { top: 3px; height: 52px; line-height: 52px; font-size: 18px; right: 20px; }
+        .page-sidebar .x-navigation li li.xn-openable::before { top: 1px; height: 42px; line-height: 42px; font-size: 16px; right: 18px; }
+        .page-sidebar .xn-menu-cari input { font-size: 17px; padding: 9px 12px; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image { width: 56px !important; height: 56px !important; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-name { font-size: 19px; }
+        .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-title { font-size: 14px; }
+    }
     .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
     /* Header atas: semua tombol ikon satu ukuran (38px), satu radius (8px), jarak antar tombol 8px, sejajar tengah bar 50px */
