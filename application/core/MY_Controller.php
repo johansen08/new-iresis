@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-22.2';
+    const BOOTSTRAP_VERSI = '2026-10-22.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -174,6 +174,7 @@ class MY_Controller extends CI_Controller
         $this->run_daftar_retur_penjualan_migration();
         $this->run_tanggal_pencairan_mp_migration();
         $this->run_pencairan_dana_menu_migration();
+        $this->run_indeks_pencairan_dana_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1929,6 +1930,21 @@ class MY_Controller extends CI_Controller
             if ($ada_db && !$ada_kol) {
                 $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
             }
+        }
+    }
+
+    /**
+     * Indeks (status_pesanan, tanggal_selesai) di tblprintresi untuk menu Pencairan Dana: tanpa itu
+     * tiap pencarian memindai ±600 ribu baris (±1 dtk per query). Dibuat online (INPLACE, tanpa
+     * mengunci tulis). Indeks tidak ikut dibandingkan Arsip_fcd::cek_skema (hanya nama+tipe+urutan kolom).
+     */
+    protected function run_indeks_pencairan_dana_migration()
+    {
+        $ada = $this->db->query("SELECT 1 FROM information_schema.statistics
+            WHERE table_schema = DATABASE() AND table_name = 'tblprintresi' AND index_name = 'idx_printresi_status_selesai'")->row();
+        if (!$ada) {
+            $this->db->query("ALTER TABLE `tblprintresi`
+                ADD INDEX `idx_printresi_status_selesai` (`status_pesanan`, `tanggal_selesai`), ALGORITHM=INPLACE, LOCK=NONE");
         }
     }
 

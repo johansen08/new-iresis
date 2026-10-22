@@ -60,5 +60,6 @@ Pencocokan: Shopee `SP-<nomor>`; lainnya `TT|TP|LZ-<nomor>-<sufiks>`.
   di prod membuat sinkron `tblprintresi` dilewati dan purna ditolak. Karena itu migrasi kolom
   `tanggal_pencairan` juga menambahkannya ke `iresis_arsip.tblprintresi`. Kolom berikutnya di
   `tblprintresi` harus diperlakukan sama.
-- Tanpa indeks pada `status_pesanan`/`tanggal_selesai`, query memindai `tblprintresi` (±1 detik
-  untuk rentang 30 hari). Kalau lambat, tambahkan indeks `(status_pesanan, tanggal_selesai)`.
+- **Pencarian ID pesanan** (kotak di bar filter): cocok sebagian di mana saja pada nomor pesanan marketplace (bukan awalan TT-/TP-/sufiks), diketik langsung memperbarui tabel, tab, dan ringkasan (jeda 250 ms; Enter langsung mencari, Esc menghapus). Bagian yang cocok disorot. Hanya huruf/angka yang dipakai (`Pencairan_dana_fcd::syarat_cari`).
+- **Selisih cair vs Completed**: di bawah badge "Sudah cair" tertulis berapa hari tanggal cair sebelum/sesudah tanggal Completed; di ekspor kolom "Cair vs Completed (hari)" (negatif = sebelum).
+- **Indeks** `idx_printresi_status_selesai (status_pesanan, tanggal_selesai)` di `tblprintresi` (migrasi `run_indeks_pencairan_dana_migration`, dibuat online) menurunkan query dari ±1 dtk menjadi ±0,1 dtk. Indeks tidak dibandingkan `Arsip_fcd::cek_skema`, jadi tidak perlu ada di arsip.
