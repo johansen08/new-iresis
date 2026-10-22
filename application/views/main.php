@@ -908,6 +908,17 @@
     .page-sidebar .xn-menu-cari { padding: 6px 12px; }
     .page-sidebar .xn-menu-cari input { width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
     .x-navigation-minimized .xn-menu-cari { display: none; }
+    /* Header sidebar ringkas: menu diutamakan, logo/profil/status tidak boleh memakan ruang (hanya mode normal) */
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-logo { height: 44px; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-logo > a:first-child { height: 44px; line-height: 44px; padding-top: 0; padding-bottom: 0; font-size: 18px; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile { display: flex; align-items: center; float: none; padding: 8px 12px; margin-bottom: 4px; border-bottom-right-radius: 12px; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image { float: none; width: 40px !important; height: 40px !important; margin: 0 10px 0 0 !important; border-width: 2px !important; flex: 0 0 auto; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image img { border-width: 0; box-shadow: none; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile > a.profile-mini { display: none !important; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data { float: none; width: auto; min-width: 0; text-align: left; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-name { float: none; font-size: 13px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-title { float: none; font-size: 10px; letter-spacing: 0; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-sidebar .x-navigation > li.xn-title { padding-top: 4px; padding-bottom: 2px; height: auto; line-height: 18px; }
     /* Hierarki: judul grup lebih tebal dan besar dari submenu */
     .page-sidebar .x-navigation > li > a { font-size: 14px; font-weight: 700; }
     .page-sidebar .x-navigation li li > a { font-size: 13px; font-weight: 500; }
