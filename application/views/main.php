@@ -862,7 +862,8 @@
                 if (this.nodeType === 3) {
                     this.nodeValue = titleCase(this.nodeValue);
                 } else if ($(this).hasClass('xn-text')) {
-                    $(this).text(titleCase($(this).text()));
+                    // Awalan "Tim " dibuang dari tampilan; nama di database tidak berubah
+                    $(this).text(titleCase($(this).text()).replace(/^\s*Tim\s+/, ''));
                 }
             });
         });
