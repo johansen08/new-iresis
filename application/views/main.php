@@ -1034,15 +1034,18 @@
     .ptr-tabel td .label { font-size: calc(var(--ptr-fs) - 1px) !important; }
     .btn-salin-resi { font-size: var(--ptr-fs); }
     .ptr-tabel .dataTables_scrollBody { max-height: calc(100vh - var(--ptr-offset)) !important; }
-    /* Tab Picker / Packer / HO di laporan: hijau, kuning, pink (sama dengan badge Inti) */
-    .nav-tabs-ptr > li > a { border-top: 3px solid transparent !important; border-radius: 0; }
-    .nav-tabs-ptr > li:nth-child(1) > a { border-top-color: rgba(76, 175, 80, .45) !important; }
-    .nav-tabs-ptr > li:nth-child(2) > a { border-top-color: rgba(251, 192, 45, .6) !important; }
-    .nav-tabs-ptr > li:nth-child(3) > a { border-top-color: rgba(233, 30, 99, .45) !important; }
-    .nav-tabs-ptr > li:nth-child(1) > a:hover, .nav-tabs-ptr > li:nth-child(1).active > a { border-top-color: #4caf50 !important; background: #eef7ee !important; }
-    .nav-tabs-ptr > li:nth-child(2) > a:hover, .nav-tabs-ptr > li:nth-child(2).active > a { border-top-color: #fbc02d !important; background: #fffaeb !important; }
-    .nav-tabs-ptr > li:nth-child(3) > a:hover, .nav-tabs-ptr > li:nth-child(3).active > a { border-top-color: #e91e63 !important; background: #fdeef4 !important; }
-    .nav-tabs-ptr > li.active > a { font-weight: 700; color: #333 !important; }
+    /* Tab Picker / Packer / HO di laporan: hijau, kuning, pink. Tab aktif terisi penuh, tab lain redup agar jelas posisi user */
+    .nav-tabs-ptr > li > a { border: 0 !important; border-top: 4px solid transparent !important; border-radius: 0; color: #666 !important; background: #f2f2f2 !important; font-weight: 400; transition: background .15s, color .15s; }
+    .nav-tabs-ptr > li:nth-child(1) > a { border-top-color: #4caf50 !important; }
+    .nav-tabs-ptr > li:nth-child(2) > a { border-top-color: #fbc02d !important; }
+    .nav-tabs-ptr > li:nth-child(3) > a { border-top-color: #e91e63 !important; }
+    .nav-tabs-ptr > li:nth-child(1) > a:hover { background: #e3f1e4 !important; }
+    .nav-tabs-ptr > li:nth-child(2) > a:hover { background: #fdf3d2 !important; }
+    .nav-tabs-ptr > li:nth-child(3) > a:hover { background: #fadbe7 !important; }
+    .nav-tabs-ptr > li.active > a, .nav-tabs-ptr > li.active > a:hover { font-weight: 700; color: #fff !important; box-shadow: 0 2px 6px rgba(0, 0, 0, .18); }
+    .nav-tabs-ptr > li.active:nth-child(1) > a, .nav-tabs-ptr > li.active:nth-child(1) > a:hover { background: #4caf50 !important; }
+    .nav-tabs-ptr > li.active:nth-child(2) > a, .nav-tabs-ptr > li.active:nth-child(2) > a:hover { background: #fbc02d !important; color: #3a2b00 !important; }
+    .nav-tabs-ptr > li.active:nth-child(3) > a, .nav-tabs-ptr > li.active:nth-child(3) > a:hover { background: #e91e63 !important; }
     </style>
 </body>
 
