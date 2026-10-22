@@ -1034,6 +1034,15 @@
     .ptr-tabel td .label { font-size: calc(var(--ptr-fs) - 1px) !important; }
     .btn-salin-resi { font-size: var(--ptr-fs); }
     .ptr-tabel .dataTables_scrollBody { max-height: calc(100vh - var(--ptr-offset)) !important; }
+    /* Tab Picker / Packer / HO di laporan: hijau, kuning, pink (sama dengan badge Inti) */
+    .nav-tabs-ptr > li > a { border-top: 3px solid transparent !important; border-radius: 0; }
+    .nav-tabs-ptr > li:nth-child(1) > a { border-top-color: rgba(76, 175, 80, .45) !important; }
+    .nav-tabs-ptr > li:nth-child(2) > a { border-top-color: rgba(251, 192, 45, .6) !important; }
+    .nav-tabs-ptr > li:nth-child(3) > a { border-top-color: rgba(233, 30, 99, .45) !important; }
+    .nav-tabs-ptr > li:nth-child(1) > a:hover, .nav-tabs-ptr > li:nth-child(1).active > a { border-top-color: #4caf50 !important; background: #eef7ee !important; }
+    .nav-tabs-ptr > li:nth-child(2) > a:hover, .nav-tabs-ptr > li:nth-child(2).active > a { border-top-color: #fbc02d !important; background: #fffaeb !important; }
+    .nav-tabs-ptr > li:nth-child(3) > a:hover, .nav-tabs-ptr > li:nth-child(3).active > a { border-top-color: #e91e63 !important; background: #fdeef4 !important; }
+    .nav-tabs-ptr > li.active > a { font-weight: 700; color: #333 !important; }
     </style>
 </body>
 

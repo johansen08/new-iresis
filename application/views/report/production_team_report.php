@@ -2,7 +2,7 @@
   <div class="col-md-12">
 
     <div class="panel panel-default tabs">
-      <ul class="nav nav-tabs nav-justified">
+      <ul class="nav nav-tabs nav-justified nav-tabs-ptr">
         <li class="active"><a href="#tab0" data-toggle="tab">Laporan Picker</a></li>
         <li><a href="#tab1" data-toggle="tab">Laporan Packer</a></li>
         <li><a href="#tab2" data-toggle="tab">Laporan HO</a></li>
