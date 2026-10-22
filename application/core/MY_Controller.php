@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-20.1';
+    const BOOTSTRAP_VERSI = '2026-10-20.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1880,6 +1880,25 @@ class MY_Controller extends CI_Controller
                     'created'   => date('Y-m-d H:i:s'),
                     'createdby' => 1
                 ]);
+            }
+        }
+
+        // Menu ini baca-saja dan berdampingan dengan Rekap Proses Retur (TIM ACCOUNTING), jadi
+        // role yang sudah boleh membuka Rekap Proses Retur ikut diberi akses (hanya menambah,
+        // tidak pernah menghapus). Tanpa ini endpoint data menolak role accounting dengan
+        // "Anda tidak punya akses ke menu ini".
+        $menu_id = isset($menu_id) ? $menu_id : $menu->id;
+        $rekap = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'retur/rekap-proses-retur'])->row();
+        if ($rekap) {
+            foreach ($this->db->get_where('roleaccess', ['menuid' => $rekap->id])->result() as $r) {
+                if (!$this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_id])->row()) {
+                    $this->db->insert('roleaccess', [
+                        'roleid'    => $r->roleid,
+                        'menuid'    => $menu_id,
+                        'created'   => date('Y-m-d H:i:s'),
+                        'createdby' => 1
+                    ]);
+                }
             }
         }
     }

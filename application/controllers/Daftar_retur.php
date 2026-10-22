@@ -42,9 +42,9 @@ class Daftar_retur extends MY_Controller
 
         // Indeks kolom DataTables -> kolom SQL ('umur' ditangani khusus di model).
         $urut = array(
-            1 => 'x.no_resi', 2 => 'x.no_pesanan', 3 => 'x.tanggal_retur', 4 => 'umur',
-            5 => 'x.kurir', 6 => 'x.marketplace', 7 => 'x.nama_toko', 8 => 'x.nilai',
-            9 => 'x.posisi', 10 => 'x.sumber_tanggal',
+            0 => 'tanggal_pesan', 1 => 'tanggal_retur', 2 => 'no_pesanan', 3 => 'no_resi',
+            4 => 'kurir', 5 => 'marketplace', 6 => 'nama_toko', 7 => 'nilai',
+            8 => 'umur', 9 => 'posisi',
         );
         $kol = 'umur';
         $dir = 'desc';
@@ -64,27 +64,28 @@ class Daftar_retur extends MY_Controller
         if ($limit < 1 || $limit > 500) $limit = 25;
         $offset = max(0, (int) $this->input->post('start'));
 
-        list($rows, $total_filter, $total) = $this->daftar_retur_fcd->get_list(array(
-            'start' => $start, 'end' => $end, 'search' => $cari,
+        $status = $this->input->post('status');
+        $status = is_string($status) ? $status : '';
+
+        list($rows, $total_filter, $total, $tab, $waktu) = $this->daftar_retur_fcd->get_list(array(
+            'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
+            'segarkan' => $this->input->post('segarkan') === '1',
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
         ));
 
         $data = array();
-        $no = $offset;
         foreach ($rows as $r) {
-            $no++;
             $data[] = array(
-                $no,
-                '<strong>' . $this->_h($r->no_resi) . '</strong>',
-                $this->_h($r->no_pesanan ?: '-'),
-                $r->tanggal_retur ? date('d/m/Y H:i', strtotime($r->tanggal_retur)) : '-',
-                $this->_badge_umur($r),
+                $this->_sel_tanggal($r->tanggal_pesan),
+                $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
+                $this->_salinan($r->no_pesanan, false),
+                $this->_salinan($r->no_resi, true),
                 $this->_h($r->kurir ?: '-'),
                 $this->_h($r->marketplace ?: '-'),
-                $this->_h($r->nama_toko ?: '-'),
-                'Rp ' . number_format((float) $r->nilai, 0, ',', '.'),
+                '<span class="dr-toko" title="' . $this->_h($r->nama_toko) . '">' . $this->_h($r->nama_toko ?: '-') . '</span>',
+                number_format((float) $r->nilai, 0, ',', '.'),
+                $this->_badge_umur($r),
                 $this->_label_posisi($r->posisi),
-                $this->_label_sumber($r->sumber_tanggal),
             );
         }
 
@@ -92,6 +93,8 @@ class Daftar_retur extends MY_Controller
             'draw'            => (int) $this->input->post('draw'),
             'recordsTotal'    => $total,
             'recordsFiltered' => $total_filter,
+            'tab_counts'      => $tab,
+            'dihitung_pada'   => date('H:i:s', $waktu),
             'data'            => $data,
         ));
     }
@@ -111,7 +114,7 @@ class Daftar_retur extends MY_Controller
             ->count_all_results('roleaccess') > 0;
     }
 
-    /** Rentang tanggal retur 'Y-m-d H:i:s'; default 1 Januari tahun ini s/d hari ini. */
+    /** Rentang tanggal PESAN 'Y-m-d H:i:s'; default 1 Januari tahun ini s/d hari ini. */
     private function _rentang()
     {
         $start = $this->input->post('start_date');
@@ -124,52 +127,73 @@ class Daftar_retur extends MY_Controller
         return array($start . ' 00:00:00', $end . ' 23:59:59');
     }
 
+    /** Tanggal dua baris: tanggal tebal, jam redup di bawahnya. */
+    private function _sel_tanggal($t)
+    {
+        if (!$t) return '-';
+        $ts = strtotime($t);
+        return '<div class="dr-t1">' . date('d/m/y', $ts) . '</div><div class="dr-t2">' . date('H:i', $ts) . '</div>';
+    }
+
+    /** Teks + ikon clipboard kecil; satu klik menyalin (ditangani di view lewat data-salin). */
+    private function _salinan($teks, $tebal)
+    {
+        $teks = trim((string) $teks);
+        if ($teks === '') return '-';
+
+        $isi = $tebal ? '<strong>' . $this->_h($teks) . '</strong>' : $this->_h($teks);
+        return '<span class="dr-no"><span class="dr-nt">' . $isi . '</span>'
+            . '<i class="fa fa-clipboard dr-salin" data-salin="' . $this->_h($teks)
+            . '" title="Salin" role="button" tabindex="0"></i></span>';
+    }
+
     private function _h($t)
     {
         return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8');
     }
 
     /**
-     * Umur dari tanggal retur. Warna hanya untuk paket yang belum dibuka --
-     * untuk yang sudah dibuka, barangnya sudah kembali sehingga umur tidak lagi
-     * jadi alasan klaim.
+     * Umur dari tanggal retur. Warna & keterangan hanya untuk paket yang belum
+     * dibuka -- yang sudah dibuka barangnya sudah kembali, umur bukan alasan klaim.
+     * Gaya ada di view (kelas dr-*).
      */
     private function _badge_umur($r)
     {
-        $umur  = (int) $r->umur_hari;
-        $teks  = number_format($umur, 0, ',', '.') . ' hari';
-        $gaya  = 'display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;';
+        $umur = (int) $r->umur_hari;
+        $teks = number_format($umur, 0, ',', '.') . ' hari';
 
         if ($r->posisi === Daftar_retur_fcd::POSISI_SUDAH_DIBUKA) {
-            return '<span style="' . $gaya . 'background:#e5e7eb;color:#6b7280;">' . $teks . '</span>';
+            return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
         if ($umur >= Daftar_retur_fcd::UMUR_MERAH) {
-            return '<span style="' . $gaya . 'background:#dc2626;color:#fff;" title="Wajib klaim ke ekspedisi">' . $teks . '</span>';
+            return '<span class="dr-umur dr-umur-merah">' . $teks . '</span>'
+                . '<div><span class="dr-pill dr-pill-merah">Wajib klaim</span></div>';
         }
         if ($umur >= Daftar_retur_fcd::UMUR_ORANYE) {
-            return '<span style="' . $gaya . 'background:#f59e0b;color:#fff;" title="Mendekati batas klaim">' . $teks . '</span>';
+            return '<span class="dr-umur dr-umur-oranye">' . $teks . '</span>'
+                . '<div><span class="dr-pill dr-pill-oranye">Segera ditindak</span></div>';
         }
-        return '<span style="' . $gaya . 'background:#dcfce7;color:#166534;">' . $teks . '</span>';
+        return '<span class="dr-umur dr-umur-aman">' . $teks . '</span>';
     }
 
     private function _label_posisi($posisi)
     {
         switch ($posisi) {
             case Daftar_retur_fcd::POSISI_SUDAH_DIBUKA:
-                return '<span class="label label-success">Sudah dibuka</span>';
+                return '<span class="dr-st dr-st-hijau">Sudah dibuka</span>';
             case Daftar_retur_fcd::POSISI_BELUM_DIBUKA:
-                return '<span class="label label-info">Diterima, belum dibuka</span>';
+                return '<span class="dr-st dr-st-biru" title="Diterima, belum dibuka">Belum dibuka</span>';
             default:
-                return '<span class="label label-default">Belum diterima</span>';
+                return '<span class="dr-st dr-st-abu">Belum diterima</span>';
         }
     }
 
     private function _label_sumber($sumber)
     {
         switch ($sumber) {
-            case 'RETUR': return '<span class="text-success">Tanggal retur</span>';
-            case 'KIRIM': return '<span class="text-warning" title="Tanggal retur tidak tersedia; dipakai tanggal kirim">Perkiraan (tgl kirim)</span>';
-            default:      return '<span class="text-danger" title="Tanggal retur tidak tersedia; dipakai tanggal order, umur cenderung berlebih">Perkiraan (tgl order)</span>';
+            case 'RETUR': return '';   // tanggal retur sebenarnya: tidak perlu keterangan tambahan
+            case 'KIRIM': return '<div class="dr-sb dr-sb-kira" title="Tanggal retur tidak tersedia; dipakai tanggal kirim">Perkiraan: tgl kirim</div>';
+            default:      return '<div class="dr-sb dr-sb-kasar" title="Tanggal retur tidak tersedia; dipakai tanggal order, umur cenderung berlebih">Perkiraan: tgl order</div>';
         }
     }
 }
