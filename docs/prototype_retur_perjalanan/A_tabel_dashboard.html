@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype A - Rekap Retur Dalam Perjalanan (Tabel + Dashboard)</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#f3f5f8;color:#222;font-size:14px}
+header{background:#1f2d3d;color:#fff;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1}
+header label{font-size:12px;opacity:.85}
+header input{padding:4px 6px;border-radius:4px;border:0}
+.proto{background:#ffd54f;color:#333;font-size:11px;padding:2px 8px;border-radius:10px}
+main{padding:16px 20px;max-width:1300px;margin:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px}
+.card{background:#fff;border-radius:8px;padding:12px 14px;border-left:6px solid #90a4ae;cursor:pointer;box-shadow:0 1px 3px #0001}
+.card.on{outline:2px solid #1f2d3d}
+.card b{font-size:26px;display:block}
+.card small{color:#666}
+.c-aman{border-color:#43a047}.c-orange{border-color:#fb8c00}.c-merah{border-color:#e53935}.c-valid{border-color:#8e24aa}
+.tabs{display:flex;gap:4px;margin-bottom:0}
+.tab{padding:8px 16px;background:#dde3ea;border-radius:8px 8px 0 0;cursor:pointer}
+.tab.on{background:#fff;font-weight:600}
+.panel{background:#fff;padding:12px;border-radius:0 8px 8px 8px;box-shadow:0 1px 3px #0001}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.bar input,.bar select{padding:6px 8px;border:1px solid #c5ccd5;border-radius:5px}
+button{padding:6px 10px;border:0;border-radius:5px;background:#1f2d3d;color:#fff;cursor:pointer;font-size:12px}
+button.sec{background:#e3e8ee;color:#222}
+button.red{background:#e53935}
+table{width:100%;border-collapse:collapse}
+th{background:#eef1f5;text-align:left;padding:8px;font-size:12px;cursor:pointer;white-space:nowrap;position:sticky;top:0}
+td{padding:7px 8px;border-bottom:1px solid #eceff3;vertical-align:middle}
+tr.r-orange td{background:#fff3e0}
+tr.r-merah td{background:#ffebee}
+tr.r-klaim td{background:#e8f5e9;color:#555}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff;white-space:nowrap}
+.b-aman{background:#43a047}.b-orange{background:#fb8c00}.b-merah{background:#e53935}.b-klaim{background:#607d8b}
+.v-ok{color:#2e7d32}.v-beda{color:#c62828;font-weight:600}.v-na{color:#8e24aa;font-weight:600}
+.empty{padding:30px;text-align:center;color:#888}
+.legend{font-size:12px;color:#555;margin:6px 0 12px}
+.note{background:#fffde7;border:1px solid #fff59d;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tim Retur › Retur Dalam Perjalanan <span class="proto">PROTOTYPE A · data contoh</span></h1>
+  <label>Tanggal simulasi: <input type="date" id="tglSim"></label>
+  <button class="sec" onclick="geser(-5)">−5 hari</button>
+  <button class="sec" onclick="geser(5)">+5 hari</button>
+  <button class="sec" onclick="resetSim()">Hari ini</button>
+</header>
+<main>
+  <div class="note">Umur dihitung dari <b>tanggal retur menurut Excel Jubelio</b> (sumber valid). Kalau tanggal di sistem berbeda, baris ditandai "Beda" dan umur tetap pakai tanggal Jubelio. <b>≥ 25 hari = oranye</b>, <b>≥ 30 hari = merah (wajib klaim ekspedisi)</b>. Ubah "Tanggal simulasi" untuk melihat warna berubah.</div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="panel">
+    <div class="bar">
+      <input id="q" placeholder="Cari resi / SKU / customer…" oninput="render()" style="min-width:220px">
+      <select id="fEksp" onchange="render()"></select>
+      <select id="fMp" onchange="render()"></select>
+      <select id="fStatus" onchange="render()">
+        <option value="">Semua status umur</option><option value="aman">Aman (&lt;25)</option><option value="orange">Orange (25–29)</option><option value="merah">Merah (≥30)</option>
+      </select>
+      <label style="align-self:center"><input type="checkbox" id="sembunyiKlaim" checked onchange="render()"> sembunyikan yang sudah diklaim</label>
+      <span style="flex:1"></span>
+      <button class="sec" onclick="salinMerah()">Salin daftar merah</button>
+      <button class="sec" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div class="legend" id="info"></div>
+    <div style="overflow:auto;max-height:62vh">
+    <table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const EKSP=['JNE','J&T','SiCepat','Anteraja','SPX'], MP=['Shopee','Tokopedia','TikTok','Lazada'];
+const SKU=['Kaos Polos M','Hoodie Navy L','Sepatu Runner 42','Tas Ransel 20L','Topi Baseball','Jaket Parka XL'];
+const NAMA=['Budi','Siti','Agus','Dewi','Rina','Hendra','Maya','Joko','Putri','Andi'];
+let rnd=(function(s){return function(){s=(s*9301+49297)%233280;return s/233280}})(7);
+const pick=a=>a[Math.floor(rnd()*a.length)];
+function iso(d){return d.toISOString().slice(0,10)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+const hariIni=new Date(new Date().toDateString()+' 12:00');
+// data contoh: tglJubelio = dari Excel; tglSistem = tanggal di database Iresis
+const data=[];
+for(let i=1;i<=46;i++){
+  const umur=Math.floor(rnd()*36)+2;
+  const tJ=addDays(hariIni,-umur);
+  const r=rnd();
+  const jenis=r<0.62?'retur':(r<0.9?'complain':null);
+  const adaJ=rnd()>0.1;               // 10% belum ada di Excel Jubelio
+  const beda=rnd()<0.18;
+  data.push({id:i,resi:'ID'+(1000000000+Math.floor(rnd()*8999999999)),mp:pick(MP),eksp:pick(EKSP),sku:pick(SKU),cust:pick(NAMA),
+    tglJubelio:adaJ?iso(tJ):null,tglSistem:iso(beda?addDays(tJ,Math.floor(rnd()*6)+1):tJ),jenis,klaim:rnd()<0.08});
+}
+let tab='retur', kartu='', sortKey='umur', sortDir=-1;
+const $=id=>document.getElementById(id);
+function simDate(){return new Date($('tglSim').value+' 12:00')}
+function umurDari(t){return Math.floor((simDate()-new Date(t+' 12:00'))/864e5)}
+function info(r){
+  const acuan=r.tglJubelio||r.tglSistem;
+  const umur=umurDari(acuan);
+  const valid=!r.tglJubelio?'na':(r.tglJubelio===r.tglSistem?'ok':'beda');
+  const st=r.klaim?'klaim':(umur>=30?'merah':umur>=25?'orange':'aman');
+  return {acuan,umur,valid,st};
+}
+function tglID(t){const d=new Date(t+' 12:00');return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}
+function init(){
+  $('tglSim').value=iso(hariIni);
+  $('tglSim').onchange=render;
+  $('fEksp').innerHTML='<option value="">Semua ekspedisi</option>'+EKSP.map(e=>`<option>${e}</option>`).join('');
+  $('fMp').innerHTML='<option value="">Semua marketplace</option>'+MP.map(e=>`<option>${e}</option>`).join('');
+  const cols=[['resi','No. Resi'],['mp','Marketplace'],['eksp','Ekspedisi'],['sku','SKU / Customer'],['tgl','Tgl Retur (Jubelio)'],['valid','Validasi tgl'],['umur','Umur'],['st','Status'],['aksi','Aksi']];
+  $('thead').innerHTML=cols.map(c=>`<th onclick="urut('${c[0]}')">${c[1]}</th>`).join('');
+  render();
+}
+function urut(k){if(k==='aksi')return;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1}render()}
+function geser(n){$('tglSim').value=iso(addDays(simDate(),n));render()}
+function resetSim(){$('tglSim').value=iso(hariIni);render()}
+function setTab(t){tab=t;kartu='';render()}
+function setKartu(k){kartu=kartu===k?'':k;render()}
+function render(){
+  const all=data.map(r=>({r,i:info(r)}));
+  const scope=all.filter(x=>tab==='belum'?x.r.jenis===null:x.r.jenis===tab);
+  // kartu ringkasan (per tab aktif)
+  const cnt=k=>scope.filter(x=>x.i.st===k).length;
+  $('cards').innerHTML=`
+   <div class="card ${kartu===''?'on':''}" onclick="setKartu('')"><small>Total dalam perjalanan</small><b>${scope.filter(x=>x.i.st!=='klaim').length}</b></div>
+   <div class="card c-aman ${kartu==='aman'?'on':''}" onclick="setKartu('aman')"><small>Aman (&lt; 25 hari)</small><b>${cnt('aman')}</b></div>
+   <div class="card c-orange ${kartu==='orange'?'on':''}" onclick="setKartu('orange')"><small>Warning (25–29 hari)</small><b>${cnt('orange')}</b></div>
+   <div class="card c-merah ${kartu==='merah'?'on':''}" onclick="setKartu('merah')"><small>Wajib klaim (≥ 30 hari)</small><b>${cnt('merah')}</b></div>
+   <div class="card c-valid ${kartu==='valid'?'on':''}" onclick="setKartu('valid')"><small>Tanggal belum valid</small><b>${scope.filter(x=>x.i.valid!=='ok').length}</b></div>`;
+  const nR=data.filter(r=>r.jenis==='retur').length,nC=data.filter(r=>r.jenis==='complain').length,nB=data.filter(r=>r.jenis===null).length;
+  $('tabs').innerHTML=[['retur',`Retur (${nR})`],['complain',`Complain (${nC})`],['belum',`Belum diklasifikasi (${nB})`]].map(t=>`<div class="tab ${tab===t[0]?'on':''}" onclick="setTab('${t[0]}')">${t[1]}</div>`).join('');
+  // filter
+  const q=$('q').value.toLowerCase(),fe=$('fEksp').value,fm=$('fMp').value,fs=$('fStatus').value,hk=$('sembunyiKlaim').checked;
+  let rows=scope.filter(x=>{
+    if(q&&!(x.r.resi+x.r.sku+x.r.cust).toLowerCase().includes(q))return false;
+    if(fe&&x.r.eksp!==fe)return false;if(fm&&x.r.mp!==fm)return false;if(fs&&x.i.st!==fs)return false;
+    if(hk&&x.i.st==='klaim')return false;
+    if(kartu==='valid')return x.i.valid!=='ok';
+    if(kartu)return x.i.st===kartu;
+    return true;
+  });
+  const val=x=>({resi:x.r.resi,mp:x.r.mp,eksp:x.r.eksp,sku:x.r.sku,tgl:x.i.acuan,valid:x.i.valid,umur:x.i.umur,st:x.i.st}[sortKey]);
+  rows.sort((a,b)=>{const A=val(a),B=val(b);return (A>B?1:A<B?-1:0)*sortDir});
+  $('info').textContent=`${rows.length} baris ditampilkan · tanggal simulasi ${tglID($('tglSim').value)} · urut: ${sortKey} ${sortDir>0?'↑':'↓'}`;
+  $('tbody').innerHTML=rows.length?rows.map(({r,i})=>{
+    const lbl={aman:'Aman',orange:'Warning',merah:'WAJIB KLAIM',klaim:'Sudah diklaim'}[i.st];
+    const v={ok:'<span class="v-ok">✔ Cocok</span>',beda:`<span class="v-beda" title="Sistem: ${tglID(r.tglSistem)}">⚠ Beda (sistem ${tglID(r.tglSistem)})</span>`,na:'<span class="v-na">? Tidak ada di Excel</span>'}[i.valid];
+    return `<tr class="r-${i.st}"><td><b>${r.resi}</b></td><td>${r.mp}</td><td>${r.eksp}</td><td>${r.sku}<br><small>${r.cust}</small></td>
+     <td>${tglID(i.acuan)}</td><td>${v}</td><td><b>${i.umur}</b> hari</td><td><span class="badge b-${i.st}">${lbl}</span></td>
+     <td style="white-space:nowrap">
+       ${r.jenis===null?`<button class="sec" onclick="ubahJenis(${r.id},'retur')">→Retur</button> <button class="sec" onclick="ubahJenis(${r.id},'complain')">→Complain</button>`:
+         `<button class="sec" onclick="ubahJenis(${r.id},'${r.jenis==='retur'?'complain':'retur'}')">→ ${r.jenis==='retur'?'Complain':'Retur'}</button>`}
+       ${i.valid==='beda'?`<button class="sec" onclick="pakaiJubelio(${r.id})">Samakan</button>`:''}
+       ${r.klaim?`<button class="sec" onclick="klaim(${r.id},false)">Batal klaim</button>`:`<button class="${i.st==='merah'?'red':'sec'}" onclick="klaim(${r.id},true)">Tandai diklaim</button>`}
+     </td></tr>`}).join(''):'<tr><td colspan="9" class="empty">Tidak ada data untuk filter ini 🎉</td></tr>';
+}
+function ubahJenis(id,j){data.find(r=>r.id===id).jenis=j;render()}
+function klaim(id,v){data.find(r=>r.id===id).klaim=v;render()}
+function pakaiJubelio(id){const r=data.find(x=>x.id===id);r.tglSistem=r.tglJubelio;render()}
+function salinMerah(){
+  const t=data.filter(r=>r.jenis===(tab==='belum'?null:tab)).map(r=>({r,i:info(r)})).filter(x=>x.i.st==='merah').map(x=>`${x.r.resi}\t${x.r.eksp}\t${x.i.acuan}\t${x.i.umur} hari`).join('\n');
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>alert('Daftar merah disalin ke clipboard.')).catch(()=>prompt('Salin manual:',t));
+}
+function exportCSV(){
+  const rows=data.filter(r=>r.jenis===(tab==='belum'?null:tab)).map(r=>({r,i:info(r)}));
+  const csv='resi,marketplace,ekspedisi,tgl_jubelio,tgl_sistem,umur,status\n'+rows.map(({r,i})=>[r.resi,r.mp,r.eksp,r.tglJubelio||'',r.tglSistem,i.umur,i.st].join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='retur_perjalanan_'+tab+'.csv';a.click();
+}
+init();
+</script>
+</body>
+</html>
