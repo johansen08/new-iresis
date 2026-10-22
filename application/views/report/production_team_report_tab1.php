@@ -1,25 +1,33 @@
 <style>
-    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
     .ptr-toolbar label { margin: 0; font-weight: 600; }
-    .ptr-toolbar .ptr-range { width: 370px; max-width: 100%; }
-    .ptr-ringkasan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; margin-bottom: 10px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
-    .ptr-total-label { color: #666; margin-right: 10px; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
-    .ptr-total-angka { font-size: 26px; font-weight: 700; color: #1f5f99; }
-    .ptr-periode { color: #666; }
+    .ptr-toolbar .ptr-range { width: 340px; max-width: 100%; height: 30px; }
+    .ptr-toolbar .btn { padding: 4px 12px; }
+    .ptr-total { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 2px 14px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
+    .ptr-total-label { color: #666; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }
+    .ptr-total-angka { font-size: 22px; font-weight: 700; color: #1f5f99; line-height: 1.3; }
+    .ptr-tabel table.dataTable tbody td, .ptr-tabel .dataTables_scrollHead th { padding: 3px 8px; vertical-align: middle; } 
+    .ptr-tabel table.dataTable tbody td { white-space: nowrap; }
+    .ptr-tabel .dataTables_scrollBody thead tr { height: 0; }
+    .ptr-tabel .dataTables_scrollBody thead th { padding: 0 8px !important; border: 0; line-height: 0; font-size: 0; height: 0 !important; border-width: 0 !important; }
+    .ptr-tabel .dataTables_scrollBody thead th::before, .ptr-tabel .dataTables_scrollBody thead th::after { display: none !important; }
+    .ptr-tabel .dataTables_scrollBody thead th .dataTables_sizing { height: 0; overflow: hidden; }
+    .ptr-tabel .dataTables_wrapper .dataTables_info { padding-top: 0; }
+    .ptr-tabel .dataTables_scrollBody { border-bottom: 1px solid #ddd; overflow-x: hidden !important; }
+    .ptr-tabel .dataTables_scrollBody table { margin-bottom: 0 !important; margin-top: -1px !important; }
+    .ptr-pegawai { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .ptr-pegawai .label { font-size: 10px; }
 </style>
+
 <form action="report/export-to-excel-production-team-report-tab1" class="form-horizontal nojs" method="post" target="_blank">
     <div class="ptr-toolbar">
         <label for="reportrange-production-team-tab1">Rentang waktu</label>
         <input type="text" name="reportrange" id="reportrange-production-team-tab1" class="form-control ptr-range" />
         <button type="button" class="btn btn-info" id="btn-search-production-team-tab1"><i class="fa fa-refresh"></i> Tampilkan</button>
         <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab1"><i class="fa fa-download"></i> Ekspor ke Excel</button>
+        <div class="ptr-total" id="ptr-total-tab1"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab1">-</span></div>
     </div>
 </form>
-
-<div class="ptr-ringkasan">
-    <div class="ptr-total"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab1">-</span></div>
-    <div class="ptr-periode">Menampilkan: <strong id="periode-aktif-tab1">-</strong></div>
-</div>
 
 <!-- Loading Overlay -->
 <div id="loading-overlay-tab1" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
@@ -32,7 +40,7 @@
     </div>
 </div>
 
-<div style="position: relative;">
+<div class="ptr-tabel" style="position: relative;">
     <table class="table table-striped" id="datatable-production-team-tab1">
         <thead>
         <tr>
@@ -81,6 +89,8 @@
             dom: '<if<t>lp>',
             'destroy': true,
             'pageLength': 50,
+            'scrollY': 'calc(100vh - 300px)',
+            'scrollCollapse': true,
             'processing': true,
             'serverSide': true,
             'order': [
@@ -115,13 +125,7 @@
                         var badgeClass = isInti ? 'label-primary' : 'label-default';
                         var badgeText  = isInti ? 'Packer Inti' : 'Perbantuan';
                         
-                        return '<div style="display:flex; align-items:center; gap:8px;">' +
-                               '<i class="fa fa-user-circle fa-2x text-muted" style="font-size:1.8em;"></i>' +
-                               '<div>' +
-                                  '<div style="font-weight:bold; font-size:14px;">' + data + '</div>' +
-                                  '<span class="label ' + badgeClass + '" style="font-size:11px; margin-top:2px; display:inline-block;">' + badgeText + '</span>' +
-                               '</div>' +
-                               '</div>';
+                        return '<div class="ptr-pegawai"><i class="fa fa-user-circle text-muted"></i><strong>' + data + '</strong><span class="label ' + badgeClass + '">' + badgeText + '</span></div>';
                     }
                 },
                 {
@@ -165,7 +169,6 @@
                 $('#loading-overlay-tab1').css('display', 'flex');
             },
             'drawCallback': function() {
-                $('#periode-aktif-tab1').text($('#reportrange-production-team-tab1').val());
                 $('#datatable-production-team-tab1').DataTable().columns.adjust();
                 // Hide loading after draw
                 $('#loading-overlay-tab1').hide();
