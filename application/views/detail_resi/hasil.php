@@ -124,7 +124,6 @@ foreach ($d['items'] as $it) {
     <div class="meta">
       <span>No. pesanan <b class="mono"><?= $e($d['pesanan'] !== null ? $d['pesanan'] : '-') ?></b> <?= $d['pesanan'] !== null ? $salin($d['pesanan'], 'nomor pesanan') : '' ?></span>
       <span>Marketplace <b><?= $e($r['nama_marketplace'] ?: '-') ?></b></span>
-      <span>Toko <b><?= $e($r['toko'] ?: '-') ?></b></span>
       <span>Kurir <b><?= $e($r['nama_kurir'] ?: '-') ?></b></span>
     </div>
   </div>
@@ -169,14 +168,14 @@ foreach ($d['items'] as $it) {
     <div class="ch"><h2>Barang dalam resi <span class="pill p-mute" style="height:20px"><?= count($d['items']) ?> SKU</span></h2></div>
     <div class="scroll">
       <table>
-        <thead><tr><th>SKU / Nama</th><th>Rak <?= $info('Nomor rak dari master SKU. Tertulis BELUM DITENTUKAN bila belum diisi.') ?></th><th class="n">Qty</th></tr></thead>
+        <thead><tr><th>SKU</th><th>Rak <?= $info('Nomor rak dari master SKU. Tertulis BELUM DITENTUKAN bila belum diisi.') ?></th><th class="n">Qty</th></tr></thead>
         <tbody>
         <?php if (empty($d['items'])) : ?>
           <tr><td colspan="3" class="empty">Resi ini belum punya baris barang.</td></tr>
         <?php endif; ?>
         <?php foreach ($d['items'] as $it) : ?>
           <tr>
-            <td><div class="sku"><?= $e($it['sku']) ?></div><div class="skn" title="<?= $e($it['nama_sku']) ?>"><?= $e($it['nama_sku']) ?></div></td>
+            <td><span class="sku"><?= $e($it['sku']) ?></span></td>
             <td><span class="rak"><?= $e($it['no_rak']) ?></span></td>
             <td class="n qty"><?= (int) $it['jumlah'] ?></td>
           </tr>
@@ -233,7 +232,7 @@ foreach ($d['items'] as $it) {
   <?php
   $kartu = [
       ['retur', 'Retur', $retur_ada ? 1 : 0, true],
-      ['masalah', 'Masalah & lost scan', $n_masalah, false],
+      ['masalah', 'Masalah & lost', $n_masalah, false],
       ['cancel', 'Paket cancel', !empty($d['cancel']) ? 1 : 0, false],
       ['komplain', 'Komplain CS', count($d['komplain']), false],
       ['log', 'Video & log scan', $n_log, true],
