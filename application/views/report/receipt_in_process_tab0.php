@@ -48,14 +48,14 @@
   <thead>
     <tr>
       <th>#</th>
+      <th>Nomor Resi</th>
       <th>Market Place</th>
+      <th>Kurir</th>
+      <th>Status Pesanan</th>
+      <th>Batas Kirim</th>
+      <th>Nomor Pick List</th>
       <th>Tanggal Scan Resi</th>
       <th>Jam Scan Resi</th>
-      <th>Nomor Resi</th>
-      <th>Status Pesanan</th>
-      <th>Kurir</th>
-      <th>Nomor Pick List</th>
-      <th>Batas Kirim</th>
     </tr>
   </thead>
 </table>
@@ -95,7 +95,7 @@
       'processing': true,
       'serverSide': true,
       'order': [
-        [8, 'asc']
+        [5, 'asc']
       ],
       'lengthMenu': [
         [10, 50, 100, 150, 200],
@@ -119,7 +119,7 @@
         }
       },
       'createdRow': function(row, data, dataIndex) {
-        if (isWajibKirimHariIni(data[1], data[2], data[3], data[8])) {
+        if (isWajibKirimHariIni(data[2], data[7], data[8], data[5])) {
           $(row).css('background-color', '#ffebee').css('color', '#c62828');
           $(row).find('td').css('font-weight', 'bold');
         }
