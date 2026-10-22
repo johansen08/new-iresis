@@ -958,14 +958,20 @@
     .page-sidebar .xn-menu-cari { padding: 4px 10px; }
     .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
-    /* Header atas: ikon putih, tinggi sama dengan bar, judul halaman menggantikan baris breadcrumb */
-    .page-content > .x-navigation-panel > li.xn-icon-button { height: 50px; }
-    .page-content > .x-navigation-panel > li.xn-icon-button > a { display: flex; align-items: center; justify-content: center; height: 50px; padding: 0; color: #fff !important; font-size: 16px; transition: background .15s; }
-    .page-content > .x-navigation-panel > li.xn-icon-button > a:hover, .page-content > .x-navigation-panel > li.xn-icon-button.active > a { background: rgba(255, 255, 255, .18); }
-    .page-content > .x-navigation-panel > li.xn-icon-button > a .fa { color: #fff; }
-    #notif-count { left: auto; right: 6px; top: 5px; min-width: 18px; height: 18px; padding: 0 4px; line-height: 14px; font-size: 10px; font-weight: 700; text-align: center; border: 2px solid #007bff; border-radius: 9px; box-sizing: content-box; pointer-events: none; }
-    .page-content > ul.breadcrumb { position: absolute; top: 0; left: 62px; right: 130px; height: 50px; margin: 0; padding: 0 8px; display: flex; align-items: center; background: transparent; z-index: 4; pointer-events: none; overflow: hidden; white-space: nowrap; }
-    .page-content > ul.breadcrumb li, .page-content > ul.breadcrumb li a { color: #fff; font-size: 15px; font-weight: 600; }
+    /* Header atas: semua tombol ikon satu ukuran (38px), satu radius (8px), jarak antar tombol 8px, sejajar tengah bar 50px */
+    /* Bar fixed selebar viewport: padding kanan menggeser ikon kanan ke tepi konten (220px sidebar, 50px saat diciutkan) + 8px */
+    .page-container.page-navigation-top-fixed .page-content > .x-navigation-panel { padding: 0 228px 0 8px; box-sizing: border-box; }
+    .page-container.page-navigation-top-fixed.page-navigation-toggled .page-content > .x-navigation-panel { padding-right: 58px; }
+    /* Sidebar diciutkan: konten ikut melebar (tema bawaan membiarkan margin kiri 220px sehingga ada celah kosong) */
+    .page-container.page-navigation-top-fixed.page-container-wide .page-content { margin-left: 50px; }
+    .page-content > .x-navigation-panel > li.xn-icon-button { height: 50px; width: auto; margin: 0 0 0 8px; padding: 0; display: flex; align-items: center; }
+    .page-content > .x-navigation-panel > li.xn-icon-button:first-child { margin-left: 0; }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a { display: flex; align-items: center; justify-content: center; width: 38px !important; height: 38px !important; margin: 0 !important; padding: 0 !important; border-radius: 8px !important; color: #fff !important; font-size: 17px; line-height: 1; transition: background .15s; }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a:hover, .page-content > .x-navigation-panel > li.xn-icon-button.active > a { background: rgba(255, 255, 255, .2) !important; }
+    .page-content > .x-navigation-panel > li.xn-icon-button > a .fa { width: 18px; margin: 0; color: #fff !important; font-size: 17px; line-height: 1; text-align: center; }
+    #notif-count { left: auto; right: -2px; top: 3px; min-width: 18px; height: 18px; padding: 0 4px; line-height: 14px; font-size: 10px; font-weight: 700; text-align: center; border: 2px solid #007bff; border-radius: 9px; box-sizing: border-box; pointer-events: none; }
+    .page-content > ul.breadcrumb { position: absolute; top: 0; left: 62px; right: 110px; height: 50px; margin: 0; padding: 0; display: flex; align-items: center; background: transparent; z-index: 4; pointer-events: none; overflow: hidden; white-space: nowrap; }
+    .page-content > ul.breadcrumb li, .page-content > ul.breadcrumb li a { color: #fff; font-size: 15px; font-weight: 600; line-height: 1; }
     .page-content-wrap { padding-top: 10px; }
     /* Panel notifikasi */
     .x-navigation-panel .xn-drop-left { width: 380px; }
