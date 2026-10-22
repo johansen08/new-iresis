@@ -136,6 +136,10 @@
 
 				<li class="xn-title">Navigation</li>
 
+				<li class="xn-menu-cari">
+					<input type="search" id="cari-menu" placeholder="Cari menu..." autocomplete="off" aria-label="Cari menu">
+				</li>
+
 				<li class="active">
 					<a href=""><span class="fa fa-desktop"></span> <span class="xn-text">Dashboard</span></a>
 				</li>
@@ -846,8 +850,55 @@
                 $icon.css('color', '#8b5cf6');
             }
         });
+
+        // Aksesibilitas sidebar: landmark navigasi, aria-expanded pada grup, aria-current pada halaman aktif
+        var $sidebar = $('.page-sidebar');
+        $sidebar.attr({ role: 'navigation', 'aria-label': 'Menu utama' });
+        function sinkronAria() {
+            $sidebar.find('li.xn-openable').each(function() {
+                $(this).children('a').attr('aria-expanded', $(this).hasClass('active') ? 'true' : 'false');
+            });
+            $sidebar.find('a.link').removeAttr('aria-current');
+            $sidebar.find('li.active > a.link').attr('aria-current', 'page');
+        }
+        sinkronAria();
+        if (window.MutationObserver) {
+            new MutationObserver(sinkronAria).observe($sidebar[0], { subtree: true, attributes: true, attributeFilter: ['class'] });
+        }
+
+        // Kotak cari menu: saring submenu, buka grup yang berisi hasil, kembalikan keadaan semula saat dikosongkan
+        var grupTerbukaSebelumCari = null;
+        $('#cari-menu').on('input', function() {
+            var q = $.trim($(this).val()).toLowerCase();
+            var $grup = $sidebar.find('li.xn-openable');
+            var $daun = $sidebar.find('a.link').parent();
+            if (q === '') {
+                $sidebar.find('li').not('.xn-menu-cari').css('display', '');
+                $grup.children('ul').css('display', '');
+                $grup.removeClass('active');
+                if (grupTerbukaSebelumCari) { grupTerbukaSebelumCari.addClass('active'); }
+                grupTerbukaSebelumCari = null;
+                return;
+            }
+            if (grupTerbukaSebelumCari === null) { grupTerbukaSebelumCari = $grup.filter('.active'); }
+            $daun.each(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(q) !== -1);
+            });
+            $grup.each(function() {
+                var cocokNama = $(this).children('a').text().toLowerCase().indexOf(q) !== -1;
+                var adaHasil = $(this).find('a.link').parent(':visible').length > 0;
+                if (cocokNama && !adaHasil) { $(this).find('a.link').parent().show(); adaHasil = true; }
+                $(this).toggle(adaHasil).toggleClass('active', adaHasil);
+                $(this).children('ul').toggle(adaHasil);
+            });
+        });
     });
     </script>
+    <style>
+    .page-sidebar .xn-menu-cari { padding: 6px 12px; }
+    .page-sidebar .xn-menu-cari input { width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
+    .x-navigation-minimized .xn-menu-cari { display: none; }
+    </style>
 </body>
 
 </html>
