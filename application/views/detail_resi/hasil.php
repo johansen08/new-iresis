@@ -24,7 +24,7 @@ $fd = function ($v) use ($ada, $bulan) {
     if (!$t) {
         return null;
     }
-    $tanggal = date('j', $t) . ' ' . $bulan[(int) date('n', $t) - 1];
+    $tanggal = date('j', $t) . ' ' . $bulan[(int) date('n', $t) - 1] . ' ' . date('Y', $t);
     // Kolom bertipe tanggal (mis. tgl komplain) berjam 00:00 -- jam tidak ditampilkan.
     return date('H:i:s', $t) === '00:00:00' ? $tanggal : $tanggal . ' ' . date('H:i', $t);
 };
@@ -33,7 +33,7 @@ $fd_pendek = function ($v) use ($ada, $bulan) {
         return null;
     }
     $t = strtotime($v);
-    return $t ? date('j', $t) . ' ' . $bulan[(int) date('n', $t) - 1] : null;
+    return $t ? date('j', $t) . ' ' . $bulan[(int) date('n', $t) - 1] . ' ' . date('Y', $t) : null;
 };
 $info = function ($teks) use ($e) {
     return '<button type="button" class="i" aria-label="Info: ' . $e($teks) . '">i<span class="tip" role="tooltip">' . $e($teks) . '</span></button>';
@@ -210,9 +210,9 @@ foreach ($d['items'] as $it) {
       <?php else : ?>
         <?php if ($pack['komputer'] !== '') : ?>Komputer <b class="mono"><?= $e($pack['komputer']) ?></b><?php endif; ?>
         <?php if ($kin) : ?>
-          · Durasi <b><?= (int) $kin['durasi_aktual'] ?> dtk</b> / target <?= (int) $kin['durasi_target'] ?>
+          · Durasi <b><?= (int) $kin['durasi_aktual'] ?> dtk</b>
           <span class="pill p-<?= $kin['is_slow'] ? 'bad' : 'ok' ?>" style="height:18px"><?= $kin['is_slow'] ? 'Lambat' : 'Sesuai' ?></span>
-          <?= $info('Durasi scan packer dibanding target kategori kinerjanya.') ?>
+          <?= $info('Target ' . (int) $kin['durasi_target'] . ' dtk untuk kategori kinerja ini. Lambat bila durasi scan packer melebihi target.') ?>
         <?php endif; ?>
         <?php if (!empty($d['video'])) : ?>· <a href="cs/putar-video-packing/<?= (int) $d['video'][0]['id_videopacking'] ?>" target="_blank" rel="noopener">Video</a><?php endif; ?>
       <?php endif; ?>
