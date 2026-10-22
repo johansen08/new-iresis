@@ -49,13 +49,15 @@ class Pencairan_dana_fcd extends CI_Model
 
     /**
      * Subquery dasar: satu baris per resi (= per pesanan) pada rentang tanggal completed.
-     * Kolom: id_printresi, no_pesanan, mp (awalan), tgl_selesai, tgl_cair, sudah, umur.
+     * Kolom: id_printresi, no_pesanan, mp (awalan), nomor (nomor pesanan marketplace),
+     * tgl_selesai, tgl_cair, sudah, umur.
      */
     private function _dasar()
     {
         return "SELECT p.id_printresi,
                        MIN(d.no_pesanan) AS no_pesanan,
                        LEFT(MIN(d.no_pesanan), 2) AS mp,
+                       SUBSTRING_INDEX(SUBSTRING_INDEX(MIN(d.no_pesanan), '-', 2), '-', -1) AS nomor,
                        p.tanggal_selesai AS tgl_selesai,
                        p.tanggal_pencairan AS tgl_cair,
                        (p.tanggal_pencairan IS NOT NULL) AS sudah,
@@ -82,12 +84,25 @@ class Pencairan_dana_fcd extends CI_Model
     }
 
     /**
+     * Syarat pencarian nomor pesanan (cocok sebagian, di mana saja). Hanya huruf/angka yang
+     * dipakai, jadi tidak ada karakter LIKE ataupun tanda hubung dari ID Iresis (TT-...-48087)
+     * yang ikut mencocokkan awalan/sufiks. Hasil: array(sql_tambahan, bind_tambahan).
+     */
+    public static function syarat_cari($q)
+    {
+        $q = substr(preg_replace('/[^A-Za-z0-9]/', '', (string) $q), 0, 40);
+        if ($q === '') return array('', array());
+        return array(' AND x.nomor LIKE ?', array('%' . $q . '%'));
+    }
+
+    /**
      * Ringkasan per marketplace pada rentang tanggal (tanpa filter marketplace),
      * supaya jumlah di daftar pilihan marketplace dan semua angka tab bisa dihitung sekali.
      * Hasil: array awalan => array(n, sudah, kuning, merah).
      */
-    public function ringkasan($start, $end)
+    public function ringkasan($start, $end, $q = '')
     {
+        list($sql_cari, $bind_cari) = self::syarat_cari($q);
         $in = $this->_in(array_keys(self::peta_mp()));
         $sql = "SELECT x.mp,
                        COUNT(*) AS n,
@@ -95,13 +110,13 @@ class Pencairan_dana_fcd extends CI_Model
                        SUM(x.sudah = 0 AND x.umur <= " . self::BATAS_KUNING . ") AS kuning,
                        SUM(x.sudah = 0 AND x.umur > " . self::BATAS_KUNING . ") AS merah
                 FROM (" . $this->_dasar() . ") x
-                WHERE x.mp IN ($in)
+                WHERE x.mp IN ($in)" . $sql_cari . "
                 GROUP BY x.mp";
         $hasil = array();
         foreach (array_keys(self::peta_mp()) as $k) {
             $hasil[$k] = array('n' => 0, 'sudah' => 0, 'kuning' => 0, 'merah' => 0);
         }
-        foreach ($this->db->query($sql, array($start, $end))->result() as $r) {
+        foreach ($this->db->query($sql, array_merge(array($start, $end), $bind_cari))->result() as $r) {
             $hasil[$r->mp] = array(
                 'n' => (int) $r->n, 'sudah' => (int) $r->sudah,
                 'kuning' => (int) $r->kuning, 'merah' => (int) $r->merah,
@@ -124,18 +139,19 @@ class Pencairan_dana_fcd extends CI_Model
      * Daftar baris untuk satu halaman (limit > 0) atau seluruhnya (limit = 0, untuk ekspor).
      * Urutan: belum cair dulu, yang paling lama di atas; sudah cair menyusul, terbaru dulu.
      */
-    public function daftar($start, $end, $mps, $tab, $hanya_merah, $offset, $limit)
+    public function daftar($start, $end, $mps, $tab, $hanya_merah, $offset, $limit, $q = '')
     {
+        list($sql_cari, $bind_cari) = self::syarat_cari($q);
         $in = $this->_in($this->_awalan($mps));
         $sql = "SELECT x.* FROM (" . $this->_dasar() . ") x
-                WHERE x.mp IN ($in)" . $this->_syarat_tab($tab, $hanya_merah) . "
+                WHERE x.mp IN ($in)" . $this->_syarat_tab($tab, $hanya_merah) . $sql_cari . "
                 ORDER BY x.sudah ASC,
                          (CASE WHEN x.sudah = 0 THEN UNIX_TIMESTAMP(x.tgl_selesai) END) ASC,
                          x.tgl_selesai DESC, x.id_printresi DESC";
         if ($limit > 0) {
             $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset;
         }
-        return $this->db->query($sql, array($start, $end))->result();
+        return $this->db->query($sql, array_merge(array($start, $end), $bind_cari))->result();
     }
 
     // ------------------------------------------------------------ upload tanggal pencairan

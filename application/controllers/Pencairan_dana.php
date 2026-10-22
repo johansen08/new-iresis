@@ -43,11 +43,12 @@ class Pencairan_dana extends MY_Controller
         $mps   = $this->_pilihan_mp();
         $tab   = $this->_tab();
         $merah = $this->input->post('hanya_merah') === '1';
+        $cari  = (string) $this->input->post('q');
 
         $size = (int) $this->input->post('size');
         if (!in_array($size, array(10, 50, 100), true)) $size = 10;
 
-        $ring = $this->pencairan_dana_fcd->ringkasan($start, $end);
+        $ring = $this->pencairan_dana_fcd->ringkasan($start, $end, $cari);
         $awalan_dipilih = $this->_awalan_dipilih($mps);
 
         // Jumlah di daftar marketplace = semua pesanan pada rentang (tanpa filter marketplace).
@@ -78,7 +79,7 @@ class Pencairan_dana extends MY_Controller
         $maks_hal = max(1, (int) ceil($total_tab / $size));
         if ($halaman > $maks_hal) $halaman = $maks_hal;
 
-        $rows = $this->pencairan_dana_fcd->daftar($start, $end, $mps, $tab, $merah, ($halaman - 1) * $size, $size);
+        $rows = $this->pencairan_dana_fcd->daftar($start, $end, $mps, $tab, $merah, ($halaman - 1) * $size, $size, $cari);
 
         $this->make_ajax_response(200, 'OK', array(
             'ringkasan' => array(
@@ -104,14 +105,14 @@ class Pencairan_dana extends MY_Controller
         list($start, $end) = $this->_rentang();
         $rows = $this->pencairan_dana_fcd->daftar(
             $start, $end, $this->_pilihan_mp(), $this->_tab(),
-            $this->input->post_get('hanya_merah') === '1', 0, 0
+            $this->input->post_get('hanya_merah') === '1', 0, 0, (string) $this->input->post_get('q')
         );
 
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
         $sh->setTitle('Pencairan Dana');
-        $sh->fromArray(array('ID Pesanan', 'Marketplace', 'Tanggal Completed', 'Tanggal Cair', 'Umur (hari)', 'Status'), null, 'A1');
-        $sh->getStyle('A1:F1')->getFont()->setBold(true);
+        $sh->fromArray(array('ID Pesanan', 'Marketplace', 'Tanggal Completed', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status'), null, 'A1');
+        $sh->getStyle('A1:G1')->getFont()->setBold(true);
 
         $baris = 2;
         $peta = Pencairan_dana_fcd::peta_mp();
@@ -123,11 +124,13 @@ class Pencairan_dana extends MY_Controller
             $sh->setCellValue('B' . $baris, isset($peta[$r->mp]) ? $peta[$r->mp] : $r->mp);
             $sh->setCellValue('C' . $baris, substr((string) $r->tgl_selesai, 0, 10));
             $sh->setCellValue('D' . $baris, $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : '');
-            $sh->setCellValue('E' . $baris, (int) $r->umur);
-            $sh->setCellValue('F' . $baris, $label[$st]);
+            // negatif = cair sebelum Completed, positif = sesudah Completed
+            $sh->setCellValue('E' . $baris, $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : '');
+            $sh->setCellValue('F' . $baris, (int) $r->umur);
+            $sh->setCellValue('G' . $baris, $label[$st]);
             $baris++;
         }
-        foreach (array('A' => 26, 'B' => 14, 'C' => 18, 'D' => 14, 'E' => 12, 'F' => 22) as $kol => $lebar) {
+        foreach (array('A' => 26, 'B' => 14, 'C' => 18, 'D' => 14, 'E' => 24, 'F' => 12, 'G' => 22) as $kol => $lebar) {
             $sh->getColumnDimension($kol)->setWidth($lebar);
         }
 
@@ -312,11 +315,20 @@ class Pencairan_dana extends MY_Controller
                 'mp'      => isset($peta[$r->mp]) ? $peta[$r->mp] : $r->mp,
                 'selesai' => substr((string) $r->tgl_selesai, 0, 10),
                 'cair'    => $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : null,
+                'selisih' => $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : null,
                 'umur'    => $umur,
                 'status'  => $r->sudah ? 'sudah' : ($umur > Pencairan_dana_fcd::BATAS_KUNING ? 'merah' : 'kuning'),
             );
         }
         return $hasil;
+    }
+
+    /** Selisih hari kalender antara tanggal completed dan tanggal cair: negatif = cair sebelum Completed. */
+    private function _selisih_hari($selesai, $cair)
+    {
+        $a = strtotime(substr((string) $selesai, 0, 10));
+        $b = strtotime(substr((string) $cair, 0, 10));
+        return (int) round(($b - $a) / 86400);
     }
 
     /** Batasi contoh yang dikembalikan supaya respons tetap kecil. */

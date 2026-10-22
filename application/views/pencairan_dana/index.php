@@ -5,7 +5,7 @@ $MP_JSON = json_encode(array_values($mp));
 <style>
 /* Pencairan Dana (TIM FINANCE): ringkasan persentase + tab + filter + tabel bersih. Semua gaya di bawah #pd_wrap. */
 #pd_wrap { --pd-hijau:#0b6b5e; --pd-teks:#1c2a33; --pd-redup:#4b5d68; --pd-garis:#e3e8ec;
-           font-family:'Inter',system-ui,sans-serif; color:var(--pd-teks); max-width:1180px; margin:0 auto; padding:8px 0 40px; }
+           font-family:'Inter',system-ui,sans-serif; color:var(--pd-teks); max-width:1240px; margin:0 auto; padding:16px 28px 48px; }
 #pd_wrap * { box-sizing:border-box; }
 #pd_wrap button { font-family:inherit; }
 /* Stylesheet aplikasi memaksa svg melebar penuh (atribut width/height diabaikan); ukuran ikon dikunci di sini. */
@@ -58,6 +58,7 @@ $MP_JSON = json_encode(array_values($mp));
 #pd_wrap .pd-filter { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; padding:16px 20px; border-bottom:1px solid var(--pd-garis); }
 #pd_wrap .pd-fgrup { position:relative; display:flex; flex-direction:column; gap:6px; }
 #pd_wrap .pd-flabel { font-size:12px; font-weight:600; color:var(--pd-redup); }
+#pd_wrap label.pd-flabel { font-size:12px; font-weight:600; line-height:1.5; margin:0; }
 #pd_wrap .pd-input { display:inline-flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; color:var(--pd-teks); font-size:14px; font-weight:500; cursor:pointer; }
 #pd_wrap .pd-mpbox { display:inline-flex; align-items:center; min-height:44px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; }
 #pd_wrap .pd-mpbox .utama { display:inline-flex; align-items:center; gap:10px; min-height:42px; min-width:170px; padding:0 12px 0 14px; border:0; border-radius:10px; background:transparent; font-size:14px; cursor:pointer; }
@@ -74,6 +75,16 @@ $MP_JSON = json_encode(array_values($mp));
 #pd_wrap .pd-mplist .jml { color:#7a8a94; font-variant-numeric:tabular-nums; }
 #pd_wrap .pd-mpfoot { display:flex; align-items:center; justify-content:space-between; margin-top:4px; padding:6px 4px 2px; border-top:1px solid var(--pd-garis); }
 #pd_wrap .pd-link { min-height:44px; padding:0 10px; border:0; background:transparent; color:var(--pd-hijau); font-size:14px; font-weight:600; cursor:pointer; }
+#pd_wrap .pd-cari { position:relative; display:flex; align-items:center; }
+#pd_wrap .pd-cari > svg { position:absolute; left:14px; color:#6b7c87; pointer-events:none; }
+#pd_wrap .pd-cari input[type=search] { width:300px; max-width:100%; min-height:44px; padding:0 44px 0 42px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; color:var(--pd-teks); font-family:inherit; font-size:14px; outline:none; box-shadow:none; -webkit-appearance:none; }
+#pd_wrap .pd-cari input[type=search]::-webkit-search-cancel-button { -webkit-appearance:none; display:none; }
+#pd_wrap .pd-cari input[type=search]:focus { border-color:var(--pd-hijau); box-shadow:0 0 0 3px rgba(11,107,94,.15); }
+#pd_wrap .pd-cari .bersih { position:absolute; right:2px; display:none; align-items:center; justify-content:center; width:40px; height:40px; border:0; border-radius:20px; background:transparent; color:#6b7c87; cursor:pointer; padding:0; }
+#pd_wrap .pd-cari .bersih:hover { background:#e9eef1; color:var(--pd-teks); }
+#pd_wrap .pd-cari .bersih svg { width:16px; height:16px; }
+#pd_wrap mark.pd-hl { background:#fff1b3; color:inherit; padding:0 1px; border-radius:2px; }
+#pd_wrap .pd-selisih { margin-top:4px; font-size:12px; color:var(--pd-redup); }
 #pd_wrap .pd-cek { display:flex; align-items:center; gap:10px; min-height:44px; font-size:14px; font-weight:500; cursor:pointer; margin:0 0 0 auto; }
 #pd_wrap .pd-cek input { width:20px; height:20px; accent-color:var(--pd-hijau); margin:0; }
 
@@ -208,6 +219,14 @@ $MP_JSON = json_encode(array_values($mp));
 
     <!-- Filter -->
     <div class="pd-filter">
+      <div class="pd-fgrup">
+        <label class="pd-flabel" for="pd_cari" style="margin:0">Cari ID Pesanan</label>
+        <div class="pd-cari">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.5" y2="16.5"></line></svg>
+          <input type="search" id="pd_cari" placeholder="Ketik sebagian atau seluruh ID" autocomplete="off" spellcheck="false" maxlength="40">
+          <button type="button" class="bersih" id="pd_cari_bersih" aria-label="Hapus pencarian"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg></button>
+        </div>
+      </div>
       <div class="pd-fgrup" id="pd_g_tgl">
         <span class="pd-flabel">Tanggal Completed</span>
         <button type="button" class="pd-input" id="pd_tgl_btn" aria-label="Pilih rentang tanggal">
@@ -307,7 +326,7 @@ $(document).ready(function () {
 
     var T = utc(HARI_INI);
     var PD = {
-        from: iso(T - 29 * DAY), to: HARI_INI, mps: [], tab: 'belum', merah: false,
+        from: iso(T - 29 * DAY), to: HARI_INI, mps: [], q: '', tab: 'belum', merah: false,
         size: 10, page: 1, data: null, req: 0,
         dp: { open: false, dFrom: '', dTo: '', hover: '', vy: 0, vm: 0 }, mpOpen: false
     };
@@ -319,7 +338,7 @@ $(document).ready(function () {
 
     // ------------------------------------------------------------ muat data
     function parameter() {
-        return { start_date: PD.from, end_date: PD.to, mps: PD.mps, tab: PD.tab, hanya_merah: PD.merah ? '1' : '0', size: PD.size, page: PD.page };
+        return { start_date: PD.from, end_date: PD.to, mps: PD.mps, q: PD.q, tab: PD.tab, hanya_merah: PD.merah ? '1' : '0', size: PD.size, page: PD.page };
     }
     function muat() {
         var id = ++PD.req;
@@ -343,6 +362,20 @@ $(document).ready(function () {
     }
 
     // ------------------------------------------------------------ tampilan
+    // Keterangan selisih tanggal cair terhadap tanggal Completed (negatif = cair sebelum Completed).
+    function selisihTeks(n) {
+        if (n === null || n === undefined) return '';
+        if (n === 0) return 'Cair di hari Completed';
+        return Math.abs(n) + ' hari ' + (n < 0 ? 'sebelum' : 'sesudah') + ' Completed';
+    }
+    // Sorot bagian ID yang cocok dengan kotak cari (hanya huruf/angka, tidak peka huruf besar-kecil).
+    function tandai(no) {
+        var q = PD.q;
+        if (!q) return esc(no);
+        var i = String(no).toLowerCase().indexOf(q.toLowerCase());
+        if (i < 0) return esc(no);
+        return esc(no.substring(0, i)) + '<mark class="pd-hl">' + esc(no.substring(i, i + q.length)) + '</mark>' + esc(no.substring(i + q.length));
+    }
     function persen(n, total) { return total ? (n * 100 / total).toFixed(1).replace('.', ',') : '0,0'; }
 
     function render() {
@@ -366,9 +399,9 @@ $(document).ready(function () {
 
         var h = '';
         d.rows.forEach(function (x) {
-            var badge = x.status === 'sudah' ? '<span class="pd-lencana sudah">Sudah cair</span>'
+            var badge = x.status === 'sudah' ? '<span class="pd-lencana sudah">Sudah cair</span><div class="pd-selisih">' + selisihTeks(x.selisih) + '</div>'
                 : '<span class="pd-lencana ' + x.status + '">+' + x.umur + ' hari</span>';
-            h += '<tr><td><span class="pd-id"><b>' + esc(x.no) + '</b>'
+            h += '<tr><td><span class="pd-id"><b>' + tandai(x.no) + '</b>'
                 + '<button type="button" class="pd-salin" data-salin="' + esc(x.no) + '" aria-label="Salin ID pesanan" title="Salin ID pesanan">' + ICON_SALIN + '</button></span></td>'
                 + '<td style="color:#4b5d68">' + esc(x.mp) + '</td>'
                 + '<td style="font-variant-numeric:tabular-nums">' + fmt(x.selesai) + '</td>'
@@ -376,7 +409,7 @@ $(document).ready(function () {
                 + '<td>' + badge + '</td></tr>';
         });
         $('#pd_tbody').html(h);
-        $('#pd_kosong').text('Tidak ada pesanan pada tab dan filter ini.').toggle(d.rows.length === 0);
+        $('#pd_kosong').text(PD.q ? 'Tidak ada pesanan dengan ID yang memuat "' + PD.q + '" pada tab dan filter ini.' : 'Tidak ada pesanan pada tab dan filter ini.').toggle(d.rows.length === 0);
 
         var awal = d.rows.length ? (d.page - 1) * PD.size + 1 : 0;
         $('#pd_rentang_teks').text('Menampilkan ' + angka(awal) + '–' + angka(awal ? awal + d.rows.length - 1 : 0) + ' dari ' + angka(d.total_tab) + ' pesanan');
@@ -526,6 +559,26 @@ $(document).ready(function () {
         if (!this.checked && i >= 0) PD.mps.splice(i, 1);
         PD.page = 1; renderMp(); muat();
     });
+
+    // Pencarian ID pesanan: tabel, tab, dan ringkasan mengikuti isi kotak sambil mengetik.
+    // Ditunda 250 ms setelah ketikan terakhir supaya server tidak ditembak tiap huruf; Enter langsung mencari.
+    var timerCari = null;
+    function terapkanCari() {
+        clearTimeout(timerCari);
+        var q = $('#pd_cari').val().replace(/[^A-Za-z0-9]/g, '');
+        $('#pd_cari_bersih').css('display', $('#pd_cari').val() !== '' ? 'inline-flex' : 'none');
+        if (q === PD.q) return;
+        PD.q = q; PD.page = 1; muat();
+    }
+    $('#pd_cari').on('input', function () {
+        $('#pd_cari_bersih').css('display', this.value !== '' ? 'inline-flex' : 'none');
+        clearTimeout(timerCari);
+        timerCari = setTimeout(terapkanCari, 250);
+    }).on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); terapkanCari(); }
+        if (e.key === 'Escape' && this.value !== '') { this.value = ''; terapkanCari(); }
+    });
+    $('#pd_cari_bersih').on('click', function () { $('#pd_cari').val('').focus(); terapkanCari(); });
 
     // tab, centang, pagination
     $('#pd_tabs').on('click', '.pd-tab', function () { PD.tab = $(this).attr('data-tab'); PD.page = 1; muat(); });
