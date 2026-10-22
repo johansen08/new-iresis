@@ -1,3 +1,50 @@
+<script type="text/javascript">
+  // Dideklarasikan sebelum view tab dimuat: skrip tab langsung memakai renderNoResi saat dibuat
+  /** Render kolom No. Resi: teks + ikon salin sekali klik. */
+  function renderNoResi(data, type) {
+    if (type !== 'display' || !data) return data;
+    var aman = $('<div>').text(data).html();
+    return aman + '<button type="button" class="btn-salin-resi" data-resi="' + aman + '" title="Salin no. resi"><i class="fa fa-copy"></i></button>';
+  }
+
+  /** Salin lewat execCommand: jalan di HTTP (klien LAN), asalkan dipanggil dari klik user. */
+  function salinTeksLama(teks) {
+    var ta = document.createElement('textarea');
+    ta.value = teks;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  /** Salin teks ke clipboard. Clipboard API hanya ada di HTTPS/localhost dan bisa ditolak, maka ada cadangan. */
+  function salinTeks(teks) {
+    var cadangan = function() {
+      return salinTeksLama(teks) ? Promise.resolve() : Promise.reject();
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(teks).catch(cadangan);
+    }
+    return cadangan();
+  }
+
+  $(document).off('click.salinresi').on('click.salinresi', '.btn-salin-resi', function(e) {
+    e.stopPropagation();
+    var $btn = $(this);
+    salinTeks($btn.data('resi') + '').then(function() {
+      $btn.addClass('tersalin').attr('title', 'Tersalin').find('i').removeClass('fa-copy').addClass('fa-check');
+      setTimeout(function() {
+        $btn.removeClass('tersalin').attr('title', 'Salin no. resi').find('i').removeClass('fa-check').addClass('fa-copy');
+      }, 1200);
+    }, function() {
+      window.prompt('Salin no. resi (Ctrl+C):', $btn.data('resi'));
+    });
+  });
+</script>
 <div class="row">
   <div class="col-md-12">
 
@@ -24,6 +71,9 @@
 
 <style>
   .tabs > .panel-body.tab-content { padding: 8px 10px; }
+  .btn-salin-resi { margin-left: 6px; padding: 0 3px; color: #999; cursor: pointer; border: 0; background: transparent; opacity: .7; }
+  .btn-salin-resi:hover { color: #337ab7; opacity: 1; }
+  .btn-salin-resi.tersalin { color: #3c9a3c; opacity: 1; }
 </style>
 <script type="text/javascript">
   // Header tabel di tab tersembunyi perlu disesuaikan ulang saat tab dibuka

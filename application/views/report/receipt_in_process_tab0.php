@@ -109,6 +109,9 @@
           d.end_date = $('#reportrange-receipt-process-tab0').val().split(" - ")[1];
         }
       },
+      'columnDefs': [
+        { targets: 1, render: renderNoResi }
+      ],
       'initComplete': function() {
         pasangPencarianTertunda(this.api(), '#datatable-receipt-process-tab0');
 
