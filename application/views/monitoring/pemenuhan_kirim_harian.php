@@ -232,6 +232,22 @@
   .pkh-sku div{white-space:normal}
   .pkh-salin-area{width:calc(100% - 32px);margin-left:16px;margin-right:16px}
 }
+/* PC: rapatkan jarak vertikal supaya kepala, kartu atas, tiga tahap, dan dua bagian lipat (tertutup) muat satu layar tanpa scroll */
+@media (min-width:1025px){
+  .pkh{padding-top:12px;padding-bottom:16px;gap:12px}
+  .pkh-head h1{font-size:24px}
+  .pkh-card{padding:12px 18px}
+  .pkh-top .num{font-size:40px;margin-top:2px}
+  .pkh-note{margin-top:4px}
+  .pkh-parts{margin-top:6px;gap:2px}
+  .pkh-stage.key{padding:11px 17px}
+  .pkh-stage .num{font-size:32px}
+  .pkh-stage .row-n{margin-top:4px}
+  .pkh-bar{margin-top:6px}
+  .pkh-stage .left{margin-top:6px}
+  .pkh details.pkh-sec > summary{padding:10px 18px}
+  .pkh-sum-title{font-size:17px}
+}
 @media (max-width:720px){.pkh-top{grid-template-columns:1fr}}
 @media (max-width:640px){
   .pkh{padding:16px 16px 24px}
@@ -274,7 +290,7 @@
 
   <section class="pkh-stages" id="pkh-stages" aria-label="Progres resi wajib keluar per tahap"></section>
 
-  <details class="pkh-sec" id="pkh-sec-kat" open>
+  <details class="pkh-sec" id="pkh-sec-kat">
     <summary>
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -290,7 +306,7 @@
     </div>
   </details>
 
-  <details class="pkh-sec" id="pkh-sec-pack" open>
+  <details class="pkh-sec" id="pkh-sec-pack">
     <summary>
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -653,9 +669,10 @@
   // ingat bagian yang dibuka/ditutup per browser
   ['pkh-sec-kat', 'pkh-sec-pack'].forEach(function (id) {
     var el = $id(id), simpan = null;
-    try { simpan = localStorage.getItem('pkh-' + id); } catch (e) {}
+    // kunci 'pkh2-': bawaan kini tertutup agar halaman muat satu layar PC; simpanan lama (bawaan terbuka) diabaikan
+    try { simpan = localStorage.getItem('pkh2-' + id); } catch (e) {}
     if (simpan !== null) el.open = simpan === '1';
-    el.addEventListener('toggle', function () { try { localStorage.setItem('pkh-' + id, el.open ? '1' : '0'); } catch (e) {} });
+    el.addEventListener('toggle', function () { try { localStorage.setItem('pkh2-' + id, el.open ? '1' : '0'); } catch (e) {} });
   });
 
   /* ---------- popup Lihat detail: daftar resi belum per tahap ---------- */
