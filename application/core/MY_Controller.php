@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-22.1';
+    const BOOTSTRAP_VERSI = '2026-10-22.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -173,6 +173,7 @@ class MY_Controller extends CI_Controller
         $this->run_bonus_picker_migration();
         $this->run_daftar_retur_penjualan_migration();
         $this->run_tanggal_pencairan_mp_migration();
+        $this->run_pencairan_dana_menu_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1915,6 +1916,68 @@ class MY_Controller extends CI_Controller
         if (!$this->db->field_exists('tanggal_pencairan', 'tblprintresi')) {
             $this->db->query("ALTER TABLE `tblprintresi`
                 ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
+        }
+
+        // Skema arsip harus persis sama dengan prod (nama + tipe + urutan kolom). Kalau tidak,
+        // Arsip_fcd::cek_skema menandai tblprintresi "kolom beda": sinkron tabel itu dilewati
+        // dan gerbang purna menolak jalan. Jadi kolom yang sama ditambahkan ke arsip juga.
+        $this->config->load('arsip', TRUE, TRUE);
+        $arsip = (string) $this->config->item('db_arsip', 'arsip');
+        if (preg_match('/^[A-Za-z0-9_]+$/', $arsip)) {
+            $ada_db = $this->db->query('SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?', array($arsip, 'tblprintresi'))->row();
+            $ada_kol = $this->db->query('SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?', array($arsip, 'tblprintresi', 'tanggal_pencairan'))->row();
+            if ($ada_db && !$ada_kol) {
+                $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
+            }
+        }
+    }
+
+    /**
+     * Menu "Pencairan Dana" sebagai anak TIM FINANCE (parent id 101, dicari lewat nama).
+     * Akses: role yang sudah boleh membuka menu saudaranya di TIM FINANCE (Denda), ditambah
+     * webmaster. Hanya menambah baris roleaccess, tidak pernah menghapus.
+     */
+    protected function run_pencairan_dana_menu_migration()
+    {
+        $uri = 'finance/pencairan-dana';
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if ($menu) {
+            return;
+        }
+
+        $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM FINANCE'])->row();
+        if (!$induk) {
+            return;
+        }
+
+        $this->db->insert('menu', [
+            'name'        => 'Pencairan Dana',
+            'parentid'    => $induk->id,
+            'uri'         => $uri,
+            'icon'        => 'fa fa-money',
+            'sortorder'   => 6,
+            'description' => 'Pesanan Completed: dana marketplace sudah cair atau belum. Kuning 1-7 hari dari tanggal completed, merah 8 hari atau lebih.',
+            'isactive'    => 1,
+            'createdby'   => 1,
+            'created'     => date('Y-m-d H:i:s')
+        ]);
+        $menu_id = $this->db->insert_id();
+
+        $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'finance/denda'])->row();
+        $role_boleh = [1];
+        if ($saudara) {
+            foreach ($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result() as $r) {
+                $role_boleh[] = (int) $r->roleid;
+            }
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            $this->db->insert('roleaccess', [
+                'roleid'    => $roleid,
+                'menuid'    => $menu_id,
+                'created'   => date('Y-m-d H:i:s'),
+                'createdby' => 1
+            ]);
         }
     }
 }

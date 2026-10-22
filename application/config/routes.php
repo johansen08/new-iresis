@@ -501,6 +501,10 @@ $route['inbound/mark-all-notif-read']           = 'inbound/mark_all_notif_read';
 // FINANCE
 $route['finance/pergantian-barang'] = 'finance/pergantian_barang';
 $route['finance/denda']             = 'finance/denda';
+$route['finance/pencairan-dana']        = 'pencairan_dana/index';
+$route['finance/get-pencairan-dana']    = 'pencairan_dana/get_data';
+$route['finance/export-pencairan-dana'] = 'pencairan_dana/export';
+$route['finance/upload-pencairan-dana'] = 'pencairan_dana/upload';
 $route['finance/bulk_status']       = 'finance/bulk_status';
 $route['finance/bulk_acc']          = 'finance/bulk_acc';
 
