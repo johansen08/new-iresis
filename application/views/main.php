@@ -939,22 +939,22 @@
     .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-title { float: none; font-size: 10px; letter-spacing: 0; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .page-sidebar .x-navigation > li.xn-title { padding-top: 4px; padding-bottom: 2px; height: auto; line-height: 18px; }
     /* Hierarki: judul grup lebih tebal dan besar dari submenu */
-    .page-sidebar .x-navigation > li > a { font-size: 13px; font-weight: 700; padding: 7px 10px; margin: 1px 8px; width: calc(100% - 16px); border-radius: 8px; }
-    .page-sidebar .x-navigation li li > a { font-size: 12px; font-weight: 500; padding: 5px 6px 5px 8px; margin: 0 6px; width: calc(100% - 12px); border-radius: 6px; }
+    .page-sidebar .x-navigation > li > a { font-size: 14px; font-weight: 700; padding: 9px 10px; margin: 2px 8px; width: calc(100% - 16px); border-radius: 8px; }
+    .page-sidebar .x-navigation li li > a { font-size: 13px; font-weight: 500; padding: 7px 6px 7px 8px; margin: 1px 6px; width: calc(100% - 12px); border-radius: 6px; }
     /* Ikon dan jarak antar menu dikecilkan agar scroll sidebar minimal */
-    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 14px; width: 20px; margin-right: 8px; }
-    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 11px; width: 16px; margin-right: 6px; }
+    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 15px; width: 22px; margin-right: 8px; }
+    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 12px; width: 18px; margin-right: 6px; }
     .page-sidebar .x-navigation li { line-height: 1.3; }
     /* Indentasi submenu bawaan tema (margin 25 + padding 15) membuat ul meluber keluar sidebar 220px */
     .page-sidebar .x-navigation li > ul { margin: 2px 6px 2px 8px !important; padding: 2px 0 2px 8px !important; width: auto !important; }
     /* Sejajarkan awal ikon dan teks: semua menu utama punya garis kiri 5px (transparan bila tak berwarna), kotak ikon lebar tetap */
     .page-sidebar .x-navigation > li:not(.xn-logo):not(.xn-profile) { border-left: 5px solid transparent; }
-    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 20px; }
-    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 16px; }
+    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 22px; }
+    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { display: inline-block; text-align: center; flex: 0 0 18px; }
     .page-sidebar .x-navigation li li > a { white-space: normal; overflow: visible; text-overflow: clip; }
     /* Panah expand: sejajar tengah baris (top lama 17px untuk baris ~48px) */
-    .page-sidebar .x-navigation > li.xn-openable::before { top: 1px; height: 31px; line-height: 31px; font-size: 12px; left: auto; right: 14px; }
-    .page-sidebar .x-navigation li li.xn-openable::before { top: 0; height: 26px; line-height: 26px; font-size: 11px; left: auto; right: 12px; }
+    .page-sidebar .x-navigation > li.xn-openable::before { top: 2px; height: 36px; line-height: 36px; font-size: 13px; left: auto; right: 14px; }
+    .page-sidebar .x-navigation li li.xn-openable::before { top: 1px; height: 31px; line-height: 31px; font-size: 12px; left: auto; right: 12px; }
     .page-sidebar .xn-menu-cari { padding: 4px 10px; }
     .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
