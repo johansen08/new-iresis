@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype B - Rekap Retur Dalam Perjalanan (Wizard Impor + Kanban)</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#eef1f6;color:#222;font-size:14px}
+header{background:#263238;color:#fff;padding:12px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1}
+header input{padding:4px 6px;border-radius:4px;border:0}
+.proto{background:#ffd54f;color:#333;font-size:11px;padding:2px 8px;border-radius:10px}
+main{padding:16px 20px;max-width:1400px;margin:auto}
+.steps{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.step{flex:1;min-width:150px;background:#dfe5ec;border-radius:8px;padding:10px 12px;cursor:pointer;border-bottom:4px solid transparent}
+.step b{display:block}.step small{color:#555}
+.step.on{background:#fff;border-color:#1976d2}
+.step.done{border-color:#43a047}
+.box{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px #0001;margin-bottom:14px}
+button{padding:7px 12px;border:0;border-radius:5px;background:#1976d2;color:#fff;cursor:pointer;font-size:13px}
+button.sec{background:#e3e8ee;color:#222}button.red{background:#e53935}button.ok{background:#43a047}
+button:disabled{opacity:.4;cursor:default}
+table{width:100%;border-collapse:collapse}
+th{background:#eef1f5;text-align:left;padding:7px;font-size:12px}
+td{padding:6px 7px;border-bottom:1px solid #eceff3}
+.seg{display:inline-flex;border:1px solid #b0bac5;border-radius:6px;overflow:hidden}
+.seg span{padding:4px 10px;cursor:pointer;font-size:12px;background:#fff}
+.seg span.on.r{background:#1976d2;color:#fff}.seg span.on.c{background:#8e24aa;color:#fff}
+.hint{background:#e3f2fd;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:10px}
+.kan{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow:auto}
+.col{background:#e3e8ee;border-radius:8px;padding:8px;min-height:200px}
+.col h3{margin:2px 4px 8px;font-size:13px;display:flex;justify-content:space-between}
+.col.aman h3{color:#2e7d32}.col.orange h3{color:#e65100}.col.merah h3{color:#c62828}.col.klaim h3{color:#455a64}
+.kc{background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:8px;border-left:5px solid #43a047;box-shadow:0 1px 2px #0002;font-size:12px}
+.kc.orange{border-color:#fb8c00}.kc.merah{border-color:#e53935}.kc.klaim{border-color:#607d8b;opacity:.75}
+.kc .t{display:flex;justify-content:space-between;font-weight:600;font-size:13px}
+.kc small{color:#666}
+.kc .act{margin-top:6px;display:flex;gap:6px}
+.kc .act button{padding:3px 8px;font-size:11px}
+.pill{font-size:10px;padding:1px 7px;border-radius:9px;background:#cfd8dc}
+.pill.r{background:#bbdefb}.pill.c{background:#e1bee7}
+.grp{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.chip{padding:4px 12px;border-radius:14px;background:#dfe5ec;cursor:pointer;font-size:12px}
+.chip.on{background:#263238;color:#fff}
+.diff{color:#c62828;font-weight:600}.okc{color:#2e7d32}
+@media(max-width:900px){.kan{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tim Retur › Retur Dalam Perjalanan <span class="proto">PROTOTYPE B · data contoh</span></h1>
+  <label style="font-size:12px">Tanggal simulasi: <input type="date" id="tglSim"></label>
+</header>
+<main>
+  <div class="steps" id="steps"></div>
+  <div id="view"></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const iso=d=>d.toISOString().slice(0,10);
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const hariIni=new Date(new Date().toDateString()+' 12:00');
+const simDate=()=>new Date($('tglSim').value+' 12:00');
+const umurDari=t=>Math.floor((simDate()-new Date(t+' 12:00'))/864e5);
+const tglID=t=>t?new Date(t+' 12:00').toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'—';
+
+// Alasan di Excel Jubelio -> saran klasifikasi otomatis
+const KATA_COMPLAIN=['tidak sesuai','salah kirim','rusak','cacat','kurang','sudah diterima','customer kembalikan','barang berbeda','salah warna','salah ukuran'];
+const KATA_RETUR=['gagal kirim','tidak sanggup','tidak ada penerima','alamat tidak','ditolak','refuse','rts','tidak bisa diantar','paket kembali'];
+function saran(alasan){
+  const a=(alasan||'').toLowerCase();
+  if(KATA_COMPLAIN.some(k=>a.includes(k)))return 'complain';
+  if(KATA_RETUR.some(k=>a.includes(k)))return 'retur';
+  return null;
+}
+
+// ---------- data contoh (menyerupai export Jubelio) ----------
+const ALASAN=['Paket gagal kirim, dikembalikan ekspedisi','Kurir tidak sanggup antar - alamat tidak ditemukan','Barang tidak sesuai pesanan','Customer kembalikan - barang rusak','Salah ukuran, customer kembalikan','Ditolak penerima','Lainnya'];
+const EKSP=['JNE','J&T','SiCepat','Anteraja','SPX'],MP=['Shopee','Tokopedia','TikTok','Lazada'];
+let seed=21;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
+const pick=a=>a[Math.floor(rnd()*a.length)];
+function contoh(){
+  const out=[];
+  for(let i=1;i<=34;i++){
+    const umur=Math.floor(rnd()*36)+2,tJ=addDays(hariIni,-umur),beda=rnd()<0.2,ada=rnd()>0.08;
+    out.push({id:i,resi:'ID'+(2000000000+Math.floor(rnd()*7999999999)),mp:pick(MP),eksp:pick(EKSP),alasan:pick(ALASAN),
+      tglJubelio:ada?iso(tJ):null,tglSistem:iso(beda?addDays(tJ,Math.floor(rnd()*5)+1):tJ),jenis:null,klaim:false,tglOk:!beda&&ada});
+  }
+  return out;
+}
+let data=[],step=1,doneStep={1:false,2:false,3:false},eksFilter='';
+
+function setStep(s){step=s;render()}
+function renderSteps(){
+  const S=[[1,'1 · Impor Excel Jubelio','Unggah / muat contoh'],[2,'2 · Pisahkan Retur & Complain','Karena Jubelio menggabung'],[3,'3 · Validasi tanggal retur','Cocokkan Excel vs sistem'],[4,'4 · Papan umur & klaim','Oranye ≥25 · Merah ≥30']];
+  $('steps').innerHTML=S.map(s=>`<div class="step ${step===s[0]?'on':''} ${doneStep[s[0]]?'done':''}" onclick="setStep(${s[0]})"><b>${s[1]}</b><small>${s[2]}${doneStep[s[0]]?' ✔':''}</small></div>`).join('');
+}
+function render(){renderSteps();[null,v1,v2,v3,v4][step]()}
+
+// ---------- langkah 1 ----------
+function v1(){
+  $('view').innerHTML=`<div class="box">
+   <h3 style="margin-top:0">Impor Excel Jubelio</h3>
+   <div class="hint">Format CSV contoh: <code>resi,marketplace,ekspedisi,tanggal_retur,alasan</code>. Di versi asli: file .xlsx hasil export Jubelio. Resi yang tidak ada di sistem Iresis akan dilaporkan.</div>
+   <input type="file" id="file" accept=".csv,.txt" onchange="bacaFile(this)"> &nbsp; atau &nbsp;
+   <button onclick="muatContoh()">Muat data contoh (34 resi)</button>
+   <p id="hasil1" style="margin-bottom:0">${data.length?`<b>${data.length}</b> baris sudah dimuat. Lanjut ke langkah 2.`:''}</p>
+   ${data.length?'<p><button class="ok" onclick="setStep(2)">Lanjut: pisahkan retur / complain →</button></p>':''}
+  </div>`;
+}
+function muatContoh(){seed=21;data=contoh();doneStep={1:true,2:false,3:false};autoSaran();render()}
+function bacaFile(el){
+  const f=el.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=()=>{
+    const baris=rd.result.split(/\r?\n/).filter(x=>x.trim());baris.shift();
+    data=baris.map((b,i)=>{const c=b.split(',').map(x=>x.trim());
+      return {id:i+1,resi:c[0],mp:c[1],eksp:c[2],tglJubelio:c[3]||null,alasan:c[4]||'',tglSistem:c[3]||iso(hariIni),jenis:null,klaim:false,tglOk:true}});
+    doneStep={1:true,2:false,3:false};autoSaran();render();
+  };rd.readAsText(f);
+}
+function autoSaran(){data.forEach(r=>{r.jenis=saran(r.alasan)})}
+
+// ---------- langkah 2 ----------
+function v2(){
+  if(!data.length){$('view').innerHTML='<div class="box">Muat data dulu di langkah 1.</div>';return}
+  const nR=data.filter(r=>r.jenis==='retur').length,nC=data.filter(r=>r.jenis==='complain').length,nB=data.filter(r=>!r.jenis).length;
+  $('view').innerHTML=`<div class="box">
+   <h3 style="margin-top:0">Pisahkan Retur vs Complain</h3>
+   <div class="hint"><b>Retur</b> = sudah diterima ekspedisi tapi tidak sanggup dikirim ke customer. <b>Complain</b> = sudah sampai ke customer, tidak sesuai, customer mengembalikan paket. Sistem menebak dari kata kunci di kolom alasan; yang tidak terbaca harus Anda pilih.</div>
+   <div class="grp"><span class="pill r">Retur: ${nR}</span><span class="pill c">Complain: ${nC}</span><span class="pill">Belum dipilih: ${nB}</span>
+     <button class="sec" onclick="semuaBelum('retur')">Belum dipilih → Retur</button>
+     <button class="sec" onclick="semuaBelum('complain')">Belum dipilih → Complain</button>
+     <button class="sec" onclick="autoSaran();render()">Tebak ulang otomatis</button></div>
+   <div style="max-height:55vh;overflow:auto"><table><tr><th>Resi</th><th>Ekspedisi</th><th>Alasan (Excel)</th><th>Saran</th><th>Jenis</th></tr>
+   ${data.slice().sort((a,b)=>(a.jenis?1:0)-(b.jenis?1:0)).map(r=>`<tr><td>${r.resi}</td><td>${r.eksp}</td><td>${r.alasan}</td>
+     <td>${saran(r.alasan)?`<span class="pill ${saran(r.alasan)[0]}">${saran(r.alasan)}</span>`:'<span class="pill">tidak terbaca</span>'}</td>
+     <td><div class="seg"><span class="r ${r.jenis==='retur'?'on':''}" onclick="jenis(${r.id},'retur')">Retur</span><span class="c ${r.jenis==='complain'?'on':''}" onclick="jenis(${r.id},'complain')">Complain</span></div></td></tr>`).join('')}
+   </table></div>
+   <p><button class="ok" ${nB?'disabled':''} onclick="doneStep[2]=true;setStep(3)">${nB?`Masih ${nB} belum dipilih`:'Lanjut: validasi tanggal →'}</button></p>
+  </div>`;
+}
+function jenis(id,j){data.find(r=>r.id===id).jenis=j;v2()}
+function semuaBelum(j){data.forEach(r=>{if(!r.jenis)r.jenis=j});v2()}
+
+// ---------- langkah 3 ----------
+function v3(){
+  if(!data.length){$('view').innerHTML='<div class="box">Muat data dulu di langkah 1.</div>';return}
+  const bermasalah=data.filter(r=>!r.tglJubelio||r.tglJubelio!==r.tglSistem);
+  $('view').innerHTML=`<div class="box">
+   <h3 style="margin-top:0">Validasi tanggal retur</h3>
+   <div class="hint">Tanggal di Excel Jubelio dianggap benar. Baris yang tanggalnya berbeda dengan sistem Iresis ditampilkan di sini. Pilih "Pakai tanggal Jubelio" untuk menyamakan. Resi tanpa tanggal di Excel tidak bisa dihitung umurnya.</div>
+   <div class="grp"><span class="pill">${data.length-bermasalah.length} cocok</span><span class="pill" style="background:#ffcdd2">${bermasalah.length} perlu dicek</span>
+   <button class="sec" ${bermasalah.length?'':'disabled'} onclick="samakanSemua()">Pakai tanggal Jubelio untuk semua yang beda</button></div>
+   ${bermasalah.length?`<table><tr><th>Resi</th><th>Jenis</th><th>Tgl Jubelio</th><th>Tgl Sistem</th><th>Selisih</th><th></th></tr>
+   ${bermasalah.map(r=>`<tr><td>${r.resi}</td><td><span class="pill ${(r.jenis||'-')[0]}">${r.jenis}</span></td><td>${tglID(r.tglJubelio)}</td><td class="diff">${tglID(r.tglSistem)}</td>
+     <td>${r.tglJubelio?Math.round((new Date(r.tglSistem)-new Date(r.tglJubelio))/864e5)+' hari':'Tidak ada di Excel'}</td>
+     <td>${r.tglJubelio?`<button class="sec" onclick="samakan(${r.id})">Pakai tanggal Jubelio</button>`:'<button class="sec" onclick="isiManual('+r.id+')">Isi manual</button>'}</td></tr>`).join('')}</table>`:'<p class="okc"><b>✔ Semua tanggal cocok.</b></p>'}
+   <p><button class="ok" ${bermasalah.length?'disabled':''} onclick="doneStep[3]=true;setStep(4)">${bermasalah.length?`Masih ${bermasalah.length} belum valid`:'Lanjut: papan umur →'}</button>
+   &nbsp;<button class="sec" onclick="doneStep[3]=true;setStep(4)">Lewati (tetap pakai tanggal terbaik yang ada)</button></p>
+  </div>`;
+}
+function samakan(id){const r=data.find(x=>x.id===id);r.tglSistem=r.tglJubelio;v3()}
+function samakanSemua(){data.forEach(r=>{if(r.tglJubelio)r.tglSistem=r.tglJubelio});v3()}
+function isiManual(id){const t=prompt('Tanggal retur (YYYY-MM-DD):');if(/^\d{4}-\d{2}-\d{2}$/.test(t||'')){const r=data.find(x=>x.id===id);r.tglJubelio=t;r.tglSistem=t;v3()}}
+
+// ---------- langkah 4: kanban ----------
+let tampil='retur';
+function st(r){const u=umurDari(r.tglJubelio||r.tglSistem);return r.klaim?'klaim':u>=30?'merah':u>=25?'orange':'aman'}
+function v4(){
+  if(!data.length){$('view').innerHTML='<div class="box">Muat data dulu di langkah 1.</div>';return}
+  const scope=data.filter(r=>r.jenis===tampil&&(!eksFilter||r.eksp===eksFilter));
+  const kol=[['aman','Aman (< 25 hari)'],['orange','Warning (25–29 hari)'],['merah','WAJIB KLAIM (≥ 30 hari)'],['klaim','Sudah diklaim']];
+  const kartu=r=>{const u=umurDari(r.tglJubelio||r.tglSistem),s=st(r);
+    return `<div class="kc ${s}"><div class="t"><span>${r.resi}</span><span>${u} h</span></div>
+    <small>${r.eksp} · ${r.mp} · ${tglID(r.tglJubelio||r.tglSistem)}</small><br><small>${r.alasan}</small>
+    <div class="act">${r.klaim?`<button class="sec" onclick="klaim(${r.id},false)">Batal klaim</button>`:`<button class="${s==='merah'?'red':'sec'}" onclick="klaim(${r.id},true)">Tandai diklaim</button>`}
+    <button class="sec" onclick="pindah(${r.id})">→ ${r.jenis==='retur'?'Complain':'Retur'}</button></div></div>`};
+  $('view').innerHTML=`<div class="box">
+   <div class="grp"><div class="seg"><span class="r ${tampil==='retur'?'on':''}" onclick="tampil='retur';v4()">Retur (${data.filter(r=>r.jenis==='retur').length})</span><span class="c ${tampil==='complain'?'on':''}" onclick="tampil='complain';v4()">Complain (${data.filter(r=>r.jenis==='complain').length})</span></div>
+   <span style="margin-left:10px;font-size:12px">Ekspedisi:</span>
+   <span class="chip ${eksFilter===''?'on':''}" onclick="eksFilter='';v4()">Semua</span>
+   ${EKSP.map(e=>`<span class="chip ${eksFilter===e?'on':''}" onclick="eksFilter='${e}';v4()">${e} (${data.filter(r=>r.jenis===tampil&&r.eksp===e&&st(r)==='merah').length}🔴)</span>`).join('')}
+   <span style="flex:1"></span>
+   <button class="sec" onclick="geser(-5)">−5 hari</button><button class="sec" onclick="geser(5)">+5 hari</button><button class="sec" onclick="$('tglSim').value=iso(hariIni);v4()">Hari ini</button></div>
+   <div class="kan">${kol.map(([k,t])=>{const isi=scope.filter(r=>st(r)===k).sort((a,b)=>umurDari(b.tglJubelio||b.tglSistem)-umurDari(a.tglJubelio||a.tglSistem));
+     return `<div class="col ${k}"><h3><span>${t}</span><span>${isi.length}</span></h3>${isi.map(kartu).join('')||'<small style="padding:6px;display:block;color:#78909c">kosong</small>'}</div>`}).join('')}</div>
+  </div>`;
+}
+function klaim(id,v){data.find(r=>r.id===id).klaim=v;v4()}
+function pindah(id){const r=data.find(x=>x.id===id);r.jenis=r.jenis==='retur'?'complain':'retur';v4()}
+function geser(n){$('tglSim').value=iso(addDays(simDate(),n));v4()}
+
+$('tglSim').value=iso(hariIni);
+$('tglSim').onchange=()=>{if(step===4)v4()};
+render();
+</script>
+</body>
+</html>
