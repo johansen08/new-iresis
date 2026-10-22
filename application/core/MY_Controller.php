@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-20.2';
+    const BOOTSTRAP_VERSI = '2026-10-22.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -172,6 +172,7 @@ class MY_Controller extends CI_Controller
         $this->run_upload_resi_spesial_migration();
         $this->run_bonus_picker_migration();
         $this->run_daftar_retur_penjualan_migration();
+        $this->run_tanggal_pencairan_mp_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1900,6 +1901,20 @@ class MY_Controller extends CI_Controller
                     ]);
                 }
             }
+        }
+    }
+
+    /**
+     * Kolom tanggal pencairan dana marketplace di tblprintresi. Diisi nanti dari upload
+     * laporan keuangan MP; NULL = belum cair. Ditaruh di ujung tabel dan NULL agar ALTER
+     * bersifat INSTANT (tidak menyalin ratusan ribu baris dan tidak mengunci tabel).
+     * Data lama tidak disentuh.
+     */
+    protected function run_tanggal_pencairan_mp_migration()
+    {
+        if (!$this->db->field_exists('tanggal_pencairan', 'tblprintresi')) {
+            $this->db->query("ALTER TABLE `tblprintresi`
+                ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
         }
     }
 }
