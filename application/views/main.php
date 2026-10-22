@@ -944,6 +944,9 @@
     .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 11px; width: 16px; margin-right: 6px; }
     .page-sidebar .x-navigation li { line-height: 1.3; }
     .page-sidebar .x-navigation li li > a { white-space: normal; overflow: visible; text-overflow: clip; }
+    /* Panah expand: sejajar tengah baris (top lama 17px untuk baris ~48px) */
+    .page-sidebar .x-navigation > li.xn-openable::before { top: 1px; height: 31px; line-height: 31px; font-size: 12px; left: auto; right: 14px; }
+    .page-sidebar .x-navigation li li.xn-openable::before { top: 0; height: 26px; line-height: 26px; font-size: 11px; left: auto; right: 12px; }
     .page-sidebar .xn-menu-cari { padding: 4px 10px; }
     .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
