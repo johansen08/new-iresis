@@ -18,6 +18,9 @@
     .ptr-tabel .dataTables_scrollBody table { margin-bottom: 0 !important; margin-top: -1px !important; }
     .ptr-pegawai { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .ptr-pegawai .label { font-size: 10px; }
+    .ptr-pegawai .label-success { background-color: #4caf50; }
+    .ptr-pegawai .label-warning { background-color: #fbc02d; color: #4a3500; }
+    .ptr-pegawai .label-pink { background-color: #e91e63; color: #fff; }
     /* Perataan tepi: toolbar, kartu total, dan tabel berbagi tepi kiri/kanan yang sama */
     .ptr-toolbar { margin-bottom: 8px; }
     .ptr-total { height: 30px; padding: 0 12px; align-items: center; }
@@ -139,7 +142,7 @@
                     render: function (data, type, row) {
                         var roleName = row.role ? row.role.toLowerCase() : '';
                         var isInti = (roleName.indexOf('picker') !== -1);
-                        var badgeClass = isInti ? 'label-primary' : 'label-default';
+                        var badgeClass = isInti ? 'label-success' : 'label-default';
                         var badgeText  = isInti ? 'Picker Inti' : 'Perbantuan';
                         
                         return '<div class="ptr-pegawai"><i class="fa fa-user-circle text-muted"></i><strong>' + data + '</strong><span class="label ' + badgeClass + '">' + badgeText + '</span></div>';
