@@ -1,7 +1,8 @@
 <style>
-    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ptr-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 6px; }
     .ptr-toolbar label { margin: 0; font-weight: 600; }
-    .ptr-toolbar .ptr-range { width: 340px; max-width: 100%; height: 30px; }
+    .ptr-toolbar .ptr-range { flex: 0 1 340px; width: 340px; min-width: 190px; height: 30px; }
+    .ptr-toolbar label, .ptr-toolbar .btn, .ptr-total { white-space: nowrap; flex: 0 0 auto; }
     .ptr-toolbar .btn { padding: 4px 12px; }
     .ptr-total { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 2px 14px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
     .ptr-total-label { color: #666; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }
@@ -42,8 +43,8 @@
     <input type="text" name="reportrange" id="reportrange-receipt-process-tab2" class="form-control ptr-range" />
     <button type="button" class="btn btn-info" id="btn-search-receipt-process-tab2"><i class="fa fa-refresh"></i> Tampilkan</button>
     <button type="submit" class="btn btn-primary" id="btn-export-excel-receipt-process-tab2"><i class="fa fa-download"></i> Ekspor ke Excel</button>
-    <div class="ptr-total ptr-total-wajib" title="Resi berbaris merah: batas kirim hari ini, atau Lazada yang discan hari ini s/d 15:00"><span class="ptr-total-label">Wajib Keluar Hari Ini</span><span class="ptr-total-angka" id="wajib-total-tab2">-</span></div>
-    <div class="ptr-total"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab2">-</span></div>
+    <div class="ptr-total ptr-total-wajib" title="Resi berbaris merah: batas kirim hari ini, atau Lazada yang discan hari ini s/d 15:00"><span class="ptr-total-label">Wajib</span><span class="ptr-total-angka" id="wajib-total-tab2">-</span></div>
+    <div class="ptr-total"><span class="ptr-total-label">Total</span><span class="ptr-total-angka" id="grand-total-tab2">-</span></div>
   </div>
 </form>
 
