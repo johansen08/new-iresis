@@ -109,6 +109,7 @@
 .pkh-kat td.col-pack{font-weight:700;color:var(--pkh-ink)}
 .pkh-kat .tot td{font-weight:700;color:var(--pkh-ink);border-top:2px solid var(--pkh-line-strong);border-bottom:0}
 .pkh-kat .zero{color:var(--pkh-muted);font-weight:400}
+.pkh-kat .pkh-pc{display:inline-block;min-width:3.6em;margin-left:6px;font-size:11.5px;font-weight:500;color:var(--pkh-muted)}
 
 /* OT / perbantuan */
 .pkh-calc{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.5fr);gap:20px 32px;align-items:start}
@@ -552,9 +553,14 @@
   }
 
   function renderJenis(W) {
-    var v = function (x) { return x ? fmt(x) : '<span class="zero">–</span>'; };
+    // persentase kecil = porsi baris itu terhadap total belum di kolom yang sama
+    var v = function (x, tot) {
+      if (!x) return '<span class="zero">–</span>';
+      return fmt(x) + (tot > 0 ? ' <small class="pkh-pc">' + pct(x, tot) + '</small>' : '');
+    };
     var baris = function (label, kat, cls) {
-      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + v(belum(W, 1, kat)) + '</td><td class="col-pack">' + v(belum(W, 2, kat)) + '</td><td>' + v(belum(W, 3, kat)) + '</td></tr>';
+      var sel = function (j) { return v(belum(W, j, kat), belum(W, j)); };
+      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + sel(1) + '</td><td class="col-pack">' + sel(2) + '</td><td>' + sel(3) + '</td></tr>';
     };
     $id('pkh-t-kat').innerHTML =
       '<thead><tr><th>Jenis resi</th><th>Belum picker</th><th class="col-pack">Belum packer</th><th>Belum HO</th></tr></thead><tbody>' +
