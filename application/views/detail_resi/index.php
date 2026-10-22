@@ -151,7 +151,8 @@
 <script type="text/javascript">
 (function () {
   var $dr = $('#dr'), q = document.getElementById('dr-q'), hint = document.getElementById('dr-hint'),
-      hasil = document.getElementById('dr-hasil'), tmr = null, xhr = null, terakhir = '';
+      hasil = document.getElementById('dr-hasil'), tmr = null, xhr = null, terakhir = '', sudahCari = false, nilaiLama = '',
+      KOSONG = '<div class="card notfound">Scan atau tempel nomor resi / nomor pesanan untuk melihat detailnya.</div>';
 
   function cari() {
     var v = q.value.trim();
@@ -160,7 +161,7 @@
     if (v.length < 6) {                                  // nomor resi/pesanan nyata jauh lebih panjang
       hint.textContent = '';
       terakhir = '';
-      if (v === '') hasil.innerHTML = '<div class="card notfound">Scan atau tempel nomor resi / nomor pesanan untuk melihat detailnya.</div>';
+      if (v === '') hasil.innerHTML = KOSONG;
       return;
     }
     if (v === terakhir) return;
@@ -174,6 +175,7 @@
         if (res && res.data && typeof res.data.html === 'string') {
           hasil.innerHTML = res.data.html;
           hint.textContent = res.data.ditemukan ? 'Ditemukan' : '';
+          if (res.data.ditemukan) { sudahCari = true; nilaiLama = v; }   // hanya hasil nyata yang membuat scan berikutnya mulai dari kosong (ketikan setengah jalan tidak)
           var auto = hasil.querySelector('[data-p="retur"]');
           if (auto && res.data.ditemukan) {
             var tombol = hasil.querySelector('.tg[data-k="retur"].has');
@@ -217,8 +219,35 @@
     else cadangan();
   }
 
-  q.addEventListener('input', function () { clearTimeout(tmr); tmr = setTimeout(cari, 300); });
-  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); terakhir = ''; cari(); } });
+  // Setiap scan dimulai dari kosong: begitu ada ketikan/scan/tempelan baru sesudah pencarian,
+  // isian dan hasil lama dibuang dulu (alat scan mengetik cepat, jadi karakter pertama sudah cukup).
+  function bersihkan() {
+    clearTimeout(tmr);
+    if (xhr) { xhr.abort(); xhr = null; }
+    q.value = '';
+    terakhir = '';
+    sudahCari = false;
+    hint.textContent = '';
+    hasil.innerHTML = KOSONG;
+  }
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); terakhir = ''; sudahCari = true; nilaiLama = q.value; cari(); return; }
+    if (sudahCari && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) bersihkan();
+  });
+  q.addEventListener('paste', function () { if (sudahCari) bersihkan(); });
+  q.addEventListener('input', function () {
+    if (sudahCari) {
+      // Teks masuk tanpa keydown (tempel, atau scanner yang mengirim sekaligus): buang isian dan hasil lama,
+      // sisakan hanya teks barunya. Menghapus sebagian dari isian lama (koreksi ketikan) dibiarkan.
+      var baru = q.value;
+      if (nilaiLama.indexOf(baru) !== 0) {
+        if (baru.indexOf(nilaiLama) === 0) baru = baru.slice(nilaiLama.length);
+        bersihkan();
+        q.value = baru;
+      }
+    }
+    clearTimeout(tmr); tmr = setTimeout(cari, 300);
+  });
   q.addEventListener('focus', function () { q.select(); });   // scan berikutnya menimpa yang lama
 
   // Handler dipasang di wadah #dr (ikut hilang saat menu lain dibuka), bukan di document.
