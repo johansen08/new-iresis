@@ -48,14 +48,14 @@ class Report extends MY_Controller
 
 		$data['valid_columns'] = array(
 			0 => null,
-			1 => 't3.nama_marketplace',
-			2 => 't.created_at',
-			3 => 't.created_at',
-			4 => 't.noresi',
-			5 => 't.status_pesanan',
-			6 => 't4.nama_kurir',
-			7 => 't.nomorpicklist',
-			8 => 't.tanggal_bataskirim',
+			1 => 't.noresi',
+			2 => 't3.nama_marketplace',
+			3 => 't4.nama_kurir',
+			4 => 't.status_pesanan',
+			5 => 't.tanggal_bataskirim',
+			6 => 't.nomorpicklist',
+			7 => 't.created_at',
+			8 => 't.created_at',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -70,14 +70,14 @@ class Report extends MY_Controller
 			// Tanggal dan jam scan resi diambil dari tblprintresi.tanggal_printresi
 			$data[] = array(
 				$i++ . '.',
+				$row->noresi,
 				$row->nama_marketplace,
+				$row->nama_kurir,
+				$row->status_pesanan,
+				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-',
+				$row->nomorpicklist,
 				date('Y-m-d', strtotime($row->tanggal_printresi)),
 				date('H:i:s', strtotime($row->tanggal_printresi)),
-				$row->noresi,
-				$row->status_pesanan,
-				$row->nama_kurir,
-				$row->nomorpicklist,
-				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-',
 			);
 		}
 
@@ -119,17 +119,17 @@ class Report extends MY_Controller
 
 		$data['valid_columns'] = array(
 			0 => null,
-			1 => 't3.nama_marketplace',
-			2 => 't2.created_at',
-			3 => 't2.created_at',
-			4 => 't2.noresi',
-			5 => 't2.status_pesanan',
-			6 => 't4.nama_kurir',
-			7 => 't2.nomorpicklist',
-			8 => 't.tanggal_resiambilbarang',
+			1 => 't2.noresi',
+			2 => 't3.nama_marketplace',
+			3 => 't4.nama_kurir',
+			4 => 't2.status_pesanan',
+			5 => 't2.tanggal_bataskirim',
+			6 => 't2.nomorpicklist',
+			7 => 't2.created_at',
+			8 => 't2.created_at',
 			9 => 't.tanggal_resiambilbarang',
-			10 => 't5.nama_pegawai',
-			11 => 't2.tanggal_bataskirim',
+			10 => 't.tanggal_resiambilbarang',
+			11 => 't5.nama_pegawai',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -143,17 +143,17 @@ class Report extends MY_Controller
 		foreach ($list_resi->result() as $row) {
 			$data[] = array(
 				$i++ . '.',
+				$row->noresi,
 				$row->nama_marketplace,
+				$row->nama_kurir,
+				$row->status_pesanan,
+				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-', // Added Batas Kirim
+				$row->nomorpicklist,
 				empty($row->tanggal_printresi) ? null : date('Y-m-d', strtotime($row->tanggal_printresi)),
 				empty($row->tanggal_printresi) ? null : date('H:i:s', strtotime($row->tanggal_printresi)),
-				$row->noresi,
-				$row->status_pesanan,
-				$row->nama_kurir,
-				$row->nomorpicklist,
 				empty($row->tanggal_resiambilbarang) ? null : date('Y-m-d', strtotime($row->tanggal_resiambilbarang)),
 				empty($row->tanggal_resiambilbarang) ? null : date('H:i:s', strtotime($row->tanggal_resiambilbarang)),
 				$row->picker,
-				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-', // Added Batas Kirim
 			);
 		}
 
@@ -195,18 +195,18 @@ class Report extends MY_Controller
 
 		$data['valid_columns'] = array(
 			0 => null,
-			1 => 't4.nama_marketplace',
-			2 => 't2.created_at',
-			3 => 't2.created_at',
-			4 => 't2.noresi',
-			5 => 't2.status_pesanan',
-			6 => 't5.nama_kurir',
-			7 => 't2.nomorpicklist',
-			8 => 't3.tanggal_resiambilbarang',
+			1 => 't2.noresi',
+			2 => 't4.nama_marketplace',
+			3 => 't5.nama_kurir',
+			4 => 't2.status_pesanan',
+			5 => 't2.tanggal_bataskirim',
+			6 => 't2.nomorpicklist',
+			7 => 't2.created_at',
+			8 => 't2.created_at',
 			9 => 't3.tanggal_resiambilbarang',
-			10 => 't6.nama_pegawai',
-			11 => 't7.name',
-			12 => 't2.tanggal_bataskirim',
+			10 => 't3.tanggal_resiambilbarang',
+			11 => 't6.nama_pegawai',
+			12 => 't7.name',
 		);
 
 		$data['order'] = !isset($data['valid_columns'][$col]) ? null : $data['valid_columns'][$col];
@@ -220,18 +220,18 @@ class Report extends MY_Controller
 		foreach ($list_resi->result() as $row) {
 			$data[] = array(
 				$i++ . '.',
+				$row->noresi,
 				$row->nama_marketplace,
+				$row->nama_kurir,
+				$row->status_pesanan,
+				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-', // Added Batas Kirim
+				$row->nomorpicklist,
 				empty($row->tanggal_printresi) ? null : date('Y-m-d', strtotime($row->tanggal_printresi)),
 				empty($row->tanggal_printresi) ? null : date('H:i:s', strtotime($row->tanggal_printresi)),
-				$row->noresi,
-				$row->status_pesanan,
-				$row->nama_kurir,
-				$row->nomorpicklist,
 				empty($row->tanggal_resiambilbarang) ? null : date('Y-m-d', strtotime($row->tanggal_resiambilbarang)),
 				empty($row->tanggal_resiambilbarang) ? null : date('H:i:s', strtotime($row->tanggal_resiambilbarang)),
 				$row->picker,
 				$row->packer,
-				!empty($row->tanggal_bataskirim) ? date('Y-m-d H:i:s', strtotime($row->tanggal_bataskirim)) : '-', // Added Batas Kirim
 			);
 		}
 
