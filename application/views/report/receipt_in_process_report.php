@@ -33,7 +33,7 @@
 
   /**
    * Menentukan apakah sebuah resi wajib dikirim hari ini (untuk penanda merah).
-   * @param {string} marketplace Nama marketplace (kolom Market Place)
+   * @param {string} marketplace Nama marketplace (kolom Marketplace)
    * @param {string} scanDate    Tanggal scan resi (YYYY-MM-DD)
    * @param {string} scanTime    Jam scan resi (HH:mm:ss)
    * @param {string} batasKirim  Batas kirim (YYYY-MM-DD HH:mm:ss) atau '-'

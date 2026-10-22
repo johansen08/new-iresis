@@ -48,14 +48,14 @@
   <thead>
     <tr>
       <th>#</th>
-      <th>Nomor Resi</th>
-      <th>Market Place</th>
+      <th>No. Resi</th>
+      <th>Marketplace</th>
       <th>Kurir</th>
-      <th>Status Pesanan</th>
+      <th>Status</th>
       <th>Batas Kirim</th>
-      <th>Nomor Pick List</th>
-      <th>Tanggal Scan Resi</th>
-      <th>Jam Scan Resi</th>
+      <th>No. Pick List</th>
+      <th>Tanggal Scan</th>
+      <th>Jam Scan</th>
     </tr>
   </thead>
 </table>
