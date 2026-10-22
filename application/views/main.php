@@ -1012,6 +1012,28 @@
     .page-sidebar .x-navigation.x-navigation-minimized > li:not(.xn-logo):not(.xn-profile) { border-left-width: 3px; }
     .page-sidebar .x-navigation.x-navigation-minimized > li > a { display: flex; align-items: center; justify-content: center; width: calc(100% - 8px); margin: 1px 4px; padding: 7px 0; }
     .page-sidebar .x-navigation.x-navigation-minimized > li > a .fa, .page-sidebar .x-navigation.x-navigation-minimized > li > a .glyphicon { flex: 0 0 auto; width: auto; margin: 0; font-size: 15px; }
+    /* Laporan (Tim Produksi, Resi Dalam Proses) di monitor besar: skala font dan kontrol naik bertahap, tinggi tabel menyesuaikan */
+    :root { --ptr-fs: 12px; --ptr-offset: 270px; }
+    @media (min-width: 1600px) { :root { --ptr-fs: 15px; --ptr-offset: 318px; } }
+    @media (min-width: 2200px) { :root { --ptr-fs: 19px; --ptr-offset: 372px; } }
+    .tabs > .nav-tabs > li > a { font-size: calc(var(--ptr-fs) + 1px); }
+    .ptr-toolbar label, .ptr-toolbar .form-control, .ptr-toolbar .btn { font-size: var(--ptr-fs); }
+    .ptr-toolbar .form-control, .ptr-toolbar .btn, .ptr-total { height: calc(var(--ptr-fs) * 2.5); }
+    .ptr-toolbar .btn { line-height: calc(var(--ptr-fs) * 1.5); padding-top: 0; padding-bottom: 0; }
+    .ptr-toolbar .ptr-range { height: calc(var(--ptr-fs) * 2.5); flex-basis: calc(var(--ptr-fs) * 28); width: calc(var(--ptr-fs) * 28); }
+    .ptr-total-label { font-size: calc(var(--ptr-fs) - 1px); }
+    .ptr-total-angka { font-size: calc(var(--ptr-fs) * 1.75); }
+    .ptr-tabel table.dataTable, .ptr-tabel .dataTables_wrapper { font-size: var(--ptr-fs); }
+    .ptr-tabel table.dataTable tbody td, .ptr-tabel .dataTables_scrollHead th { font-size: var(--ptr-fs); padding: calc(var(--ptr-fs) * .3) calc(var(--ptr-fs) * .7); }
+    .ptr-tabel .dataTables_info, .ptr-tabel .dataTables_filter, .ptr-tabel .dataTables_length { font-size: var(--ptr-fs); }
+    .ptr-tabel .dataTables_filter input, .ptr-tabel .dataTables_length select { height: calc(var(--ptr-fs) * 2.3); font-size: var(--ptr-fs); }
+    .ptr-tabel .dataTables_info { line-height: calc(var(--ptr-fs) * 2.3); }
+    .ptr-tabel .dataTables_paginate .paginate_button { font-size: var(--ptr-fs); }
+    .ptr-pegawai .label { font-size: calc(var(--ptr-fs) - 2px); }
+    .ptr-tabel .badge { font-size: var(--ptr-fs) !important; }
+    .ptr-tabel td .label { font-size: calc(var(--ptr-fs) - 1px) !important; }
+    .btn-salin-resi { font-size: var(--ptr-fs); }
+    .ptr-tabel .dataTables_scrollBody { max-height: calc(100vh - var(--ptr-offset)) !important; }
     </style>
 </body>
 
