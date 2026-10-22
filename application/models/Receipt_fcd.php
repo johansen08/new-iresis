@@ -328,7 +328,27 @@ class Receipt_fcd extends CI_Model
         return $this->db->get('tblprintresi t USE INDEX FOR ORDER BY ()');
     }
 
-    function get_total_data_receipt_process_tab0($data, $start_date, $end_date)
+    /**
+     * Syarat "wajib keluar hari ini" untuk laporan Resi Dalam Proses. Aturannya sama
+     * dengan penanda merah di view (isWajibKirimHariIni di report/receipt_in_process_report.php):
+     * batas kirim jatuh hari ini, ATAU resi Lazada yang discan hari ini s/d 15:00.
+     * Kalau aturan di view diubah, ubah di sini juga.
+     */
+    private function where_wajib_keluar_hari_ini($kolom_tanggal_scan, $kolom_batas_kirim, $kolom_marketplace)
+    {
+        $hari_ini = date('Y-m-d');
+        $this->db->group_start();
+        $this->db->where("$kolom_batas_kirim >=", $hari_ini . ' 00:00:00');
+        $this->db->where("$kolom_batas_kirim <=", $hari_ini . ' 23:59:59');
+        $this->db->or_group_start();
+        $this->db->like($kolom_marketplace, 'lazada');
+        $this->db->where("$kolom_tanggal_scan >=", $hari_ini . ' 00:00:00');
+        $this->db->where("$kolom_tanggal_scan <=", $hari_ini . ' 15:00:00');
+        $this->db->group_end();
+        $this->db->group_end();
+    }
+
+    function get_total_data_receipt_process_tab0($data, $start_date, $end_date, $hanya_wajib = FALSE)
     {
         if (!empty($data['search'])) {
             $x = 0;
@@ -356,6 +376,10 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t.tanggal_printresi >=', $start_date);
         $this->db->where('t.tanggal_printresi <=', $end_date);
         $this->db->where('t2.id_resiambilbarang is null');
+
+        if ($hanya_wajib) {
+            $this->where_wajib_keluar_hari_ini('t.tanggal_printresi', 't.tanggal_bataskirim', 't3.nama_marketplace');
+        }
 
         $query = $this->db->select("COUNT(DISTINCT t.noresi) AS num")->get("tblprintresi t");
         $result = $query->row();
@@ -421,7 +445,7 @@ class Receipt_fcd extends CI_Model
         return $this->db->get('tblresiambilbarang t');
     }
 
-    function get_total_data_receipt_process_tab1($data, $start_date, $end_date)
+    function get_total_data_receipt_process_tab1($data, $start_date, $end_date, $hanya_wajib = FALSE)
     {
         if (!empty($data['search'])) {
             $x = 0;
@@ -451,6 +475,10 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi >=', $start_date);
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         $this->db->where('t6.id_packing is null');
+
+        if ($hanya_wajib) {
+            $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't3.nama_marketplace');
+        }
 
         $query = $this->db->select("COUNT(DISTINCT t2.noresi) AS num")->get("tblresiambilbarang t");
         $result = $query->row();
@@ -523,7 +551,7 @@ class Receipt_fcd extends CI_Model
         return $this->db->get('tblpacking t');
     }
 
-    function get_total_data_receipt_process_tab2($data, $start_date, $end_date)
+    function get_total_data_receipt_process_tab2($data, $start_date, $end_date, $hanya_wajib = FALSE)
     {
         if (!empty($data['search'])) {
             $x = 0;
@@ -556,6 +584,10 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         // Lihat catatan NOT EXISTS di get_data_receipt_process_tab2(): 2,1 -> 1,0 dtk.
         $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
+
+        if ($hanya_wajib) {
+            $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't4.nama_marketplace');
+        }
 
         $query = $this->db->select("COUNT(DISTINCT t2.noresi) AS num")->get("tblpacking t");
         $result = $query->row();

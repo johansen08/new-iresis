@@ -19,6 +19,9 @@
     .ptr-toolbar { margin-bottom: 8px; }
     .ptr-total { height: 30px; padding: 0 12px; align-items: center; }
     .ptr-total-angka { font-size: 20px; line-height: 1; }
+    .ptr-total + .ptr-total { margin-left: 0; }
+    .ptr-total-wajib { border-left-color: #c62828; background: #fdf1f1; }
+    .ptr-total-wajib .ptr-total-angka { color: #c62828; }
     .ptr-tabel .dataTables_info { float: left; padding: 0; line-height: 28px; }
     .ptr-tabel .dataTables_filter { float: right; margin: 0 0 6px; }
     .ptr-tabel .dataTables_filter label { margin: 0; display: flex; align-items: center; gap: 6px; }
@@ -39,6 +42,7 @@
     <input type="text" name="reportrange" id="reportrange-receipt-process-tab0" class="form-control ptr-range" />
     <button type="button" class="btn btn-info" id="btn-search-receipt-process-tab0"><i class="fa fa-refresh"></i> Tampilkan</button>
     <button type="submit" class="btn btn-primary" id="btn-export-excel-receipt-process-tab0"><i class="fa fa-download"></i> Ekspor ke Excel</button>
+    <div class="ptr-total ptr-total-wajib" title="Resi berbaris merah: batas kirim hari ini, atau Lazada yang discan hari ini s/d 15:00"><span class="ptr-total-label">Wajib Keluar Hari Ini</span><span class="ptr-total-angka" id="wajib-total-tab0">-</span></div>
     <div class="ptr-total"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab0">-</span></div>
   </div>
 </form>
@@ -107,6 +111,7 @@
         data: function(d) {
           d.start_date = $('#reportrange-receipt-process-tab0').val().split(" - ")[0];
           d.end_date = $('#reportrange-receipt-process-tab0').val().split(" - ")[1];
+          d.hitung_wajib = d.draw === 1 ? 1 : 0; // total wajib keluar cukup dihitung di draw pertama
         }
       },
       'columnDefs': [
@@ -120,6 +125,9 @@
         if (json && json.grandTotal !== undefined) {
           $('#grand-total-tab0').text(json.grandTotal);
         }
+        if (json && json.wajibTotal !== undefined && json.wajibTotal !== null) {
+          $('#wajib-total-tab0').text(json.wajibTotal);
+        }
       },
       'createdRow': function(row, data, dataIndex) {
         if (isWajibKirimHariIni(data[2], data[7], data[8], data[5])) {
@@ -132,6 +140,9 @@
         var json = this.api().ajax.json();
         if (json && json.grandTotal !== undefined) {
           $('#grand-total-tab0').text(json.grandTotal);
+        }
+        if (json && json.wajibTotal !== undefined && json.wajibTotal !== null) {
+          $('#wajib-total-tab0').text(json.wajibTotal);
         }
       },
     });
