@@ -8,6 +8,10 @@ $MP_JSON = json_encode(array_values($mp));
            font-family:'Inter',system-ui,sans-serif; color:var(--pd-teks); max-width:1180px; margin:0 auto; padding:8px 0 40px; }
 #pd_wrap * { box-sizing:border-box; }
 #pd_wrap button { font-family:inherit; }
+/* Stylesheet aplikasi memaksa svg melebar penuh (atribut width/height diabaikan); ukuran ikon dikunci di sini. */
+#pd_wrap svg { flex:none; width:18px; height:18px; max-width:none; }
+#pd_wrap .pd-tip-btn svg { width:20px; height:20px; }
+#pd_wrap .pd-mpbox svg { width:16px; height:16px; }
 #pd_wrap .pd-kepala { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:20px; }
 #pd_wrap h1 { margin:0; font-size:24px; font-weight:700; color:#12212b; display:inline-block; vertical-align:middle; }
 #pd_wrap .pd-aksi { display:flex; flex-wrap:wrap; gap:8px; }
@@ -100,12 +104,12 @@ $MP_JSON = json_encode(array_values($mp));
 
 /* Tabel */
 #pd_tablewrap { position:relative; min-height:160px; overflow-x:auto; }
-#pd_wrap table.pd-tabel { width:100%; min-width:760px; border-collapse:collapse; }
+#pd_wrap table.pd-tabel { width:100%; min-width:820px; border-collapse:collapse; }
 #pd_wrap .pd-tabel th { padding:12px 20px; background:#f6f8fa; border-bottom:1px solid var(--pd-garis); font-size:12px; font-weight:600; color:#6b7c87; text-align:left; }
 #pd_wrap .pd-tabel td { padding:12px 20px; border-bottom:1px solid #eef1f3; font-size:14px; vertical-align:middle; }
 #pd_wrap .pd-tabel tbody tr:hover td { background:#fafbfc; }
 #pd_wrap .pd-id { display:flex; align-items:center; gap:2px; margin:-8px 0; }
-#pd_wrap .pd-id b { font-weight:600; font-variant-numeric:tabular-nums; word-break:break-all; }
+#pd_wrap .pd-id b { font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
 #pd_wrap .pd-salin { flex:none; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border:0; border-radius:22px; background:transparent; color:#6b7c87; cursor:pointer; padding:0; }
 #pd_wrap .pd-salin:hover { background:#e9eef1; color:var(--pd-hijau); }
 #pd_wrap .pd-salin.sudah { background:#dff2ec; color:#0b5a4d; }
