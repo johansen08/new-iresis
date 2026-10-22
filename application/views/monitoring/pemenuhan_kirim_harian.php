@@ -109,6 +109,7 @@
 .pkh-kat td.col-pack{font-weight:700;color:var(--pkh-ink)}
 .pkh-kat .tot td{font-weight:700;color:var(--pkh-ink);border-top:2px solid var(--pkh-line-strong);border-bottom:0}
 .pkh-kat .zero{color:var(--pkh-muted);font-weight:400}
+.pkh-kat .pkh-pc{display:inline-block;min-width:3.6em;margin-left:6px;font-size:11.5px;font-weight:500;color:var(--pkh-muted)}
 
 /* OT / perbantuan */
 .pkh-calc{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.5fr);gap:20px 32px;align-items:start}
@@ -232,6 +233,50 @@
   .pkh-sku div{white-space:normal}
   .pkh-salin-area{width:calc(100% - 32px);margin-left:16px;margin-right:16px}
 }
+/* PC: rapatkan jarak vertikal supaya kepala, kartu atas, tiga tahap, dan dua bagian lipat (tertutup) muat satu layar tanpa scroll */
+@media (min-width:1025px){
+  .pkh{padding-top:12px;padding-bottom:16px;gap:12px}
+  .pkh-head h1{font-size:24px}
+  .pkh-card{padding:12px 18px}
+  .pkh-top .num{font-size:40px;margin-top:2px}
+  .pkh-note{margin-top:4px}
+  .pkh-parts{margin-top:6px;gap:2px}
+  .pkh-stage.key{padding:11px 17px}
+  .pkh-stage .num{font-size:32px}
+  .pkh-stage .row-n{margin-top:4px}
+  .pkh-bar{margin-top:6px}
+  .pkh-stage .left{margin-top:6px}
+  .pkh details.pkh-sec > summary{padding:10px 18px}
+  .pkh-sum-title{font-size:17px}
+}
+/* Laptop (layar pendek, mis. 1366×768 / 1440×900): rapatkan lagi karena tinggi area halaman hanya ±550–700px */
+@media (min-width:1025px) and (max-height:900px){
+  .pkh{padding-top:8px;padding-bottom:10px;gap:8px}
+  .pkh-head{gap:4px 16px}
+  .pkh-head h1{font-size:21px}
+  .pkh-sub{margin-top:0;font-size:13.5px}
+  .pkh-ctrl input[type=date],.pkh-btn{height:32px}
+  .pkh-top,.pkh-stages{gap:10px}
+  .pkh-card{padding:9px 16px}
+  .pkh-label{font-size:11px}
+  .pkh-top .num{font-size:32px;margin-top:0}
+  .pkh-note{margin-top:2px;font-size:13px}
+  .pkh-parts{margin-top:4px;gap:0;font-size:13px}
+  .pkh-parts li{padding:1px 0}
+  .pkh-stage.key{padding:8px 14px}
+  .pkh-stage .num{font-size:26px}
+  .pkh-stage .pct{font-size:15px}
+  .pkh-stage .row-n{margin-top:2px}
+  .pkh-bar{height:8px;margin-top:4px}
+  .pkh-stage .left{margin-top:4px;font-size:13px}
+  .pkh-stage .left b{font-size:14px}
+  .pkh-stage .left-row{min-height:28px}
+  .pkh-lihat{height:26px}
+  .pkh details.pkh-sec > summary{padding:7px 16px}
+  .pkh-sum-title{font-size:16px}
+  .pkh-sum-meta{font-size:13px;margin-top:0}
+  .pkh-chev{width:22px;height:22px}
+}
 @media (max-width:720px){.pkh-top{grid-template-columns:1fr}}
 @media (max-width:640px){
   .pkh{padding:16px 16px 24px}
@@ -274,7 +319,7 @@
 
   <section class="pkh-stages" id="pkh-stages" aria-label="Progres resi wajib keluar per tahap"></section>
 
-  <details class="pkh-sec" id="pkh-sec-kat" open>
+  <details class="pkh-sec" id="pkh-sec-kat">
     <summary>
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -290,7 +335,7 @@
     </div>
   </details>
 
-  <details class="pkh-sec" id="pkh-sec-pack" open>
+  <details class="pkh-sec" id="pkh-sec-pack">
     <summary>
       <div class="pkh-sum-l">
         <span class="pkh-chev" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -508,9 +553,14 @@
   }
 
   function renderJenis(W) {
-    var v = function (x) { return x ? fmt(x) : '<span class="zero">–</span>'; };
+    // persentase kecil = porsi baris itu terhadap total belum di kolom yang sama
+    var v = function (x, tot) {
+      if (!x) return '<span class="zero">–</span>';
+      return fmt(x) + (tot > 0 ? ' <small class="pkh-pc">' + pct(x, tot) + '</small>' : '');
+    };
     var baris = function (label, kat, cls) {
-      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + v(belum(W, 1, kat)) + '</td><td class="col-pack">' + v(belum(W, 2, kat)) + '</td><td>' + v(belum(W, 3, kat)) + '</td></tr>';
+      var sel = function (j) { return v(belum(W, j, kat), belum(W, j)); };
+      return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td>' + sel(1) + '</td><td class="col-pack">' + sel(2) + '</td><td>' + sel(3) + '</td></tr>';
     };
     $id('pkh-t-kat').innerHTML =
       '<thead><tr><th>Jenis resi</th><th>Belum picker</th><th class="col-pack">Belum packer</th><th>Belum HO</th></tr></thead><tbody>' +
@@ -653,9 +703,10 @@
   // ingat bagian yang dibuka/ditutup per browser
   ['pkh-sec-kat', 'pkh-sec-pack'].forEach(function (id) {
     var el = $id(id), simpan = null;
-    try { simpan = localStorage.getItem('pkh-' + id); } catch (e) {}
+    // kunci 'pkh2-': bawaan kini tertutup agar halaman muat satu layar PC; simpanan lama (bawaan terbuka) diabaikan
+    try { simpan = localStorage.getItem('pkh2-' + id); } catch (e) {}
     if (simpan !== null) el.open = simpan === '1';
-    el.addEventListener('toggle', function () { try { localStorage.setItem('pkh-' + id, el.open ? '1' : '0'); } catch (e) {} });
+    el.addEventListener('toggle', function () { try { localStorage.setItem('pkh2-' + id, el.open ? '1' : '0'); } catch (e) {} });
   });
 
   /* ---------- popup Lihat detail: daftar resi belum per tahap ---------- */

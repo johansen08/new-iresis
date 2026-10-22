@@ -1,21 +1,49 @@
-<form action="report/export-to-excel-production-team-report-tab2" class="form-horizontal nojs" method="post" target="_blank">
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label">Rentang waktu</label>
-        <div class="col-md-3 col-xs-12">
-            <input type="text" name="reportrange" id="reportrange-production-team-tab2" class="form-control" />
-        </div>
-    </div>
+<style>
+    .ptr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .ptr-toolbar label { margin: 0; font-weight: 600; }
+    .ptr-toolbar .ptr-range { width: 340px; max-width: 100%; height: 30px; }
+    .ptr-toolbar .btn { padding: 4px 12px; }
+    .ptr-total { margin-left: auto; display: flex; align-items: baseline; gap: 8px; padding: 2px 14px; background: #f4f8fc; border-left: 4px solid #337ab7; border-radius: 3px; }
+    .ptr-total-label { color: #666; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }
+    .ptr-total-angka { font-size: 22px; font-weight: 700; color: #1f5f99; line-height: 1.3; }
+    .ptr-tabel table.dataTable tbody td, .ptr-tabel .dataTables_scrollHead th { padding: 3px 8px; vertical-align: middle; } 
+    .ptr-tabel table.dataTable tbody td { white-space: nowrap; }
+    .ptr-tabel .dataTables_scrollBody thead tr { height: 0; }
+    .ptr-tabel .dataTables_scrollBody thead th { padding: 0 8px !important; border: 0; line-height: 0; font-size: 0; height: 0 !important; border-width: 0 !important; }
+    .ptr-tabel .dataTables_scrollBody thead th::before, .ptr-tabel .dataTables_scrollBody thead th::after { display: none !important; }
+    .ptr-tabel .dataTables_scrollBody thead th .dataTables_sizing { height: 0; overflow: hidden; }
+    .ptr-tabel .dataTables_wrapper .dataTables_info { padding-top: 0; }
+    .ptr-tabel .dataTables_scrollBody { border-bottom: 1px solid #ddd; overflow-x: hidden !important; }
+    .ptr-tabel .dataTables_scrollBody table { margin-bottom: 0 !important; margin-top: -1px !important; }
+    .ptr-pegawai { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .ptr-pegawai .label { font-size: 10px; }
+    /* Perataan tepi: toolbar, kartu total, dan tabel berbagi tepi kiri/kanan yang sama */
+    .ptr-toolbar { margin-bottom: 8px; }
+    .ptr-total { height: 30px; padding: 0 12px; align-items: center; }
+    .ptr-total-angka { font-size: 20px; line-height: 1; }
+    .ptr-tabel .dataTables_info { float: left; padding: 0; line-height: 28px; }
+    .ptr-tabel .dataTables_filter { float: right; margin: 0 0 6px; }
+    .ptr-tabel .dataTables_filter label { margin: 0; display: flex; align-items: center; gap: 6px; }
+    .ptr-tabel .dataTables_filter input { height: 28px; margin: 0; }
+    .ptr-tabel .dataTables_scroll { clear: both; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; }
+    .ptr-tabel .dataTables_scrollBody { border-bottom: 0; }
+    .ptr-tabel .dataTables_scrollHead { border-bottom: 1px solid #ddd; }
+    .ptr-tabel .dataTables_length { float: left; margin-top: 6px; }
+    .ptr-tabel .dataTables_length label { margin: 0; display: flex; align-items: center; gap: 6px; }
+    .ptr-tabel .dataTables_length select { height: 28px; margin: 0; width: 64px; }
+    .ptr-tabel .dataTables_paginate { float: right; margin-top: 6px; }
+    .ptr-tabel .dataTables_paginate .pagination { margin: 0; }
+</style>
 
-    <div class="form-group">
-        <label class="col-md-3 col-xs-12 control-label"></label>
-        <div class="col-md-2 col-xs-12">
-            <button type="button" class="btn btn-info" id="btn-search-production-team-tab2">Tampilkan</button>
-            <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab2"><i class="fa fa-download"></i> Ekspor ke Excel</button>
-        </div>
+<form action="report/export-to-excel-production-team-report-tab2" class="form-horizontal nojs" method="post" target="_blank">
+    <div class="ptr-toolbar">
+        <label for="reportrange-production-team-tab2">Rentang waktu</label>
+        <input type="text" name="reportrange" id="reportrange-production-team-tab2" class="form-control ptr-range" />
+        <button type="button" class="btn btn-info" id="btn-search-production-team-tab2"><i class="fa fa-refresh"></i> Tampilkan</button>
+        <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab2"><i class="fa fa-download"></i> Ekspor ke Excel</button>
+        <div class="ptr-total" id="ptr-total-tab2"><span class="ptr-total-label">Grand Total</span><span class="ptr-total-angka" id="grand-total-tab2">-</span></div>
     </div>
 </form>
-
-<hr>
 
 <!-- Loading Overlay -->
 <div id="loading-overlay-tab2" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
@@ -28,16 +56,13 @@
     </div>
 </div>
 
-<div style="position: relative;">
+<div class="ptr-tabel" style="position: relative;">
     <table class="table table-striped" id="datatable-production-team-tab2">
         <thead>
         <tr>
-            <th colspan="2" style="text-align:right">Grand Total</th>
-            <th id="grand-total-tab2">-</th>
-        </tr>
-        <tr>
             <th>Pegawai</th>
             <th>Tanggal</th>
+            <th>Jam</th>
             <th>Jumlah</th>
             <th>Status</th>
         </tr>
@@ -79,6 +104,8 @@
             dom: '<if<t>lp>',
             'destroy': true,
             'pageLength': 50,
+            'scrollY': 'calc(100vh - 300px)',
+            'scrollCollapse': true,
             'processing': true,
             'serverSide': true,
             'order': [
@@ -99,6 +126,7 @@
             'columns': [
                 { data: 'pegawai' },
                 { data: 'tanggal' },
+                { data: 'tanggal' },
                 { data: 'total' },
                 { data: 'status_performa' }
             ],
@@ -109,31 +137,31 @@
                         // Assuming role for HO is stored as "ho", "admin", "gudang", etc.
                         var roleName = row.role ? row.role.toLowerCase() : '';
                         var isInti = (roleName.indexOf('ho') !== -1 || roleName.indexOf('admin') !== -1);
-                        var badgeClass = isInti ? 'label-info' : 'label-default';
+                        var badgeClass = isInti ? 'label-primary' : 'label-default';
                         var badgeText  = isInti ? 'HO Inti' : 'Perbantuan';
                         
-                        return '<div style="display:flex; align-items:center; gap:8px;">' +
-                               '<i class="fa fa-user-circle fa-2x text-muted" style="font-size:1.8em;"></i>' +
-                               '<div>' +
-                                  '<div style="font-weight:bold; font-size:14px;">' + data + '</div>' +
-                                  '<span class="label ' + badgeClass + '" style="font-size:11px; margin-top:2px; display:inline-block;">' + badgeText + '</span>' +
-                               '</div>' +
-                               '</div>';
+                        return '<div class="ptr-pegawai"><i class="fa fa-user-circle text-muted"></i><strong>' + data + '</strong><span class="label ' + badgeClass + '">' + badgeText + '</span></div>';
                     }
                 },
                 {
                     targets: 1,
-                    className: 'text-center'
+                    className: 'text-center',
+                    render: function (data) { return String(data).split(' ')[0]; }
                 },
                 {
                     targets: 2,
+                    className: 'text-center',
+                    render: function (data) { return String(data).split(' ')[1] || '-'; }
+                },
+                {
+                    targets: 3,
                     className: 'text-center',
                     render: function (data) {
                         return '<span class="badge" style="font-size:14px; background-color:#337ab7;">' + data + '</span>';
                     }
                 },
                 {
-                    targets: 3,
+                    targets: 4,
                     className: 'text-center',
                     render: function (data) {
                         var color = '#777';
@@ -162,6 +190,14 @@
                 $('#loading-overlay-tab2').css('display', 'flex');
             },
             'drawCallback': function() {
+                $('#datatable-production-team-tab2').DataTable().columns.adjust();
+
+                // Kolom Status disembunyikan bila semua baris "Tanpa Status"
+                var api = this.api();
+                var adaStatus = api.column(4).data().toArray().some(function(v) {
+                    return String(v).toUpperCase() !== 'TANPA STATUS';
+                });
+                api.column(4).visible(adaStatus, false);
                 // Hide loading after draw
                 $('#loading-overlay-tab2').hide();
                 
@@ -173,4 +209,7 @@
             }
         });
     });
+
+    // Langsung tampilkan data hari ini tanpa perlu klik Tampilkan
+    $('#btn-search-production-team-tab2').trigger('click');
 </script>
