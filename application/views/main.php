@@ -134,8 +134,6 @@
 						</div>					</div>
 				</li>
 
-				<li class="xn-title">Navigation</li>
-
 				<li class="xn-menu-cari">
 					<input type="search" id="cari-menu" placeholder="Cari menu..." autocomplete="off" aria-label="Cari menu">
 				</li>
@@ -851,6 +849,24 @@
             }
         });
 
+        // Standarisasi teks menu: Title Case; singkatan di daftar ini tetap kapital
+        var singkatan = ['HO', 'CS', 'QC', 'KPI', 'SKU', 'PO', 'SJ', 'SO', 'MP', 'OT', 'COD', 'WMS', 'ID', 'PDF', 'TV', 'RTS', 'NDD', 'HPP'];
+        function titleCase(s) {
+            return s.replace(/[A-Za-z]+/g, function(k) {
+                var u = k.toUpperCase();
+                return singkatan.indexOf(u) !== -1 ? u : u.charAt(0) + k.slice(1).toLowerCase();
+            });
+        }
+        $('.page-sidebar li > a').each(function() {
+            $(this).contents().each(function() {
+                if (this.nodeType === 3) {
+                    this.nodeValue = titleCase(this.nodeValue);
+                } else if ($(this).hasClass('xn-text')) {
+                    $(this).text(titleCase($(this).text()));
+                }
+            });
+        });
+
         // Aksesibilitas sidebar: landmark navigasi, aria-expanded pada grup, aria-current pada halaman aktif
         var $sidebar = $('.page-sidebar');
         $sidebar.attr({ role: 'navigation', 'aria-label': 'Menu utama' });
@@ -920,8 +936,15 @@
     .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-data-title { float: none; font-size: 10px; letter-spacing: 0; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .page-sidebar .x-navigation > li.xn-title { padding-top: 4px; padding-bottom: 2px; height: auto; line-height: 18px; }
     /* Hierarki: judul grup lebih tebal dan besar dari submenu */
-    .page-sidebar .x-navigation > li > a { font-size: 14px; font-weight: 700; }
-    .page-sidebar .x-navigation li li > a { font-size: 13px; font-weight: 500; }
+    .page-sidebar .x-navigation > li > a { font-size: 13px; font-weight: 700; padding: 7px 10px; margin: 1px 8px; width: calc(100% - 16px); border-radius: 8px; }
+    .page-sidebar .x-navigation li li > a { font-size: 12px; font-weight: 500; padding: 5px 6px 5px 8px; margin: 0 6px; width: calc(100% - 12px); border-radius: 6px; }
+    /* Ikon dan jarak antar menu dikecilkan agar scroll sidebar minimal */
+    .page-sidebar .x-navigation > li > a .fa, .page-sidebar .x-navigation > li > a .glyphicon { font-size: 14px; width: 20px; margin-right: 8px; }
+    .page-sidebar .x-navigation li li > a .fa, .page-sidebar .x-navigation li li > a .glyphicon { font-size: 11px; width: 16px; margin-right: 6px; }
+    .page-sidebar .x-navigation li { line-height: 1.3; }
+    .page-sidebar .x-navigation li li > a { white-space: normal; overflow: visible; text-overflow: clip; }
+    .page-sidebar .xn-menu-cari { padding: 4px 10px; }
+    .page-sidebar .xn-menu-cari input { padding: 4px 8px; font-size: 12px; }
     .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
     </style>
 </body>
