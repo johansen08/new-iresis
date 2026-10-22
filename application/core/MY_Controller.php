@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-22.4';
+    const BOOTSTRAP_VERSI = '2026-10-22.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.

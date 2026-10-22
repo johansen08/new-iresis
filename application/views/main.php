@@ -979,6 +979,10 @@
     #notif-list-container .list-group-item { white-space: normal; }
     #notif-list-container .notif-dibaca { opacity: .6; }
     #notif-ringkas { line-height: 20px; }
+    /* Sidebar diciutkan: hanya ikon, rata tengah, ukuran seragam (teks menu atas dibungkus xn-text dan disembunyikan tema) */
+    .page-sidebar .x-navigation.x-navigation-minimized > li:not(.xn-logo):not(.xn-profile) { border-left-width: 3px; }
+    .page-sidebar .x-navigation.x-navigation-minimized > li > a { display: flex; align-items: center; justify-content: center; width: calc(100% - 8px); margin: 1px 4px; padding: 7px 0; }
+    .page-sidebar .x-navigation.x-navigation-minimized > li > a .fa, .page-sidebar .x-navigation.x-navigation-minimized > li > a .glyphicon { flex: 0 0 auto; width: auto; margin: 0; font-size: 15px; }
     </style>
 </body>
 
