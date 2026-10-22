@@ -909,8 +909,8 @@
     .page-sidebar .xn-menu-cari input { width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
     .x-navigation-minimized .xn-menu-cari { display: none; }
     /* Header sidebar ringkas: menu diutamakan, logo/profil/status tidak boleh memakan ruang (hanya mode normal) */
-    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-logo { height: 44px; }
-    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-logo > a:first-child { height: 44px; line-height: 44px; padding-top: 0; padding-bottom: 0; font-size: 18px; }
+    /* Card logo BEVERRA dibuang dari sidebar (nama aplikasi sudah ada di judul tab); tombol kontrol tetap ada di DOM */
+    .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-logo { height: 0; min-height: 0; overflow: hidden; margin: 0; padding: 0; }
     .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile { display: flex; align-items: center; float: none; padding: 8px 12px; margin-bottom: 4px; border-bottom-right-radius: 12px; }
     .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image { float: none; width: 40px !important; height: 40px !important; margin: 0 10px 0 0 !important; border-width: 2px !important; flex: 0 0 auto; }
     .page-sidebar .x-navigation:not(.x-navigation-minimized) > li.xn-profile .profile-image img { border-width: 0; box-shadow: none; }
