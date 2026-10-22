@@ -248,6 +248,34 @@
   .pkh details.pkh-sec > summary{padding:10px 18px}
   .pkh-sum-title{font-size:17px}
 }
+/* Laptop (layar pendek, mis. 1366×768 / 1440×900): rapatkan lagi karena tinggi area halaman hanya ±550–700px */
+@media (min-width:1025px) and (max-height:900px){
+  .pkh{padding-top:8px;padding-bottom:10px;gap:8px}
+  .pkh-head{gap:4px 16px}
+  .pkh-head h1{font-size:21px}
+  .pkh-sub{margin-top:0;font-size:13.5px}
+  .pkh-ctrl input[type=date],.pkh-btn{height:32px}
+  .pkh-top,.pkh-stages{gap:10px}
+  .pkh-card{padding:9px 16px}
+  .pkh-label{font-size:11px}
+  .pkh-top .num{font-size:32px;margin-top:0}
+  .pkh-note{margin-top:2px;font-size:13px}
+  .pkh-parts{margin-top:4px;gap:0;font-size:13px}
+  .pkh-parts li{padding:1px 0}
+  .pkh-stage.key{padding:8px 14px}
+  .pkh-stage .num{font-size:26px}
+  .pkh-stage .pct{font-size:15px}
+  .pkh-stage .row-n{margin-top:2px}
+  .pkh-bar{height:8px;margin-top:4px}
+  .pkh-stage .left{margin-top:4px;font-size:13px}
+  .pkh-stage .left b{font-size:14px}
+  .pkh-stage .left-row{min-height:28px}
+  .pkh-lihat{height:26px}
+  .pkh details.pkh-sec > summary{padding:7px 16px}
+  .pkh-sum-title{font-size:16px}
+  .pkh-sum-meta{font-size:13px;margin-top:0}
+  .pkh-chev{width:22px;height:22px}
+}
 @media (max-width:720px){.pkh-top{grid-template-columns:1fr}}
 @media (max-width:640px){
   .pkh{padding:16px 16px 24px}
