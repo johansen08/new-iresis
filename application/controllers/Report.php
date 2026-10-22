@@ -64,6 +64,12 @@ class Report extends MY_Controller
 
 		$total = $this->receipt_fcd->get_total_data_receipt_process_tab0($data, $start_date, $end_date);
 
+		// Total resi wajib keluar hari ini (baris merah): hanya dihitung di draw pertama, tanpa filter pencarian
+		$wajib_total = null;
+		if ($this->input->post('hitung_wajib')) {
+			$wajib_total = $this->receipt_fcd->get_total_data_receipt_process_tab0(array('search' => ''), $start_date, $end_date, TRUE);
+		}
+
 		$i = $data['start'] + 1;
 		$data = array();
 		foreach ($list_resi->result() as $row) {
@@ -86,6 +92,7 @@ class Report extends MY_Controller
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
             "grandTotal" => $total, // Grand total = total records untuk resi proses
+			"wajibTotal" => $wajib_total,
             "data" => $data
         );
         echo json_encode($output);
@@ -138,6 +145,12 @@ class Report extends MY_Controller
 
 		$total = $this->receipt_fcd->get_total_data_receipt_process_tab1($data, $start_date, $end_date);
 
+		// Total resi wajib keluar hari ini (baris merah): hanya dihitung di draw pertama, tanpa filter pencarian
+		$wajib_total = null;
+		if ($this->input->post('hitung_wajib')) {
+			$wajib_total = $this->receipt_fcd->get_total_data_receipt_process_tab1(array('search' => ''), $start_date, $end_date, TRUE);
+		}
+
 		$i = $data['start'] + 1;
 		$data = array();
 		foreach ($list_resi->result() as $row) {
@@ -162,6 +175,7 @@ class Report extends MY_Controller
             "recordsTotal" => $total,
             "recordsFiltered" => $total,
             "grandTotal" => $total, // Grand total = total records untuk resi proses
+			"wajibTotal" => $wajib_total,
             "data" => $data
         );
         echo json_encode($output);
@@ -215,6 +229,12 @@ class Report extends MY_Controller
 
 		$total = $this->receipt_fcd->get_total_data_receipt_process_tab2($data, $start_date, $end_date);
 
+		// Total resi wajib keluar hari ini (baris merah): hanya dihitung di draw pertama, tanpa filter pencarian
+		$wajib_total = null;
+		if ($this->input->post('hitung_wajib')) {
+			$wajib_total = $this->receipt_fcd->get_total_data_receipt_process_tab2(array('search' => ''), $start_date, $end_date, TRUE);
+		}
+
 		$i = $data['start'] + 1;
 		$data = array();
 		foreach ($list_resi->result() as $row) {
@@ -240,6 +260,7 @@ class Report extends MY_Controller
 			"recordsTotal" => $total,
 			"recordsFiltered" => $total,
 			"grandTotal" => $total, // Grand total = total records untuk resi proses
+			"wajibTotal" => $wajib_total,
 			"data" => $data
 		);
 		echo json_encode($output);
