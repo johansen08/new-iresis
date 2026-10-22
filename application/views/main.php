@@ -859,8 +859,18 @@
                 $(this).children('a').attr('aria-expanded', $(this).hasClass('active') ? 'true' : 'false');
             });
             $sidebar.find('a.link').removeAttr('aria-current');
-            $sidebar.find('li.active > a.link').attr('aria-current', 'page');
+            $sidebar.find('li.halaman-aktif > a.link').attr('aria-current', 'page');
         }
+
+        // Tandai halaman yang sedang dibuka (navigasi SPA tidak mengubah URL, jadi tidak ada penanda lain)
+        // Fase capture: handler menu lain menghentikan propagasi klik, jadi delegasi jQuery tidak sampai
+        $sidebar[0].addEventListener('click', function(e) {
+            var tautan = $(e.target).closest('a.link');
+            if (!tautan.length) { return; }
+            $sidebar.find('li.halaman-aktif').removeClass('halaman-aktif');
+            tautan.parent().addClass('halaman-aktif');
+            sinkronAria();
+        }, true);
         sinkronAria();
         if (window.MutationObserver) {
             new MutationObserver(sinkronAria).observe($sidebar[0], { subtree: true, attributes: true, attributeFilter: ['class'] });
@@ -898,6 +908,10 @@
     .page-sidebar .xn-menu-cari { padding: 6px 12px; }
     .page-sidebar .xn-menu-cari input { width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
     .x-navigation-minimized .xn-menu-cari { display: none; }
+    /* Hierarki: judul grup lebih tebal dan besar dari submenu */
+    .page-sidebar .x-navigation > li > a { font-size: 14px; font-weight: 700; }
+    .page-sidebar .x-navigation li li > a { font-size: 13px; font-weight: 500; }
+    .page-sidebar .x-navigation li.halaman-aktif > a { background: rgba(37, 99, 235, .12); color: #1d4ed8; box-shadow: inset 3px 0 0 #2563eb; }
     </style>
 </body>
 
