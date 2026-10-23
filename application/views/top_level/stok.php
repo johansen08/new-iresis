@@ -15,7 +15,7 @@ $this->load->view('top_level/_dasar'); ?>
     '<div class="tl-ph"><div class="t"><h1>Stok Top Level</h1>' +
     T.info('Total stok top level per SKU.\nKlik Detail untuk melihat stok per rak.\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
     '</div></div><div class="tl-tb"><label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU" autocomplete="off"></label></div>' +
-    '<section class="tl-panel" id="tl-tabel"></section>'
+    '<section class="tl-panel tl-narrow" id="tl-tabel"></section>'
   );
 
   function tabel() {
