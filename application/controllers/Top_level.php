@@ -42,7 +42,21 @@ class Top_level extends MY_Controller
 
     // ------------------------------------------------------------ Input Top Level
 
-    /** Rekomendasi nama tim Restok (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    /** Rekomendasi nama petugas list dan petugas input (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    /** Pemeriksaan duplikat langsung saat mengetik: baris yang SKU + rak-nya sudah tersimpan dengan stok. */
+    public function input_cek()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $rows = $this->input->post('rows');
+        $dobel = $this->top_level_fcd->cek_duplikat(is_array($rows) ? array_values($rows) : array());
+        $keluar = array();
+        foreach ($dobel as $k => $qty) {
+            list($sku, $rak) = explode('|', $k, 2);
+            $keluar[] = array('sku' => $sku, 'rak' => $rak, 'qty' => $qty);
+        }
+        $this->make_ajax_response(200, 'OK', array('rows' => $keluar));
+    }
+
     public function input_tim()
     {
         $this->_wajib(self::URI_INPUT);
@@ -60,8 +74,8 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_INPUT);
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('tim'), is_array($rows) ? array_values($rows) : array(), $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty']) : array());
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'));
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal']) : array());
     }
 
     public function stok()
