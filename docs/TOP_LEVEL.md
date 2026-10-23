@@ -17,6 +17,7 @@ ditulis tangan di slip, lalu diinput CS.
 | Upload Top Level | TIM CS | `cs/upload-top-level` | `Top_level::upload` | CS |
 | Stok Top Level | TIM CS | `cs/stok-top-level` | `Top_level::stok` | CS |
 | Input Top Level | TIM CS | `cs/input-top-level` | `Top_level::input_form` | CS |
+| Daftar Transfer Top Level | TIM CS | `cs/daftar-transfer-top-level` | `Top_level::transfer_form` | CS |
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
 Hak akses menu baru disalin dari menu saudara (`picker/scan_picker` untuk Picker,
@@ -58,9 +59,12 @@ petugas input) lebih dulu, lalu pegawai aktif (`tblpegawai.status_aktif = 'AKTIF
 `tbltoplevel_transfer.nama_tim` (petugas list) dan `nama_input` (kolom baru, migrasi 2026-10-23.4). Pada Upload
 Excel kedua kolom diisi dari NAMA LIST dan NAMA INPUT (beberapa nama digabung koma, tidak ikut disarankan).
 Teks bebas tetap diterima. Kolom SKU juga bersaran, hanya kode SKU (tanpa nama produk).
-**Tanggal input** bawaannya hari ini, boleh diubah ke tanggal lampau tetapi tidak ke masa depan; disimpan di
-`tbltoplevel_transfer.tgl_input` (kolom ditambahkan migrasi 2026-10-23.3, transfer lama dibiarkan NULL).
-Tombol **Simpan** membuka dialog konfirmasi (tim, tanggal, total, daftar baris) sebelum benar-benar menyimpan.
+Tiap petugas punya tanggalnya: **Tanggal list** (pasangan Petugas List, kolom TGL LIST di Excel) dan
+**Tanggal input** (pasangan Petugas Input, kolom TGL INPUT). Bawaannya hari ini, boleh ke tanggal lampau tetapi
+tidak ke masa depan, dan tanggal list tidak boleh setelah tanggal input. Disimpan di `tbltoplevel_transfer.tgl_list`
+(migrasi 2026-10-23.5) dan `tgl_input` (migrasi 2026-10-23.3); transfer lama dibiarkan NULL. Pada Upload Excel
+keduanya diisi dari tanggal terawal di kolom TGL LIST dan TGL INPUT.
+Tombol **Simpan** membuka dialog konfirmasi (petugas dan tanggalnya, total, daftar baris) sebelum benar-benar menyimpan.
 Nomor selalu melanjutkan nomor terakhir tahun berjalan, terlepas dari tanggal input.
 
 **Guard duplikat.** Input Top Level bukan penambahan stok. SKU + no rak (rak tak peka huruf besar-kecil) yang
@@ -84,6 +88,15 @@ penghitung terkunci sampai commit, jadi tidak ada nomor ganda dan tidak ada luba
 `uq_nomor` dan `uq_tahun_urut` menjaga di level database. Nomor tampil di hasil simpan Input dan Upload,
 panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `tbltoplevel_transfer_baris`
 (`qty_sebelum`, `qty_sesudah`).
+
+## Daftar Transfer Top Level
+
+Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas: nomor, arah (Masuk/Keluar), sumber dan ref
+(Input, Upload Excel `UP-…`, Request `RT-…`, Koreksi), petugas list dan petugas input beserta tanggalnya, jumlah
+baris dan qty, serta waktu dibuat sampai detik. Filter arah (Semua, Masuk, Keluar), rentang tanggal input
+(`tgl_input`), dan pencarian (nomor, nama petugas, ref, atau SKU di baris transfer; karakter `%` dan `_` dicari
+apa adanya). Paging 25/50/100 baris dan ringkasan total qty masuk dan keluar sesuai filter. Klik baris atau
+Detail untuk rincian per SKU dan rak (qty, stok sebelum, stok sesudah). Hanya membaca, tidak mengubah data.
 
 ## Tabel
 

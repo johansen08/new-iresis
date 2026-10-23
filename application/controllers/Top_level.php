@@ -16,6 +16,7 @@ class Top_level extends MY_Controller
     const URI_UPLOAD  = 'cs/upload-top-level';
     const URI_STOK    = 'cs/stok-top-level';
     const URI_INPUT   = 'cs/input-top-level';
+    const URI_TRANSFER = 'cs/daftar-transfer-top-level';
 
     public function __construct()
     {
@@ -74,8 +75,32 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_INPUT);
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'));
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal']) : array());
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'));
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal'], 'tanggal_list' => $h['tanggal_list']) : array());
+    }
+
+    // ------------------------------------------------------------ Daftar Transfer Top Level
+
+    public function transfer_form()
+    {
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_TRANSFER), 'hari_ini' => date('Y-m-d')), 'top_level/transfer');
+    }
+
+    public function transfer_data()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $h = $this->top_level_fcd->daftar_transfer(
+            (string) $this->input->post('arah'), $this->input->post('q'), (string) $this->input->post('dari'),
+            (string) $this->input->post('sampai'), $this->input->post('halaman'), $this->input->post('ukuran')
+        );
+        $this->make_ajax_response(200, 'OK', $h);
+    }
+
+    public function transfer_detail()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $d = $this->top_level_fcd->detail_transfer((int) $this->input->post('id'));
+        $d === null ? $this->make_ajax_response(404, 'Transfer tidak ditemukan.') : $this->make_ajax_response(200, 'OK', array('d' => $d));
     }
 
     public function stok()
