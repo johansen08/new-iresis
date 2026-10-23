@@ -64,7 +64,9 @@
 .dr .step.cur .dot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .dr .step.stop .dot{background:var(--bad);border-color:var(--bad);color:var(--surface)}
 .dr .step .nm{font-weight:600;font-size:13.5px}
-.dr .step .tm{font:500 13.5px var(--mono);color:var(--fg)}
+.dr .step .tm{font:500 13px var(--mono);color:var(--fg)}
+.dr .step .kom{font-size:12.5px;color:var(--muted)}
+.dr .step .kom b{color:var(--fg);font-weight:600}
 .dr .step .pic{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dr .step.todo .nm,.dr .step.todo .tm{color:var(--faint)}
 .dr .main{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}

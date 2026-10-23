@@ -26,7 +26,7 @@ $fd = function ($v) use ($ada, $bulan) {
     }
     $tanggal = date('j', $t) . ' ' . $bulan[(int) date('n', $t) - 1] . ' ' . date('Y', $t);
     // Kolom bertipe tanggal (mis. tgl komplain) berjam 00:00 -- jam tidak ditampilkan.
-    return date('H:i:s', $t) === '00:00:00' ? $tanggal : $tanggal . ' ' . date('H:i', $t);
+    return date('H:i:s', $t) === '00:00:00' ? $tanggal : $tanggal . ' ' . date('H:i:s', $t);
 };
 $fd_pendek = function ($v) use ($ada, $bulan) {
     if (!$ada($v)) {
@@ -96,8 +96,8 @@ if ($retur_ada) {
 // Alur: enam langkah. Langkah berikutnya setelah yang terakhir terisi = "sedang berjalan" (atau ✕ bila CANCELED).
 $langkah = [
     ['Resi diproses', $r['tanggal_printresi'], $r['admin'], 'Resi masuk ke sistem. BOT berarti masuk lewat unggah otomatis.'],
-    ['Scan picker', $ambil ? $ambil['tgl'] : null, $ambil ? $ambil['nama'] : null, null],
-    ['Scan packer', $pack ? $pack['tgl'] : null, $pack ? $pack['nama'] : null, null],
+    ['Scan picker', $ambil ? $ambil['tgl'] : null, $ambil ? $ambil['nama'] : null, null, $ambil ? $ambil['nama_komputer'] : null],
+    ['Scan packer', $pack ? $pack['tgl'] : null, $pack ? $pack['nama'] : null, null, ($pack && !$pack['sync'] && !$pack['lost']) ? $pack['komputer'] : null],
     ['Scan HO', $tgl_ho, $ho ? $ho['nama'] : null, null],
     ['Selesai', $r['tanggal_selesai'], null, 'Tanggal pesanan selesai di marketplace.'],
     ['Dana cair', $r['tanggal_pencairan'], null, 'Diisi dari unggah Excel pencairan. Kosong bila belum diunggah.'],
@@ -159,6 +159,7 @@ foreach ($d['items'] as $it) {
       <div class="nm"><?= $e($l[0]) ?><?= $l[3] ? ' ' . $info($l[3]) : '' ?></div>
       <div class="tm"><?= $isi ? $e($fd($l[1])) : 'belum' ?></div>
       <div class="pic" title="<?= $e($l[2]) ?>"><?= $e($l[2]) ?>&nbsp;</div>
+      <div class="kom"><?= !empty($l[4]) ? 'Komputer <b class="mono">' . $e($l[4]) . '</b>' : '' ?>&nbsp;</div>
     </div>
   <?php endforeach; ?>
 </section>
