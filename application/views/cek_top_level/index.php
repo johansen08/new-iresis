@@ -49,12 +49,12 @@ $this->load->view('top_level/_dasar'); ?>
   function hasil() {
     if (!resi) { $('#tl-hasil').empty(); return; }
     var h = '<section class="tl-panel tl-cekpanel"><div class="tl-shead"><div class="l"><h2 class="mono">' + T.esc(resi.noresi) + '</h2>' +
-      (resi.mp ? T.pill(resi.mp) : '') + '</div></div><div class="tl-tw"><table class="tl-tbl"><thead><tr><th>SKU</th><th>Rak display</th><th>Status</th><th></th></tr></thead><tbody>';
+      (resi.mp ? T.pill(resi.mp) : '') + '</div></div><div class="tl-tw"><table class="tl-tbl"><thead><tr><th>SKU</th><th>Rak display</th><th class="mid">Aksi</th><th>Status</th></tr></thead><tbody>';
     $.each(resi.items, function (i, it) {
       var r = it.request, live = r && r.status !== 'SELESAI' && r.status !== 'BATAL', p = r ? PK[r.status] : null;
-      h += '<tr><td><b class="mono">' + T.esc(it.sku) + '</b></td><td class="mono">' + T.esc(it.no_rak) + '</td><td>' +
-        (live ? T.pill(p[0], p[1]) + ' <span class="mono muted">' + T.esc(r.kode) + '</span>' : '') + '</td><td class="mid">' +
-        (live ? '' : '<button type="button" class="tl-btn pri lg" data-cek="' + T.esc(it.sku) + '">Cek</button>') + '</td></tr>';
+      h += '<tr><td><b class="mono">' + T.esc(it.sku) + '</b></td><td class="mono">' + T.esc(it.no_rak) + '</td><td class="mid">' +
+        (live ? '' : '<button type="button" class="tl-btn pri lg" data-cek="' + T.esc(it.sku) + '">Cek</button>') + '</td><td>' +
+        (live ? T.pill(p[0], p[1]) + ' <span class="mono muted">' + T.esc(r.kode) + '</span>' : '') + '</td></tr>';
     });
     $('#tl-hasil').html(h + '</tbody></table></div></section>');
   }
