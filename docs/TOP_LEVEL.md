@@ -17,6 +17,7 @@ ditulis tangan di slip, lalu diinput CS.
 | Upload Top Level | TIM CS | `cs/upload-top-level` | `Top_level::upload` | CS |
 | Stok Top Level | TIM CS | `cs/stok-top-level` | `Top_level::stok` | CS |
 | Input Top Level | TIM CS | `cs/input-top-level` | `Top_level::input_form` | CS |
+| Daftar Transfer Top Level | TIM CS | `cs/daftar-transfer-top-level` | `Top_level::transfer_form` | CS |
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
 Hak akses menu baru disalin dari menu saudara (`picker/scan_picker` untuk Picker,
@@ -87,6 +88,15 @@ penghitung terkunci sampai commit, jadi tidak ada nomor ganda dan tidak ada luba
 `uq_nomor` dan `uq_tahun_urut` menjaga di level database. Nomor tampil di hasil simpan Input dan Upload,
 panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `tbltoplevel_transfer_baris`
 (`qty_sebelum`, `qty_sesudah`).
+
+## Daftar Transfer Top Level
+
+Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas: nomor, arah (Masuk/Keluar), sumber dan ref
+(Input, Upload Excel `UP-…`, Request `RT-…`, Koreksi), petugas list dan petugas input beserta tanggalnya, jumlah
+baris dan qty, serta waktu dibuat sampai detik. Filter arah (Semua, Masuk, Keluar), rentang tanggal input
+(`tgl_input`), dan pencarian (nomor, nama petugas, ref, atau SKU di baris transfer; karakter `%` dan `_` dicari
+apa adanya). Paging 25/50/100 baris dan ringkasan total qty masuk dan keluar sesuai filter. Klik baris atau
+Detail untuk rincian per SKU dan rak (qty, stok sebelum, stok sesudah). Hanya membaca, tidak mengubah data.
 
 ## Tabel
 

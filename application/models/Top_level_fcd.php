@@ -925,6 +925,66 @@ class Top_level_fcd extends CI_Model
         return array('ok' => true, 'kode' => $kode, 'nomor' => $nomor, 'baris' => count($ok), 'qty' => $qty_total, 'lewat' => count($baris) - count($ok));
     }
 
+    // ------------------------------------------------------------ CS: Daftar Transfer Top Level
+
+    /**
+     * Daftar transfer (nomor TTL) terbaru lebih dulu, dengan filter arah, rentang tanggal input, dan pencarian.
+     * Pencarian cocok pada nomor, nama petugas, ref, atau SKU di baris transfer.
+     *
+     * @return array ['rows' => [...], 'total' => int, 'halaman' => int, 'ukuran' => int, 'ringkas' => ['masuk'=>qty, 'keluar'=>qty]]
+     */
+    public function daftar_transfer($arah, $cari, $dari, $sampai, $halaman, $ukuran = 50)
+    {
+        $halaman = max(1, (int) $halaman);
+        $ukuran = in_array((int) $ukuran, array(25, 50, 100), true) ? (int) $ukuran : 50;
+        $tgl_ok = function ($t) { $d = \DateTime::createFromFormat('Y-m-d', (string) $t); return $d && $d->format('Y-m-d') === $t; };
+
+        $saring = function () use ($arah, $cari, $dari, $sampai, $tgl_ok) {
+            if (in_array($arah, array('MASUK', 'KELUAR'), true)) {
+                $this->db->where('t.arah', $arah);
+            }
+            if ($tgl_ok($dari)) $this->db->where('t.tgl_input >=', $dari);
+            if ($tgl_ok($sampai)) $this->db->where('t.tgl_input <=', $sampai);
+            $cari = trim((string) $cari);
+            if ($cari !== '') {
+                $like = $this->db->escape('%' . $this->db->escape_like_str($cari) . '%');
+                $this->db->where(
+                    "(t.nomor LIKE $like OR t.nama_tim LIKE $like OR t.nama_input LIKE $like OR t.ref LIKE $like
+                      OR EXISTS (SELECT 1 FROM tbltoplevel_transfer_baris b WHERE b.id_transfer = t.id AND b.sku LIKE $like))",
+                    null, false
+                );
+            }
+        };
+
+        $saring();
+        $total = (int) $this->db->from('tbltoplevel_transfer t')->count_all_results();
+
+        $saring();
+        $rows = $this->db->select('t.id, t.nomor, t.arah, t.sumber, t.nama_tim, t.nama_input, t.ref, t.tgl_list, t.tgl_input, t.dibuat_at, t.dibuat_by, t.jumlah_baris, t.jumlah_qty')
+            ->from('tbltoplevel_transfer t')->order_by('t.id', 'DESC')->limit($ukuran, ($halaman - 1) * $ukuran)->get()->result_array();
+
+        $saring();
+        $r = $this->db->select("COALESCE(SUM(CASE WHEN t.arah = 'MASUK' THEN t.jumlah_qty END), 0) AS masuk, COALESCE(SUM(CASE WHEN t.arah = 'KELUAR' THEN t.jumlah_qty END), 0) AS keluar", false)
+            ->from('tbltoplevel_transfer t')->get()->row();
+
+        return array('rows' => $rows, 'total' => $total, 'halaman' => $halaman, 'ukuran' => $ukuran,
+            'ringkas' => array('masuk' => (int) $r->masuk, 'keluar' => (int) $r->keluar));
+    }
+
+    /** Satu transfer beserta barisnya per SKU dan rak. NULL bila tidak ada. */
+    public function detail_transfer($id)
+    {
+        $t = $this->db->get_where('tbltoplevel_transfer', array('id' => (int) $id))->row_array();
+        if (!$t) {
+            return null;
+        }
+        $t['baris'] = $this->db->query(
+            'SELECT sku, no_rak AS rak, qty, qty_sebelum AS sebelum, qty_sesudah AS sesudah
+             FROM tbltoplevel_transfer_baris WHERE id_transfer = ? ORDER BY id', array((int) $id)
+        )->result_array();
+        return $t;
+    }
+
     /** Peta ref (RT-0001 / UP-0001) => nomor transfer untuk satu sumber. */
     private function nomor_transfer_per_ref($sumber)
     {

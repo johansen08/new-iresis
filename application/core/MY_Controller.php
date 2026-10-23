@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-23.5';
+    const BOOTSTRAP_VERSI = '2026-10-23.6';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2162,6 +2162,8 @@ class MY_Controller extends CI_Controller
                 'Unggah Excel stok top level dari tim Restok (header baris 3).', 'masalah-picker-new'),
             array('TIM CS', 'Stok Top Level', 'cs/stok-top-level', 'fa fa-database', 62,
                 'Total stok top level per SKU dan rincian per rak.', 'masalah-picker-new'),
+            array('TIM CS', 'Daftar Transfer Top Level', 'cs/daftar-transfer-top-level', 'fa fa-exchange', 64,
+                'Daftar nomor transfer TTL-TAHUN-NNNNN (masuk dan keluar) beserta rincian per SKU dan rak.', 'masalah-picker-new'),
             array('TIM CS', 'Input Top Level', 'cs/input-top-level', 'fa fa-pencil-square-o', 63,
                 'Input manual stok top level dari tim Restok; menghasilkan nomor transfer TTL-TAHUN-NNNNN.', 'masalah-picker-new'),
         );
