@@ -131,6 +131,37 @@ class Top_level_fcd extends CI_Model
         return array_slice(array_values($hasil), 0, 10);
     }
 
+    /**
+     * Pasangan SKU + no rak yang sudah tersimpan dengan qty bukan nol.
+     *
+     * @param array $pasang [['sku'=>, 'rak'=>], ...] (rak dibandingkan huruf besar)
+     * @return array peta 'SKU|RAK' => qty tersimpan
+     */
+    public function cek_duplikat(array $pasang)
+    {
+        $kondisi = array();
+        $bind = array();
+        foreach ($pasang as $p) {
+            $sku = trim((string) (isset($p['sku']) ? $p['sku'] : ''));
+            $rak = strtoupper(trim((string) (isset($p['rak']) ? $p['rak'] : '')));
+            if ($sku === '' || $rak === '') continue;
+            $kondisi[] = '(sku = ? AND no_rak = ?)';
+            $bind[] = $sku;
+            $bind[] = $rak;
+        }
+        $hasil = array();
+        foreach (array_chunk($kondisi, 100) as $i => $potong) {
+            $q = $this->db->query(
+                'SELECT sku, no_rak, qty FROM tbltoplevel WHERE qty <> 0 AND (' . implode(' OR ', $potong) . ')',
+                array_slice($bind, $i * 200, count($potong) * 2)
+            );
+            foreach ($q->result() as $r) {
+                $hasil[$r->sku . '|' . strtoupper($r->no_rak)] = (int) $r->qty;
+            }
+        }
+        return $hasil;
+    }
+
     /** Saran SKU saat mengetik: kode SKU saja (awalan lebih dulu, lalu yang memuat ketikan). */
     public function cari_sku($q)
     {
@@ -209,11 +240,26 @@ class Top_level_fcd extends CI_Model
             }
         }
 
+        // Guard duplikat: SKU + no rak yang sudah tersimpan dengan qty bukan nol tidak boleh diinput lagi.
+        // Input ini bukan penambahan; koreksi stok memakai Edit di Stok Top Level.
+        $dobel = $this->cek_duplikat($bersih);
+        if ($dobel) {
+            $baris_dobel = array();
+            foreach ($bersih as $b) {
+                if (isset($dobel[$b['sku'] . '|' . $b['rak']])) $baris_dobel[] = $b['baris'];
+            }
+            return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU dan no rak di baris ' . implode(', ', $baris_dobel) . ' sudah tersimpan dengan stok. Koreksi lewat Edit di Stok Top Level.');
+        }
+
         $this->db->trans_start();
         $lines = array();
         foreach ($bersih as $b) {
             $row = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['rak']))->row();
             $lama = $row ? (int) $row->qty : 0;
+            if ($lama !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
+                $this->db->trans_rollback();
+                return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU ' . $b['sku'] . ' di rak ' . $b['rak'] . ' baru saja tersimpan dengan stok ' . $lama . '.');
+            }
             $this->db->query(
                 'INSERT INTO tbltoplevel (sku, no_rak, qty, updated_at) VALUES (?, ?, ?, NOW())
                  ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty), updated_at = VALUES(updated_at)',

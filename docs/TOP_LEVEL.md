@@ -51,13 +51,20 @@ Maksimal 5.000 baris per file.
 ## Input Top Level dan nomor transfer
 
 **Input Top Level** memasukkan stok top level secara manual: nama tim Restok, lalu baris SKU, no rak, qty
-(qty ditambahkan ke rak, rak baru dibuat). Nama tim punya kotak saran yang mengikuti ketikan: yang terakhir
+(rak baru dibuat otomatis; SKU + rak yang sudah punya stok ditolak sebagai duplikat). Nama tim punya kotak saran yang mengikuti ketikan: yang terakhir
 dipakai di tbltoplevel_transfer lebih dulu, lalu pegawai aktif (`tblpegawai.status_aktif = 'AKTIF'`) yang cocok.
 Teks bebas tetap diterima. Kolom SKU juga bersaran, hanya kode SKU (tanpa nama produk).
 **Tanggal input** bawaannya hari ini, boleh diubah ke tanggal lampau tetapi tidak ke masa depan; disimpan di
 `tbltoplevel_transfer.tgl_input` (kolom ditambahkan migrasi 2026-10-23.3, transfer lama dibiarkan NULL).
 Tombol **Simpan** membuka dialog konfirmasi (tim, tanggal, total, daftar baris) sebelum benar-benar menyimpan.
 Nomor selalu melanjutkan nomor terakhir tahun berjalan, terlepas dari tanggal input.
+
+**Guard duplikat.** Input Top Level bukan penambahan stok. SKU + no rak (rak tak peka huruf besar-kecil) yang
+sudah tersimpan di `tbltoplevel` dengan qty bukan nol dianggap duplikat: barisnya langsung merah saat mengetik
+(`cs/input-top-level/cek`), begitu juga baris yang sama dengan baris lain di form yang sama, dan Simpan
+ditolak (server memeriksa lagi sebelum transaksi dan di dalam transaksi dengan `FOR UPDATE`, jadi satu baris
+duplikat menggagalkan seluruh transfer). Pasangan yang stoknya 0 boleh diinput lagi. Koreksi stok yang sudah ada
+dilakukan lewat Edit di Stok Top Level. Guard ini hanya untuk Input; Upload Excel tetap menambah qty.
 
 Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**, masuk maupun keluar:
 

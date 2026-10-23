@@ -43,6 +43,20 @@ class Top_level extends MY_Controller
     // ------------------------------------------------------------ Input Top Level
 
     /** Rekomendasi nama tim Restok (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    /** Pemeriksaan duplikat langsung saat mengetik: baris yang SKU + rak-nya sudah tersimpan dengan stok. */
+    public function input_cek()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $rows = $this->input->post('rows');
+        $dobel = $this->top_level_fcd->cek_duplikat(is_array($rows) ? array_values($rows) : array());
+        $keluar = array();
+        foreach ($dobel as $k => $qty) {
+            list($sku, $rak) = explode('|', $k, 2);
+            $keluar[] = array('sku' => $sku, 'rak' => $rak, 'qty' => $qty);
+        }
+        $this->make_ajax_response(200, 'OK', array('rows' => $keluar));
+    }
+
     public function input_tim()
     {
         $this->_wajib(self::URI_INPUT);

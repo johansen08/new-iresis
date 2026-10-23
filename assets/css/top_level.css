@@ -133,3 +133,8 @@
 @media (max-width:560px){.tl-head2{grid-template-columns:minmax(0,1fr)}}
 .tl .tl-head2 input[type=date]{background:#fff;border:1px solid var(--tl-line);border-radius:6px;padding:7px 10px;font-size:14px;color:var(--tl-ink);height:auto;box-shadow:none}
 .tl .tl-head2 input[type=text],.tl .tl-head2 input[type=date]{height:38px;box-sizing:border-box}
+.tl-dupmsg{grid-column:1/-1;display:none;font-size:12.5px;font-weight:500;color:var(--tl-bad);align-items:center;gap:6px}
+.tl-line.bad{background:var(--tl-bad-bg)}
+.tl-line.bad .tl-dupmsg{display:flex}
+.tl .tl-line.bad input{border-color:var(--tl-bad);background:#fff}
+.tl-line.bad .tl-ib{color:var(--tl-bad)}

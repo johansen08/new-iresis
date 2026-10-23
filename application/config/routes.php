@@ -561,3 +561,4 @@ $route['cs/input-top-level']           = 'top_level/input_form';
 $route['cs/input-top-level/tim']       = 'top_level/input_tim';
 $route['cs/input-top-level/sku']       = 'top_level/input_sku';
 $route['cs/input-top-level/simpan']    = 'top_level/input_simpan';
+$route['cs/input-top-level/cek']       = 'top_level/input_cek';
