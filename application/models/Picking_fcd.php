@@ -226,7 +226,7 @@ class Picking_fcd extends CI_Model
      * nama ("NAMA - JABATAN - NOABSEN"). Master Picker ikut diisi pegawai
      * dari departemen lain (QC, INB, HVN, HO, dll, lihat SELECT manual 6 Okt
      * 2026) yang pernah dipakai sebagai cadangan picker -- saran di menu ini
-     * sengaja tidak menampilkan mereka. Format hasil sama dengan roster lost
+     * sengaja tidak menampilkan mereka, kecuali FADILLAH (QC). Format hasil sama dengan roster lost
      * scan (Scan_paket_ndd_new_fcd::roster_picker()) supaya pola ketik-no-
      * absen/nama-nya konsisten di seluruh aplikasi.
      */
@@ -244,7 +244,12 @@ class Picking_fcd extends CI_Model
             $nama = array_shift($bagian);
             $role = $bagian ? implode(' - ', $bagian) : '-';
 
-            if (strcasecmp($role, 'PICKER') !== 0) {
+            // Pengecualian: FADILLAH (QC) boleh dipilih di Upload Resi Spesial
+            // walau jabatannya bukan PICKER.
+            $qc_diizinkan = strcasecmp($role, 'QC') === 0
+                && strcasecmp($nama, 'FADILLAH') === 0;
+
+            if (strcasecmp($role, 'PICKER') !== 0 && !$qc_diizinkan) {
                 continue;
             }
 
