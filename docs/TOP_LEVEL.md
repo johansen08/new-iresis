@@ -53,7 +53,11 @@ Maksimal 5.000 baris per file.
 **Input Top Level** memasukkan stok top level secara manual: nama tim Restok, lalu baris SKU, no rak, qty
 (qty ditambahkan ke rak, rak baru dibuat). Nama tim punya kotak saran yang mengikuti ketikan: yang terakhir
 dipakai di tbltoplevel_transfer lebih dulu, lalu pegawai aktif (`tblpegawai.status_aktif = 'AKTIF'`) yang cocok.
-Teks bebas tetap diterima. Kolom SKU juga bersaran (awalan kode atau bagian nama, beserta rak display).
+Teks bebas tetap diterima. Kolom SKU juga bersaran, hanya kode SKU (tanpa nama produk).
+**Tanggal input** bawaannya hari ini, boleh diubah ke tanggal lampau tetapi tidak ke masa depan; disimpan di
+`tbltoplevel_transfer.tgl_input` (kolom ditambahkan migrasi 2026-10-23.3, transfer lama dibiarkan NULL).
+Tombol **Simpan** membuka dialog konfirmasi (tim, tanggal, total, daftar baris) sebelum benar-benar menyimpan.
+Nomor selalu melanjutkan nomor terakhir tahun berjalan, terlepas dari tanggal input.
 
 Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**, masuk maupun keluar:
 

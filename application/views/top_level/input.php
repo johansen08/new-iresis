@@ -22,19 +22,21 @@ $this->load->view('top_level/_dasar'); ?>
     if (selesai) {
       $r.html(judul() + '<section class="tl-panel"><div class="tl-res" style="padding:36px 16px"><div class="ring ok">' + T.ic('check', 26) + '</div>' +
         '<span class="muted">Nomor transfer</span><b class="mono tl-ttl">' + T.esc(selesai.nomor) + '</b>' +
-        '<span class="muted">' + selesai.baris + ' baris · ' + selesai.qty + ' pcs masuk ke stok top level</span>' +
+        '<span class="muted">' + selesai.baris + ' baris · ' + selesai.qty + ' pcs · ' + tglIndo(selesai.tanggal) + '</span>' +
         '<div style="display:flex;gap:8px;margin-top:6px"><button type="button" class="tl-btn" data-salin>Salin nomor</button><button type="button" class="tl-btn" data-lagi>Input lagi</button>' +
         '<button type="button" class="tl-btn pri" data-stok>Lihat Stok Top Level</button></div></div></section>');
       return;
     }
-    var h = judul() + '<section class="tl-panel tl-pad"><div class="tl-fld" style="max-width:420px"><label for="tl-tim" class="tl-lbl">Tim Restok</label>' +
-      '<div><input type="text" id="tl-tim" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div></div></section>' +
+    var h = judul() + '<section class="tl-panel tl-pad"><div class="tl-head2"><div class="tl-fld"><label for="tl-tim" class="tl-lbl">Tim Restok</label>' +
+      '<div><input type="text" id="tl-tim" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div></div>' +
+      '<div class="tl-fld"><label for="tl-tgl" class="tl-lbl">Tanggal input</label><div><input type="date" id="tl-tgl" max="' + hariIni() + '" style="width:100%"></div></div></div></section>' +
       '<section class="tl-panel"><div class="tl-line tl-line-h"><span>SKU</span><span>No rak top level</span><span>Qty</span><span></span></div><div id="tl-baris"></div>' +
       '<div class="tl-line"><div><button type="button" class="tl-btn sm ghost" data-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div></div>' +
       '<div class="tl-sumbar"><span class="muted" id="tl-ring"></span><div style="display:flex;gap:10px;align-items:center"><span class="tl-fmsg" id="tl-gal" style="min-height:0"></span>' +
-      '<button type="button" class="tl-btn pri" data-simpan>Simpan &amp; buat nomor transfer</button></div></div></section>';
+      '<button type="button" class="tl-btn pri" data-simpan>Simpan</button></div></div></section>';
     $r.html(h);
     $('#tl-tim').val(window.__tlTim || '');
+    $('#tl-tgl').val(window.__tlTgl || hariIni());
     T.combo($('#tl-tim'), function (q, kirim) {
       T.post('cs/input-top-level/tim', { q: q }, function (d) {
         kirim($.map(d.rows, function (x) { return { nilai: x.nama, label: x.nama, grup: x.dari === 'terakhir' ? 'Terakhir dipakai' : 'Pegawai' }; }));
@@ -59,7 +61,7 @@ $this->load->view('top_level/_dasar'); ?>
       T.combo($in, function (q, kirim) {
         if (!q) { kirim([]); return; }
         T.post('cs/input-top-level/sku', { q: q }, function (d) {
-          kirim($.map(d.rows, function (x) { return { nilai: x.sku, label: x.sku, sub: (x.nama ? x.nama + ' · ' : '') + 'rak ' + x.rak }; }));
+          kirim($.map(d.rows, function (x) { return { nilai: x.sku, label: x.sku }; }));
         }, function () { kirim([]); });
       }, function () { baris[i].sku = $in.val(); ringkas(); $in.closest('.tl-line').find('.f-rak').focus(); });
     });
@@ -71,18 +73,39 @@ $this->load->view('top_level/_dasar'); ?>
     $('#tl-ring').text(n ? n + ' baris · ' + q + ' pcs' : '');
   }
 
+  function hariIni() {
+    var d = new Date(), p = function (n) { return ('0' + n).slice(-2); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function tglIndo(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : s; }
+
+  // Memeriksa isian lalu menampilkan konfirmasi ringkas sebelum benar-benar menyimpan.
   function simpan() {
-    var tim = $.trim($('#tl-tim').val());
+    var tim = $.trim($('#tl-tim').val()), tgl = $('#tl-tgl').val();
     $('#tl-gal').text('');
+    window.__tlTim = tim; window.__tlTgl = tgl;
     if (!tim) { $('#tl-gal').text('Isi nama tim Restok.'); $('#tl-tim').focus(); return; }
+    if (!tgl) { $('#tl-gal').text('Isi tanggal input.'); $('#tl-tgl').focus(); return; }
     var kirim = $.grep(baris, function (b) { return b.sku || b.rak || b.qty; });
     if (!kirim.length) { $('#tl-gal').text('Isi minimal satu baris.'); return; }
-    if (sibuk) return;
-    sibuk = true;
-    $('[data-simpan]').prop('disabled', true);
-    T.post('cs/input-top-level/simpan', { tim: tim, rows: kirim }, function (d) {
-      sibuk = false; selesai = d; window.__tlTim = tim; paint();
-    }, function (m) { sibuk = false; $('[data-simpan]').prop('disabled', false); $('#tl-gal').text(m); });
+    var bad = $.grep(kirim, function (b) { return !b.sku || !b.rak || !(parseInt(b.qty, 10) > 0); });
+    if (bad.length) { $('#tl-gal').text('Lengkapi SKU, no rak, dan qty (lebih dari 0) di semua baris yang diisi.'); return; }
+    var q = 0;
+    $.each(kirim, function (i, b) { q += parseInt(b.qty, 10); });
+    var b = '<div class="tl-db"><dl class="tl-kv"><dt>Tim Restok</dt><dd>' + T.esc(tim) + '</dd><dt>Tanggal</dt><dd>' + tglIndo(tgl) + '</dd><dt>Total</dt><dd><b>' + kirim.length + ' baris · ' + q + ' pcs</b></dd></dl>' +
+      '<div class="tl-tw tl-panel" style="max-height:240px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th></tr></thead><tbody>' +
+      $.map(kirim, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(String(x.rak).toUpperCase()) + '</td><td class="n">' + T.esc(x.qty) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-ya>Simpan</button></div>';
+    var $m = T.modal({ judul: 'Simpan input top level?', body: b });
+    $m.on('click', '[data-ya]', function () {
+      if (sibuk) return;
+      sibuk = true;
+      $(this).prop('disabled', true);
+      T.post('cs/input-top-level/simpan', { tim: tim, tanggal: tgl, rows: kirim }, function (d) {
+        sibuk = false; T.closeModal(); selesai = d; paint();
+      }, function (m2) { sibuk = false; T.closeModal(); $('#tl-gal').text(m2); });
+    });
+    $m.find('[data-ya]').trigger('focus');
   }
 
   $r.on('input', '.f-sku,.f-rak,.f-qty', function () {

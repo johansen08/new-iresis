@@ -70,7 +70,7 @@ class Top_level_fcd extends CI_Model
      * @param array  $baris  [['sku'=>, 'rak'=>, 'qty'=>, 'sebelum'=>, 'sesudah'=>], ...]
      * @return string nomor transfer
      */
-    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris)
+    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris, $tgl_input = null)
     {
         $tahun = (int) date('Y');
         $this->db->query('INSERT IGNORE INTO tbltoplevel_nomor (tahun, urut) VALUES (?, 0)', array($tahun));
@@ -85,6 +85,7 @@ class Top_level_fcd extends CI_Model
         $this->db->insert('tbltoplevel_transfer', array(
             'nomor' => $nomor, 'tahun' => $tahun, 'urut' => $urut, 'arah' => $arah, 'sumber' => $sumber,
             'nama_tim' => $nama_tim !== null ? mb_substr($nama_tim, 0, 150) : null, 'ref' => $ref,
+            'tgl_input' => $tgl_input !== null ? $tgl_input : date('Y-m-d'),
             'dibuat_at' => date('Y-m-d H:i:s'), 'dibuat_by' => $oleh, 'jumlah_baris' => count($baris), 'jumlah_qty' => $qty,
         ));
         $id = (int) $this->db->insert_id();
@@ -130,19 +131,18 @@ class Top_level_fcd extends CI_Model
         return array_slice(array_values($hasil), 0, 10);
     }
 
-    /** Saran SKU saat mengetik: awalan kode atau bagian nama, beserta rak display. */
+    /** Saran SKU saat mengetik: kode SKU saja (awalan lebih dulu, lalu yang memuat ketikan). */
     public function cari_sku($q)
     {
         $q = trim((string) $q);
         if ($q === '') {
             return array();
         }
-        $like = '%' . $this->db->escape_like_str($q) . '%';
+        $like = $this->db->escape_like_str($q);
         return $this->db->query(
-            'SELECT id_sku AS sku, COALESCE(nama_sku, "") AS nama, COALESCE(NULLIF(TRIM(no_rak), ""), "-") AS rak
-             FROM tblsku WHERE id_sku LIKE ? OR nama_sku LIKE ?
+            'SELECT id_sku AS sku FROM tblsku WHERE id_sku LIKE ?
              ORDER BY (id_sku LIKE ?) DESC, id_sku ASC LIMIT 8',
-            array($q . '%', $like, $q . '%')
+            array('%' . $like . '%', $like . '%')
         )->result_array();
     }
 
@@ -150,13 +150,25 @@ class Top_level_fcd extends CI_Model
      * Input stok top level manual oleh CS: qty ditambahkan ke rak (rak baru dibuat) dan dicatat sebagai
      * satu transfer MASUK dengan nomor TTL.
      *
-     * @param array $baris [['sku'=>, 'rak'=>, 'qty'=>], ...]
+     * @param array  $baris   [['sku'=>, 'rak'=>, 'qty'=>], ...]
+     * @param string $tanggal tanggal input 'Y-m-d' (bawaan hari ini); tidak boleh di masa depan
      */
-    public function input_masuk($nama_tim, array $baris, $oleh)
+    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '')
     {
         $nama_tim = trim(preg_replace('/\s+/', ' ', (string) $nama_tim));
         if ($nama_tim === '') {
             return array('ok' => false, 'pesan' => 'Nama tim Restok wajib diisi.');
+        }
+        $tanggal = trim((string) $tanggal);
+        if ($tanggal === '') {
+            $tanggal = date('Y-m-d');
+        }
+        $d = \DateTime::createFromFormat('Y-m-d', $tanggal);
+        if (!$d || $d->format('Y-m-d') !== $tanggal) {
+            return array('ok' => false, 'pesan' => 'Tanggal input tidak valid.');
+        }
+        if ($tanggal > date('Y-m-d')) {
+            return array('ok' => false, 'pesan' => 'Tanggal input tidak boleh di masa depan.');
         }
         $bersih = array();
         $skus = array();
@@ -210,14 +222,14 @@ class Top_level_fcd extends CI_Model
             $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
             $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level oleh tim ' . $nama_tim);
         }
-        $nomor = $this->buat_transfer('MASUK', 'INPUT', $nama_tim, null, $oleh, $lines);
+        $nomor = $this->buat_transfer('MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal);
         $this->db->trans_complete();
         if ($this->db->trans_status() === false) {
             return array('ok' => false, 'pesan' => 'Penyimpanan gagal; tidak ada stok yang berubah.');
         }
         $qty = 0;
         foreach ($lines as $l) $qty += $l['qty'];
-        return array('ok' => true, 'nomor' => $nomor, 'baris' => count($lines), 'qty' => $qty);
+        return array('ok' => true, 'nomor' => $nomor, 'baris' => count($lines), 'qty' => $qty, 'tanggal' => $tanggal);
     }
 
     // ------------------------------------------------------------ Picker: Cek Top Level
