@@ -83,8 +83,14 @@ Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**,
 | `REQUEST` | KELUAR | Input qty dari slip selesai (ref = `RT-0001`); hanya rak yang qty diambilnya > 0 |
 | `KOREKSI` | MASUK dan/atau KELUAR | Edit di Stok Top Level: kenaikan dan penurunan masing-masing mendapat nomor sendiri (ref = alasan) |
 
-Urutan per tahun diambil dari `tbltoplevel_nomor` di dalam transaksi yang sama dengan perubahan stok: baris
-penghitung terkunci sampai commit, jadi tidak ada nomor ganda dan tidak ada lubang bila transaksi gagal.
+Urutan per tahun = nomor terakhir yang **masih ada** di `tbltoplevel_transfer` + 1, jadi transfer terakhir yang
+dihapus nomornya dipakai lagi: hapus TTL-2026-00002 saja, input berikutnya kembali bernomor 00002; hapus semuanya,
+mulai lagi dari 00001. Lubang di tengah tidak diisi (hapus 00001 saat ada 00002 dan 00003: berikutnya 00004).
+Dihitung di dalam transaksi yang sama dengan perubahan stok: baris penghitung di `tbltoplevel_nomor` terkunci
+sampai commit dan MAX dibaca dengan `FOR UPDATE`, jadi tidak ada nomor ganda dan tidak ada lubang bila transaksi
+gagal. Nilai di `tbltoplevel_nomor` hanya catatan nomor terakhir yang diberikan, bukan sumber urutan.
+Menghapus transfer harus lewat SQL manual (tidak ada tombol hapus); balikkan juga qty stoknya (lihat
+`tbltoplevel_transfer_baris`) dan simpan log sebagai jejak audit.
 `uq_nomor` dan `uq_tahun_urut` menjaga di level database. Nomor tampil di hasil simpan Input dan Upload,
 panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `tbltoplevel_transfer_baris`
 (`qty_sebelum`, `qty_sesudah`).

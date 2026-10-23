@@ -61,9 +61,12 @@ class Top_level_fcd extends CI_Model
 
     /**
      * Nomor transfer top level (TTL-TAHUN-NNNNN): satu nomor untuk setiap perpindahan stok, masuk maupun keluar.
-     * Urutan per tahun diambil dari tbltoplevel_nomor DI DALAM transaksi pemanggil. Baris penghitungnya terkunci
-     * sampai commit, jadi dua transaksi bersamaan tidak pernah mendapat nomor yang sama, dan rollback tidak
-     * meninggalkan lubang nomor.
+     * Urutan = nomor terakhir yang MASIH ADA di tbltoplevel_transfer pada tahun itu + 1, jadi kalau transfer terakhir
+     * dihapus, nomornya dipakai lagi (hapus TTL-2026-00002 saja: input berikutnya kembali bernomor 00002; hapus semuanya:
+     * mulai lagi dari 00001). Lubang di tengah tidak diisi. Dihitung DI DALAM transaksi pemanggil, dengan baris
+     * penghitung di tbltoplevel_nomor sebagai kunci (terkunci sampai commit) dan MAX dibaca dengan FOR UPDATE, jadi dua
+     * transaksi bersamaan tidak pernah mendapat nomor yang sama, dan rollback tidak meninggalkan lubang nomor.
+     * Nilai di tbltoplevel_nomor hanya catatan nomor terakhir yang diberikan, bukan sumber urutan.
      *
      * @param string $arah   MASUK atau KELUAR
      * @param string $sumber INPUT, UPLOAD, REQUEST, atau KOREKSI
@@ -74,8 +77,11 @@ class Top_level_fcd extends CI_Model
     {
         $tahun = (int) date('Y');
         $this->db->query('INSERT IGNORE INTO tbltoplevel_nomor (tahun, urut) VALUES (?, 0)', array($tahun));
-        $this->db->query('UPDATE tbltoplevel_nomor SET urut = LAST_INSERT_ID(urut + 1) WHERE tahun = ?', array($tahun));
-        $urut = (int) $this->db->query('SELECT LAST_INSERT_ID() AS n')->row()->n;
+        // Kunci baris penghitung (tanpa mengubah nilainya) supaya transaksi lain menunggu sampai commit.
+        $this->db->query('SELECT urut FROM tbltoplevel_nomor WHERE tahun = ? FOR UPDATE', array($tahun));
+        $akhir = $this->db->query('SELECT COALESCE(MAX(urut), 0) AS n FROM tbltoplevel_transfer WHERE tahun = ? FOR UPDATE', array($tahun))->row();
+        $urut = (int) $akhir->n + 1;
+        $this->db->query('UPDATE tbltoplevel_nomor SET urut = ? WHERE tahun = ?', array($urut, $tahun));
         $nomor = self::kode_transfer($tahun, $urut);
 
         $qty = 0;
