@@ -15,9 +15,6 @@ $this->load->view('top_level/_dasar'); ?>
   };
 
   $r.html(
-    '<div class="tl-ph"><div class="t"><h1>Cek Top Level</h1>' +
-    T.info('Scan resi, lalu klik Cek pada SKU yang tidak ada di display.\nJika stok top level tersedia, ajukan Request Restok Display dan serahkan resi ke CS.\nSetelah status Selesai, ambil resi dari CS.') +
-    '</div></div>' +
     '<section class="tl-panel tl-scanp"><label class="tl-lbl" for="tl-resi">No. resi</label>' +
     '<div class="tl-scanbox">' + T.ic('scan', 22) +
     '<input type="text" id="tl-resi" placeholder="Scan, tempel, atau ketik no. resi" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
@@ -51,13 +48,13 @@ $this->load->view('top_level/_dasar'); ?>
 
   function hasil() {
     if (!resi) { $('#tl-hasil').empty(); return; }
-    var h = '<section class="tl-panel"><div class="tl-shead"><div class="l"><h2 class="mono">' + T.esc(resi.noresi) + '</h2>' +
+    var h = '<section class="tl-panel tl-cekpanel"><div class="tl-shead"><div class="l"><h2 class="mono">' + T.esc(resi.noresi) + '</h2>' +
       (resi.mp ? T.pill(resi.mp) : '') + '</div></div><div class="tl-tw"><table class="tl-tbl"><thead><tr><th>SKU</th><th>Rak display</th><th>Status</th><th></th></tr></thead><tbody>';
     $.each(resi.items, function (i, it) {
       var r = it.request, live = r && r.status !== 'SELESAI' && r.status !== 'BATAL', p = r ? PK[r.status] : null;
       h += '<tr><td><b class="mono">' + T.esc(it.sku) + '</b></td><td class="mono">' + T.esc(it.no_rak) + '</td><td>' +
-        (live ? T.pill(p[0], p[1]) + ' <span class="mono muted">' + T.esc(r.kode) + '</span>' : '') + '</td><td class="act">' +
-        (live ? '' : '<button type="button" class="tl-btn sm" data-cek="' + T.esc(it.sku) + '">Cek</button>') + '</td></tr>';
+        (live ? T.pill(p[0], p[1]) + ' <span class="mono muted">' + T.esc(r.kode) + '</span>' : '') + '</td><td class="mid">' +
+        (live ? '' : '<button type="button" class="tl-btn pri lg" data-cek="' + T.esc(it.sku) + '">Cek</button>') + '</td></tr>';
     });
     $('#tl-hasil').html(h + '</tbody></table></div></section>');
   }
