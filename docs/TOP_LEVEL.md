@@ -16,6 +16,7 @@ ditulis tangan di slip, lalu diinput CS.
 | Request Top Level | TIM CS | `cs/request-top-level` | `Top_level::request` | CS |
 | Upload Top Level | TIM CS | `cs/upload-top-level` | `Top_level::upload` | CS |
 | Stok Top Level | TIM CS | `cs/stok-top-level` | `Top_level::stok` | CS |
+| Input Top Level | TIM CS | `cs/input-top-level` | `Top_level::input_form` | CS |
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
 Hak akses menu baru disalin dari menu saudara (`picker/scan_picker` untuk Picker,
@@ -47,6 +48,28 @@ bulat > 0) tidak ikut diimpor. Baris yang sama persis (hash SKU, rak, qty, penca
 baris lain di file atau yang pernah diimpor dilewati, jadi file yang terunggah dua kali tidak menggandakan stok.
 Maksimal 5.000 baris per file.
 
+## Input Top Level dan nomor transfer
+
+**Input Top Level** memasukkan stok top level secara manual: nama tim Restok, lalu baris SKU, no rak, qty
+(qty ditambahkan ke rak, rak baru dibuat). Nama tim punya kotak saran yang mengikuti ketikan: yang terakhir
+dipakai di tbltoplevel_transfer lebih dulu, lalu pegawai aktif (`tblpegawai.status_aktif = 'AKTIF'`) yang cocok.
+Teks bebas tetap diterima. Kolom SKU juga bersaran (awalan kode atau bagian nama, beserta rak display).
+
+Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**, masuk maupun keluar:
+
+| Sumber | Arah | Kapan |
+|---|---|---|
+| `INPUT` | MASUK | Simpan di Input Top Level |
+| `UPLOAD` | MASUK | Impor di Upload Top Level (ref = `UP-0001`) |
+| `REQUEST` | KELUAR | Input qty dari slip selesai (ref = `RT-0001`); hanya rak yang qty diambilnya > 0 |
+| `KOREKSI` | MASUK dan/atau KELUAR | Edit di Stok Top Level: kenaikan dan penurunan masing-masing mendapat nomor sendiri (ref = alasan) |
+
+Urutan per tahun diambil dari `tbltoplevel_nomor` di dalam transaksi yang sama dengan perubahan stok: baris
+penghitung terkunci sampai commit, jadi tidak ada nomor ganda dan tidak ada lubang bila transaksi gagal.
+`uq_nomor` dan `uq_tahun_urut` menjaga di level database. Nomor tampil di hasil simpan Input dan Upload,
+panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `tbltoplevel_transfer_baris`
+(`qty_sebelum`, `qty_sesudah`).
+
 ## Tabel
 
 | Tabel | Isi |
@@ -55,6 +78,7 @@ Maksimal 5.000 baris per file.
 | `tbltoplevel_request` | request: status, `request_at`, `cetak_at`, `cetak_ke`, `selesai_at`, `slip` dan `hasil` (JSON) |
 | `tbltoplevel_request_resi` | resi yang menunggu request |
 | `tbltoplevel_import`, `tbltoplevel_import_baris` | riwayat upload dan barisnya (`hash_baris` unik) |
+| `tbltoplevel_transfer`, `tbltoplevel_transfer_baris`, `tbltoplevel_nomor` | nomor transfer TTL, barisnya per SKU dan rak, dan penghitung urutan per tahun |
 | `tbltoplevel_log` | jejak audit: REQUEST, SLIP, POSTING, SELISIH, UPLOAD, KOREKSI, CEK_KOSONG |
 
 Tidak ada `DELETE` di kode ini (aturan proyek): stok habis = qty 0, request batal = status BATAL.

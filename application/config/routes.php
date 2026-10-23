@@ -557,3 +557,7 @@ $route['cs/stok-top-level']            = 'top_level/stok';
 $route['cs/stok-top-level/data']       = 'top_level/stok_data';
 $route['cs/stok-top-level/detail']     = 'top_level/stok_detail';
 $route['cs/stok-top-level/koreksi']    = 'top_level/stok_koreksi';
+$route['cs/input-top-level']           = 'top_level/input_form';
+$route['cs/input-top-level/tim']       = 'top_level/input_tim';
+$route['cs/input-top-level/sku']       = 'top_level/input_sku';
+$route['cs/input-top-level/simpan']    = 'top_level/input_simpan';

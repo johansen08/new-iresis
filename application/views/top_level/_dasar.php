@@ -6,8 +6,8 @@
 <link rel="stylesheet" type="text/css" href="assets/css/top_level.css?v=<?= @filemtime(FCPATH . 'assets/css/top_level.css') ?: '1' ?>" />
 <script>
 (function () {
-  if (window.TL) return;
-  var T = window.TL = {};
+  if (window.TL && window.TL.v >= 2) return; // naikkan v bila helper berubah, supaya sesi yang sudah terbuka memuat ulang helper
+  var T = window.TL = { v: 2 };
 
   var IC = {
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -102,8 +102,55 @@
   };
   T.adaModal = function () { return !!modalAktif; };
 
+  // ---------- isian dengan saran yang mengikuti ketikan ----------
+  /**
+   * cari(q, kirim): ambil saran untuk ketikan q, lalu panggil kirim([{nilai, label, sub, grup}]).
+   * pilih(item): dipanggil saat saran dipilih (klik, atau Enter pada saran yang disorot).
+   * Panah atas/bawah menyorot, Enter memilih, Esc menutup. Isian tetap boleh berisi teks bebas.
+   */
+  T.combo = function ($in, cari, pilih) {
+    var $wrap = $in.parent().css('position', 'relative'), $list = $('<div class="tl-combo-list"></div>').hide().appendTo($wrap);
+    var items = [], aktif = -1, timer = null, seq = 0;
+    function tutup() { $list.hide(); aktif = -1; }
+    function gambar() {
+      if (!items.length) { tutup(); return; }
+      var h = '', grup = null;
+      $.each(items, function (i, it) {
+        if (it.grup && it.grup !== grup) { grup = it.grup; h += '<div class="tl-opt-h">' + T.esc(grup) + '</div>'; }
+        h += '<div class="tl-opt' + (i === aktif ? ' on' : '') + '" data-i="' + i + '"><span>' + T.esc(it.label) + '</span>' + (it.sub ? '<small>' + T.esc(it.sub) + '</small>' : '') + '</div>';
+      });
+      $list.html(h).show();
+    }
+    function ambil() {
+      var q = $.trim($in.val()), n = ++seq;
+      cari(q, function (daftar) { if (n !== seq) return; items = daftar || []; aktif = -1; gambar(); });
+    }
+    function ambilItem(i) {
+      var it = items[i];
+      if (!it) return;
+      $in.val(it.nilai);
+      tutup();
+      if (pilih) pilih(it);
+    }
+    $in.on('focus', ambil);
+    $in.on('input', function () { clearTimeout(timer); timer = setTimeout(ambil, 150); });
+    $in.on('keydown', function (e) {
+      if (!$list.is(':visible')) { if (e.key === 'ArrowDown') ambil(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        aktif = (aktif + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        gambar();
+        var el = $list.find('.tl-opt.on')[0];
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && aktif >= 0) { e.preventDefault(); e.stopPropagation(); ambilItem(aktif); }
+      else if (e.key === 'Escape') { e.stopPropagation(); tutup(); }
+    });
+    $in.on('blur', function () { setTimeout(tutup, 150); });
+    $list.on('mousedown', '.tl-opt', function (e) { e.preventDefault(); ambilItem(+$(this).data('i')); });
+  };
+
   // ---------- ikon info: hover/fokus menampilkan, klik menyematkan, Esc menutup ----------
-  var tip = document.createElement('div');
+  var tip = document.getElementById('tl-tip') || document.createElement('div');
   tip.id = 'tl-tip';
   tip.setAttribute('role', 'tooltip');
   document.body.appendChild(tip);
@@ -121,6 +168,7 @@
   }
   function sembunyi() { tip.className = ''; tipEl = null; sematkan = false; }
   T.sembunyiTip = sembunyi;
+  $(document).off('.tltip');
   $(document).on('mouseover.tltip focusin.tltip', '[data-tip]', function () { if (!sematkan) tampil(this); });
   $(document).on('mouseout.tltip focusout.tltip', '[data-tip]', function () { if (!sematkan) sembunyi(); });
   $(document).on('click.tltip', function (e) {

@@ -120,3 +120,12 @@
 .tl input[type=file]{display:none !important}
 .tl-narrow{max-width:680px}
 .tl-tbl td.act .tl-btn{min-width:116px}
+.tl-combo-list{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--tl-line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:260px;overflow:auto;margin-top:4px;text-align:left}
+.tl-opt{padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.tl-opt small{color:var(--tl-muted);font-size:12px;white-space:nowrap}
+.tl-opt.on,.tl-opt:hover{background:var(--tl-accent-soft)}
+.tl-opt-h{padding:6px 12px 2px;font-size:11px;font-weight:600;color:var(--tl-faint);text-transform:uppercase;letter-spacing:.05em}
+.tl-line{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.2fr) 120px 44px;gap:10px;align-items:center;padding:8px 16px}
+.tl-line-h{font-size:12px;font-weight:600;color:var(--tl-muted);border-bottom:1px solid var(--tl-line);padding-top:12px;padding-bottom:10px}
+.tl .tl-line input[type=text],.tl .tl-line input[type=number]{width:100%}
+.tl .tl-ttl{font-size:28px;font-weight:600;letter-spacing:.02em;color:var(--tl-ink)}

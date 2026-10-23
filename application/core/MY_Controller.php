@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-23.1';
+    const BOOTSTRAP_VERSI = '2026-10-23.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2094,6 +2094,46 @@ class MY_Controller extends CI_Controller
             KEY idx_ref (ref)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+        // Nomor transfer top level TTL-TAHUN-NNNNN untuk setiap stok masuk dan keluar.
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_nomor (
+            tahun INT NOT NULL,
+            urut INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (tahun)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_transfer (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            nomor VARCHAR(20) NOT NULL,
+            tahun INT NOT NULL,
+            urut INT UNSIGNED NOT NULL,
+            arah VARCHAR(10) NOT NULL,
+            sumber VARCHAR(10) NOT NULL,
+            nama_tim VARCHAR(150) NULL,
+            ref VARCHAR(50) NULL,
+            dibuat_at DATETIME NOT NULL,
+            dibuat_by VARCHAR(100) NULL,
+            jumlah_baris INT NOT NULL DEFAULT 0,
+            jumlah_qty INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_nomor (nomor),
+            UNIQUE KEY uq_tahun_urut (tahun, urut),
+            KEY idx_ref (sumber, ref),
+            KEY idx_nama_tim (nama_tim)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_transfer_baris (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            id_transfer INT UNSIGNED NOT NULL,
+            sku VARCHAR(100) NOT NULL,
+            no_rak VARCHAR(100) NOT NULL,
+            qty INT NOT NULL,
+            qty_sebelum INT NOT NULL,
+            qty_sesudah INT NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_transfer (id_transfer),
+            KEY idx_sku (sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
         // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
         $daftar = array(
             array('TIM PICKER', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 40,
@@ -2104,6 +2144,8 @@ class MY_Controller extends CI_Controller
                 'Unggah Excel stok top level dari tim Restok (header baris 3).', 'masalah-picker-new'),
             array('TIM CS', 'Stok Top Level', 'cs/stok-top-level', 'fa fa-database', 62,
                 'Total stok top level per SKU dan rincian per rak.', 'masalah-picker-new'),
+            array('TIM CS', 'Input Top Level', 'cs/input-top-level', 'fa fa-pencil-square-o', 63,
+                'Input manual stok top level dari tim Restok; menghasilkan nomor transfer TTL-TAHUN-NNNNN.', 'masalah-picker-new'),
         );
 
         foreach ($daftar as $m) {
