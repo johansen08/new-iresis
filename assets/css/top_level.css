@@ -28,6 +28,10 @@
 .tl-btn.ghost{border-color:transparent;background:none;color:var(--tl-muted)}.tl-btn.ghost:hover{background:var(--tl-soft);color:var(--tl-ink)}
 .tl-btn.dng{color:var(--tl-bad)}
 .tl-btn.sm{padding:4px 10px;font-size:13px}
+.tl-btn.lg{padding:10px 30px;font-size:15px;min-width:120px;border-radius:8px}
+.tl-cekpanel{max-width:780px}
+.tl-cekpanel .tl-tbl tbody td{height:64px}
+.tl-tbl td.mid,.tl-tbl th.mid{text-align:center;width:1%;white-space:nowrap;padding:0 20px}
 .tl-btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
 .tl input[type=text],.tl input[type=number],.tl select{background:#fff;border:1px solid var(--tl-line);border-radius:6px;padding:7px 10px;min-width:0;font-size:14px;color:var(--tl-ink);height:auto;box-shadow:none}
 .tl input[type=number]{width:84px;text-align:right}
