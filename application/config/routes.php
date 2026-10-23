@@ -535,3 +535,25 @@ $route['laporan/tracking-picker']           = 'laporan/tracking_picker';
 $route['laporan/get-data-tracking-picker']  = 'laporan/get_data_tracking_picker';
 $route['laporan/get-data-tracking-picker-detail'] = 'laporan/get_data_tracking_picker_detail';
 $route['laporan/export-tracking-picker']    = 'laporan/export_tracking_picker';
+
+// Top Level (docs/TOP_LEVEL.md): stok sisa restok yang disimpan di rak lain.
+$route['picker/cek-top-level']         = 'cek_top_level/index';
+$route['picker/cek-top-level/cari']    = 'cek_top_level/cari';
+$route['picker/cek-top-level/cek']     = 'cek_top_level/cek';
+$route['picker/cek-top-level/ajukan']  = 'cek_top_level/ajukan';
+$route['picker/cek-top-level/gabung']  = 'cek_top_level/gabung';
+$route['picker/cek-top-level/batal']   = 'cek_top_level/batal';
+$route['picker/cek-top-level/terbaru'] = 'cek_top_level/terbaru';
+$route['cs/request-top-level']         = 'top_level/request';
+$route['cs/request-top-level/data']    = 'top_level/request_data';
+$route['cs/request-top-level/detail']  = 'top_level/request_detail';
+$route['cs/request-top-level/cetak']   = 'top_level/request_cetak';
+$route['cs/request-top-level/selesai'] = 'top_level/request_selesai';
+$route['cs/request-top-level/batal']   = 'top_level/request_batal';
+$route['cs/upload-top-level']          = 'top_level/upload';
+$route['cs/upload-top-level/proses']   = 'top_level/upload_proses';
+$route['cs/upload-top-level/riwayat']  = 'top_level/upload_riwayat';
+$route['cs/stok-top-level']            = 'top_level/stok';
+$route['cs/stok-top-level/data']       = 'top_level/stok_data';
+$route['cs/stok-top-level/detail']     = 'top_level/stok_detail';
+$route['cs/stok-top-level/koreksi']    = 'top_level/stok_koreksi';
