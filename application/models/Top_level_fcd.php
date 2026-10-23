@@ -70,7 +70,7 @@ class Top_level_fcd extends CI_Model
      * @param array  $baris  [['sku'=>, 'rak'=>, 'qty'=>, 'sebelum'=>, 'sesudah'=>], ...]
      * @return string nomor transfer
      */
-    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris, $tgl_input = null)
+    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris, $tgl_input = null, $nama_input = null)
     {
         $tahun = (int) date('Y');
         $this->db->query('INSERT IGNORE INTO tbltoplevel_nomor (tahun, urut) VALUES (?, 0)', array($tahun));
@@ -84,7 +84,8 @@ class Top_level_fcd extends CI_Model
         }
         $this->db->insert('tbltoplevel_transfer', array(
             'nomor' => $nomor, 'tahun' => $tahun, 'urut' => $urut, 'arah' => $arah, 'sumber' => $sumber,
-            'nama_tim' => $nama_tim !== null ? mb_substr($nama_tim, 0, 150) : null, 'ref' => $ref,
+            'nama_tim' => $nama_tim !== null ? mb_substr($nama_tim, 0, 150) : null,
+            'nama_input' => $nama_input !== null ? mb_substr($nama_input, 0, 150) : null, 'ref' => $ref,
             'tgl_input' => $tgl_input !== null ? $tgl_input : date('Y-m-d'),
             'dibuat_at' => date('Y-m-d H:i:s'), 'dibuat_by' => $oleh, 'jumlah_baris' => count($baris), 'jumlah_qty' => $qty,
         ));
@@ -101,7 +102,10 @@ class Top_level_fcd extends CI_Model
 
     // ------------------------------------------------------------ CS: Input Top Level
 
-    /** Rekomendasi nama tim Restok: yang terakhir dipakai dulu, lalu pegawai aktif yang cocok dengan ketikan. */
+    /**
+     * Rekomendasi nama petugas (Petugas List dan Petugas Input memakai daftar yang sama): yang terakhir dipakai
+     * dulu (di kolom petugas list maupun petugas input), lalu pegawai aktif yang cocok dengan ketikan.
+     */
     public function rekomendasi_tim($q)
     {
         $q = trim((string) $q);
@@ -113,13 +117,20 @@ class Top_level_fcd extends CI_Model
             }
         };
 
-        $this->db->select('nama_tim')->from('tbltoplevel_transfer')->where('nama_tim IS NOT NULL', null, false)->where("nama_tim <> ''", null, false);
-        if ($q !== '') {
-            $this->db->like('nama_tim', $q);
-        }
-        $terakhir = $this->db->group_by('nama_tim')->order_by('MAX(id)', 'DESC', false)->limit(8)->get()->result();
+        // Nama gabungan hasil upload ("Rina, Dewi") tidak ikut disarankan.
+        $like = '%' . $this->db->escape_like_str($q) . '%';
+        $terakhir = $this->db->query(
+            'SELECT nama FROM (
+                SELECT nama_tim AS nama, MAX(id) AS m FROM tbltoplevel_transfer
+                  WHERE nama_tim IS NOT NULL AND nama_tim <> "" AND nama_tim NOT LIKE "%,%" AND nama_tim LIKE ? GROUP BY nama_tim
+                UNION ALL
+                SELECT nama_input AS nama, MAX(id) AS m FROM tbltoplevel_transfer
+                  WHERE nama_input IS NOT NULL AND nama_input <> "" AND nama_input NOT LIKE "%,%" AND nama_input LIKE ? GROUP BY nama_input
+             ) x GROUP BY nama ORDER BY MAX(m) DESC LIMIT 8',
+            array($like, $like)
+        )->result();
         foreach ($terakhir as $r) {
-            $pakai($r->nama_tim, 'terakhir');
+            $pakai($r->nama, 'terakhir');
         }
 
         if ($q !== '') {
@@ -184,11 +195,15 @@ class Top_level_fcd extends CI_Model
      * @param array  $baris   [['sku'=>, 'rak'=>, 'qty'=>], ...]
      * @param string $tanggal tanggal input 'Y-m-d' (bawaan hari ini); tidak boleh di masa depan
      */
-    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '')
+    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '', $nama_input = '')
     {
         $nama_tim = trim(preg_replace('/\s+/', ' ', (string) $nama_tim));
+        $nama_input = trim(preg_replace('/\s+/', ' ', (string) $nama_input));
         if ($nama_tim === '') {
-            return array('ok' => false, 'pesan' => 'Nama tim Restok wajib diisi.');
+            return array('ok' => false, 'pesan' => 'Nama petugas list wajib diisi.');
+        }
+        if ($nama_input === '') {
+            return array('ok' => false, 'pesan' => 'Nama petugas input wajib diisi.');
         }
         $tanggal = trim((string) $tanggal);
         if ($tanggal === '') {
@@ -266,9 +281,9 @@ class Top_level_fcd extends CI_Model
                 array($b['sku'], $b['rak'], $b['qty'])
             );
             $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
-            $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level oleh tim ' . $nama_tim);
+            $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
         }
-        $nomor = $this->buat_transfer('MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal);
+        $nomor = $this->buat_transfer('MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal, $nama_input);
         $this->db->trans_complete();
         if ($this->db->trans_status() === false) {
             return array('ok' => false, 'pesan' => 'Penyimpanan gagal; tidak ada stok yang berubah.');
@@ -858,6 +873,7 @@ class Top_level_fcd extends CI_Model
         $kode = self::kode_import($id);
         $trf = array();
         $nama_tim = array();
+        $nama_masuk = array();
 
         foreach ($ok as $b) {
             $this->db->insert('tbltoplevel_import_baris', array(
@@ -876,8 +892,9 @@ class Top_level_fcd extends CI_Model
             $this->catat('UPLOAD', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, $kode, 'Upload Excel baris ' . $b['baris'] . ' (' . $nama_file . ')');
             $trf[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
             if ($b['nama_list'] !== '') $nama_tim[$b['nama_list']] = true;
+            if ($b['nama_input'] !== '') $nama_masuk[$b['nama_input']] = true;
         }
-        $nomor = $this->buat_transfer('MASUK', 'UPLOAD', $nama_tim ? implode(', ', array_keys($nama_tim)) : null, $kode, $oleh, $trf);
+        $nomor = $this->buat_transfer('MASUK', 'UPLOAD', $nama_tim ? implode(', ', array_keys($nama_tim)) : null, $kode, $oleh, $trf, null, $nama_masuk ? implode(', ', array_keys($nama_masuk)) : null);
         $this->db->trans_complete();
         if ($this->db->trans_status() === false) {
             return array('ok' => false, 'pesan' => 'Penyimpanan gagal; tidak ada stok yang berubah.');

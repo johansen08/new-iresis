@@ -42,7 +42,7 @@ class Top_level extends MY_Controller
 
     // ------------------------------------------------------------ Input Top Level
 
-    /** Rekomendasi nama tim Restok (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    /** Rekomendasi nama petugas list dan petugas input (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
     /** Pemeriksaan duplikat langsung saat mengetik: baris yang SKU + rak-nya sudah tersimpan dengan stok. */
     public function input_cek()
     {
@@ -74,7 +74,7 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_INPUT);
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('tim'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'));
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'));
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal']) : array());
     }
 

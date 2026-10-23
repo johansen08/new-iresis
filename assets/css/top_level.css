@@ -138,3 +138,9 @@
 .tl-line.bad .tl-dupmsg{display:flex}
 .tl .tl-line.bad input{border-color:var(--tl-bad);background:#fff}
 .tl-line.bad .tl-ib{color:var(--tl-bad)}
+.tl-cards2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:700px){.tl-cards2{grid-template-columns:minmax(0,1fr)}}
+.tl-pair{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.tl-cards2 .tl-panel:nth-child(2) .tl-pair{grid-template-columns:minmax(0,1fr) 160px}
+.tl .tl-pair input[type=text],.tl .tl-pair input[type=date]{height:38px;box-sizing:border-box}
+.tl .tl-pair input[type=date]{background:#fff;border:1px solid var(--tl-line);border-radius:6px;padding:7px 10px;font-size:14px;color:var(--tl-ink);box-shadow:none}
