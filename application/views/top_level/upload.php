@@ -25,9 +25,9 @@ $this->load->view('top_level/_dasar'); ?>
   function riwayatHtml() {
     var h = '<section class="tl-panel"><div class="tl-shead"><div class="l"><h2>Riwayat upload</h2></div></div>';
     if (!riwayat.length) return h + T.empty('file', 'Belum ada upload') + '</section>';
-    h += '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>ID</th><th>Waktu</th><th>File</th><th class="n">Baris</th><th class="n">Qty</th><th>Dilist oleh</th></tr></thead><tbody>';
+    h += '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>ID</th><th>Waktu</th><th>File</th><th class="n">Baris</th><th class="n">Qty</th><th>No. transfer</th><th>Dilist oleh</th></tr></thead><tbody>';
     $.each(riwayat, function (i, b) {
-      h += '<tr><td class="mono">' + T.esc(b.kode) + '</td><td class="mono nowrap">' + T.tgl(b.import_at) + '</td><td>' + T.esc(b.nama_file) + '</td><td class="n">' + b.jumlah_baris + '</td><td class="n">' + b.jumlah_qty + '</td><td>' + T.esc(b.dilist_oleh || '-') + '</td></tr>';
+      h += '<tr><td class="mono">' + T.esc(b.kode) + '</td><td class="mono nowrap">' + T.tgl(b.import_at) + '</td><td>' + T.esc(b.nama_file) + '</td><td class="n">' + b.jumlah_baris + '</td><td class="n">' + b.jumlah_qty + '</td><td class="mono nowrap">' + T.esc(b.transfer || '') + '</td><td>' + T.esc(b.dilist_oleh || '-') + '</td></tr>';
     });
     return h + '</tbody></table></div></section>';
   }
@@ -41,7 +41,7 @@ $this->load->view('top_level/_dasar'); ?>
     var h = judul();
     if (selesai) {
       h += stepper(3) + '<section class="tl-panel"><div class="tl-res" style="padding:36px 16px"><div class="ring ok">' + T.ic('check', 26) + '</div><b>' + selesai.baris + ' baris diimpor</b>' +
-        '<span class="muted">Top level bertambah ' + selesai.qty + ' pcs' + (selesai.lewat ? ' · ' + selesai.lewat + ' baris dilewati' : '') + '</span>' +
+        '<span class="muted">Nomor transfer</span><b class="mono tl-ttl">' + T.esc(selesai.nomor) + '</b><span class="muted">Top level bertambah ' + selesai.qty + ' pcs' + (selesai.lewat ? ' · ' + selesai.lewat + ' baris dilewati' : '') + '</span>' +
         '<div style="display:flex;gap:8px;margin-top:6px"><button type="button" class="tl-btn" data-ulang>Unggah file lain</button></div></div></section>' + riwayatHtml();
     } else if (galat) {
       h += stepper(1) + '<section class="tl-panel tl-pad" style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;gap:8px;align-items:center">' + T.ic('file') + '<b>' + T.esc(galat.file) + '</b></div>' +

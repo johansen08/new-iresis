@@ -76,7 +76,7 @@ $this->load->view('top_level/_dasar'); ?>
       $('#tl-drawer').html(
         '<div class="tl tl-drawer"><div class="tl-dh"><div style="display:flex;gap:10px;align-items:center"><h2 class="mono">' + T.esc(d.kode) + '</h2>' + T.pill(s[0], s[1]) +
         '</div><button type="button" class="tl-btn ghost sm" data-tutup-drawer aria-label="Tutup">' + T.ic('x') + '</button></div><div class="tl-dr-b">' +
-        '<dl class="tl-kv"><dt>SKU</dt><dd class="mono"><b>' + T.esc(d.sku) + '</b></dd><dt>Rak display</dt><dd class="mono">' + T.esc(d.rak_display) + '</dd><dt>Asal</dt><dd>' + (d.asal === 'PICKER' ? 'Picker' : 'CS') + '</dd></dl>' +
+        '<dl class="tl-kv"><dt>SKU</dt><dd class="mono"><b>' + T.esc(d.sku) + '</b></dd><dt>Rak display</dt><dd class="mono">' + T.esc(d.rak_display) + '</dd><dt>Asal</dt><dd>' + (d.asal === 'PICKER' ? 'Picker' : 'CS') + '</dd>' + (d.transfer ? '<dt>No. transfer</dt><dd class="mono">' + T.esc(d.transfer) + '</dd>' : '') + '</dl>' +
         '<div class="tl-sec"><h3>Rak top level ' + T.info('Stok sistem per rak saat slip dicetak.') + '</h3>' + (d.rak.length ? rak : '<span class="muted">Stok sudah habis</span>') + '</div>' +
         '<div class="tl-sec"><h3>Resi ' + T.info('Setelah request selesai, serahkan resi ini ke picker secara fisik.') + '</h3>' +
         (d.resi.length ? '<div class="tl-rks">' + $.map(d.resi, function (x) { return '<span class="tl-rk">' + T.esc(x) + '</span>'; }).join('') + '</div>' : '<span class="muted">Tanpa resi</span>') + '</div>' +
@@ -185,7 +185,7 @@ $this->load->view('top_level/_dasar'); ?>
         if (tot <= 0) { T.galat('Isi qty yang diambil.'); return; }
         $(this).prop('disabled', true);
         T.post('cs/request-top-level/selesai', { id: id, rows: data }, function (r, j) {
-          T.closeModal(); T.toast('Selesai. Stok diperbarui; serahkan resi ke picker.'); muat(true);
+          T.closeModal(); T.toast(j.message + ' Serahkan resi ke picker.'); muat(true);
         }, function (m) { T.galat(m); $m.find('[data-simpan]').prop('disabled', false); });
       });
       hitungan();

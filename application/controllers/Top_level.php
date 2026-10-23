@@ -15,6 +15,7 @@ class Top_level extends MY_Controller
     const URI_REQUEST = 'cs/request-top-level';
     const URI_UPLOAD  = 'cs/upload-top-level';
     const URI_STOK    = 'cs/stok-top-level';
+    const URI_INPUT   = 'cs/input-top-level';
 
     public function __construct()
     {
@@ -32,6 +33,35 @@ class Top_level extends MY_Controller
     public function upload()
     {
         $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_UPLOAD), 'maks_baris' => Top_level_fcd::MAKS_BARIS));
+    }
+
+    public function input_form()
+    {
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_INPUT)), 'top_level/input');
+    }
+
+    // ------------------------------------------------------------ Input Top Level
+
+    /** Rekomendasi nama tim Restok (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    public function input_tim()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->rekomendasi_tim($this->input->post('q'))));
+    }
+
+    public function input_sku()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_sku($this->input->post('q'))));
+    }
+
+    /** Menyimpan input stok masuk dan mengembalikan nomor transfer TTL. */
+    public function input_simpan()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $rows = $this->input->post('rows');
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('tim'), is_array($rows) ? array_values($rows) : array(), $this->_oleh());
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty']) : array());
     }
 
     public function stok()
@@ -75,7 +105,7 @@ class Top_level extends MY_Controller
         $this->_wajib(self::URI_REQUEST);
         $rows = $this->input->post('rows');
         $h = $this->top_level_fcd->selesai((int) $this->input->post('id'), is_array($rows) ? array_values($rows) : array(), $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Selesai. Stok diperbarui.' : $h['pesan'], $h['ok'] ? array('total' => $h['total']) : array());
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Selesai. Stok diperbarui, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('total' => $h['total'], 'nomor' => $h['nomor']) : array());
     }
 
     public function request_batal()
@@ -104,7 +134,7 @@ class Top_level extends MY_Controller
         $this->_wajib(self::URI_STOK);
         $rows = $this->input->post('rows');
         $h = $this->top_level_fcd->koreksi(trim((string) $this->input->post('sku')), is_array($rows) ? array_values($rows) : array(), (string) $this->input->post('alasan'), $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Stok top level diperbarui.' : $h['pesan']);
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Stok top level diperbarui, transfer ' . implode(', ', $h['nomor']) . '.' : $h['pesan']);
     }
 
     // ------------------------------------------------------------ Upload Top Level
