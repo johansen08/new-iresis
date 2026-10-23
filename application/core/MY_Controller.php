@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-22.5';
+    const BOOTSTRAP_VERSI = '2026-10-23.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -175,6 +175,7 @@ class MY_Controller extends CI_Controller
         $this->run_tanggal_pencairan_mp_migration();
         $this->run_pencairan_dana_menu_migration();
         $this->run_indeks_pencairan_dana_migration();
+        $this->run_top_level_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1994,6 +1995,155 @@ class MY_Controller extends CI_Controller
                 'created'   => date('Y-m-d H:i:s'),
                 'createdby' => 1
             ]);
+        }
+    }
+
+    /**
+     * Menu "Top Level" (docs/TOP_LEVEL.md): stok sisa restok yang tidak muat di rak display.
+     * Satu menu di TIM PICKER (Cek Top Level) dan tiga di TIM CS (Request, Upload, Stok Top Level).
+     * Tabelnya hanya ditambah (CREATE TABLE IF NOT EXISTS), tidak ada yang dihapus atau diubah.
+     * Hak akses menu baru disalin dari menu saudaranya; Admin (role 1) selalu ikut.
+     */
+    protected function run_top_level_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            sku VARCHAR(100) NOT NULL,
+            no_rak VARCHAR(100) NOT NULL,
+            qty INT NOT NULL DEFAULT 0,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_sku_rak (sku, no_rak),
+            KEY idx_rak (no_rak)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_request (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            sku VARCHAR(100) NOT NULL,
+            asal VARCHAR(10) NOT NULL DEFAULT 'PICKER',
+            status VARCHAR(20) NOT NULL DEFAULT 'DIAJUKAN',
+            request_at DATETIME NOT NULL,
+            request_by VARCHAR(100) NULL,
+            cetak_at DATETIME NULL,
+            cetak_ke INT NOT NULL DEFAULT 0,
+            cetak_by VARCHAR(100) NULL,
+            selesai_at DATETIME NULL,
+            selesai_by VARCHAR(100) NULL,
+            batal_at DATETIME NULL,
+            slip MEDIUMTEXT NULL,
+            hasil MEDIUMTEXT NULL,
+            PRIMARY KEY (id),
+            KEY idx_status_sku (status, sku),
+            KEY idx_request_at (request_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_request_resi (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            id_request INT UNSIGNED NOT NULL,
+            noresi VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_request (id_request),
+            KEY idx_noresi (noresi(100))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_import (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            nama_file VARCHAR(255) NOT NULL,
+            import_by VARCHAR(100) NULL,
+            import_at DATETIME NOT NULL,
+            jumlah_baris INT NOT NULL DEFAULT 0,
+            jumlah_qty INT NOT NULL DEFAULT 0,
+            jumlah_lewat INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_import_baris (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            id_import INT UNSIGNED NOT NULL,
+            baris_excel INT NOT NULL,
+            sku VARCHAR(100) NOT NULL,
+            no_rak VARCHAR(100) NOT NULL,
+            qty INT NOT NULL,
+            ac_no_list VARCHAR(50) NULL,
+            nama_list VARCHAR(100) NULL,
+            tgl_list DATETIME NULL,
+            ac_no_input VARCHAR(50) NULL,
+            nama_input VARCHAR(100) NULL,
+            tgl_input DATETIME NULL,
+            hash_baris CHAR(40) NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_hash (hash_baris),
+            KEY idx_import (id_import)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            waktu DATETIME NOT NULL,
+            jenis VARCHAR(20) NOT NULL,
+            sku VARCHAR(100) NULL,
+            no_rak VARCHAR(100) NULL,
+            qty_sebelum INT NULL,
+            qty_sesudah INT NULL,
+            oleh VARCHAR(100) NULL,
+            ref VARCHAR(50) NULL,
+            keterangan VARCHAR(500) NULL,
+            PRIMARY KEY (id),
+            KEY idx_waktu (waktu),
+            KEY idx_sku (sku),
+            KEY idx_ref (ref)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
+        $daftar = array(
+            array('TIM PICKER', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 40,
+                'Scan resi, cek stok top level per SKU, lalu request restok display.', 'picker/scan_picker'),
+            array('TIM CS', 'Request Top Level', 'cs/request-top-level', 'fa fa-inbox', 60,
+                'Request restok display dari picker: cetak slip 100x150, input qty dari slip.', 'masalah-picker-new'),
+            array('TIM CS', 'Upload Top Level', 'cs/upload-top-level', 'fa fa-upload', 61,
+                'Unggah Excel stok top level dari tim Restok (header baris 3).', 'masalah-picker-new'),
+            array('TIM CS', 'Stok Top Level', 'cs/stok-top-level', 'fa fa-database', 62,
+                'Total stok top level per SKU dan rincian per rak.', 'masalah-picker-new'),
+        );
+
+        foreach ($daftar as $m) {
+            $ada = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('uri' => $m[2]))->row();
+            if ($ada) {
+                continue;
+            }
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('name' => $m[0]))->row();
+            if (!$induk) {
+                continue;
+            }
+
+            $this->db->insert('menu', array(
+                'name'        => $m[1],
+                'parentid'    => $induk->id,
+                'uri'         => $m[2],
+                'icon'        => $m[3],
+                'sortorder'   => $m[4],
+                'description' => $m[5],
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s'),
+            ));
+            $menu_id = $this->db->insert_id();
+
+            $role_boleh = array(1);
+            $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('uri' => $m[6]))->row();
+            if ($saudara) {
+                foreach ($this->db->get_where('roleaccess', array('menuid' => $saudara->id))->result() as $r) {
+                    $role_boleh[] = (int) $r->roleid;
+                }
+            }
+            foreach (array_unique($role_boleh) as $roleid) {
+                $this->db->insert('roleaccess', array(
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1,
+                ));
+            }
         }
     }
 }
