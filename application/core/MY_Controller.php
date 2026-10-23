@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-23.4';
+    const BOOTSTRAP_VERSI = '2026-10-23.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2111,6 +2111,7 @@ class MY_Controller extends CI_Controller
             nama_tim VARCHAR(150) NULL,
             nama_input VARCHAR(150) NULL,
             ref VARCHAR(50) NULL,
+            tgl_list DATE NULL,
             tgl_input DATE NULL,
             dibuat_at DATETIME NOT NULL,
             dibuat_by VARCHAR(100) NULL,
@@ -2126,6 +2127,11 @@ class MY_Controller extends CI_Controller
         // Tabel yang sudah ada sebelum kolom tanggal input ditambahkan (2026-10-23.3): tambah kolomnya, tanpa mengubah isi.
         if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'tgl_input'")->num_rows()) {
             $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN tgl_input DATE NULL AFTER ref");
+        }
+
+        // 2026-10-23.5: tanggal list (pasangan Petugas List), tanpa mengubah isi tabel yang sudah ada.
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'tgl_list'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN tgl_list DATE NULL AFTER ref");
         }
 
         // 2026-10-23.4: nama_tim = Petugas List, kolom baru nama_input = Petugas Input.

@@ -15,7 +15,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   function judul() {
     return '<div class="tl-ph"><div class="t"><h1>Input Top Level</h1>' +
-      T.info('Masukkan stok top level dari tim Restok.\nPetugas List: yang mendata stok. Petugas Input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.') + '</div></div>';
+      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.') + '</div></div>';
   }
 
   function paint() {
@@ -27,12 +27,15 @@ $this->load->view('top_level/_dasar'); ?>
         '<button type="button" class="tl-btn pri" data-stok>Lihat Stok Top Level</button></div></div></section>');
       return;
     }
-    var kartu = function (judulKartu, idIn, tambahan) {
-      return '<section class="tl-panel tl-pad"><div class="tl-fld"><label for="' + idIn + '" class="tl-lbl">' + judulKartu + '</label>' +
-        '<div class="tl-pair"><div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' + (tambahan || '') + '</div></div></section>';
+    // Kartu = nama petugas (dengan saran) + tanggalnya. Petugas List <-> TGL LIST, Petugas Input <-> TGL INPUT di Excel upload.
+    var kartu = function (judulKartu, idIn, labelTgl, idTgl) {
+      return '<section class="tl-panel tl-pad"><div class="tl-pair">' +
+        '<label for="' + idIn + '" class="tl-lbl">' + judulKartu + '</label><label for="' + idTgl + '" class="tl-lbl">' + labelTgl + '</label>' +
+        '<div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
+        '<div><input type="date" id="' + idTgl + '" max="' + hariIni() + '" style="width:100%"></div></div></section>';
     };
-    var h = judul() + '<div class="tl-cards2">' + kartu('Petugas List', 'tl-list') +
-      kartu('Petugas Input', 'tl-pinput', '<div><input type="date" id="tl-tgl" max="' + hariIni() + '" aria-label="Tanggal input" title="Tanggal input" style="width:100%"></div>') + '</div>' +
+    var h = judul() + '<div class="tl-cards2">' + kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
+      kartu('Petugas Input', 'tl-pinput', 'Tanggal input', 'tl-tgl') + '</div>' +
       '<section class="tl-panel"><div class="tl-line tl-line-h"><span>SKU</span><span>No rak top level</span><span>Qty</span><span></span></div><div id="tl-baris"></div>' +
       '<div class="tl-line"><div><button type="button" class="tl-btn sm ghost" data-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div></div>' +
       '<div class="tl-sumbar"><span class="muted" id="tl-ring"></span><div style="display:flex;gap:10px;align-items:center"><span class="tl-fmsg" id="tl-gal" style="min-height:0"></span>' +
@@ -41,6 +44,7 @@ $this->load->view('top_level/_dasar'); ?>
     $('#tl-list').val(window.__tlList || '');
     $('#tl-pinput').val(window.__tlInput || '');
     $('#tl-tgl').val(window.__tlTgl || hariIni());
+    $('#tl-tgl-list').val(window.__tlTglList || hariIni());
     $.each([['#tl-list', '__tlList'], ['#tl-pinput', '__tlInput']], function (i, p) {
       T.combo($(p[0]), function (q, kirim) {
         T.post('cs/input-top-level/tim', { q: q }, function (d) {
@@ -48,7 +52,10 @@ $this->load->view('top_level/_dasar'); ?>
         }, function () { kirim([]); });
       }, function () { window[p[1]] = $(p[0]).val(); });
       $(p[0]).on('input', function () { window[p[1]] = this.value; });
-    });    gambarBaris();
+    });
+    $('#tl-tgl').on('input', function () { window.__tlTgl = this.value; });
+    $('#tl-tgl-list').on('input', function () { window.__tlTglList = this.value; });
+    gambarBaris();
     ringkas();
   }
 
@@ -126,12 +133,14 @@ $this->load->view('top_level/_dasar'); ?>
 
   // Memeriksa isian lalu menampilkan konfirmasi ringkas sebelum benar-benar menyimpan.
   function simpan() {
-    var pl = $.trim($('#tl-list').val()), pi = $.trim($('#tl-pinput').val()), tgl = $('#tl-tgl').val();
+    var pl = $.trim($('#tl-list').val()), pi = $.trim($('#tl-pinput').val()), tgl = $('#tl-tgl').val(), tglL = $('#tl-tgl-list').val();
     $('#tl-gal').text('');
-    window.__tlList = pl; window.__tlInput = pi; window.__tlTgl = tgl;
+    window.__tlList = pl; window.__tlInput = pi; window.__tlTgl = tgl; window.__tlTglList = tglL;
     if (!pl) { $('#tl-gal').text('Isi nama petugas list.'); $('#tl-list').focus(); return; }
     if (!pi) { $('#tl-gal').text('Isi nama petugas input.'); $('#tl-pinput').focus(); return; }
+    if (!tglL) { $('#tl-gal').text('Isi tanggal list.'); $('#tl-tgl-list').focus(); return; }
     if (!tgl) { $('#tl-gal').text('Isi tanggal input.'); $('#tl-tgl').focus(); return; }
+    if (tglL > tgl) { $('#tl-gal').text('Tanggal list tidak boleh setelah tanggal input.'); $('#tl-tgl-list').focus(); return; }
     var kirim = $.grep(baris, function (b) { return b.sku || b.rak || b.qty; });
     if (!kirim.length) { $('#tl-gal').text('Isi minimal satu baris.'); return; }
     var bad = $.grep(kirim, function (b) { return !b.sku || !b.rak || !(parseInt(b.qty, 10) > 0); });
@@ -139,7 +148,7 @@ $this->load->view('top_level/_dasar'); ?>
     if (tandai() > 0) { $('#tl-gal').text('Ada baris duplikat (merah). Hapus atau ubah baris itu.'); return; }
     var q = 0;
     $.each(kirim, function (i, b) { q += parseInt(b.qty, 10); });
-    var b = '<div class="tl-db"><dl class="tl-kv"><dt>Petugas List</dt><dd>' + T.esc(pl) + '</dd><dt>Petugas Input</dt><dd>' + T.esc(pi) + '</dd><dt>Tanggal</dt><dd>' + tglIndo(tgl) + '</dd><dt>Total</dt><dd><b>' + kirim.length + ' baris · ' + q + ' pcs</b></dd></dl>' +
+    var b = '<div class="tl-db"><dl class="tl-kv"><dt>Petugas List</dt><dd>' + T.esc(pl) + ' · ' + tglIndo(tglL) + '</dd><dt>Petugas Input</dt><dd>' + T.esc(pi) + ' · ' + tglIndo(tgl) + '</dd><dt>Total</dt><dd><b>' + kirim.length + ' baris · ' + q + ' pcs</b></dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:240px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th></tr></thead><tbody>' +
       $.map(kirim, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(String(x.rak).toUpperCase()) + '</td><td class="n">' + T.esc(x.qty) + '</td></tr>'; }).join('') +
       '</tbody></table></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-ya>Simpan</button></div>';
@@ -148,7 +157,7 @@ $this->load->view('top_level/_dasar'); ?>
       if (sibuk) return;
       sibuk = true;
       $(this).prop('disabled', true);
-      T.post('cs/input-top-level/simpan', { petugas_list: pl, petugas_input: pi, tanggal: tgl, rows: kirim }, function (d) {
+      T.post('cs/input-top-level/simpan', { petugas_list: pl, petugas_input: pi, tanggal: tgl, tanggal_list: tglL, rows: kirim }, function (d) {
         sibuk = false; T.closeModal(); selesai = d; paint();
       }, function (m2) { sibuk = false; T.closeModal(); $('#tl-gal').text(m2); cekDb(); });
     });

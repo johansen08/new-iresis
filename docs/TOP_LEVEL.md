@@ -58,9 +58,12 @@ petugas input) lebih dulu, lalu pegawai aktif (`tblpegawai.status_aktif = 'AKTIF
 `tbltoplevel_transfer.nama_tim` (petugas list) dan `nama_input` (kolom baru, migrasi 2026-10-23.4). Pada Upload
 Excel kedua kolom diisi dari NAMA LIST dan NAMA INPUT (beberapa nama digabung koma, tidak ikut disarankan).
 Teks bebas tetap diterima. Kolom SKU juga bersaran, hanya kode SKU (tanpa nama produk).
-**Tanggal input** bawaannya hari ini, boleh diubah ke tanggal lampau tetapi tidak ke masa depan; disimpan di
-`tbltoplevel_transfer.tgl_input` (kolom ditambahkan migrasi 2026-10-23.3, transfer lama dibiarkan NULL).
-Tombol **Simpan** membuka dialog konfirmasi (tim, tanggal, total, daftar baris) sebelum benar-benar menyimpan.
+Tiap petugas punya tanggalnya: **Tanggal list** (pasangan Petugas List, kolom TGL LIST di Excel) dan
+**Tanggal input** (pasangan Petugas Input, kolom TGL INPUT). Bawaannya hari ini, boleh ke tanggal lampau tetapi
+tidak ke masa depan, dan tanggal list tidak boleh setelah tanggal input. Disimpan di `tbltoplevel_transfer.tgl_list`
+(migrasi 2026-10-23.5) dan `tgl_input` (migrasi 2026-10-23.3); transfer lama dibiarkan NULL. Pada Upload Excel
+keduanya diisi dari tanggal terawal di kolom TGL LIST dan TGL INPUT.
+Tombol **Simpan** membuka dialog konfirmasi (petugas dan tanggalnya, total, daftar baris) sebelum benar-benar menyimpan.
 Nomor selalu melanjutkan nomor terakhir tahun berjalan, terlepas dari tanggal input.
 
 **Guard duplikat.** Input Top Level bukan penambahan stok. SKU + no rak (rak tak peka huruf besar-kecil) yang
