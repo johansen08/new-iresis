@@ -319,6 +319,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t.tanggal_printresi >=', $start_date);
         $this->db->where('t.tanggal_printresi <=', $end_date);
         $this->db->where('t2.id_resiambilbarang is null');
+        $this->where_bukan_canceled('t.status_pesanan');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -326,6 +327,19 @@ class Receipt_fcd extends CI_Model
 
         // USE INDEX FOR ORDER BY (): lihat catatan di atas fungsi ini.
         return $this->db->get('tblprintresi t USE INDEX FOR ORDER BY ()');
+    }
+
+    /**
+     * Resi berstatus CANCELED tidak ditampilkan di laporan Resi Dalam Proses
+     * (tab 0-2, data maupun total). Penanganan resi cancel ada di Laporan Resi Cancel.
+     * Resi tanpa status (NULL) tetap tampil.
+     */
+    private function where_bukan_canceled($kolom_status)
+    {
+        $this->db->group_start();
+        $this->db->where("$kolom_status IS NULL", null, false);
+        $this->db->or_where("UPPER($kolom_status) <>", 'CANCELED');
+        $this->db->group_end();
     }
 
     /**
@@ -376,6 +390,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t.tanggal_printresi >=', $start_date);
         $this->db->where('t.tanggal_printresi <=', $end_date);
         $this->db->where('t2.id_resiambilbarang is null');
+        $this->where_bukan_canceled('t.status_pesanan');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t.tanggal_printresi', 't.tanggal_bataskirim', 't3.nama_marketplace');
@@ -437,6 +452,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi >=', $start_date);
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         $this->db->where('t6.id_packing is null');
+        $this->where_bukan_canceled('t2.status_pesanan');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -475,6 +491,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi >=', $start_date);
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         $this->db->where('t6.id_packing is null');
+        $this->where_bukan_canceled('t2.status_pesanan');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't3.nama_marketplace');
@@ -543,6 +560,7 @@ class Receipt_fcd extends CI_Model
         // setiap resi di rentang tanggal. Sebagai subquery ia langsung membuang resi
         // yang sudah keluar begitu baris tblprintresi terbaca: 2,8 -> 1,1 dtk.
         $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
+        $this->where_bukan_canceled('t2.status_pesanan');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -584,6 +602,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         // Lihat catatan NOT EXISTS di get_data_receipt_process_tab2(): 2,1 -> 1,0 dtk.
         $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
+        $this->where_bukan_canceled('t2.status_pesanan');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't4.nama_marketplace');
