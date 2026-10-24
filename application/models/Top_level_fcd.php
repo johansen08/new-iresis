@@ -825,6 +825,11 @@ class Top_level_fcd extends CI_Model
 
     // ------------------------------------------------------------ CS: Stok Top Level
 
+    /**
+     * Daftar stok untuk menu Stok Top Level: tiap SKU beserta rak-raknya yang berstok.
+     *
+     * @return array [['sku'=>, 'total'=>int, 'rak'=>[['rak'=>, 'stok'=>int], ...]], ...]
+     */
     public function stok_list($cari)
     {
         // SKU yang total stoknya 0 (semua rak kosong) tidak ditampilkan.
@@ -833,10 +838,33 @@ class Top_level_fcd extends CI_Model
         if ($cari !== '') {
             $this->db->like('sku', $cari);
         }
-        $rows = $this->db->order_by('sku', 'ASC')->limit(1000)->get()->result_array();
-        foreach ($rows as &$r) {
-            $r['total'] = (int) $r['total'];
+        $rows = $this->db->order_by('sku', 'ASC')->limit(5000)->get()->result_array();
+        $peta = array();
+        foreach ($rows as $i => $r) {
+            $rows[$i]['total'] = (int) $r['total'];
+            $rows[$i]['rak'] = array();
+            $peta[$r['sku']] = $i;
         }
+        foreach (array_chunk(array_keys($peta), 500) as $chunk) {
+            foreach ($this->db->select('sku, no_rak, qty')->where('qty >', 0)->where_in('sku', $chunk)->order_by('no_rak', 'ASC')->get('tbltoplevel')->result() as $x) {
+                $rows[$peta[$x->sku]]['rak'][] = array('rak' => $x->no_rak, 'stok' => (int) $x->qty);
+            }
+        }
+        return $rows;
+    }
+
+    /** Riwayat perubahan stok satu SKU di satu rak (terbaru dulu), dari jejak audit tbltoplevel_log. */
+    public function stok_riwayat($sku, $rak)
+    {
+        $rows = $this->db->query(
+            "SELECT waktu, jenis, qty_sebelum, qty_sesudah, oleh, ref, keterangan FROM tbltoplevel_log
+             WHERE sku = ? AND no_rak = ? AND jenis <> 'TRANSFER' ORDER BY id DESC LIMIT 30",
+            array($sku, $rak)
+        )->result_array();
+        foreach ($rows as &$r) {
+            $r['selisih'] = (int) $r['qty_sesudah'] - (int) $r['qty_sebelum'];
+        }
+        unset($r);
         return $rows;
     }
 
@@ -910,6 +938,155 @@ class Top_level_fcd extends CI_Model
             return array('ok' => true, 'berubah' => $berubah, 'nomor' => $nomor);
         } finally {
             $this->lepas($kunci);
+        }
+    }
+
+    /**
+     * Ubah stok satu SKU sekaligus: qty per rak, ganti no rak, dan ganti SKU. SKU baru wajib ada di master (tblsku).
+     * Tidak ada DELETE: rak lama cukup berqty 0. Ganti SKU memindahkan seluruh stok ke SKU baru (digabung bila SKU
+     * baru sudah punya rak yang sama). Perubahan qty dicatat di log dan menghasilkan nomor transfer masuk/keluar.
+     *
+     * @param array $rows [['asal'=>no rak semula ('' untuk rak baru), 'rak'=>no rak sesudah, 'qty'=>], ...]
+     */
+    public function ubah_stok($sku, $sku_baru, array $rows, $alasan, $oleh)
+    {
+        $sku = trim((string) $sku);
+        $sku_baru = trim((string) $sku_baru);
+        if (!in_array($alasan, array('Opname', 'Salah catat', 'Barang rusak', 'Pindah rak'), true)) {
+            return array('ok' => false, 'pesan' => 'Alasan tidak valid.');
+        }
+        if ($sku === '' || $sku_baru === '') {
+            return array('ok' => false, 'pesan' => 'SKU kosong.');
+        }
+        $ada = $this->db->query('SELECT id_sku FROM tblsku WHERE id_sku = ? LIMIT 1', array($sku_baru))->row();
+        if (!$ada) {
+            return array('ok' => false, 'pesan' => 'SKU ' . $sku_baru . ' tidak ada di master (Jubelio).');
+        }
+        $sku_baru = $ada->id_sku;
+        $ganti_sku = ($sku_baru !== $sku);
+
+        // Normalisasi baris; rak yang sama digabung.
+        $tujuan = array();
+        $asal_set = array();
+        $ganti_rak = array();
+        foreach ($rows as $x) {
+            $asal = strtoupper(trim((string) (isset($x['asal']) ? $x['asal'] : '')));
+            $rak = strtoupper(trim((string) (isset($x['rak']) ? $x['rak'] : '')));
+            $qty = isset($x['qty']) ? $x['qty'] : '';
+            if ($rak === '' && $qty === '' && $asal === '') {
+                continue;
+            }
+            if ($rak === '') {
+                return array('ok' => false, 'pesan' => 'No rak tidak boleh kosong.');
+            }
+            if (!is_numeric($qty) || (int) $qty != $qty || $qty < 0) {
+                return array('ok' => false, 'pesan' => 'Qty rak ' . $rak . ' harus bilangan bulat 0 atau lebih.');
+            }
+            $tujuan[$rak] = (isset($tujuan[$rak]) ? $tujuan[$rak] : 0) + (int) $qty;
+            if ($asal !== '') {
+                $asal_set[$asal] = true;
+                if ($asal !== $rak) {
+                    $ganti_rak[] = $asal . ' → ' . $rak;
+                }
+            }
+        }
+
+        $kunci = array();
+        $nama_kunci = array_unique(array($sku, $sku_baru));
+        sort($nama_kunci);
+        foreach ($nama_kunci as $k) {
+            $l = $this->kunci($k);
+            if (!$l) {
+                foreach ($kunci as $dipegang) {
+                    $this->lepas($dipegang);
+                }
+                return array('ok' => false, 'pesan' => 'Sistem sibuk, coba lagi.');
+            }
+            $kunci[] = $l;
+        }
+        try {
+            if ($ganti_sku) {
+                $aktif = $this->db->query("SELECT id FROM tbltoplevel_request WHERE sku = ? AND status IN ('DIAJUKAN','DITUGASKAN') LIMIT 1", array($sku))->row();
+                if ($aktif) {
+                    return array('ok' => false, 'pesan' => 'SKU ' . $sku . ' masih punya request aktif (' . self::kode($aktif->id) . '). Selesaikan atau batalkan dulu.');
+                }
+            }
+            $this->db->trans_start();
+            $lama = array();
+            foreach ($this->db->query('SELECT no_rak, qty FROM tbltoplevel WHERE sku = ? FOR UPDATE', array($sku))->result() as $r) {
+                $lama[$r->no_rak] = (int) $r->qty;
+            }
+            // Layar harus sama dengan isi database; kalau berbeda, ada yang mengubah stok lebih dulu.
+            $berstok = array();
+            foreach ($lama as $rak => $q) {
+                if ($q > 0) {
+                    $berstok[$rak] = true;
+                }
+            }
+            if (array_diff_key($berstok, $asal_set) || array_diff_key($asal_set, $berstok)) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'pesan' => 'Stok SKU ini sudah berubah. Muat ulang halaman lalu coba lagi.');
+            }
+
+            $ubah = array();
+            if (!$ganti_sku) {
+                foreach ($berstok as $rak => $t) {
+                    if (!isset($tujuan[$rak])) {
+                        $ubah[] = array($sku, $rak, $lama[$rak], 0);
+                    }
+                }
+                foreach ($tujuan as $rak => $q) {
+                    $ubah[] = array($sku, $rak, isset($lama[$rak]) ? $lama[$rak] : 0, $q);
+                }
+            } else {
+                foreach ($berstok as $rak => $t) {
+                    $ubah[] = array($sku, $rak, $lama[$rak], 0);
+                }
+                $lama_t = array();
+                foreach ($this->db->query('SELECT no_rak, qty FROM tbltoplevel WHERE sku = ? FOR UPDATE', array($sku_baru))->result() as $r) {
+                    $lama_t[$r->no_rak] = (int) $r->qty;
+                }
+                foreach ($tujuan as $rak => $q) {
+                    $sebelum = isset($lama_t[$rak]) ? $lama_t[$rak] : 0;
+                    $ubah[] = array($sku_baru, $rak, $sebelum, $sebelum + $q);
+                }
+            }
+
+            $catatan = ($ganti_sku ? 'Ganti SKU ' . $sku . ' → ' . $sku_baru . '. ' : '') . ($ganti_rak ? 'Ganti no rak ' . implode(', ', $ganti_rak) . '. ' : '') . '(' . $alasan . ')';
+            $masuk = array();
+            $keluar = array();
+            $berubah = 0;
+            foreach ($ubah as $u) {
+                list($s, $rak, $sebelum, $sesudah) = $u;
+                if ($sebelum === $sesudah) {
+                    continue;
+                }
+                $this->db->query(
+                    'INSERT INTO tbltoplevel (sku, no_rak, qty, updated_at) VALUES (?, ?, ?, NOW())
+                     ON DUPLICATE KEY UPDATE qty = VALUES(qty), updated_at = VALUES(updated_at)',
+                    array($s, $rak, $sesudah)
+                );
+                $this->catat('KOREKSI', $s, $rak, $sebelum, $sesudah, $oleh, null, 'Ubah stok. ' . $catatan);
+                $b = array('sku' => $s, 'rak' => $rak, 'qty' => abs($sesudah - $sebelum), 'sebelum' => $sebelum, 'sesudah' => $sesudah);
+                if ($sesudah > $sebelum) { $masuk[] = $b; } else { $keluar[] = $b; }
+                $berubah++;
+            }
+            if ($berubah === 0) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'pesan' => 'Tidak ada perubahan.');
+            }
+            $nomor = array();
+            if ($masuk)  { $nomor[] = $this->buat_transfer('MASUK', 'KOREKSI', null, $alasan, $oleh, $masuk); }
+            if ($keluar) { $nomor[] = $this->buat_transfer('KELUAR', 'KOREKSI', null, $alasan, $oleh, $keluar); }
+            $this->db->trans_complete();
+            if ($this->db->trans_status() === false) {
+                return array('ok' => false, 'pesan' => 'Penyimpanan gagal.');
+            }
+            return array('ok' => true, 'berubah' => $berubah, 'nomor' => $nomor);
+        } finally {
+            foreach ($kunci as $dipegang) {
+                $this->lepas($dipegang);
+            }
         }
     }
 

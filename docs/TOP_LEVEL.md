@@ -100,6 +100,16 @@ ditolak (server memeriksa lagi sebelum transaksi dan di dalam transaksi dengan `
 duplikat menggagalkan seluruh transfer). Pasangan yang stoknya 0 boleh diinput lagi. Koreksi stok yang sudah ada
 dilakukan lewat Edit di Stok Top Level. Guard ini hanya untuk Input; Upload Excel tetap menambah qty.
 
+**Stok Top Level (redesain 24 Okt 2026):** satu kali muat semua SKU beserta rak-raknya (`cs/stok-top-level/data`),
+lalu cari, urut, filter, dan halaman diproses di browser. Dua tampilan, **Per SKU** dan **Per Rak**; baris induk
+bisa dibuka untuk rincian. Stok tipis = total <= 20 (konstanta `TIPIS` di view). Dari rincian ada **Edit** dan **Histori**.
+Edit (`cs/stok-top-level/simpan` -> `Top_level_fcd::ubah_stok`) bisa mengubah qty per rak, **ganti no rak**, dan
+**ganti SKU**; SKU baru wajib ada di master `tblsku` (isian memberi saran lewat `cs/stok-top-level/sku`). Tidak ada
+DELETE: rak lama berqty 0, ganti SKU memindahkan seluruh stok (digabung bila SKU tujuan sudah punya rak yang sama).
+Ganti SKU ditolak bila SKU asal punya request aktif. Layar harus sama dengan isi database, bila tidak ada pesan
+"muat ulang". Tiap perubahan masuk `tbltoplevel_log` (jenis KOREKSI) dan menghasilkan transfer MASUK/KELUAR.
+Histori (`cs/stok-top-level/riwayat`) membaca `tbltoplevel_log` per SKU dan rak. Endpoint lama `koreksi` masih ada.
+
 Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**, masuk maupun keluar:
 
 | Sumber | Arah | Kapan |

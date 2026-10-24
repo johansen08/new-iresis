@@ -190,6 +190,28 @@ class Top_level extends MY_Controller
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Stok top level diperbarui, transfer ' . implode(', ', $h['nomor']) . '.' : $h['pesan']);
     }
 
+    /** Saran SKU dari master (tblsku) untuk isian ganti SKU. */
+    public function stok_sku()
+    {
+        $this->_wajib(self::URI_STOK);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_sku($this->input->post('q'))));
+    }
+
+    public function stok_riwayat()
+    {
+        $this->_wajib(self::URI_STOK);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->stok_riwayat(trim((string) $this->input->post('sku')), strtoupper(trim((string) $this->input->post('rak'))))));
+    }
+
+    /** Simpan perubahan satu SKU: qty per rak, ganti no rak, ganti SKU (harus ada di master). */
+    public function stok_simpan()
+    {
+        $this->_wajib(self::URI_STOK);
+        $rows = $this->input->post('rows');
+        $h = $this->top_level_fcd->ubah_stok(trim((string) $this->input->post('sku')), trim((string) $this->input->post('sku_baru')), is_array($rows) ? array_values($rows) : array(), (string) $this->input->post('alasan'), $this->_oleh());
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Stok top level diperbarui, transfer ' . implode(', ', $h['nomor']) . '.' : $h['pesan']);
+    }
+
     // ------------------------------------------------------------ Upload Top Level
 
     /**
