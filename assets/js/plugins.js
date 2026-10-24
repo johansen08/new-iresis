@@ -917,16 +917,35 @@ $(function() {
         return jQuery(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
     };
 
+    // Catat menu sidebar yang sedang dibuka ke hash URL (#menu=...) supaya
+    // refresh membuka menu yang sama. Hanya tautan di sidebar yang dicatat;
+    // tautan lain (mis. halaman detail) membiarkan hash menu induknya.
+    // replaceState: tidak reload dan tidak menambah entri history.
+    var catatMenuKeHash = function(tautan) {
+        if (!tautan.closest('.x-navigation').length) {
+            return;
+        }
+
+        var uri = tautan.attr('href');
+        if (!uri || uri === '#' || !window.history || !window.history.replaceState) {
+            return;
+        }
+
+        window.history.replaceState(null, '', window.location.pathname + window.location.search + '#menu=' + encodeURIComponent(uri).replace(/%2F/gi, '/'));
+    };
+
     $("a.link").on("click", function(event) {
         menu = $(this).html();
         $(".breadcrumb li").html(menu);
 
         event.preventDefault();
+        catatMenuKeHash($(this));
         devScript.openPage($(this).attr('href'));
     });
 
     $("body").on("click", "a.link", function(event) {
         event.preventDefault();
+        catatMenuKeHash($(this));
         devScript.openPage($(this).attr('href'));
     });
 
@@ -948,12 +967,13 @@ $(function() {
             return $(this).attr('href') === uri;
         }).first();
 
-        // Hash dibuang supaya refresh manual tidak membuka menu itu lagi.
-        if (window.history && window.history.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
-
+        // Hash dipertahankan supaya refresh manual membuka menu yang sama.
+        // Kalau tautannya tidak ada di sidebar user ini (mis. beda role),
+        // hash dibuang dan halaman jatuh ke beranda.
         if (!tautan.length) {
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
             return;
         }
 
