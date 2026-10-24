@@ -61,6 +61,8 @@ $this->load->view('top_level/_dasar'); ?>
   function muat(diam) {
     T.post('cs/request-top-level/data', { filter: filter, q: q }, function (d) {
       rows = d.rows || []; hitung = d.hitung || {};
+      // Tab kerja: yang paling lama menunggu di atas (id kecil lebih dulu). Tab Selesai tetap yang terbaru di atas (urutan server).
+      if (filter !== 'selesai') rows.sort(function (a, b) { return a.id - b.id; });
       if (d.sekarang) offset = ms(d.sekarang) - Date.now();
       tabs(); pastikan();
     }, function (m) { if (!diam) T.galat(m); });
