@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-23.7';
+    const BOOTSTRAP_VERSI = '2026-10-24.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2036,6 +2036,12 @@ class MY_Controller extends CI_Controller
             KEY idx_status_sku (status, sku),
             KEY idx_request_at (request_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // 2026-10-24.1: abaikan = 1 untuk request yang hanya data uji (soft-hide, barisnya tetap ada untuk audit).
+        // Daftar dan hitungan CS serta antrian picker melewati baris bertanda ini.
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_request LIKE 'abaikan'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_request ADD COLUMN abaikan TINYINT NOT NULL DEFAULT 0 AFTER hasil");
+        }
 
         $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_request_resi (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
