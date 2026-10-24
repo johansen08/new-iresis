@@ -11,8 +11,8 @@ $this->load->view('top_level/_dasar'); ?>
 (function () {
   var T = window.TL, $r = $('#tl-in'), baris = [], selesai = null, galat = '', sibuk = false;
   var KOSONG = function () { return { sku: '', rak: '', qty: '' }; };
-  // Arah transfer: MASUK menambah stok rak, KELUAR mengurangi stok rak (diingat selama menu tidak di-reload).
-  var arah = window.__tlArah === 'KELUAR' ? 'KELUAR' : 'MASUK';
+  // Arah transfer: tanpa default, penginput wajib memilih. MASUK menambah stok rak, KELUAR mengurangi stok rak (diingat selama menu tidak di-reload).
+  var arah = window.__tlArah === 'KELUAR' || window.__tlArah === 'MASUK' ? window.__tlArah : '';
   var keluar = function () { return arah === 'KELUAR'; };
   baris = [KOSONG(), KOSONG(), KOSONG()];
 
@@ -37,10 +37,11 @@ $this->load->view('top_level/_dasar'); ?>
         '<div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
         '<div><input type="date" id="' + idTgl + '" max="' + hariIni() + '" style="width:100%"></div></div></section>';
     };
-    var h = judul() + '<section class="tl-panel tl-pad"><label class="tl-lbl" for="tl-arah">Arah</label>' +
-      '<select id="tl-arah" style="width:100%"><option value="MASUK"' + (keluar() ? '' : ' selected') + '>Masuk (menambah stok)</option>' +
-      '<option value="KELUAR"' + (keluar() ? ' selected' : '') + '>Keluar (mengurangi stok)</option></select></section>' +
-      '<div class="tl-cards2">' + kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
+    var h = judul() + '<div class="tl-cards3"><section class="tl-panel tl-pad"><label class="tl-lbl" for="tl-arah">Arah</label>' +
+      '<select id="tl-arah" class="tl-arah ' + arah.toLowerCase() + '"><option value=""' + (arah ? '' : ' selected') + '>Pilih arah</option>' +
+      '<option value="MASUK"' + (arah === 'MASUK' ? ' selected' : '') + '>Masuk</option>' +
+      '<option value="KELUAR"' + (arah === 'KELUAR' ? ' selected' : '') + '>Keluar</option></select></section>' +
+      kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
       kartu('Petugas Input', 'tl-pinput', 'Tanggal input', 'tl-tgl') + '</div>' +
       '<section class="tl-panel"><div class="tl-line tl-line-h"><span>SKU</span><span>No rak top level</span><span>Qty</span><span></span></div><div id="tl-baris"></div>' +
       '<div class="tl-line"><div><button type="button" class="tl-btn sm ghost" data-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div></div>' +
@@ -59,7 +60,7 @@ $this->load->view('top_level/_dasar'); ?>
       }, function () { window[p[1]] = $(p[0]).val(); });
       $(p[0]).on('input', function () { window[p[1]] = this.value; });
     });
-    $('#tl-arah').on('change', function () { arah = window.__tlArah = this.value; dup = {}; tandai(); cekDb(); });
+    $('#tl-arah').on('change', function () { arah = window.__tlArah = this.value; $(this).removeClass('masuk keluar').addClass(arah.toLowerCase()); dup = {}; tandai(); cekDb(); });
     $('#tl-tgl').on('input', function () { window.__tlTgl = this.value; });
     $('#tl-tgl-list').on('input', function () { window.__tlTglList = this.value; });
     gambarBaris();
@@ -149,6 +150,7 @@ $this->load->view('top_level/_dasar'); ?>
     var pl = $.trim($('#tl-list').val()), pi = $.trim($('#tl-pinput').val()), tgl = $('#tl-tgl').val(), tglL = $('#tl-tgl-list').val();
     $('#tl-gal').text('');
     window.__tlList = pl; window.__tlInput = pi; window.__tlTgl = tgl; window.__tlTglList = tglL;
+    if (!arah) { $('#tl-gal').text('Pilih arah: Masuk atau Keluar.'); $('#tl-arah').focus(); return; }
     if (!pl) { $('#tl-gal').text('Isi nama petugas list.'); $('#tl-list').focus(); return; }
     if (!pi) { $('#tl-gal').text('Isi nama petugas input.'); $('#tl-pinput').focus(); return; }
     if (!tglL) { $('#tl-gal').text('Isi tanggal list.'); $('#tl-tgl-list').focus(); return; }
@@ -171,7 +173,7 @@ $this->load->view('top_level/_dasar'); ?>
       sibuk = true;
       $(this).prop('disabled', true);
       T.post('cs/input-top-level/simpan', { petugas_list: pl, petugas_input: pi, tanggal: tgl, tanggal_list: tglL, arah: arah, rows: kirim }, function (d) {
-        sibuk = false; T.closeModal(); selesai = d; paint();
+        sibuk = false; T.closeModal(); selesai = d; arah = window.__tlArah = ''; paint();
       }, function (m2) { sibuk = false; T.closeModal(); $('#tl-gal').text(m2); cekDb(); });
     });
     $m.find('[data-ya]').trigger('focus');

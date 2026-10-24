@@ -74,8 +74,13 @@ class Top_level extends MY_Controller
     public function input_simpan()
     {
         $this->_wajib(self::URI_INPUT);
+        $arah = (string) $this->input->post('arah');
+        if ($arah !== 'MASUK' && $arah !== 'KELUAR') {
+            $this->make_ajax_response(409, 'Pilih arah: Masuk atau Keluar.', array());
+            return;
+        }
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'), $this->input->post('arah') === 'KELUAR' ? 'KELUAR' : 'MASUK');
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'), $arah);
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal'], 'tanggal_list' => $h['tanggal_list']) : array());
     }
 
