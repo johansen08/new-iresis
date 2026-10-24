@@ -82,9 +82,9 @@ $this->load->view('top_level/_dasar'); ?>
     var d = cekHasil[i], tp, judul, sub, tombol = '';
     if (!d) return '';
     if (!d.ada_stok) { tp = 'bad'; judul = 'Tidak ada stok top level'; sub = 'Lapor ke CS bila perlu.'; }
-    else if (d.aktif && d.joined) { tp = 'info'; judul = 'Sudah dalam request · ' + d.aktif.kode; sub = 'Resi ini sudah tergabung.'; }
+    else if (d.aktif && d.joined) { tp = 'info'; judul = 'Sudah dalam request · ' + (d.aktif.nomor || d.aktif.kode); sub = 'Resi ini sudah tergabung.'; }
     else if (d.aktif) {
-      tp = 'info'; judul = 'Request berjalan · ' + d.aktif.kode; sub = 'Gabungkan resi ini ke request tersebut.';
+      tp = 'info'; judul = 'Request berjalan · ' + (d.aktif.nomor || d.aktif.kode); sub = 'Gabungkan resi ini ke request tersebut.';
       tombol = '<button type="button" class="tl-btn pri sm" data-gabung="' + d.aktif.id + '">Gabungkan resi</button>';
     } else {
       tp = 'ok'; judul = 'Stok top level tersedia'; sub = 'Ajukan restok display, lalu serahkan resi ke CS.';
@@ -104,8 +104,8 @@ $this->load->view('top_level/_dasar'); ?>
     var it = resi.items[i];
     var $d = T.modal({
       judul: 'Ajukan Request Restok Display?',
-      body: '<div class="tl-db">' + kv([['Resi', resi.noresi], ['SKU', it.sku], ['Rak display', it.no_rak], ['Nomor', 'TTL otomatis'], ['Jenis', 'TTL Keluar']]) +
-        '<div class="tlc-wr">Pengajuan ini menjadi TTL berstatus <b>Keluar</b> yang akan <b>mengurangi stok top level</b>.</div>' +
+      body: '<div class="tl-db">' + kv([['Resi', resi.noresi], ['SKU', it.sku], ['Rak display', it.no_rak], ['Nomor', 'TTL baru (lanjut dari TTL terakhir)'], ['Jenis', 'Keluar (qty minus)']]) +
+        '<div class="tlc-wr">Pengajuan ini langsung mendapat nomor TTL berjenis <b>Keluar</b>. Qty yang dimasukkan CS akan tersimpan <b>minus</b> dan <b>mengurangi stok top level</b>.</div>' +
         '<div class="muted">Setelah diajukan, serahkan resi fisik ke CS. Request masih bisa dibatalkan selama berstatus Diajukan.</div></div>' +
         '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-ya>Ya, Ajukan</button></div>'
     });
@@ -114,9 +114,9 @@ $this->load->view('top_level/_dasar'); ?>
       $(this).prop('disabled', true);
       T.post('picker/cek-top-level/ajukan', { sku: it.sku, noresi: resi.noresi }, function (r) {
         T.closeModal();
-        hs = '✓ Request ' + r.kode + ' dibuat. Serahkan resi fisik ke CS.';
+        hs = '✓ Request ' + r.nomor + ' dibuat. Serahkan resi fisik ke CS.';
         baru = r.kode; filter = 'DIAJUKAN'; buka = null;
-        T.toast('Request ' + r.kode + ' dibuat.');
+        T.toast('Request ' + r.nomor + ' dibuat.');
         muat(resi.noresi, true); terbaru();
       }, function (m) { T.closeModal(); T.galat(m); buka = null; muat(resi.noresi, true); terbaru(); });
     });
@@ -128,7 +128,7 @@ $this->load->view('top_level/_dasar'); ?>
     if (!r) return;
     var $d = T.modal({
       judul: 'Batalkan request?',
-      body: '<div class="tl-db">' + kv([[/^TTL-/.test(r.nomor) ? 'Nomor TTL' : 'Nomor request', r.nomor], ['SKU', r.sku], ['Resi', r.resi]]) +
+      body: '<div class="tl-db">' + kv([['Nomor TTL', r.nomor], ['SKU', r.sku], ['Resi', r.resi]]) +
         '<div class="tlc-wr">Request dibatalkan dan tidak akan diproses CS. Hanya bisa selama berstatus Diajukan.</div></div>' +
         '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tidak</button><button type="button" class="tl-btn pri bad" data-yabatal>Ya, Batalkan</button></div>'
     });

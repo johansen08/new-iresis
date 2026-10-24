@@ -51,7 +51,7 @@ class Cek_top_level extends MY_Controller
             $this->make_ajax_response(400, 'SKU dan resi wajib diisi.');
         }
         $h = $this->top_level_fcd->buat_request($sku, $noresi, $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Request ' . $h['kode'] . ' dibuat.' : $h['pesan'], $h['ok'] ? array('kode' => $h['kode']) : array('aktif' => isset($h['aktif']) ? $h['aktif'] : 0));
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Request ' . $h['nomor'] . ' dibuat.' : $h['pesan'], $h['ok'] ? array('kode' => $h['kode'], 'nomor' => $h['nomor']) : array('aktif' => isset($h['aktif']) ? $h['aktif'] : 0));
     }
 
     public function gabung()
@@ -62,7 +62,7 @@ class Cek_top_level extends MY_Controller
             $this->make_ajax_response(400, 'Resi kosong.');
         }
         $h = $this->top_level_fcd->gabung((int) $this->input->post('id'), $noresi, $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Resi digabung ke ' . $h['kode'] . '.' : $h['pesan']);
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Resi digabung ke ' . $h['nomor'] . '.' : $h['pesan']);
     }
 
     public function batal()

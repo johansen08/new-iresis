@@ -43,7 +43,7 @@ $this->load->view('top_level/_dasar'); ?>
       h += '<tr class="go" data-id="' + t.id + '"><td class="nowrap"><b class="mono">' + T.esc(t.nomor) + '</b></td><td>' + T.pill(t.arah === 'MASUK' ? 'Masuk' : 'Keluar', t.arah === 'MASUK' ? 'ok' : 'warn') + '</td>' +
         '<td><div class="tl-cell2"><span>' + T.esc(SUMBER[t.sumber] || t.sumber) + '</span><small class="mono">' + T.esc(t.ref || '') + '</small></div></td>' +
         '<td>' + dua(t.nama_tim, t.tgl_list) + '</td><td>' + dua(t.nama_input, t.tgl_input) + '</td>' +
-        '<td class="n">' + t.jumlah_baris + '</td><td class="n">' + t.jumlah_qty + '</td><td class="mono nowrap">' + T.tgl(t.dibuat_at) + '</td>' +
+        '<td class="n">' + t.jumlah_baris + '</td><td class="n">' + (+t.jumlah_baris === 0 ? '<span class="muted" data-tip="Nomor sudah dibuat saat pengajuan; qty diisi saat CS input qty dari slip.">menunggu qty</span>' : (t.arah === 'MASUK' ? '+' : '−') + Math.abs(t.jumlah_qty)) + '</td><td class="mono nowrap">' + T.tgl(t.dibuat_at) + '</td>' +
         '<td class="act"><button type="button" class="tl-btn sm" data-detail="' + t.id + '">Detail</button></td></tr>';
     });
     $('#tl-tabel').html(h + '</tbody></table></div>');
@@ -70,7 +70,7 @@ $this->load->view('top_level/_dasar'); ?>
         (t.nama_input ? '<dt>Petugas input</dt><dd>' + T.esc(t.nama_input) + (t.tgl_input ? ' · ' + T.tgl(t.tgl_input) : '') + '</dd>' : '') +
         '<dt>Dibuat</dt><dd class="mono">' + T.tgl(t.dibuat_at) + (t.dibuat_by ? ' · ' + T.esc(t.dibuat_by) : '') + '</dd></dl>' +
         '<div class="tl-tw tl-panel" style="max-height:300px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Sebelum</th><th class="n">Sesudah</th></tr></thead><tbody>' +
-        $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + '</td><td class="n"><b>' + (masuk ? '+' : '−') + x.qty + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
+        $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + '</td><td class="n"><b>' + (masuk ? '+' : '−') + Math.abs(x.qty) + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
         '</tbody></table></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button></div>';
       T.modal({ judul: 'Detail transfer', wide: true, body: b });
     }, T.galat);

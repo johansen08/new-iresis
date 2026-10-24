@@ -107,6 +107,39 @@ class Top_level_fcd extends CI_Model
         return $nomor;
     }
 
+    /**
+     * Mengisi TTL keluar milik request yang dialokasikan saat pengajuan (baris belum ada): qty tiap rak disimpan MINUS
+     * (keluar mengurangi stok). Request lama yang belum punya nomor mendapat nomor baru, juga bermuatan minus.
+     *
+     * @param array $trf [['sku'=>, 'rak'=>, 'qty'=>diambil (positif), 'sebelum'=>, 'sesudah'=>], ...]
+     * @return string nomor transfer
+     */
+    private function isi_transfer_request($kode, $oleh, array $trf)
+    {
+        $minus = array();
+        $qty = 0;
+        foreach ($trf as $b) {
+            $b['qty'] = -abs((int) $b['qty']);
+            $qty += $b['qty'];
+            $minus[] = $b;
+        }
+        $t = $this->db->query("SELECT id, nomor FROM tbltoplevel_transfer WHERE sumber = 'REQUEST' AND ref = ? AND aktif_key = 1 AND jumlah_baris = 0 ORDER BY id DESC LIMIT 1 FOR UPDATE", array($kode))->row_array();
+        if (!$t) {
+            return $this->buat_transfer('KELUAR', 'REQUEST', null, $kode, $oleh, $minus);
+        }
+        foreach ($minus as $b) {
+            $this->db->insert('tbltoplevel_transfer_baris', array(
+                'id_transfer' => (int) $t['id'], 'sku' => $b['sku'], 'no_rak' => $b['rak'], 'qty' => $b['qty'],
+                'qty_sebelum' => $b['sebelum'], 'qty_sesudah' => $b['sesudah'],
+            ));
+        }
+        $this->db->where('id', (int) $t['id'])->update('tbltoplevel_transfer', array(
+            'jumlah_baris' => count($minus), 'jumlah_qty' => $qty, 'tgl_input' => date('Y-m-d'),
+        ));
+        $this->catat('TRANSFER', null, null, null, null, $oleh, $t['nomor'], 'Transfer keluar ' . $t['nomor'] . ' (REQUEST ' . $kode . ') diisi, ' . count($minus) . ' baris, ' . $qty . ' pcs');
+        return $t['nomor'];
+    }
+
     // ------------------------------------------------------------ CS: Input Top Level
 
     /**
@@ -368,7 +401,7 @@ class Top_level_fcd extends CI_Model
         foreach ($items as &$it) {
             $r = $this->request_resi_sku($resi['noresi'], $it['sku']);
             $it['request'] = $r ? array('id' => (int) $r['id'], 'kode' => self::kode($r['id']), 'status' => $r['status'],
-                'nomor' => $r['status'] === 'SELESAI' ? ($this->nomor_request($r['id']) ?: self::kode($r['id'])) : self::kode($r['id'])) : null;
+                'nomor' => $this->nomor_tampil($r['id'])) : null;
         }
         unset($it);
 
@@ -419,7 +452,7 @@ class Top_level_fcd extends CI_Model
 
         return array(
             'ada_stok' => $total > 0,
-            'aktif'    => $aktif ? array('id' => (int) $aktif['id'], 'kode' => self::kode($aktif['id']), 'nomor' => self::kode($aktif['id']), 'status' => $aktif['status']) : null,
+            'aktif'    => $aktif ? array('id' => (int) $aktif['id'], 'kode' => self::kode($aktif['id']), 'nomor' => $this->nomor_tampil($aktif['id']), 'status' => $aktif['status']) : null,
             'joined'   => $joined,
         );
     }
@@ -452,7 +485,7 @@ class Top_level_fcd extends CI_Model
             }
             $aktif = $this->request_aktif($sku);
             if ($aktif) {
-                return array('ok' => false, 'pesan' => 'Sudah ada request ' . self::kode($aktif['id']) . ' untuk SKU ini.', 'aktif' => (int) $aktif['id']);
+                return array('ok' => false, 'pesan' => 'Sudah ada request ' . $this->nomor_tampil($aktif['id']) . ' untuk SKU ini.', 'aktif' => (int) $aktif['id']);
             }
 
             $now = date('Y-m-d H:i:s');
@@ -464,13 +497,15 @@ class Top_level_fcd extends CI_Model
             if ($noresi !== '') {
                 $this->db->insert('tbltoplevel_request_resi', array('id_request' => $id, 'noresi' => $noresi, 'created_at' => $now));
             }
-            $this->catat('REQUEST', $sku, null, null, null, $oleh, self::kode($id), 'Request restok display ' . $now . ($noresi !== '' ? ' · resi ' . $noresi : ''));
+            // Nomor TTL keluar dialokasikan sekarang (lanjut dari TTL terakhir); qty (minus) baru diisi saat CS input qty.
+            $nomor = $this->buat_transfer('KELUAR', 'REQUEST', null, self::kode($id), $oleh, array());
+            $this->catat('REQUEST', $sku, null, null, null, $oleh, self::kode($id), 'Request restok display ' . $now . ($noresi !== '' ? ' · resi ' . $noresi : '') . ' · ' . $nomor);
             $this->db->trans_complete();
 
             if ($this->db->trans_status() === false) {
                 return array('ok' => false, 'pesan' => 'Gagal menyimpan request.');
             }
-            return array('ok' => true, 'kode' => self::kode($id), 'id' => $id);
+            return array('ok' => true, 'kode' => self::kode($id), 'nomor' => $nomor, 'id' => $id);
         } finally {
             $this->lepas($kunci);
         }
@@ -484,11 +519,11 @@ class Top_level_fcd extends CI_Model
         }
         $sudah = $this->db->where(array('id_request' => (int) $id, 'noresi' => $noresi))->count_all_results('tbltoplevel_request_resi');
         if ($sudah > 0) {
-            return array('ok' => true, 'kode' => self::kode($id));
+            return array('ok' => true, 'kode' => self::kode($id), 'nomor' => $this->nomor_tampil($id));
         }
         $this->db->insert('tbltoplevel_request_resi', array('id_request' => (int) $id, 'noresi' => $noresi, 'created_at' => date('Y-m-d H:i:s')));
         $this->catat('REQUEST', $r['sku'], null, null, null, $oleh, self::kode($id), 'Resi ' . $noresi . ' digabung');
-        return array('ok' => true, 'kode' => self::kode($id));
+        return array('ok' => true, 'kode' => self::kode($id), 'nomor' => $this->nomor_tampil($id));
     }
 
     /** Hanya request yang belum dicetak yang boleh dibatalkan. */
@@ -498,13 +533,22 @@ class Top_level_fcd extends CI_Model
         if (!$r) {
             return array('ok' => false, 'pesan' => 'Request tidak ditemukan.');
         }
+        $this->db->trans_start();
         $this->db->where(array('id' => (int) $id, 'status' => 'DIAJUKAN'))
             ->update('tbltoplevel_request', array('status' => 'BATAL', 'batal_at' => date('Y-m-d H:i:s')));
         if ($this->db->affected_rows() < 1) {
+            $this->db->trans_complete();
             return array('ok' => false, 'pesan' => 'Request sudah dicetak, tidak bisa dibatalkan.');
         }
+        // TTL keluar milik request ini belum punya baris (qty baru diisi saat selesai): tandai batal, tanpa DELETE dan tanpa mengubah stok.
+        $t = $this->db->query("SELECT id, tahun FROM tbltoplevel_transfer WHERE sumber = 'REQUEST' AND ref = ? AND aktif_key = 1 AND jumlah_baris = 0 FOR UPDATE", array(self::kode($id)))->row_array();
+        if ($t) {
+            $this->db->query('UPDATE tbltoplevel_transfer SET aktif_key = NULL, batal_at = NOW(), batal_by = ?, batal_alasan = ? WHERE id = ?', array($oleh, 'Request dibatalkan sebelum dicetak', (int) $t['id']));
+            $this->db->query('UPDATE tbltoplevel_nomor SET urut = (SELECT COALESCE(MAX(urut), 0) FROM tbltoplevel_transfer WHERE tahun = ? AND aktif_key = 1) WHERE tahun = ?', array((int) $t['tahun'], (int) $t['tahun']));
+        }
         $this->catat('REQUEST', $r['sku'], null, null, null, $oleh, self::kode($id), 'Request dibatalkan');
-        return array('ok' => true);
+        $this->db->trans_complete();
+        return array('ok' => $this->db->trans_status() !== false);
     }
 
     /**
@@ -523,9 +567,10 @@ class Top_level_fcd extends CI_Model
              ORDER BY r.id DESC LIMIT " . (int) $batas
         )->result_array();
         $jam = function ($t) { return $t ? date('H:i:s', strtotime($t)) : ''; };
+        $peta = $this->nomor_transfer_per_ref('REQUEST');
         foreach ($rows as &$r) {
             $r['kode'] = self::kode($r['id']);
-            $r['nomor'] = $r['status'] === 'SELESAI' ? ($this->nomor_request($r['id']) ?: $r['kode']) : $r['kode'];
+            $r['nomor'] = isset($peta[$r['kode']]) ? $peta[$r['kode']] : $r['kode'];
             $r['jam_diajukan'] = $jam($r['request_at']);
             $r['jam_cetak'] = $jam($r['cetak_at']);
             $r['jam_selesai'] = $jam($r['selesai_at']);
@@ -571,11 +616,14 @@ class Top_level_fcd extends CI_Model
             if ($id > 0) {
                 $this->db->or_where('r.id', $id);
             }
+            $this->db->or_where("EXISTS (SELECT 1 FROM tbltoplevel_transfer tt WHERE tt.sumber = 'REQUEST' AND tt.aktif_key = 1 AND tt.ref = CONCAT('RT-', LPAD(r.id, 4, '0')) AND tt.nomor LIKE " . $this->db->escape('%' . $this->db->escape_like_str($cari) . '%') . ')', null, false);
             $this->db->group_end();
         }
         $rows = $this->db->order_by('r.id', 'DESC')->limit(500)->get()->result_array();
+        $peta = $this->nomor_transfer_per_ref('REQUEST');
         foreach ($rows as &$r) {
             $r['kode'] = self::kode($r['id']);
+            $r['nomor'] = isset($peta[$r['kode']]) ? $peta[$r['kode']] : $r['kode'];
         }
         return $rows;
     }
@@ -591,6 +639,12 @@ class Top_level_fcd extends CI_Model
     {
         $r = $this->db->select('nomor')->where(array('sumber' => 'REQUEST', 'ref' => self::kode($id), 'aktif_key' => 1))->get('tbltoplevel_transfer')->row();
         return $r ? $r->nomor : '';
+    }
+
+    /** Nomor TTL milik request (dialokasikan saat pengajuan); kode request bila belum ada (request lama). */
+    private function nomor_tampil($id)
+    {
+        return $this->nomor_request($id) ?: self::kode($id);
     }
 
     public function detail_request($id)
@@ -609,6 +663,7 @@ class Top_level_fcd extends CI_Model
         return array(
             'id'          => (int) $r['id'],
             'kode'        => self::kode($r['id']),
+            'nomor'       => $this->nomor_tampil($r['id']),
             'sku'         => $r['sku'],
             'asal'        => $r['asal'],
             'status'      => $r['status'],
@@ -721,7 +776,7 @@ class Top_level_fcd extends CI_Model
                 $this->db->trans_rollback();
                 return array('ok' => false, 'pesan' => 'Isi qty yang diambil.');
             }
-            $nomor = $this->buat_transfer('KELUAR', 'REQUEST', null, $kode, $oleh, $trf);
+            $nomor = $this->isi_transfer_request($kode, $oleh, $trf);
             $this->db->where('id', (int) $id)->update('tbltoplevel_request', array(
                 'status' => 'SELESAI', 'selesai_at' => date('Y-m-d H:i:s'), 'selesai_by' => $oleh, 'hasil' => json_encode($hasil),
             ));
@@ -994,7 +1049,7 @@ class Top_level_fcd extends CI_Model
             ->from('tbltoplevel_transfer t')->order_by('t.id', 'DESC')->limit($ukuran, ($halaman - 1) * $ukuran)->get()->result_array();
 
         $saring();
-        $r = $this->db->select("COALESCE(SUM(CASE WHEN t.arah = 'MASUK' THEN t.jumlah_qty END), 0) AS masuk, COALESCE(SUM(CASE WHEN t.arah = 'KELUAR' THEN t.jumlah_qty END), 0) AS keluar", false)
+        $r = $this->db->select("COALESCE(SUM(CASE WHEN t.arah = 'MASUK' THEN t.jumlah_qty END), 0) AS masuk, COALESCE(SUM(CASE WHEN t.arah = 'KELUAR' THEN ABS(t.jumlah_qty) END), 0) AS keluar", false)
             ->from('tbltoplevel_transfer t')->get()->row();
 
         return array('rows' => $rows, 'total' => $total, 'halaman' => $halaman, 'ukuran' => $ukuran,
@@ -1017,8 +1072,9 @@ class Top_level_fcd extends CI_Model
             return array('ok' => false, 'pesan' => 'Transfer ' . $nomor . ' tidak ditemukan atau sudah dibatalkan.');
         }
         $baris = $this->db->query('SELECT sku, no_rak, qty FROM tbltoplevel_transfer_baris WHERE id_transfer = ?', array((int) $t['id']))->result_array();
-        $tanda = $t['arah'] === 'MASUK' ? -1 : 1;
         foreach ($baris as $b) {
+            // MASUK (qty positif) dan KELUAR baru (qty minus): kembalikan dengan mengurangi qty; KELUAR lama (qty positif): menambah.
+            $tanda = ($t['arah'] === 'MASUK' || (int) $b['qty'] < 0) ? -1 : 1;
             $s = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['no_rak']))->row();
             $sebelum = $s ? (int) $s->qty : 0;
             $sesudah = $sebelum + $tanda * (int) $b['qty'];
