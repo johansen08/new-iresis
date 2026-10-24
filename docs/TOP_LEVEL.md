@@ -21,7 +21,8 @@ ditulis tangan di slip, lalu diinput CS.
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
 Cek Top Level semula di TIM PICKER dan dipindah ke TIM CS pada migrasi 2026-10-24.2 (hanya induk dan urutan menu; URI dan
-hak akses tidak berubah, jadi role Picker yang sudah punya akses tetap melihatnya, kini di bawah TIM CS).
+hak akses tidak berubah, jadi role Picker yang sudah punya akses tetap melihatnya, kini di bawah TIM CS). Urutan menu di
+TIM CS (migrasi 2026-10-24.3): Cek 61, Request 62, Upload 63, Stok 64, Input 65, Daftar Transfer 66; Cek persis di atas Request.
 Hak akses menu baru disalin dari menu saudara (`picker/scan_picker` untuk Picker,
 `masalah-picker-new` untuk CS), Admin selalu ikut; ubah lewat menu Access.
 Tim Restok **tidak memakai sistem**. Log perubahan disimpan di `tbltoplevel_log` dan belum
