@@ -40,7 +40,8 @@ punya tampilan web.
    berkurang dan mengikuti sisa fisik (selisih dicatat di log jenis SELISIH), status langsung Selesai. TTL keluar
    yang sudah dialokasikan diisi barisnya, dengan **qty disimpan minus** (diambil 5 = `-5`). CS mengisi **Petugas List**
    (wajib, dengan saran nama seperti Input Top Level; disimpan di `nama_tim`). **Petugas Input** (`nama_input`) = akun IRESIS
-   yang menyimpan qty, dan **tanggal list** serta **tanggal input** = hari itu, semuanya otomatis oleh sistem.
+   yang menyimpan qty, dan **tanggal list** serta **tanggal input** = hari itu, semuanya otomatis oleh sistem. Di popup,
+   akun tampil sebagai `no ac - nama - role` (mis. `0001 - Ika - LEADER OP`); yang tersimpan tetap nama akun apa adanya.
    Resi diserahkan fisik ke picker, tidak dicatat sistem.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
