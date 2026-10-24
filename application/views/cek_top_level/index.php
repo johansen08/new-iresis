@@ -1,5 +1,5 @@
 <?php
-// View menu TIM PICKER -> Cek Top Level. Dimuat lewat AJAX (SPA). Semua handler diikat ke #tl-cek
+// View menu TIM CS -> Cek Top Level. Dimuat lewat AJAX (SPA). Semua handler diikat ke #tl-cek
 // atau memakai namespace .tlcek di document supaya hilang saat user pindah menu.
 // Dua panel: kiri scan resi + daftar SKU (hasil Cek terbuka di bawah barisnya), kanan antrian request hari ini.
 if (!empty($akses_ditolak)) : ?>
@@ -16,7 +16,7 @@ $this->load->view('top_level/_dasar'); ?>
   };
   var URUT = ['DIAJUKAN', 'DITUGASKAN', 'SELESAI'];
   var ARTI_STATUS = 'Diajukan: menunggu CS mencetak.\nRestok berjalan: CS sudah mencetak.\nRestok selesai: CS sudah memasukkan TTL keluar.';
-  var INFO_HALAMAN = 'TIM PICKER\nAntrian diperbarui otomatis tiap 20 detik.';
+  var INFO_HALAMAN = 'TIM CS\nAntrian diperbarui otomatis tiap 20 detik.';
 
   $r.html(
     '<div class="tlc-top">' + T.info(INFO_HALAMAN) + '</div>' +

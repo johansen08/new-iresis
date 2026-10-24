@@ -2,7 +2,7 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Menu "Cek Top Level" (TIM PICKER, URL picker/cek-top-level). Satu akun dipakai semua picker.
+ * Menu "Cek Top Level" (TIM CS, URL picker/cek-top-level; semula di TIM PICKER). Satu akun dipakai semua picker.
  *
  * Picker scan resi, klik Cek pada SKU yang barangnya tidak ada di display, lalu (bila stok top level
  * ada) mengajukan Request Restok Display dan menyerahkan resi fisik ke CS. Sisi CS ada di controller
