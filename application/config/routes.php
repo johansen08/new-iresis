@@ -569,3 +569,6 @@ $route['cs/input-top-level/cek']       = 'top_level/input_cek';
 $route['cs/daftar-transfer-top-level']        = 'top_level/transfer_form';
 $route['cs/daftar-transfer-top-level/data']   = 'top_level/transfer_data';
 $route['cs/daftar-transfer-top-level/detail'] = 'top_level/transfer_detail';
+$route['cs/daftar-transfer-top-level/edit']   = 'top_level/transfer_edit';
+$route['cs/daftar-transfer-top-level/sku']    = 'top_level/transfer_sku';
+$route['cs/daftar-transfer-top-level/tim']    = 'top_level/transfer_tim';

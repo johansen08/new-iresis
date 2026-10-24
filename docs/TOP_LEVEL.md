@@ -133,12 +133,23 @@ panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `t
 
 ## Daftar Transfer Top Level
 
-Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas: nomor, arah (Masuk/Keluar), sumber dan ref
-(Input, Upload Excel `UP-…`, Request `RT-…`, Koreksi), petugas list dan petugas input beserta tanggalnya, jumlah
-baris dan qty, serta waktu dibuat sampai detik. Filter arah (Semua, Masuk, Keluar), rentang tanggal input
-(`tgl_input`), dan pencarian (nomor, nama petugas, ref, atau SKU di baris transfer; karakter `%` dan `_` dicari
-apa adanya). Paging 25/50/100 baris dan ringkasan total qty masuk dan keluar sesuai filter. Klik baris atau
-Detail untuk rincian per SKU dan rak (qty, stok sebelum, stok sesudah). Hanya membaca, tidak mengubah data.
+Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas. Tata letak (redesain 24 Okt 2026, prototipe di `docs/prototype/`):
+
+- **Tab arah** Semua / Masuk / Keluar dengan jumlah transfer; angkanya mengikuti filter lain.
+- **Filter Sumber** (dropdown, boleh banyak pilihan; angka per sumber mengikuti filter lain), **Tanggal input** (rentang, bawaan hari ini, preset Hari ini sampai Bulan lalu; memfilter `tgl_input`), dan **Pencarian** (nomor, nama petugas, ref, atau SKU di baris aktif).
+- **Kolom:** No. transfer (ikon salin sekali klik), Petugas list (nama, tanggal), Petugas input (nama, tanggal dan jam), Qty, Aksi (Detail, Edit). Baris hijau soft = Masuk, merah soft = Keluar. Label "diedit" bila transfer pernah diedit. Paging 25/50/100.
+- **Jam petugas input:** kolom `diinput_at` (baru). Transfer lama tidak punya jam: dipakai jam `dibuat_at` bila bukan REQUEST, selain itu hanya tanggal. Petugas list hanya punya tanggal (`tgl_list`), jamnya tidak pernah disimpan.
+- **Detail** membuka popup: petugas, total, rincian per SKU dan rak (qty, stok sebelum, stok sesudah), dan riwayat edit.
+
+### Edit transfer
+
+Dari tombol Edit atau dari popup Detail (`Top_level::transfer_edit` → `Top_level_fcd::edit_transfer`). Yang bisa diubah: nama petugas list dan petugas input, serta baris (SKU, no rak, qty; tambah dan hapus baris). Aturan:
+
+- Alasan wajib (minimal 5 huruf). Satu transaksi; semua SKU yang terlibat dikunci per SKU (`GET_LOCK`).
+- Stok `tbltoplevel` digeser sebesar selisih: efek baris lama dibalik, efek baris baru diterapkan (Masuk menambah, Keluar mengurangi). Ditolak bila stok sebuah rak jadi minus. SKU harus ada di master (`tblsku`), pasangan SKU + rak tidak boleh dobel, minimal satu baris.
+- Baris yang dihapus ditandai `dibatalkan = 1` di `tbltoplevel_transfer_baris` (tidak ada `DELETE`) dan tidak muncul lagi di detail maupun pencarian. Catatan stok baris tetap koheren dengan transfernya (sebelum + qty = sesudah).
+- Transfer **Request**: hanya petugas yang bisa diedit, karena hasil request (`tbltoplevel_request.hasil`) ikut berubah. Qty request yang salah dikoreksi lewat menu Stok Top Level. Transfer Request yang qty-nya belum diisi (0 baris) belum bisa diedit.
+- Jejak: `tbltoplevel_transfer_edit` (waktu, oleh, alasan, daftar perubahan JSON) dan `tbltoplevel_log` jenis `EDIT_TRANSFER` (per rak yang stoknya bergeser dan satu baris ringkasan). Hak akses sama dengan menu Daftar Transfer.
 
 ## Tabel
 
@@ -149,7 +160,8 @@ Detail untuk rincian per SKU dan rak (qty, stok sebelum, stok sesudah). Hanya me
 | `tbltoplevel_request_resi` | resi yang menunggu request |
 | `tbltoplevel_import`, `tbltoplevel_import_baris` | riwayat upload dan barisnya (`hash_baris` unik) |
 | `tbltoplevel_transfer`, `tbltoplevel_transfer_baris`, `tbltoplevel_nomor` | nomor transfer TTL, barisnya per SKU dan rak, dan penghitung urutan per tahun |
-| `tbltoplevel_log` | jejak audit: REQUEST, SLIP, POSTING, SELISIH, UPLOAD, KOREKSI, CEK_KOSONG |
+| `tbltoplevel_transfer_edit` | riwayat edit transfer (alasan wajib, perubahan JSON) |
+| `tbltoplevel_log` | jejak audit: REQUEST, SLIP, POSTING, SELISIH, UPLOAD, KOREKSI, CEK_KOSONG, BATAL_TRANSFER, EDIT_TRANSFER |
 
 Tidak ada `DELETE` di kode ini (aturan proyek): stok habis = qty 0, request batal = status BATAL.
 
