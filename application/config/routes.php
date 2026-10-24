@@ -549,6 +549,7 @@ $route['cs/request-top-level/data']    = 'top_level/request_data';
 $route['cs/request-top-level/detail']  = 'top_level/request_detail';
 $route['cs/request-top-level/cetak']   = 'top_level/request_cetak';
 $route['cs/request-top-level/selesai'] = 'top_level/request_selesai';
+$route['cs/request-top-level/tim']     = 'top_level/request_tim';
 $route['cs/request-top-level/batal']   = 'top_level/request_batal';
 $route['cs/upload-top-level']          = 'top_level/upload';
 $route['cs/upload-top-level/proses']   = 'top_level/upload_proses';

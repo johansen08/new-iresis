@@ -38,7 +38,9 @@ punya tampilan web.
    waktu cetak tercatat sampai detik. Restok mengisi display, menulis qty yang diambil per rak, tanda tangan.
 3. **Selesai.** Slip kembali ke CS. CS klik Input qty: qty diambil dan sisa fisik per rak. Stok rak
    berkurang dan mengikuti sisa fisik (selisih dicatat di log jenis SELISIH), status langsung Selesai. TTL keluar
-   yang sudah dialokasikan diisi barisnya, dengan **qty disimpan minus** (diambil 5 = `-5`).
+   yang sudah dialokasikan diisi barisnya, dengan **qty disimpan minus** (diambil 5 = `-5`). CS mengisi **Petugas List**
+   (wajib, dengan saran nama seperti Input Top Level; disimpan di `nama_tim`). **Petugas Input** (`nama_input`) = akun IRESIS
+   yang menyimpan qty, dan **tanggal list** serta **tanggal input** = hari itu, semuanya otomatis oleh sistem.
    Resi diserahkan fisik ke picker, tidak dicatat sistem.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
