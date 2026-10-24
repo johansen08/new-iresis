@@ -679,6 +679,8 @@ class Top_level_fcd extends CI_Model
         }
         $slip = $r['slip'] !== null ? json_decode($r['slip'], true) : null;
         $rak_display = $this->db->query('SELECT COALESCE(NULLIF(TRIM(no_rak), ""), "-") AS v FROM tblsku WHERE id_sku = ?', array($r['sku']))->row();
+        // Petugas list (nama_tim) dan petugas input (nama_input) tersimpan di TTL keluar milik request ini, terisi saat selesai.
+        $ttl = $this->db->select('nama_tim, nama_input')->where(array('sumber' => 'REQUEST', 'ref' => self::kode($r['id']), 'aktif_key' => 1))->get('tbltoplevel_transfer')->row();
 
         return array(
             'id'          => (int) $r['id'],
@@ -697,6 +699,8 @@ class Top_level_fcd extends CI_Model
             'rak'         => is_array($slip) ? $slip : $this->rak_sku($r['sku']),
             'hasil'       => $r['hasil'] !== null ? json_decode($r['hasil'], true) : null,
             'transfer'    => $this->nomor_request($r['id']),
+            'petugas_list'  => ($ttl && $ttl->nama_tim !== null) ? $ttl->nama_tim : '',
+            'petugas_input' => ($ttl && $ttl->nama_input !== null) ? $ttl->nama_input : '',
         );
     }
 

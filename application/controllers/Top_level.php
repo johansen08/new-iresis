@@ -119,6 +119,7 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_REQUEST);
         $this->make_ajax_response(200, 'OK', array(
+            'sekarang' => date('Y-m-d H:i:s'),
             'hitung' => $this->top_level_fcd->hitung_request(),
             'rows'   => $this->top_level_fcd->daftar_request($this->input->post('filter'), $this->input->post('q')),
         ));

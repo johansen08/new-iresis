@@ -56,6 +56,12 @@ Di halaman picker (Cek Top Level) status ditampilkan sebagai **Diajukan** (menun
 mencetak, kode `DITUGASKAN`), dan **Selesai** (CS sudah memasukkan TTL keluar). Menu CS Request Top Level tetap memakai
 istilahnya sendiri (Perlu dicetak, Di Restok, Selesai).
 
+Tampilan CS Request Top Level berupa "ruang kerja": antrian di kiri (tab Perlu dicetak, Sedang direstok, Selesai, dengan
+lencana lama menunggu: kuning > 10 menit, merah > 20 menit) dan satu request dikerjakan di kanan. Request Perlu dicetak
+menampilkan pratinjau slip dan tombol Cetak; Sedang direstok menampilkan form input qty langsung (tanpa popup); Selesai
+menampilkan hasil, petugas, dan resi yang diserahkan ke picker. Setelah input qty, otomatis pindah ke request Sedang
+direstok berikutnya. Batalkan memakai popup konfirmasi. Tombol ↑ ↓ memindah request.
+
 Kolom `tbltoplevel_request.abaikan` (migrasi 2026-10-24.1): 1 = request hanya data uji, disembunyikan dari daftar dan hitungan CS
 serta antrian picker tanpa menghapus barisnya (tidak ada DELETE). Diisi manual lewat SQL, belum ada tombolnya.
 
