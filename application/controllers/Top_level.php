@@ -38,7 +38,7 @@ class Top_level extends MY_Controller
 
     public function input_form()
     {
-        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_INPUT)), 'top_level/input');
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_INPUT), 'akun_login' => $this->_oleh()), 'top_level/input');
     }
 
     // ------------------------------------------------------------ Input Top Level
@@ -68,6 +68,14 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_INPUT);
         $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_sku($this->input->post('q'))));
+    }
+
+    /** Saran no rak: keluar = rak yang menyimpan stok SKU, masuk = semua rak sesuai ketikan. */
+    public function input_rak()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $arah = (string) $this->input->post('arah') === 'KELUAR' ? 'KELUAR' : 'MASUK';
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_rak($this->input->post('sku'), $this->input->post('q'), $arah)));
     }
 
     /** Menyimpan input stok masuk dan mengembalikan nomor transfer TTL. */

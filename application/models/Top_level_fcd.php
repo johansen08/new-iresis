@@ -234,6 +234,36 @@ class Top_level_fcd extends CI_Model
     }
 
     /**
+     * Saran no rak di Input Top Level. KELUAR: rak yang menyimpan stok SKU itu (qty > 0), disaring ketikan.
+     * MASUK: semua no rak yang pernah ada, disaring ketikan (awalan lebih dulu); ketikan kosong = tanpa saran.
+     * Mengembalikan [['rak'=>, 'qty'=>], ...]; qty hanya terisi untuk KELUAR.
+     */
+    public function cari_rak($sku, $q, $arah)
+    {
+        $sku = trim((string) $sku);
+        $q = strtoupper(trim((string) $q));
+        $like = $this->db->escape_like_str($q);
+        if ($arah === 'KELUAR') {
+            if ($sku === '') {
+                return array();
+            }
+            return $this->db->query(
+                'SELECT no_rak AS rak, SUM(qty) AS qty FROM tbltoplevel WHERE sku = ? AND qty > 0 AND no_rak LIKE ?
+                 GROUP BY no_rak ORDER BY (no_rak LIKE ?) DESC, no_rak ASC LIMIT 20',
+                array($sku, '%' . $like . '%', $like . '%')
+            )->result_array();
+        }
+        if ($q === '') {
+            return array();
+        }
+        return $this->db->query(
+            'SELECT DISTINCT no_rak AS rak, NULL AS qty FROM tbltoplevel WHERE no_rak LIKE ?
+             ORDER BY (no_rak LIKE ?) DESC, no_rak ASC LIMIT 10',
+            array('%' . $like . '%', $like . '%')
+        )->result_array();
+    }
+
+    /**
      * Input stok top level manual oleh CS: qty ditambahkan ke rak (rak baru dibuat) dan dicatat sebagai
      * satu transfer MASUK dengan nomor TTL.
      *
