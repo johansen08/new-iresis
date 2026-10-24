@@ -15,7 +15,8 @@ $this->load->view('top_level/_dasar'); ?>
 
   function judul() {
     return '<div class="tl-ph"><div class="t"><h1>Input Top Level</h1>' +
-      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.') + '</div></div>';
+      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.
+SKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
   }
 
   function paint() {
@@ -92,10 +93,11 @@ $this->load->view('top_level/_dasar'); ?>
     $('#tl-baris .tl-line').each(function () {
       var $l = $(this), b = baris[+$l.data('i')], msg = '';
       if (b && lengkap(b)) {
-        var k = kunci(b);
-        if (lihat[k] !== undefined) msg = 'Duplikat: SKU dan rak sama dengan baris ' + (lihat[k] + 1) + '.';
+        var k = kunci(b), q = parseInt(b.qty, 10) > 0 ? '|' + parseInt(b.qty, 10) : '';
+        // SKU + rak sama dengan qty berbeda boleh (dijumlahkan); qty sama persis dianggap dobel.
+        if (q && lihat[k + q] !== undefined) msg = 'Dobel: SKU, rak, dan qty sama dengan baris ' + (lihat[k + q] + 1) + '.';
         else {
-          lihat[k] = +$l.data('i');
+          if (q) lihat[k + q] = +$l.data('i');
           if (dup[k]) msg = 'Duplikat: stok ' + dup[k] + ' sudah tersimpan di rak ini. ' + T.info('SKU dan no rak ini sudah tersimpan dengan stok ' + dup[k] + '.\nInput tidak menambah stok yang sudah ada.\nUntuk mengoreksi, pakai Edit di menu Stok Top Level.');
         }
       }
