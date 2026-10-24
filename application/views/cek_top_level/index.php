@@ -12,10 +12,10 @@ $this->load->view('top_level/_dasar'); ?>
   var T = window.TL, $r = $('#tl-cek'), timer = null, seq = 0, tmTerbaru = null;
   var resi = null, buka = null, cekHasil = {}, hs = '', filter = 'DIAJUKAN', baru = '', rows = [];
   var PK = {
-    DIAJUKAN: ['Diajukan', 'warn'], DITUGASKAN: ['Restok berjalan', 'info'], SELESAI: ['Restok selesai', 'ok']
+    DIAJUKAN: ['Diajukan', 'warn'], DITUGASKAN: ['Diproses', 'info'], SELESAI: ['Selesai', 'ok']
   };
   var URUT = ['DIAJUKAN', 'DITUGASKAN', 'SELESAI'];
-  var ARTI_STATUS = 'Diajukan: menunggu CS mencetak.\nRestok berjalan: CS sudah mencetak.\nRestok selesai: CS sudah memasukkan TTL keluar.';
+  var ARTI_STATUS = 'Diajukan: menunggu CS mencetak.\nDiproses: CS sudah mencetak.\nSelesai: CS sudah memasukkan TTL keluar.';
   var INFO_HALAMAN = 'TIM CS\nAntrian diperbarui otomatis tiap 20 detik.';
 
   $r.html(
@@ -147,7 +147,7 @@ $this->load->view('top_level/_dasar'); ?>
     var f = function (k) { return k <= n ? 'f' : ''; }, g = function (k) { return k < n ? 'f' : ''; };
     return '<div class="tlc-tlt">' + jm(r.jam_diajukan) + jm(r.jam_cetak) + jm(r.jam_selesai) + '</div>' +
       '<div class="tlc-tl"><i class="' + f(0) + '"></i><u class="' + g(0) + '"></u><i class="' + f(1) + '"></i><u class="' + g(1) + '"></u><i class="' + f(2) + '"></i></div>' +
-      '<div class="tlc-tlb"><span>Diajukan</span><span>Restok berjalan</span><span>Restok selesai</span></div>';
+      '<div class="tlc-tlb"><span>Diajukan</span><span>Diproses</span><span>Selesai</span></div>';
   }
 
   function gambarAntrian() {

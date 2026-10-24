@@ -51,6 +51,10 @@ punya tampilan web.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
 
+Di halaman picker (Cek Top Level) status ditampilkan sebagai **Diajukan** (menunggu CS mencetak), **Diproses** (CS sudah
+mencetak, kode `DITUGASKAN`), dan **Selesai** (CS sudah memasukkan TTL keluar). Menu CS Request Top Level tetap memakai
+istilahnya sendiri (Perlu dicetak, Di Restok, Selesai).
+
 Kolom `tbltoplevel_request.abaikan` (migrasi 2026-10-24.1): 1 = request hanya data uji, disembunyikan dari daftar dan hitungan CS
 serta antrian picker tanpa menghapus barisnya (tidak ada DELETE). Diisi manual lewat SQL, belum ada tombolnya.
 
