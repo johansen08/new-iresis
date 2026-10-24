@@ -61,8 +61,8 @@ class Top_level_fcd extends CI_Model
 
     /**
      * Nomor transfer top level (TTL-TAHUN-NNNNN): satu nomor untuk setiap perpindahan stok, masuk maupun keluar.
-     * Urutan = nomor terakhir yang MASIH ADA di tbltoplevel_transfer pada tahun itu + 1, jadi kalau transfer terakhir
-     * dihapus, nomornya dipakai lagi (hapus TTL-2026-00002 saja: input berikutnya kembali bernomor 00002; hapus semuanya:
+     * Urutan = nomor terakhir yang MASIH BERLAKU (tidak dibatalkan) di tbltoplevel_transfer pada tahun itu + 1, jadi kalau
+     * transfer terakhir dibatalkan (batalkan_transfer), nomornya dipakai lagi (hapus TTL-2026-00002 saja: input berikutnya kembali bernomor 00002; hapus semuanya:
      * mulai lagi dari 00001). Lubang di tengah tidak diisi. Dihitung DI DALAM transaksi pemanggil, dengan baris
      * penghitung di tbltoplevel_nomor sebagai kunci (terkunci sampai commit) dan MAX dibaca dengan FOR UPDATE, jadi dua
      * transaksi bersamaan tidak pernah mendapat nomor yang sama, dan rollback tidak meninggalkan lubang nomor.
@@ -79,7 +79,7 @@ class Top_level_fcd extends CI_Model
         $this->db->query('INSERT IGNORE INTO tbltoplevel_nomor (tahun, urut) VALUES (?, 0)', array($tahun));
         // Kunci baris penghitung (tanpa mengubah nilainya) supaya transaksi lain menunggu sampai commit.
         $this->db->query('SELECT urut FROM tbltoplevel_nomor WHERE tahun = ? FOR UPDATE', array($tahun));
-        $akhir = $this->db->query('SELECT COALESCE(MAX(urut), 0) AS n FROM tbltoplevel_transfer WHERE tahun = ? FOR UPDATE', array($tahun))->row();
+        $akhir = $this->db->query('SELECT COALESCE(MAX(urut), 0) AS n FROM tbltoplevel_transfer WHERE tahun = ? AND aktif_key = 1 FOR UPDATE', array($tahun))->row();
         $urut = (int) $akhir->n + 1;
         $this->db->query('UPDATE tbltoplevel_nomor SET urut = ? WHERE tahun = ?', array($urut, $tahun));
         $nomor = self::kode_transfer($tahun, $urut);
@@ -567,7 +567,7 @@ class Top_level_fcd extends CI_Model
     /** Nomor transfer keluar milik request ini ('' bila belum selesai). */
     private function nomor_request($id)
     {
-        $r = $this->db->select('nomor')->where(array('sumber' => 'REQUEST', 'ref' => self::kode($id)))->get('tbltoplevel_transfer')->row();
+        $r = $this->db->select('nomor')->where(array('sumber' => 'REQUEST', 'ref' => self::kode($id), 'aktif_key' => 1))->get('tbltoplevel_transfer')->row();
         return $r ? $r->nomor : '';
     }
 
@@ -946,6 +946,7 @@ class Top_level_fcd extends CI_Model
         $tgl_ok = function ($t) { $d = \DateTime::createFromFormat('Y-m-d', (string) $t); return $d && $d->format('Y-m-d') === $t; };
 
         $saring = function () use ($arah, $cari, $dari, $sampai, $tgl_ok) {
+            $this->db->where('t.aktif_key', 1);
             if (in_array($arah, array('MASUK', 'KELUAR'), true)) {
                 $this->db->where('t.arah', $arah);
             }
@@ -977,10 +978,51 @@ class Top_level_fcd extends CI_Model
             'ringkas' => array('masuk' => (int) $r->masuk, 'keluar' => (int) $r->keluar));
     }
 
+    /**
+     * Batalkan satu transfer (soft-delete): stok setiap baris dikembalikan seperti sebelum transfer (qty dikurangi untuk
+     * MASUK, ditambah untuk KELUAR), transfer ditandai batal dan nomornya bebas dipakai lagi. Tidak ada DELETE; barisnya
+     * tetap di tbltoplevel_transfer(_baris) dan jejaknya masuk tbltoplevel_log. Menolak bila stok akan menjadi negatif.
+     *
+     * @return array ['ok' => bool, 'pesan' => string]
+     */
+    public function batalkan_transfer($nomor, $oleh, $alasan = '')
+    {
+        $this->db->trans_start();
+        $t = $this->db->query('SELECT * FROM tbltoplevel_transfer WHERE nomor = ? AND aktif_key = 1 FOR UPDATE', array($nomor))->row_array();
+        if (!$t) {
+            $this->db->trans_complete();
+            return array('ok' => false, 'pesan' => 'Transfer ' . $nomor . ' tidak ditemukan atau sudah dibatalkan.');
+        }
+        $baris = $this->db->query('SELECT sku, no_rak, qty FROM tbltoplevel_transfer_baris WHERE id_transfer = ?', array((int) $t['id']))->result_array();
+        $tanda = $t['arah'] === 'MASUK' ? -1 : 1;
+        foreach ($baris as $b) {
+            $s = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['no_rak']))->row();
+            $sebelum = $s ? (int) $s->qty : 0;
+            $sesudah = $sebelum + $tanda * (int) $b['qty'];
+            if (!$s || $sesudah < 0) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'pesan' => 'Stok ' . $b['sku'] . ' di rak ' . $b['no_rak'] . ' tidak cukup untuk membatalkan (' . $sebelum . ' pcs sekarang).');
+            }
+            $this->db->query('UPDATE tbltoplevel SET qty = ?, updated_at = NOW() WHERE sku = ? AND no_rak = ?', array($sesudah, $b['sku'], $b['no_rak']));
+            $this->catat('BATAL_TRANSFER', $b['sku'], $b['no_rak'], $sebelum, $sesudah, $oleh, $nomor, 'Batal transfer ' . $nomor);
+        }
+        $this->db->query(
+            'UPDATE tbltoplevel_transfer SET aktif_key = NULL, batal_at = NOW(), batal_by = ?, batal_alasan = ? WHERE id = ?',
+            array($oleh, mb_substr((string) $alasan, 0, 255), (int) $t['id'])
+        );
+        $this->db->query(
+            'UPDATE tbltoplevel_nomor SET urut = (SELECT COALESCE(MAX(urut), 0) FROM tbltoplevel_transfer WHERE tahun = ? AND aktif_key = 1) WHERE tahun = ?',
+            array((int) $t['tahun'], (int) $t['tahun'])
+        );
+        $this->catat('BATAL_TRANSFER', null, null, null, null, $oleh, $nomor, 'Transfer ' . $nomor . ' dibatalkan: ' . $alasan);
+        $this->db->trans_complete();
+        return array('ok' => $this->db->trans_status() !== false, 'pesan' => 'Transfer ' . $nomor . ' dibatalkan.');
+    }
+
     /** Satu transfer beserta barisnya per SKU dan rak. NULL bila tidak ada. */
     public function detail_transfer($id)
     {
-        $t = $this->db->get_where('tbltoplevel_transfer', array('id' => (int) $id))->row_array();
+        $t = $this->db->get_where('tbltoplevel_transfer', array('id' => (int) $id, 'aktif_key' => 1))->row_array();
         if (!$t) {
             return null;
         }
@@ -995,7 +1037,7 @@ class Top_level_fcd extends CI_Model
     private function nomor_transfer_per_ref($sumber)
     {
         $peta = array();
-        foreach ($this->db->select('ref, nomor')->where('sumber', $sumber)->get('tbltoplevel_transfer')->result() as $r) {
+        foreach ($this->db->select('ref, nomor')->where(array('sumber' => $sumber, 'aktif_key' => 1))->get('tbltoplevel_transfer')->result() as $r) {
             if ($r->ref !== null) $peta[$r->ref] = $r->nomor;
         }
         return $peta;

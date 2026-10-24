@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-23.6';
+    const BOOTSTRAP_VERSI = '2026-10-23.7';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2137,6 +2137,20 @@ class MY_Controller extends CI_Controller
         // 2026-10-23.4: nama_tim = Petugas List, kolom baru nama_input = Petugas Input.
         if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'nama_input'")->num_rows()) {
             $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN nama_input VARCHAR(150) NULL AFTER nama_tim");
+        }
+
+        // 2026-10-23.7: batal transfer (soft-delete, tidak ada DELETE). aktif_key = 1 untuk transfer yang berlaku, NULL untuk
+        // yang dibatalkan; nomor + aktif_key dibuat unik, jadi nomor transfer yang dibatalkan bebas dipakai lagi.
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'aktif_key'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer
+                ADD COLUMN aktif_key TINYINT NULL DEFAULT 1,
+                ADD COLUMN batal_at DATETIME NULL,
+                ADD COLUMN batal_by VARCHAR(100) NULL,
+                ADD COLUMN batal_alasan VARCHAR(255) NULL,
+                DROP INDEX uq_nomor,
+                DROP INDEX uq_tahun_urut,
+                ADD UNIQUE KEY uq_nomor_aktif (nomor, aktif_key),
+                ADD UNIQUE KEY uq_tahun_urut_aktif (tahun, urut, aktif_key)");
         }
 
         $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_transfer_baris (
