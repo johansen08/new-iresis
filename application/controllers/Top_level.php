@@ -94,8 +94,9 @@ class Top_level extends MY_Controller
     public function transfer_data()
     {
         $this->_wajib(self::URI_TRANSFER);
+        $sumber = $this->input->post('sumber');
         $h = $this->top_level_fcd->daftar_transfer(
-            (string) $this->input->post('arah'), $this->input->post('q'), (string) $this->input->post('dari'),
+            (string) $this->input->post('arah'), is_array($sumber) ? $sumber : array(), $this->input->post('q'), (string) $this->input->post('dari'),
             (string) $this->input->post('sampai'), $this->input->post('halaman'), $this->input->post('ukuran')
         );
         $this->make_ajax_response(200, 'OK', $h);
@@ -106,6 +107,32 @@ class Top_level extends MY_Controller
         $this->_wajib(self::URI_TRANSFER);
         $d = $this->top_level_fcd->detail_transfer((int) $this->input->post('id'));
         $d === null ? $this->make_ajax_response(404, 'Transfer tidak ditemukan.') : $this->make_ajax_response(200, 'OK', array('d' => $d));
+    }
+
+    /** Simpan edit satu transfer: petugas list/input dan baris (SKU, rak, qty); stok ikut bergeser sesuai selisih. */
+    public function transfer_edit()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $baris = $this->input->post('baris');
+        $h = $this->top_level_fcd->edit_transfer(
+            (int) $this->input->post('id'), (string) $this->input->post('nama_tim'), (string) $this->input->post('nama_input'),
+            is_array($baris) ? array_values($baris) : array(), (string) $this->input->post('alasan'), $this->_oleh()
+        );
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['pesan']);
+    }
+
+    /** Saran SKU dari master (tblsku) untuk isian edit baris. */
+    public function transfer_sku()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_sku($this->input->post('q'))));
+    }
+
+    /** Saran nama petugas untuk isian edit petugas list/input. */
+    public function transfer_tim()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->rekomendasi_tim($this->input->post('q'))));
     }
 
     public function stok()

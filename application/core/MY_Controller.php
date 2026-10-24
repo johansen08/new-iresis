@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-24.3';
+    const BOOTSTRAP_VERSI = '2026-10-24.4';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2171,6 +2171,26 @@ class MY_Controller extends CI_Controller
             PRIMARY KEY (id),
             KEY idx_transfer (id_transfer),
             KEY idx_sku (sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // 2026-10-24.4: edit transfer dari menu Daftar Transfer Top Level. Baris yang dihapus saat edit cukup ditandai
+        // dibatalkan = 1 (tidak ada DELETE); diinput_at = waktu petugas input mengisi qty (kolom lama hanya punya tanggal).
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer_baris LIKE 'dibatalkan'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer_baris ADD COLUMN dibatalkan TINYINT NOT NULL DEFAULT 0");
+        }
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'diinput_at'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN diinput_at DATETIME NULL AFTER dibuat_by");
+        }
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_transfer_edit (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            id_transfer INT UNSIGNED NOT NULL,
+            nomor VARCHAR(20) NOT NULL,
+            waktu DATETIME NOT NULL,
+            oleh VARCHAR(100) NULL,
+            alasan VARCHAR(255) NOT NULL,
+            perubahan TEXT NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_transfer (id_transfer)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
