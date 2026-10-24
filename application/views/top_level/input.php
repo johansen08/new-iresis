@@ -18,7 +18,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   function judul() {
     return '<div class="tl-ph"><div class="t"><h1>Input Top Level</h1>' +
-      T.info('Pilih arah: Masuk menambah stok rak, Keluar mengurangi stok rak.\nArah keluar hanya bisa untuk SKU dan rak yang stoknya cukup.\nMasukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.\nSKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
+      T.info('Pilih arah: Masuk menambah stok rak, Keluar mengurangi stok rak.\nArah keluar hanya bisa untuk SKU dan rak yang stoknya cukup.\nArah keluar: SKU yang hanya ada di satu rak mengisi no rak otomatis; kalau ada di beberapa rak, saran rak muncul saat no rak diketik.\nArah masuk: saran no rak muncul saat no rak diketik.\nMasukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.\nSKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
   }
 
   function paint() {
@@ -49,6 +49,8 @@ $this->load->view('top_level/_dasar'); ?>
       '<button type="button" class="tl-btn pri" data-simpan>Simpan</button></div></div></section>';
     $r.html(h);
     $('#tl-list').val(window.__tlList || '');
+    // Petugas Input bawaan = akun yang sedang login; tetap bisa diganti (pilihan terakhir diingat selama menu tidak di-reload).
+    if (window.__tlInput === undefined) window.__tlInput = <?= json_encode((string) (isset($akun_login) ? $akun_login : '')) ?>;
     $('#tl-pinput').val(window.__tlInput || '');
     $('#tl-tgl').val(window.__tlTgl || hariIni());
     $('#tl-tgl-list').val(window.__tlTglList || hariIni());
@@ -60,7 +62,13 @@ $this->load->view('top_level/_dasar'); ?>
       }, function () { window[p[1]] = $(p[0]).val(); });
       $(p[0]).on('input', function () { window[p[1]] = this.value; });
     });
-    $('#tl-arah').on('change', function () { arah = window.__tlArah = this.value; $(this).removeClass('masuk keluar').addClass(arah.toLowerCase()); dup = {}; tandai(); cekDb(); });
+    $('#tl-arah').on('change', function () { arah = window.__tlArah = this.value; $(this).removeClass('masuk keluar').addClass(arah.toLowerCase()); dup = {};
+      // Ganti arah: rak isian otomatis dilepas (masuk) atau diisi ulang dari SKU yang sudah ada (keluar).
+      $.each(baris, function (i, b) {
+        if (!keluar() && b.auto) { b.rak = ''; b.auto = false; $('#tl-baris .tl-line').eq(i).find('.f-rak').val(''); }
+        else if (keluar() && b.sku) autoRak(i);
+      });
+      ringkas(); tandai(); cekDb(); });
     $('#tl-tgl').on('input', function () { window.__tlTgl = this.value; });
     $('#tl-tgl-list').on('input', function () { window.__tlTglList = this.value; });
     gambarBaris();
@@ -85,8 +93,42 @@ $this->load->view('top_level/_dasar'); ?>
         T.post('cs/input-top-level/sku', { q: q }, function (d) {
           kirim($.map(d.rows, function (x) { return { nilai: x.sku, label: x.sku }; }));
         }, function () { kirim([]); });
-      }, function () { baris[i].sku = $in.val(); ringkas(); tandai(); cekDb(); $in.closest('.tl-line').find('.f-rak').focus(); });
+      }, function () { baris[i].sku = $in.val(); autoRak(i); ringkas(); tandai(); cekDb(); $in.closest('.tl-line').find('.f-rak').focus(); });
     });
+    // Saran no rak muncul hanya saat diketik. Keluar: rak yang menyimpan stok SKU baris itu. Masuk: semua rak sesuai ketikan.
+    $('#tl-baris .f-rak').each(function () {
+      var $in = $(this), i = +$in.closest('.tl-line').data('i');
+      T.combo($in, function (q, kirim) {
+        if (!q) { kirim([]); return; }
+        T.post('cs/input-top-level/rak', { sku: baris[i] ? baris[i].sku : '', q: q, arah: arah }, function (d) {
+          kirim($.map(d.rows, function (x) { return { nilai: x.rak, label: x.rak, sub: x.qty ? x.qty + ' pcs' : '' }; }));
+        }, function () { kirim([]); });
+      }, function () { baris[i].rak = $in.val(); baris[i].auto = false; ringkas(); tandai(); cekDb(); $in.closest('.tl-line').find('.f-qty').focus(); });
+    });
+  }
+
+  // Arah keluar: begitu SKU diketik, kalau SKU itu hanya ada di satu rak maka no rak terisi otomatis.
+  // Lebih dari satu rak: dibiarkan kosong, saran muncul saat no rak diketik. Isian otomatis ikut dilepas kalau SKU berubah.
+  var timerRak = {};
+  function autoRak(i) {
+    clearTimeout(timerRak[i]);
+    if (!keluar()) return;
+    timerRak[i] = setTimeout(function () {
+      var b = baris[i], sku = b && b.sku;
+      if (!b) return;
+      var terapkan = function (rak) {
+        if (baris[i] !== b) return;
+        b.rak = rak; b.auto = !!rak;
+        $('#tl-baris .tl-line').eq(i).find('.f-rak').val(rak);
+        ringkas(); tandai(); cekDb();
+      };
+      if (!sku) { if (b.auto) terapkan(''); return; }
+      T.post('cs/input-top-level/rak', { sku: sku, q: '', arah: 'KELUAR' }, function (d) {
+        if (baris[i] !== b || b.sku !== sku || !keluar()) return;
+        if (d.rows.length === 1 && (!b.rak || b.auto)) terapkan(d.rows[0].rak);
+        else if (d.rows.length !== 1 && b.auto) terapkan('');
+      });
+    }, 300);
   }
 
   // ---------- guard duplikat ----------
@@ -184,6 +226,8 @@ $this->load->view('top_level/_dasar'); ?>
     b.sku = $.trim($l.find('.f-sku').val());
     b.rak = $.trim($l.find('.f-rak').val());
     b.qty = $l.find('.f-qty').val();
+    if ($(this).hasClass('f-rak')) b.auto = false;
+    if ($(this).hasClass('f-sku')) autoRak(+$l.data('i'));
     ringkas();
     if (!$(this).hasClass('f-qty')) { tandai(); cekDb(); }
     else if (keluar()) tandai();
