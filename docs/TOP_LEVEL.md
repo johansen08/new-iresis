@@ -43,6 +43,9 @@ punya tampilan web.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
 
+Kolom `tbltoplevel_request.abaikan` (migrasi 2026-10-24.1): 1 = request hanya data uji, disembunyikan dari daftar dan hitungan CS
+serta antrian picker tanpa menghapus barisnya (tidak ada DELETE). Diisi manual lewat SQL, belum ada tombolnya.
+
 ## Upload Top Level
 
 Excel dari tim Restok, **header di baris ke-3**, data mulai baris ke-4. Kolom A-I:

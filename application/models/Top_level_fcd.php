@@ -562,7 +562,7 @@ class Top_level_fcd extends CI_Model
             "SELECT r.id, r.sku, r.status, r.request_at, r.cetak_at, r.selesai_at,
                     (SELECT GROUP_CONCAT(noresi ORDER BY id SEPARATOR ', ') FROM tbltoplevel_request_resi WHERE id_request = r.id) AS resi
              FROM tbltoplevel_request r
-             WHERE r.status <> 'BATAL' AND r.request_at >= CURDATE()
+             WHERE r.status <> 'BATAL' AND r.abaikan = 0 AND r.request_at >= CURDATE()
                AND EXISTS (SELECT 1 FROM tbltoplevel_request_resi x WHERE x.id_request = r.id)
              ORDER BY r.id DESC LIMIT " . (int) $batas
         )->result_array();
@@ -585,7 +585,7 @@ class Top_level_fcd extends CI_Model
     public function hitung_request()
     {
         $h = array('aktif' => 0, 'cetak' => 0, 'restok' => 0, 'selesai' => 0);
-        foreach ($this->db->query('SELECT status, COUNT(*) AS n FROM tbltoplevel_request GROUP BY status')->result() as $r) {
+        foreach ($this->db->query('SELECT status, COUNT(*) AS n FROM tbltoplevel_request WHERE abaikan = 0 GROUP BY status')->result() as $r) {
             if ($r->status === 'DIAJUKAN')   { $h['cetak'] += $r->n; $h['aktif'] += $r->n; }
             if ($r->status === 'DITUGASKAN') { $h['restok'] += $r->n; $h['aktif'] += $r->n; }
             if ($r->status === 'SELESAI' || $r->status === 'BATAL') { $h['selesai'] += $r->n; }
@@ -607,6 +607,7 @@ class Top_level_fcd extends CI_Model
             (SELECT GROUP_CONCAT(noresi ORDER BY id SEPARATOR ', ') FROM tbltoplevel_request_resi WHERE id_request = r.id) AS resi", false);
         $this->db->from('tbltoplevel_request r');
         $this->db->where_in('r.status', $status);
+        $this->db->where('r.abaikan', 0);
         $cari = trim((string) $cari);
         if ($cari !== '') {
             $id = self::id_dari_kode($cari);
