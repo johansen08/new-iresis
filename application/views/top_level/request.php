@@ -142,7 +142,7 @@ $this->load->view('top_level/_dasar'); ?>
         $.map(d.rak, function (x) { return '<tr><td class="mono">' + T.esc(x.rak) + '</td><td class="n">' + x.stok + '</td><td class="n">' + (hasil[x.rak] !== undefined ? hasil[x.rak] : '—') + '</td></tr>'; }).join('') + '</tbody></table>';
       h += '<div class="tlr-hand"><b>Serahkan resi ke picker:</b>' + (d.resi.length ? $.map(d.resi, function (x) { return '<span class="tl-rk">' + T.esc(x) + '</span>'; }).join(' ') : '<span>tanpa resi</span>') + '</div>' +
         '<div class="tlr-two">' + rincianBox(d) + '<div class="tlr-box"><h3>Hasil</h3><div class="tl-note ' + (tot > 0 ? 'ok' : '') + '">' +
-        (tot > 0 ? 'Diambil <b>' + tot + '</b> pcs' : 'Qty 0: tidak ada barang diambil, stok tidak berkurang') + '</div><div class="tl-panel tl-tw" style="margin-top:10px">' + rk + '</div></div></div>';
+        (tot > 0 ? 'Diambil <b>' + tot + '</b> pcs' : 'Qty 0: TL sudah direstok tim Restok sebelum diterbitkan, stok tidak berkurang') + '</div><div class="tl-panel tl-tw" style="margin-top:10px">' + rk + '</div></div></div>';
     } else {
       h += '<div class="tl-note warn">Request ini dibatalkan' + (d.batal_at ? ' pada <b class="mono">' + T.tgl(d.batal_at) + '</b>' : '') + '.</div><div class="tlr-two">' + rincianBox(d) + resiBox(d) + '</div>';
     }
@@ -228,7 +228,7 @@ $this->load->view('top_level/_dasar'); ?>
       });
       var nolDicentang = $('#tl-qnol').prop('checked');
       $('#tl-qty-sum').html('<div class="tl-note ' + (tot > 0 ? 'ok' : '') + '">Total diambil <b>' + tot + '</b> pcs</div>' +
-        (tot > 0 ? '' : '<div class="tl-note warn" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="tl-qnol"' + (nolDicentang ? ' checked' : '') + ' style="margin-top:3px"><span>Qty diambil 0: tidak ada barang diambil dari top level (mis. display sudah diisi Restok tidak lama sebelum TTL ini dikeluarkan). Request selesai tanpa mengurangi stok.</span></label></div>') +
+        (tot > 0 ? '' : '<div class="tl-note warn" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="tl-qnol"' + (nolDicentang ? ' checked' : '') + ' style="margin-top:3px"><span>Qty diambil 0: TL ini sudah direstok atas inisiatif tim Restok sebelum TL diterbitkan, jadi tidak ada barang diambil dari top level. Request selesai tanpa mengurangi stok.</span></label></div>') +
         (sel ? '<div class="tl-note warn" style="margin-top:6px">' + sel + ' rak berselisih dengan sistem. Stok akan mengikuti fisik.</div>' : ''));
     }
     $f.on('input', '.amb', function () {
