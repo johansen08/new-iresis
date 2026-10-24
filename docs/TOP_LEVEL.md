@@ -12,7 +12,7 @@ ditulis tangan di slip, lalu diinput CS.
 
 | Menu | Induk | URI | Controller | Dipakai |
 |---|---|---|---|---|
-| Cek Top Level | TIM PICKER | `picker/cek-top-level` | `Cek_top_level` | Picker (satu akun bersama) |
+| Cek Top Level | TIM CS | `picker/cek-top-level` | `Cek_top_level` | Picker (satu akun bersama) dan CS |
 | Request Top Level | TIM CS | `cs/request-top-level` | `Top_level::request` | CS |
 | Upload Top Level | TIM CS | `cs/upload-top-level` | `Top_level::upload` | CS |
 | Stok Top Level | TIM CS | `cs/stok-top-level` | `Top_level::stok` | CS |
@@ -20,6 +20,8 @@ ditulis tangan di slip, lalu diinput CS.
 | Daftar Transfer Top Level | TIM CS | `cs/daftar-transfer-top-level` | `Top_level::transfer_form` | CS |
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
+Cek Top Level semula di TIM PICKER dan dipindah ke TIM CS pada migrasi 2026-10-24.2 (hanya induk dan urutan menu; URI dan
+hak akses tidak berubah, jadi role Picker yang sudah punya akses tetap melihatnya, kini di bawah TIM CS).
 Hak akses menu baru disalin dari menu saudara (`picker/scan_picker` untuk Picker,
 `masalah-picker-new` untuk CS), Admin selalu ikut; ubah lewat menu Access.
 Tim Restok **tidak memakai sistem**. Log perubahan disimpan di `tbltoplevel_log` dan belum

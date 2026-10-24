@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-24.1';
+    const BOOTSTRAP_VERSI = '2026-10-24.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2000,7 +2000,8 @@ class MY_Controller extends CI_Controller
 
     /**
      * Menu "Top Level" (docs/TOP_LEVEL.md): stok sisa restok yang tidak muat di rak display.
-     * Satu menu di TIM PICKER (Cek Top Level) dan tiga di TIM CS (Request, Upload, Stok Top Level).
+     * Semua menunya di TIM CS (Cek, Request, Upload, Stok, Input, Daftar Transfer Top Level). Cek Top Level semula di TIM PICKER
+     * dan dipindah ke TIM CS (migrasi 2026-10-24.2, lihat akhir fungsi ini).
      * Tabelnya hanya ditambah (CREATE TABLE IF NOT EXISTS), tidak ada yang dihapus atau diubah.
      * Hak akses menu baru disalin dari menu saudaranya; Admin (role 1) selalu ikut.
      */
@@ -2174,7 +2175,7 @@ class MY_Controller extends CI_Controller
 
         // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
         $daftar = array(
-            array('TIM PICKER', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 40,
+            array('TIM CS', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 59,
                 'Scan resi, cek stok top level per SKU, lalu request restok display.', 'picker/scan_picker'),
             array('TIM CS', 'Request Top Level', 'cs/request-top-level', 'fa fa-inbox', 60,
                 'Request restok display dari picker: cetak slip 100x150, input qty dari slip.', 'masalah-picker-new'),
@@ -2226,6 +2227,16 @@ class MY_Controller extends CI_Controller
                     'createdby' => 1,
                 ));
             }
+        }
+
+        // 2026-10-24.2: Cek Top Level pindah dari TIM PICKER ke TIM CS (sortorder 59, tepat sebelum Request Top Level).
+        // Hanya induk dan urutan menu yang berubah: URI, hak akses (roleaccess), dan barisnya tetap. Aman dijalankan
+        // berulang: setelah dipindah, induknya bukan TIM PICKER lagi sehingga tidak ada yang diubah.
+        $cs = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('name' => 'TIM CS'))->row();
+        $picker = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('name' => 'TIM PICKER'))->row();
+        if ($cs && $picker) {
+            $this->db->where(array('uri' => 'picker/cek-top-level', 'parentid' => $picker->id))
+                ->update('menu', array('parentid' => $cs->id, 'sortorder' => 59, 'updatedby' => 1, 'updated' => date('Y-m-d H:i:s')));
         }
     }
 }
