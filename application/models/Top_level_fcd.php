@@ -240,6 +240,7 @@ class Top_level_fcd extends CI_Model
             return array('ok' => false, 'pesan' => 'Tanggal list tidak boleh setelah tanggal input.');
         }
         $bersih = array();
+        $persis = array();
         $skus = array();
         foreach ($baris as $i => $b) {
             $sku = trim((string) (isset($b['sku']) ? $b['sku'] : ''));
@@ -255,11 +256,14 @@ class Top_level_fcd extends CI_Model
             if (!is_numeric($qty) || (int) $qty != $qty || $qty <= 0) {
                 return array('ok' => false, 'pesan' => 'Baris ' . $no . ': qty harus bilangan bulat lebih dari 0.');
             }
-            $kunci_baris = $sku . '|' . $rak;
-            if (isset($bersih[$kunci_baris])) {
-                return array('ok' => false, 'pesan' => 'Baris ' . $no . ': SKU dan rak yang sama sudah ada di baris lain.');
+            // SKU + rak yang sama boleh muncul lebih dari sekali dengan qty berbeda (qty dijumlahkan);
+            // yang sama persis, qty juga, dianggap input dobel.
+            $kunci_baris = $sku . '|' . $rak . '|' . (int) $qty;
+            if (isset($persis[$kunci_baris])) {
+                return array('ok' => false, 'pesan' => 'Baris ' . $no . ': SKU, rak, dan qty sama persis dengan baris ' . $persis[$kunci_baris] . '.');
             }
-            $bersih[$kunci_baris] = array('sku' => $sku, 'rak' => $rak, 'qty' => (int) $qty, 'baris' => $no);
+            $persis[$kunci_baris] = $no;
+            $bersih[] = array('sku' => $sku, 'rak' => $rak, 'qty' => (int) $qty, 'baris' => $no);
             $skus[$sku] = true;
         }
         if (!$bersih) {
@@ -291,18 +295,24 @@ class Top_level_fcd extends CI_Model
 
         $this->db->trans_start();
         $lines = array();
+        $berjalan = array(); // stok per SKU + rak selama transaksi (baris kedua dst. dengan SKU + rak yang sama)
         foreach ($bersih as $b) {
-            $row = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['rak']))->row();
-            $lama = $row ? (int) $row->qty : 0;
-            if ($lama !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
-                $this->db->trans_rollback();
-                return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU ' . $b['sku'] . ' di rak ' . $b['rak'] . ' baru saja tersimpan dengan stok ' . $lama . '.');
+            $kb = $b['sku'] . '|' . $b['rak'];
+            if (!isset($berjalan[$kb])) {
+                $row = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['rak']))->row();
+                $berjalan[$kb] = $row ? (int) $row->qty : 0;
+                if ($berjalan[$kb] !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
+                    $this->db->trans_rollback();
+                    return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU ' . $b['sku'] . ' di rak ' . $b['rak'] . ' baru saja tersimpan dengan stok ' . $berjalan[$kb] . '.');
+                }
             }
+            $lama = $berjalan[$kb];
             $this->db->query(
                 'INSERT INTO tbltoplevel (sku, no_rak, qty, updated_at) VALUES (?, ?, ?, NOW())
                  ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty), updated_at = VALUES(updated_at)',
                 array($b['sku'], $b['rak'], $b['qty'])
             );
+            $berjalan[$kb] = $lama + $b['qty'];
             $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
             $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
         }
