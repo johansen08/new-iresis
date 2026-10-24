@@ -41,7 +41,7 @@ $this->load->view('top_level/_dasar'); ?>
     var h = '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>ID</th><th>SKU</th><th>Resi</th><th>Request</th><th>Dicetak</th><th>Status</th><th></th></tr></thead><tbody>';
     $.each(rows, function (i, r) {
       var s = CS[r.status] || ['', ''];
-      h += '<tr class="go" data-detail="' + r.id + '"><td class="mono">' + T.esc(r.kode) + '</td><td><b class="mono">' + T.esc(r.sku) + '</b></td><td class="mono">' +
+      h += '<tr class="go" data-detail="' + r.id + '"><td class="mono">' + T.esc(r.nomor || r.kode) + '</td><td><b class="mono">' + T.esc(r.sku) + '</b></td><td class="mono">' +
         (r.resi ? T.esc(r.resi) : '<span class="muted">tanpa resi</span>') + '</td><td class="mono nowrap">' + T.tgl(r.request_at) + '</td><td class="mono nowrap">' +
         (r.cetak_at ? T.tgl(r.cetak_at) : '<span class="muted">—</span>') + '</td><td>' + T.pill(s[0], s[1]) + '</td><td class="act">' + aksi(r) + '</td></tr>';
     });
@@ -74,7 +74,7 @@ $this->load->view('top_level/_dasar'); ?>
       if (d.status === 'DITUGASKAN') foot += '<button type="button" class="tl-btn" data-cetak="' + d.id + '">Cetak ulang</button>';
       foot += aksi({ id: d.id, status: d.status });
       $('#tl-drawer').html(
-        '<div class="tl tl-drawer"><div class="tl-dh"><div style="display:flex;gap:10px;align-items:center"><h2 class="mono">' + T.esc(d.kode) + '</h2>' + T.pill(s[0], s[1]) +
+        '<div class="tl tl-drawer"><div class="tl-dh"><div style="display:flex;gap:10px;align-items:center"><h2 class="mono">' + T.esc(d.nomor || d.kode) + '</h2>' + T.pill(s[0], s[1]) +
         '</div><button type="button" class="tl-btn ghost sm" data-tutup-drawer aria-label="Tutup">' + T.ic('x') + '</button></div><div class="tl-dr-b">' +
         '<dl class="tl-kv"><dt>SKU</dt><dd class="mono"><b>' + T.esc(d.sku) + '</b></dd><dt>Rak display</dt><dd class="mono">' + T.esc(d.rak_display) + '</dd><dt>Asal</dt><dd>' + (d.asal === 'PICKER' ? 'Picker' : 'CS') + '</dd>' + (d.transfer ? '<dt>No. transfer</dt><dd class="mono">' + T.esc(d.transfer) + '</dd>' : '') + '</dl>' +
         '<div class="tl-sec"><h3>Rak top level ' + T.info('Stok sistem per rak saat slip dicetak.') + '</h3>' + (d.rak.length ? rak : '<span class="muted">Stok sudah habis</span>') + '</div>' +
@@ -89,7 +89,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   // ---------- slip 100 x 150 mm ----------
   function slipHtml(d, tCetak) {
-    var h = '<div class="slip"><div class="slip-h"><b>SLIP RESTOK DISPLAY</b><span>' + T.esc(d.kode) + '</span></div>' +
+    var h = '<div class="slip"><div class="slip-h"><b>SLIP RESTOK DISPLAY</b><span>' + T.esc(d.nomor || d.kode) + '</span></div>' +
       '<div class="slip-sku">' + T.esc(d.sku) + '</div>' +
       '<div class="slip-kv"><span>Ke display</span><b>' + T.esc(d.rak_display) + '</b><span>Request</span><b>' + T.tgl(d.request_at) + '</b><span>Dicetak</span><b>' + (tCetak ? T.tgl(tCetak) : 'otomatis saat cetak') + '</b><span>Resi</span><b>' + (d.resi.length ? T.esc(d.resi.join(', ')) : '—') + '</b></div>' +
       '<table class="slip-t"><thead><tr><th>No rak top level</th><th>Stok TL</th><th>Qty diambil</th></tr></thead><tbody>';
@@ -109,7 +109,7 @@ $this->load->view('top_level/_dasar'); ?>
     document.body.appendChild(f);
     var doc = f.contentWindow.document;
     doc.open();
-    doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Slip ' + T.esc(d.kode) + '</title><style>' + CSS_CETAK + '</style></head><body>' + slipHtml(d, d.cetak_at) + '</body></html>');
+    doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Slip ' + T.esc(d.nomor || d.kode) + '</title><style>' + CSS_CETAK + '</style></head><body>' + slipHtml(d, d.cetak_at) + '</body></html>');
     doc.close();
     setTimeout(function () {
       try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { T.galat('Dialog cetak tidak bisa dibuka.'); }
@@ -123,7 +123,7 @@ $this->load->view('top_level/_dasar'); ?>
       if (d.status !== 'DIAJUKAN' && d.status !== 'DITUGASKAN') { T.galat('Request sudah tidak aktif.'); muat(true); return; }
       var tampil = d.cetak_at;
       var $m = T.modal({
-        judul: 'Cetak slip · ' + d.kode, wide: true,
+        judul: 'Cetak slip · ' + (d.nomor || d.kode), wide: true,
         body: '<div class="tl-cols"><div class="tl-paper">' + slipHtml(d, tampil) + '</div><div class="tl-setp">' +
           '<div class="tl-fld">Printer<select disabled><option>Printer termal</option></select></div>' +
           '<div class="tl-fld">Ukuran kertas<input type="text" value="100 × 150 mm" disabled></div>' +
@@ -156,7 +156,7 @@ $this->load->view('top_level/_dasar'); ?>
           '<td class="n"><input type="number" min="0" class="amb" placeholder="0"></td><td class="n"><input type="number" min="0" class="sisa" value="' + x.stok + '"></td></tr>';
       });
       b += '</tbody></table></div><div id="tl-qty-sum"></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-simpan>Simpan &amp; selesai</button></div>';
-      var $m = T.modal({ judul: 'Input qty dari slip · ' + d.kode, wide: true, body: b });
+      var $m = T.modal({ judul: 'Input qty dari slip · ' + (d.nomor || d.kode), wide: true, body: b });
       function hitungan() {
         var tot = 0, sel = 0;
         $m.find('tbody tr').each(function () {

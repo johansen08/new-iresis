@@ -29,12 +29,16 @@ punya tampilan web.
 
 1. **Diajukan.** Picker scan resi, klik Cek pada SKU, lalu Request Restok Display. Waktu request
    tercatat sampai detik. Resi fisik diserahkan ke CS. Satu SKU hanya boleh punya satu request aktif;
-   resi lain dengan SKU sama memakai tombol Gabungkan resi.
+   resi lain dengan SKU sama memakai tombol Gabungkan resi. Saat diajukan, request langsung mendapat **nomor TTL
+   keluar** (`TTL-TAHUN-NNNNN`, lanjut dari TTL terakhir, satu urutan dengan TTL masuk). Nomor ini yang tampil di
+   picker dan CS; kode `RT-0001` hanya kunci internal (kolom `ref`). TTL-nya belum punya baris (`jumlah_baris` 0)
+   dan belum menyentuh stok. Dibatalkan sebelum dicetak = TTL itu ikut dibatalkan (soft, nomor bebas dipakai lagi).
 2. **Di Restok.** CS klik Cetak slip (pratinjau kertas termal 100 x 150 mm), slip diserahkan ke
    Restok dengan tanda tangan. Cetak pertama mengubah status dan membekukan daftar rak di slip;
    waktu cetak tercatat sampai detik. Restok mengisi display, menulis qty yang diambil per rak, tanda tangan.
 3. **Selesai.** Slip kembali ke CS. CS klik Input qty: qty diambil dan sisa fisik per rak. Stok rak
-   berkurang dan mengikuti sisa fisik (selisih dicatat di log jenis SELISIH), status langsung Selesai.
+   berkurang dan mengikuti sisa fisik (selisih dicatat di log jenis SELISIH), status langsung Selesai. TTL keluar
+   yang sudah dialokasikan diisi barisnya, dengan **qty disimpan minus** (diambil 5 = `-5`).
    Resi diserahkan fisik ke picker, tidak dicatat sistem.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
@@ -80,7 +84,7 @@ Setiap perpindahan stok top level mendapat **nomor transfer `TTL-TAHUN-NNNNN`**,
 |---|---|---|
 | `INPUT` | MASUK | Simpan di Input Top Level |
 | `UPLOAD` | MASUK | Impor di Upload Top Level (ref = `UP-0001`) |
-| `REQUEST` | KELUAR | Input qty dari slip selesai (ref = `RT-0001`); hanya rak yang qty diambilnya > 0 |
+| `REQUEST` | KELUAR | Nomor dialokasikan saat pengajuan (ref = `RT-0001`); barisnya diisi saat input qty dari slip selesai, qty **minus**, hanya rak yang qty diambilnya > 0 |
 | `KOREKSI` | MASUK dan/atau KELUAR | Edit di Stok Top Level: kenaikan dan penurunan masing-masing mendapat nomor sendiri (ref = alasan) |
 
 Urutan per tahun = nomor terakhir yang **masih ada** di `tbltoplevel_transfer` + 1, jadi transfer terakhir yang
