@@ -11,11 +11,14 @@ $this->load->view('top_level/_dasar'); ?>
 (function () {
   var T = window.TL, $r = $('#tl-in'), baris = [], selesai = null, galat = '', sibuk = false;
   var KOSONG = function () { return { sku: '', rak: '', qty: '' }; };
+  // Arah transfer: MASUK menambah stok rak, KELUAR mengurangi stok rak (diingat selama menu tidak di-reload).
+  var arah = window.__tlArah === 'KELUAR' ? 'KELUAR' : 'MASUK';
+  var keluar = function () { return arah === 'KELUAR'; };
   baris = [KOSONG(), KOSONG(), KOSONG()];
 
   function judul() {
     return '<div class="tl-ph"><div class="t"><h1>Input Top Level</h1>' +
-      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.\nSKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
+      T.info('Pilih arah: Masuk menambah stok rak, Keluar mengurangi stok rak.\nArah keluar hanya bisa untuk SKU dan rak yang stoknya cukup.\nMasukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.\nSKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
   }
 
   function paint() {
@@ -34,7 +37,10 @@ $this->load->view('top_level/_dasar'); ?>
         '<div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
         '<div><input type="date" id="' + idTgl + '" max="' + hariIni() + '" style="width:100%"></div></div></section>';
     };
-    var h = judul() + '<div class="tl-cards2">' + kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
+    var h = judul() + '<section class="tl-panel tl-pad"><label class="tl-lbl" for="tl-arah">Arah</label>' +
+      '<select id="tl-arah" style="width:100%"><option value="MASUK"' + (keluar() ? '' : ' selected') + '>Masuk (menambah stok)</option>' +
+      '<option value="KELUAR"' + (keluar() ? ' selected' : '') + '>Keluar (mengurangi stok)</option></select></section>' +
+      '<div class="tl-cards2">' + kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
       kartu('Petugas Input', 'tl-pinput', 'Tanggal input', 'tl-tgl') + '</div>' +
       '<section class="tl-panel"><div class="tl-line tl-line-h"><span>SKU</span><span>No rak top level</span><span>Qty</span><span></span></div><div id="tl-baris"></div>' +
       '<div class="tl-line"><div><button type="button" class="tl-btn sm ghost" data-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div></div>' +
@@ -53,6 +59,7 @@ $this->load->view('top_level/_dasar'); ?>
       }, function () { window[p[1]] = $(p[0]).val(); });
       $(p[0]).on('input', function () { window[p[1]] = this.value; });
     });
+    $('#tl-arah').on('change', function () { arah = window.__tlArah = this.value; dup = {}; tandai(); cekDb(); });
     $('#tl-tgl').on('input', function () { window.__tlTgl = this.value; });
     $('#tl-tgl-list').on('input', function () { window.__tlTglList = this.value; });
     gambarBaris();
@@ -95,7 +102,12 @@ $this->load->view('top_level/_dasar'); ?>
         var k = kunci(b), q = parseInt(b.qty, 10) > 0 ? '|' + parseInt(b.qty, 10) : '';
         // SKU + rak sama dengan qty berbeda boleh (dijumlahkan); qty sama persis dianggap dobel.
         if (q && lihat[k + q] !== undefined) msg = 'Dobel: SKU, rak, dan qty sama dengan baris ' + (lihat[k + q] + 1) + '.';
-        else {
+        else if (keluar()) {
+          if (q) lihat[k + q] = +$l.data('i');
+          var stok = dup[k] || 0;
+          if (!stok) msg = 'Tidak ada stok di rak ini.';
+          else if (parseInt(b.qty, 10) > stok) msg = 'Stok di rak ini hanya ' + stok + ' pcs.';
+        } else {
           if (q) lihat[k + q] = +$l.data('i');
           if (dup[k]) msg = 'Duplikat: stok ' + dup[k] + ' sudah tersimpan di rak ini. ' + T.info('SKU dan no rak ini sudah tersimpan dengan stok ' + dup[k] + '.\nInput tidak menambah stok yang sudah ada.\nUntuk mengoreksi, pakai Edit di menu Stok Top Level.');
         }
@@ -146,19 +158,19 @@ $this->load->view('top_level/_dasar'); ?>
     if (!kirim.length) { $('#tl-gal').text('Isi minimal satu baris.'); return; }
     var bad = $.grep(kirim, function (b) { return !b.sku || !b.rak || !(parseInt(b.qty, 10) > 0); });
     if (bad.length) { $('#tl-gal').text('Lengkapi SKU, no rak, dan qty (lebih dari 0) di semua baris yang diisi.'); return; }
-    if (tandai() > 0) { $('#tl-gal').text('Ada baris duplikat (merah). Hapus atau ubah baris itu.'); return; }
+    if (tandai() > 0) { $('#tl-gal').text(keluar() ? 'Ada baris bermasalah (merah). Hapus atau ubah baris itu.' : 'Ada baris duplikat (merah). Hapus atau ubah baris itu.'); return; }
     var q = 0;
     $.each(kirim, function (i, b) { q += parseInt(b.qty, 10); });
-    var b = '<div class="tl-db"><dl class="tl-kv"><dt>Petugas List</dt><dd>' + T.esc(pl) + ' · ' + tglIndo(tglL) + '</dd><dt>Petugas Input</dt><dd>' + T.esc(pi) + ' · ' + tglIndo(tgl) + '</dd><dt>Total</dt><dd><b>' + kirim.length + ' baris · ' + q + ' pcs</b></dd></dl>' +
+    var b = '<div class="tl-db"><dl class="tl-kv"><dt>Arah</dt><dd><b>' + (keluar() ? 'Keluar' : 'Masuk') + '</b></dd><dt>Petugas List</dt><dd>' + T.esc(pl) + ' · ' + tglIndo(tglL) + '</dd><dt>Petugas Input</dt><dd>' + T.esc(pi) + ' · ' + tglIndo(tgl) + '</dd><dt>Total</dt><dd><b>' + kirim.length + ' baris · ' + q + ' pcs</b></dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:240px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th></tr></thead><tbody>' +
       $.map(kirim, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(String(x.rak).toUpperCase()) + '</td><td class="n">' + T.esc(x.qty) + '</td></tr>'; }).join('') +
       '</tbody></table></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-ya>Simpan</button></div>';
-    var $m = T.modal({ judul: 'Simpan input top level?', body: b });
+    var $m = T.modal({ judul: keluar() ? 'Simpan keluar top level?' : 'Simpan input top level?', body: b });
     $m.on('click', '[data-ya]', function () {
       if (sibuk) return;
       sibuk = true;
       $(this).prop('disabled', true);
-      T.post('cs/input-top-level/simpan', { petugas_list: pl, petugas_input: pi, tanggal: tgl, tanggal_list: tglL, rows: kirim }, function (d) {
+      T.post('cs/input-top-level/simpan', { petugas_list: pl, petugas_input: pi, tanggal: tgl, tanggal_list: tglL, arah: arah, rows: kirim }, function (d) {
         sibuk = false; T.closeModal(); selesai = d; paint();
       }, function (m2) { sibuk = false; T.closeModal(); $('#tl-gal').text(m2); cekDb(); });
     });
@@ -172,6 +184,7 @@ $this->load->view('top_level/_dasar'); ?>
     b.qty = $l.find('.f-qty').val();
     ringkas();
     if (!$(this).hasClass('f-qty')) { tandai(); cekDb(); }
+    else if (keluar()) tandai();
   });
   $r.on('keydown', '.f-qty', function (e) {
     if (e.key !== 'Enter') return;
