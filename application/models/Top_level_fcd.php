@@ -241,8 +241,10 @@ class Top_level_fcd extends CI_Model
      * @param string $tanggal_list  tanggal list 'Y-m-d' (bawaan hari ini); tidak boleh di masa depan
      *                              dan tidak boleh setelah tanggal input
      */
-    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '', $nama_input = '', $tanggal_list = '')
+    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '', $nama_input = '', $tanggal_list = '', $arah = 'MASUK')
     {
+        // KELUAR: stok rak dikurangi (qty transfer disimpan minus, sama seperti TTL keluar dari request).
+        $keluar = ($arah === 'KELUAR');
         $nama_tim = trim(preg_replace('/\s+/', ' ', (string) $nama_tim));
         $nama_input = trim(preg_replace('/\s+/', ' ', (string) $nama_input));
         if ($nama_tim === '') {
@@ -320,8 +322,8 @@ class Top_level_fcd extends CI_Model
         }
 
         // Guard duplikat: SKU + no rak yang sudah tersimpan dengan qty bukan nol tidak boleh diinput lagi.
-        // Input ini bukan penambahan; koreksi stok memakai Edit di Stok Top Level.
-        $dobel = $this->cek_duplikat($bersih);
+        // Input ini bukan penambahan; koreksi stok memakai Edit di Stok Top Level. Arah KELUAR tidak memakai guard ini.
+        $dobel = $keluar ? array() : $this->cek_duplikat($bersih);
         if ($dobel) {
             $baris_dobel = array();
             foreach ($bersih as $b) {
@@ -338,12 +340,25 @@ class Top_level_fcd extends CI_Model
             if (!isset($berjalan[$kb])) {
                 $row = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ? FOR UPDATE', array($b['sku'], $b['rak']))->row();
                 $berjalan[$kb] = $row ? (int) $row->qty : 0;
-                if ($berjalan[$kb] !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
+                if ($keluar) {
+                    // dicek per baris di bawah terhadap stok berjalan
+                } elseif ($berjalan[$kb] !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
                     $this->db->trans_rollback();
                     return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU ' . $b['sku'] . ' di rak ' . $b['rak'] . ' baru saja tersimpan dengan stok ' . $berjalan[$kb] . '.');
                 }
             }
             $lama = $berjalan[$kb];
+            if ($keluar) {
+                if ($b['qty'] > $lama) {
+                    $this->db->trans_rollback();
+                    return array('ok' => false, 'pesan' => 'Baris ' . $b['baris'] . ': stok ' . $b['sku'] . ' di rak ' . $b['rak'] . ' hanya ' . $lama . ' pcs, tidak cukup untuk keluar ' . $b['qty'] . '.');
+                }
+                $this->db->query('UPDATE tbltoplevel SET qty = qty - ?, updated_at = NOW() WHERE sku = ? AND no_rak = ?', array($b['qty'], $b['sku'], $b['rak']));
+                $berjalan[$kb] = $lama - $b['qty'];
+                $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => -$b['qty'], 'sebelum' => $lama, 'sesudah' => $lama - $b['qty']);
+                $this->catat('KELUAR', $b['sku'], $b['rak'], $lama, $lama - $b['qty'], $oleh, null, 'Keluar top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
+                continue;
+            }
             $this->db->query(
                 'INSERT INTO tbltoplevel (sku, no_rak, qty, updated_at) VALUES (?, ?, ?, NOW())
                  ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty), updated_at = VALUES(updated_at)',
@@ -353,13 +368,13 @@ class Top_level_fcd extends CI_Model
             $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
             $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
         }
-        $nomor = $this->buat_transfer('MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal, $nama_input, $tanggal_list);
+        $nomor = $this->buat_transfer($keluar ? 'KELUAR' : 'MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal, $nama_input, $tanggal_list);
         $this->db->trans_complete();
         if ($this->db->trans_status() === false) {
             return array('ok' => false, 'pesan' => 'Penyimpanan gagal; tidak ada stok yang berubah.');
         }
         $qty = 0;
-        foreach ($lines as $l) $qty += $l['qty'];
+        foreach ($lines as $l) $qty += abs($l['qty']);
         return array('ok' => true, 'nomor' => $nomor, 'baris' => count($lines), 'qty' => $qty, 'tanggal' => $tanggal, 'tanggal_list' => $tanggal_list);
     }
 
