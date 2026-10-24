@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-24.2';
+    const BOOTSTRAP_VERSI = '2026-10-24.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2175,17 +2175,17 @@ class MY_Controller extends CI_Controller
 
         // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
         $daftar = array(
-            array('TIM CS', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 59,
+            array('TIM CS', 'Cek Top Level', 'picker/cek-top-level', 'fa fa-search', 61,
                 'Scan resi, cek stok top level per SKU, lalu request restok display.', 'picker/scan_picker'),
-            array('TIM CS', 'Request Top Level', 'cs/request-top-level', 'fa fa-inbox', 60,
+            array('TIM CS', 'Request Top Level', 'cs/request-top-level', 'fa fa-inbox', 62,
                 'Request restok display dari picker: cetak slip 100x150, input qty dari slip.', 'masalah-picker-new'),
-            array('TIM CS', 'Upload Top Level', 'cs/upload-top-level', 'fa fa-upload', 61,
+            array('TIM CS', 'Upload Top Level', 'cs/upload-top-level', 'fa fa-upload', 63,
                 'Unggah Excel stok top level dari tim Restok (header baris 3).', 'masalah-picker-new'),
-            array('TIM CS', 'Stok Top Level', 'cs/stok-top-level', 'fa fa-database', 62,
+            array('TIM CS', 'Stok Top Level', 'cs/stok-top-level', 'fa fa-database', 64,
                 'Total stok top level per SKU dan rincian per rak.', 'masalah-picker-new'),
-            array('TIM CS', 'Daftar Transfer Top Level', 'cs/daftar-transfer-top-level', 'fa fa-exchange', 64,
+            array('TIM CS', 'Daftar Transfer Top Level', 'cs/daftar-transfer-top-level', 'fa fa-exchange', 66,
                 'Daftar nomor transfer TTL-TAHUN-NNNNN (masuk dan keluar) beserta rincian per SKU dan rak.', 'masalah-picker-new'),
-            array('TIM CS', 'Input Top Level', 'cs/input-top-level', 'fa fa-pencil-square-o', 63,
+            array('TIM CS', 'Input Top Level', 'cs/input-top-level', 'fa fa-pencil-square-o', 65,
                 'Input manual stok top level dari tim Restok; menghasilkan nomor transfer TTL-TAHUN-NNNNN.', 'masalah-picker-new'),
         );
 
@@ -2229,14 +2229,29 @@ class MY_Controller extends CI_Controller
             }
         }
 
-        // 2026-10-24.2: Cek Top Level pindah dari TIM PICKER ke TIM CS (sortorder 59, tepat sebelum Request Top Level).
+        // 2026-10-24.2: Cek Top Level pindah dari TIM PICKER ke TIM CS (sortorder 61, tepat sebelum Request Top Level).
         // Hanya induk dan urutan menu yang berubah: URI, hak akses (roleaccess), dan barisnya tetap. Aman dijalankan
         // berulang: setelah dipindah, induknya bukan TIM PICKER lagi sehingga tidak ada yang diubah.
         $cs = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('name' => 'TIM CS'))->row();
         $picker = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', array('name' => 'TIM PICKER'))->row();
         if ($cs && $picker) {
             $this->db->where(array('uri' => 'picker/cek-top-level', 'parentid' => $picker->id))
-                ->update('menu', array('parentid' => $cs->id, 'sortorder' => 59, 'updatedby' => 1, 'updated' => date('Y-m-d H:i:s')));
+                ->update('menu', array('parentid' => $cs->id, 'sortorder' => 61, 'updatedby' => 1, 'updated' => date('Y-m-d H:i:s')));
+        }
+
+        // 2026-10-24.3: Cek Top Level persis di atas Request Top Level. Sebelumnya Cek 59 dan Request 60 sama-sama berdekatan
+        // dengan Manajemen Komplain (60): menu yang sortorder-nya sama tidak dijamin urutannya, jadi grup Top Level digeser
+        // satu angka (Cek 61, Request 62, Upload 63, Stok 64, Input 65, Daftar Transfer 66). Hanya sortorder baris TIM CS
+        // yang berubah, dan hanya bila nilainya belum sesuai (aman dijalankan berulang).
+        if ($cs) {
+            $urutan = array(
+                'picker/cek-top-level' => 61, 'cs/request-top-level' => 62, 'cs/upload-top-level' => 63,
+                'cs/stok-top-level' => 64, 'cs/input-top-level' => 65, 'cs/daftar-transfer-top-level' => 66,
+            );
+            foreach ($urutan as $uri => $urut) {
+                $this->db->where(array('uri' => $uri, 'parentid' => $cs->id, 'sortorder <>' => $urut))
+                    ->update('menu', array('sortorder' => $urut, 'updatedby' => 1, 'updated' => date('Y-m-d H:i:s')));
+            }
         }
     }
 }
