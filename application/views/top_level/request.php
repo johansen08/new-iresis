@@ -152,7 +152,7 @@ $this->load->view('top_level/_dasar'); ?>
       var b = '<div class="tl-db"><div class="mono" style="font-size:18px;font-weight:600">' + T.esc(d.sku) + '</div>' +
         '<div class="tl-fld"><label for="tl-plist" class="tl-lbl">Petugas List ' + T.info('Nama yang mendata dan menulis qty di slip (Restok).\nPetugas input dan tanggal list serta input dicatat otomatis oleh sistem.') + '</label>' +
         '<input type="text" id="tl-plist" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
-        '<div class="tl-note">Petugas input: <b>' + T.esc(AKUN) + '</b> (akun Anda) · Tanggal list dan input: <b>' + T.tgl(HARI_INI) + '</b>, otomatis.</div>' +
+        '<div class="tl-note">Petugas input: <b>' + T.esc(AKUN) + '</b> · Tanggal list dan input: <b>' + T.tgl(HARI_INI) + '</b>, otomatis.</div>' +
         '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>No rak</th><th class="n">Stok sistem</th><th class="n">Qty diambil ' +
         T.info('Salin angka yang ditulis Restok di slip. Slip sudah ditandatangani Restok dan CS.') + '</th><th class="n">Sisa fisik ' +
         T.info('Hitungan fisik rak setelah barang diambil. Kalau berbeda dengan stok sistem dikurangi qty diambil, selisih masuk log dan stok mengikuti fisik.') + '</th></tr></thead><tbody>';

@@ -28,7 +28,7 @@ class Top_level extends MY_Controller
 
     public function request()
     {
-        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_REQUEST), 'akun' => $this->_oleh(), 'hari_ini' => date('Y-m-d')));
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_REQUEST), 'akun' => self::akun_tampil($this->_oleh()), 'hari_ini' => date('Y-m-d')));
     }
 
     public function upload()
@@ -330,6 +330,20 @@ class Top_level extends MY_Controller
         if (!$this->_boleh($uri)) {
             $this->make_ajax_response(403, 'Anda tidak punya akses ke menu ini.');
         }
+    }
+
+    /**
+     * Nama akun IRESIS ("Ika - LEADER OP - 0001" = nama - role - no ac) ditampilkan sebagai "no ac - nama - role"
+     * ("0001 - Ika - LEADER OP"). Yang tersimpan di database tetap nama akun apa adanya; ini hanya tampilan.
+     * Nama yang tidak berpola itu dikembalikan apa adanya.
+     */
+    public static function akun_tampil($nama)
+    {
+        $nama = trim((string) $nama);
+        if (preg_match('/^(.+?)\s+-\s+(.+)\s+-\s+(\d+)$/u', $nama, $m)) {
+            return $m[3] . ' - ' . $m[1] . ' - ' . $m[2];
+        }
+        return $nama;
     }
 
     private function _oleh()
