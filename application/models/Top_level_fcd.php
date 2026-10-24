@@ -367,7 +367,8 @@ class Top_level_fcd extends CI_Model
 
         foreach ($items as &$it) {
             $r = $this->request_resi_sku($resi['noresi'], $it['sku']);
-            $it['request'] = $r ? array('id' => (int) $r['id'], 'kode' => self::kode($r['id']), 'status' => $r['status']) : null;
+            $it['request'] = $r ? array('id' => (int) $r['id'], 'kode' => self::kode($r['id']), 'status' => $r['status'],
+                'nomor' => $r['status'] === 'SELESAI' ? ($this->nomor_request($r['id']) ?: self::kode($r['id'])) : self::kode($r['id'])) : null;
         }
         unset($it);
 
@@ -381,7 +382,7 @@ class Top_level_fcd extends CI_Model
             'SELECT r.id, r.status
              FROM tbltoplevel_request r
              INNER JOIN tbltoplevel_request_resi x ON x.id_request = r.id
-             WHERE x.noresi = ? AND r.sku = ?
+             WHERE x.noresi = ? AND r.sku = ? AND r.status <> "BATAL"
              ORDER BY r.id DESC LIMIT 1',
             array($noresi, $sku)
         )->row_array();
@@ -418,7 +419,7 @@ class Top_level_fcd extends CI_Model
 
         return array(
             'ada_stok' => $total > 0,
-            'aktif'    => $aktif ? array('id' => (int) $aktif['id'], 'kode' => self::kode($aktif['id']), 'status' => $aktif['status']) : null,
+            'aktif'    => $aktif ? array('id' => (int) $aktif['id'], 'kode' => self::kode($aktif['id']), 'nomor' => self::kode($aktif['id']), 'status' => $aktif['status']) : null,
             'joined'   => $joined,
         );
     }
@@ -506,18 +507,29 @@ class Top_level_fcd extends CI_Model
         return array('ok' => true);
     }
 
-    /** Request terbaru yang punya resi, untuk daftar di halaman picker. */
-    public function terbaru($batas = 6)
+    /**
+     * Request HARI INI yang punya resi (semua picker memakai satu akun), terbaru di atas, untuk panel antrian di
+     * halaman picker. Batal tidak ikut. 'nomor' = nomor TTL keluar bila request sudah selesai, kalau belum kode request.
+     * Jam tiap tahap (diajukan, dicetak CS, selesai) dikirim dalam format H:i:s; tahap yang belum tercapai berisi ''.
+     */
+    public function terbaru($batas = 200)
     {
         $rows = $this->db->query(
-            "SELECT r.id, r.sku, r.status,
+            "SELECT r.id, r.sku, r.status, r.request_at, r.cetak_at, r.selesai_at,
                     (SELECT GROUP_CONCAT(noresi ORDER BY id SEPARATOR ', ') FROM tbltoplevel_request_resi WHERE id_request = r.id) AS resi
              FROM tbltoplevel_request r
-             WHERE r.status <> 'BATAL' AND EXISTS (SELECT 1 FROM tbltoplevel_request_resi x WHERE x.id_request = r.id)
+             WHERE r.status <> 'BATAL' AND r.request_at >= CURDATE()
+               AND EXISTS (SELECT 1 FROM tbltoplevel_request_resi x WHERE x.id_request = r.id)
              ORDER BY r.id DESC LIMIT " . (int) $batas
         )->result_array();
+        $jam = function ($t) { return $t ? date('H:i:s', strtotime($t)) : ''; };
         foreach ($rows as &$r) {
             $r['kode'] = self::kode($r['id']);
+            $r['nomor'] = $r['status'] === 'SELESAI' ? ($this->nomor_request($r['id']) ?: $r['kode']) : $r['kode'];
+            $r['jam_diajukan'] = $jam($r['request_at']);
+            $r['jam_cetak'] = $jam($r['cetak_at']);
+            $r['jam_selesai'] = $jam($r['selesai_at']);
+            unset($r['request_at'], $r['cetak_at'], $r['selesai_at']);
         }
         return $rows;
     }
