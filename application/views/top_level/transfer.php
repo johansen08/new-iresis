@@ -170,7 +170,7 @@ $this->load->view('top_level/_dasar'); ?>
       '<dt>Dibuat</dt><dd class="mono">' + T.tgl(t.dibuat_at) + (t.dibuat_by ? ' · ' + T.esc(t.dibuat_by) : '') + '</dd>' +
       '<dt>Total</dt><dd><b>' + (masuk ? '+' : '−') + total.toLocaleString('id-ID') + ' pcs</b> · ' + t.baris.length + ' baris</dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:320px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum</th><th class="n">Stok sesudah</th></tr></thead><tbody>' +
-      (t.baris.length ? '' : '<tr><td colspan="5" class="muted">' + (t.nama_input ? 'Qty 0: tidak ada barang diambil dari top level.' : 'Menunggu CS input qty dari slip.') + '</td></tr>') +
+      (t.baris.length ? '' : '<tr><td colspan="5" class="muted">' + (t.nama_input ? 'Qty 0: TL ini sudah direstok atas inisiatif tim Restok sebelum TL diterbitkan, jadi tidak ada barang diambil dari top level.' : 'Menunggu CS input qty dari slip.') + '</td></tr>') +
       $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + '</td><td class="n"><b>' + (masuk ? '+' : '−') + x.qty + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
       '</tbody></table></div>' + riwayat(t) + '</div>' +
       '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button>' +

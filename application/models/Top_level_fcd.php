@@ -807,7 +807,7 @@ class Top_level_fcd extends CI_Model
             // CS lewat $qty_nol supaya kolom yang tidak sengaja kosong tidak menutup request. TTL tetap tanpa baris, stok tidak dikurangi.
             if ($total <= 0 && !$qty_nol) {
                 $this->db->trans_rollback();
-                return array('ok' => false, 'pesan' => 'Qty diambil 0: centang konfirmasi qty 0 (tidak ada barang diambil dari top level).');
+                return array('ok' => false, 'pesan' => 'Qty diambil 0: centang konfirmasi qty 0 (TL sudah direstok tim Restok sebelum diterbitkan, tidak ada barang diambil).');
             }
             $nomor = $this->isi_transfer_request($kode, $oleh, $trf, $petugas_list);
             $this->db->where('id', (int) $id)->update('tbltoplevel_request', array(
