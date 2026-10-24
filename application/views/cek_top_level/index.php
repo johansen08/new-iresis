@@ -128,7 +128,7 @@ $this->load->view('top_level/_dasar'); ?>
     if (!r) return;
     var $d = T.modal({
       judul: 'Batalkan request?',
-      body: '<div class="tl-db">' + kv([['Nomor TTL', r.nomor], ['SKU', r.sku], ['Resi', r.resi]]) +
+      body: '<div class="tl-db">' + kv([[/^TTL-/.test(r.nomor) ? 'Nomor TTL' : 'Nomor request', r.nomor], ['SKU', r.sku], ['Resi', r.resi]]) +
         '<div class="tlc-wr">Request dibatalkan dan tidak akan diproses CS. Hanya bisa selama berstatus Diajukan.</div></div>' +
         '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tidak</button><button type="button" class="tl-btn pri bad" data-yabatal>Ya, Batalkan</button></div>'
     });
