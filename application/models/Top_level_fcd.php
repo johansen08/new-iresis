@@ -732,8 +732,9 @@ class Top_level_fcd extends CI_Model
      * status langsung SELESAI.
      *
      * @param array $rows  [['rak'=>, 'amb'=>qty diambil, 'sisa'=>sisa fisik rak], ...]
+     * @param bool  $qty_nol true bila CS menegaskan tidak ada barang yang diambil (total qty 0)
      */
-    public function selesai($id, array $rows, $oleh, $petugas_list = '')
+    public function selesai($id, array $rows, $oleh, $petugas_list = '', $qty_nol = false)
     {
         $r = $this->db->get_where('tbltoplevel_request', array('id' => (int) $id))->row_array();
         if (!$r || $r['status'] !== 'DITUGASKAN') {
@@ -797,9 +798,11 @@ class Top_level_fcd extends CI_Model
                     $trf[] = array('sku' => $sku, 'rak' => $rak, 'qty' => $amb, 'sebelum' => $sys, 'sesudah' => $sisa);
                 }
             }
-            if ($total <= 0) {
+            // Qty 0 diperbolehkan (mis. display sudah diisi Restok tidak lama sebelum TTL dikeluarkan), tapi harus dikonfirmasi
+            // CS lewat $qty_nol supaya kolom yang tidak sengaja kosong tidak menutup request. TTL tetap tanpa baris, stok tidak dikurangi.
+            if ($total <= 0 && !$qty_nol) {
                 $this->db->trans_rollback();
-                return array('ok' => false, 'pesan' => 'Isi qty yang diambil.');
+                return array('ok' => false, 'pesan' => 'Qty diambil 0: centang konfirmasi qty 0 (tidak ada barang diambil dari top level).');
             }
             $nomor = $this->isi_transfer_request($kode, $oleh, $trf, $petugas_list);
             $this->db->where('id', (int) $id)->update('tbltoplevel_request', array(

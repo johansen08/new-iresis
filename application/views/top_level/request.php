@@ -175,7 +175,9 @@ $this->load->view('top_level/_dasar'); ?>
           tot += amb;
           if (sisa !== '' && parseInt(sisa, 10) !== sys - amb) sel++;
         });
-        $('#tl-qty-sum').html('<div class="tl-note ' + (tot > 0 ? 'ok' : '') + '">Total diambil <b>' + tot + '</b> pcs</div>' + (sel ? '<div class="tl-note warn" style="margin-top:6px">' + sel + ' rak berselisih dengan sistem. Stok akan mengikuti fisik.</div>' : ''));
+        var nolDicentang = $('#tl-qnol').prop('checked');
+        $('#tl-qty-sum').html('<div class="tl-note ' + (tot > 0 ? 'ok' : '') + '">Total diambil <b>' + tot + '</b> pcs</div>' +
+          (tot > 0 ? '' : '<div class="tl-note warn" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="tl-qnol"' + (nolDicentang ? ' checked' : '') + ' style="margin-top:3px"><span>Qty diambil 0: tidak ada barang diambil dari top level (mis. display sudah diisi Restok tidak lama sebelum TTL ini dikeluarkan). Request selesai tanpa mengurangi stok.</span></label></div>') + (sel ? '<div class="tl-note warn" style="margin-top:6px">' + sel + ' rak berselisih dengan sistem. Stok akan mengikuti fisik.</div>' : ''));
       }
       $m.on('input', '.amb', function () {
         var $t = $(this).closest('tr'), sys = +$t.data('sys'), amb = parseInt(this.value, 10) || 0;
@@ -195,9 +197,9 @@ $this->load->view('top_level/_dasar'); ?>
         var pl = $.trim($m.find('#tl-plist').val());
         if (!pl) { T.galat('Isi nama petugas list.'); $m.find('#tl-plist').focus(); return; }
         if (!ok) { T.galat('Qty diambil tidak boleh melebihi stok sistem, dan sisa fisik wajib diisi.'); return; }
-        if (tot <= 0) { T.galat('Isi qty yang diambil.'); return; }
+        if (tot <= 0 && !$m.find('#tl-qnol').prop('checked')) { T.galat('Isi qty yang diambil, atau centang konfirmasi qty 0.'); return; }
         $(this).prop('disabled', true);
-        T.post('cs/request-top-level/selesai', { id: id, petugas_list: pl, rows: data }, function (r, j) {
+        T.post('cs/request-top-level/selesai', { id: id, petugas_list: pl, qty_nol: tot <= 0 ? 1 : 0, rows: data }, function (r, j) {
           window.__tlListReq = pl;
           T.closeModal(); T.toast(j.message + ' Serahkan resi ke picker.'); muat(true);
         }, function (m) { T.galat(m); $m.find('[data-simpan]').prop('disabled', false); });

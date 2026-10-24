@@ -148,8 +148,9 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_REQUEST);
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->selesai((int) $this->input->post('id'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('petugas_list'));
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Selesai. Stok diperbarui, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('total' => $h['total'], 'nomor' => $h['nomor']) : array());
+        $h = $this->top_level_fcd->selesai((int) $this->input->post('id'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('petugas_list'), (bool) $this->input->post('qty_nol'));
+        $pesan = $h['ok'] ? ($h['total'] > 0 ? 'Selesai. Stok diperbarui, transfer ' . $h['nomor'] . '.' : 'Selesai dengan qty 0, stok tidak berubah, transfer ' . $h['nomor'] . '.') : $h['pesan'];
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $pesan, $h['ok'] ? array('total' => $h['total'], 'nomor' => $h['nomor']) : array());
     }
 
     /** Saran nama Petugas List untuk input qty (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */

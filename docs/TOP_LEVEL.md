@@ -42,6 +42,9 @@ punya tampilan web.
    (wajib, dengan saran nama seperti Input Top Level; disimpan di `nama_tim`). **Petugas Input** (`nama_input`) = akun IRESIS
    yang menyimpan qty, dan **tanggal list** serta **tanggal input** = hari itu, semuanya otomatis oleh sistem. Di popup,
    akun tampil sebagai `no ac - nama - role` (mis. `0001 - Ika - LEADER OP`); yang tersimpan tetap nama akun apa adanya.
+   **Qty 0 diperbolehkan** (mis. display sudah diisi Restok tidak lama sebelum TTL dikeluarkan, kasus MX-5041-2): total
+   qty 0 hanya lolos bila CS mencentang konfirmasi qty 0. TTL-nya selesai tanpa baris (`jumlah_qty` 0, petugas dan
+   tanggal tetap terisi) dan stok tidak berkurang.
    Resi diserahkan fisik ke picker, tidak dicatat sistem.
 
 Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
