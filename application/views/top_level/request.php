@@ -8,6 +8,7 @@ $this->load->view('top_level/_dasar'); ?>
 <div class="tl" id="tl-req"></div>
 <script>
 (function () {
+  var AKUN = <?= json_encode((string) (isset($akun) ? $akun : ''), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>, HARI_INI = <?= json_encode(isset($hari_ini) ? $hari_ini : date('Y-m-d')) ?>;
   var T = window.TL, $r = $('#tl-req'), filter = 'aktif', q = '', rows = [], hitung = {}, timerCari = null, drawerId = 0;
   var CS = {
     DIAJUKAN: ['Perlu dicetak', 'warn'], DITUGASKAN: ['Di Restok', 'info'], SELESAI: ['Selesai', 'ok'], BATAL: ['Dibatalkan', '']
@@ -148,7 +149,11 @@ $this->load->view('top_level/_dasar'); ?>
     T.post('cs/request-top-level/detail', { id: id }, function (data) {
       var d = data.d;
       if (d.status !== 'DITUGASKAN') { T.galat('Request belum dicetak atau sudah selesai.'); muat(true); return; }
-      var b = '<div class="tl-db"><div class="mono" style="font-size:18px;font-weight:600">' + T.esc(d.sku) + '</div><div class="tl-tw"><table class="tl-tbl"><thead><tr><th>No rak</th><th class="n">Stok sistem</th><th class="n">Qty diambil ' +
+      var b = '<div class="tl-db"><div class="mono" style="font-size:18px;font-weight:600">' + T.esc(d.sku) + '</div>' +
+        '<div class="tl-fld"><label for="tl-plist" class="tl-lbl">Petugas List ' + T.info('Nama yang mendata dan menulis qty di slip (Restok).\nPetugas input dan tanggal list serta input dicatat otomatis oleh sistem.') + '</label>' +
+        '<input type="text" id="tl-plist" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
+        '<div class="tl-note">Petugas input: <b>' + T.esc(AKUN) + '</b> (akun Anda) · Tanggal list dan input: <b>' + T.tgl(HARI_INI) + '</b>, otomatis.</div>' +
+        '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>No rak</th><th class="n">Stok sistem</th><th class="n">Qty diambil ' +
         T.info('Salin angka yang ditulis Restok di slip. Slip sudah ditandatangani Restok dan CS.') + '</th><th class="n">Sisa fisik ' +
         T.info('Hitungan fisik rak setelah barang diambil. Kalau berbeda dengan stok sistem dikurangi qty diambil, selisih masuk log dan stok mengikuti fisik.') + '</th></tr></thead><tbody>';
       $.each(d.rak, function (i, x) {
@@ -157,6 +162,12 @@ $this->load->view('top_level/_dasar'); ?>
       });
       b += '</tbody></table></div><div id="tl-qty-sum"></div></div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-simpan>Simpan &amp; selesai</button></div>';
       var $m = T.modal({ judul: 'Input qty dari slip · ' + (d.nomor || d.kode), wide: true, body: b });
+      $m.find('#tl-plist').val(window.__tlListReq || '');
+      T.combo($m.find('#tl-plist'), function (q, kirim) {
+        T.post('cs/request-top-level/tim', { q: q }, function (r) {
+          kirim($.map(r.rows || [], function (x) { return { nilai: x.nama, label: x.nama, grup: x.dari === 'terakhir' ? 'Terakhir dipakai' : 'Pegawai' }; }));
+        }, function () { kirim([]); });
+      });
       function hitungan() {
         var tot = 0, sel = 0;
         $m.find('tbody tr').each(function () {
@@ -181,10 +192,13 @@ $this->load->view('top_level/_dasar'); ?>
           tot += parseInt(amb, 10) || 0;
           data.push({ rak: $t.data('rak'), amb: amb, sisa: sisa });
         });
+        var pl = $.trim($m.find('#tl-plist').val());
+        if (!pl) { T.galat('Isi nama petugas list.'); $m.find('#tl-plist').focus(); return; }
         if (!ok) { T.galat('Qty diambil tidak boleh melebihi stok sistem, dan sisa fisik wajib diisi.'); return; }
         if (tot <= 0) { T.galat('Isi qty yang diambil.'); return; }
         $(this).prop('disabled', true);
-        T.post('cs/request-top-level/selesai', { id: id, rows: data }, function (r, j) {
+        T.post('cs/request-top-level/selesai', { id: id, petugas_list: pl, rows: data }, function (r, j) {
+          window.__tlListReq = pl;
           T.closeModal(); T.toast(j.message + ' Serahkan resi ke picker.'); muat(true);
         }, function (m) { T.galat(m); $m.find('[data-simpan]').prop('disabled', false); });
       });

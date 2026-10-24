@@ -28,7 +28,7 @@ class Top_level extends MY_Controller
 
     public function request()
     {
-        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_REQUEST)));
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_REQUEST), 'akun' => $this->_oleh(), 'hari_ini' => date('Y-m-d')));
     }
 
     public function upload()
@@ -143,8 +143,15 @@ class Top_level extends MY_Controller
     {
         $this->_wajib(self::URI_REQUEST);
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->selesai((int) $this->input->post('id'), is_array($rows) ? array_values($rows) : array(), $this->_oleh());
+        $h = $this->top_level_fcd->selesai((int) $this->input->post('id'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('petugas_list'));
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Selesai. Stok diperbarui, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('total' => $h['total'], 'nomor' => $h['nomor']) : array());
+    }
+
+    /** Saran nama Petugas List untuk input qty (terakhir dipakai, lalu pegawai aktif) mengikuti ketikan. */
+    public function request_tim()
+    {
+        $this->_wajib(self::URI_REQUEST);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->rekomendasi_tim($this->input->post('q'))));
     }
 
     public function request_batal()

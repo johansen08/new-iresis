@@ -112,9 +112,10 @@ class Top_level_fcd extends CI_Model
      * (keluar mengurangi stok). Request lama yang belum punya nomor mendapat nomor baru, juga bermuatan minus.
      *
      * @param array $trf [['sku'=>, 'rak'=>, 'qty'=>diambil (positif), 'sebelum'=>, 'sesudah'=>], ...]
+     * @param string $petugas_list nama yang mendata di slip (diisi CS); petugas input = $oleh (akun login), tanggal = hari ini
      * @return string nomor transfer
      */
-    private function isi_transfer_request($kode, $oleh, array $trf)
+    private function isi_transfer_request($kode, $oleh, array $trf, $petugas_list)
     {
         $minus = array();
         $qty = 0;
@@ -125,7 +126,7 @@ class Top_level_fcd extends CI_Model
         }
         $t = $this->db->query("SELECT id, nomor FROM tbltoplevel_transfer WHERE sumber = 'REQUEST' AND ref = ? AND aktif_key = 1 AND jumlah_baris = 0 ORDER BY id DESC LIMIT 1 FOR UPDATE", array($kode))->row_array();
         if (!$t) {
-            return $this->buat_transfer('KELUAR', 'REQUEST', null, $kode, $oleh, $minus);
+            return $this->buat_transfer('KELUAR', 'REQUEST', $petugas_list, $kode, $oleh, $minus, date('Y-m-d'), $oleh, date('Y-m-d'));
         }
         foreach ($minus as $b) {
             $this->db->insert('tbltoplevel_transfer_baris', array(
@@ -134,7 +135,10 @@ class Top_level_fcd extends CI_Model
             ));
         }
         $this->db->where('id', (int) $t['id'])->update('tbltoplevel_transfer', array(
-            'jumlah_baris' => count($minus), 'jumlah_qty' => $qty, 'tgl_input' => date('Y-m-d'),
+            'jumlah_baris' => count($minus), 'jumlah_qty' => $qty,
+            // Petugas List dari isian CS; Petugas Input = akun IRESIS yang input qty; tanggal list dan input = hari ini (sistem).
+            'nama_tim' => mb_substr($petugas_list, 0, 150), 'nama_input' => mb_substr((string) $oleh, 0, 150),
+            'tgl_list' => date('Y-m-d'), 'tgl_input' => date('Y-m-d'),
         ));
         $this->catat('TRANSFER', null, null, null, null, $oleh, $t['nomor'], 'Transfer keluar ' . $t['nomor'] . ' (REQUEST ' . $kode . ') diisi, ' . count($minus) . ' baris, ' . $qty . ' pcs');
         return $t['nomor'];
@@ -714,11 +718,16 @@ class Top_level_fcd extends CI_Model
      *
      * @param array $rows  [['rak'=>, 'amb'=>qty diambil, 'sisa'=>sisa fisik rak], ...]
      */
-    public function selesai($id, array $rows, $oleh)
+    public function selesai($id, array $rows, $oleh, $petugas_list = '')
     {
         $r = $this->db->get_where('tbltoplevel_request', array('id' => (int) $id))->row_array();
         if (!$r || $r['status'] !== 'DITUGASKAN') {
             return array('ok' => false, 'pesan' => 'Request belum dicetak atau sudah selesai.');
+        }
+        // Petugas List (yang mendata di slip) wajib diisi; petugas input dan kedua tanggal dicatat sistem.
+        $petugas_list = trim(preg_replace('/\s+/', ' ', (string) $petugas_list));
+        if ($petugas_list === '') {
+            return array('ok' => false, 'pesan' => 'Nama petugas list wajib diisi.');
         }
         $sku = $r['sku'];
         $kode = self::kode($id);
@@ -777,7 +786,7 @@ class Top_level_fcd extends CI_Model
                 $this->db->trans_rollback();
                 return array('ok' => false, 'pesan' => 'Isi qty yang diambil.');
             }
-            $nomor = $this->isi_transfer_request($kode, $oleh, $trf);
+            $nomor = $this->isi_transfer_request($kode, $oleh, $trf, $petugas_list);
             $this->db->where('id', (int) $id)->update('tbltoplevel_request', array(
                 'status' => 'SELESAI', 'selesai_at' => date('Y-m-d H:i:s'), 'selesai_by' => $oleh, 'hasil' => json_encode($hasil),
             ));
