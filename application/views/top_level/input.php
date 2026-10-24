@@ -15,8 +15,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   function judul() {
     return '<div class="tl-ph"><div class="t"><h1>Input Top Level</h1>' +
-      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.
-SKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
+      T.info('Masukkan stok top level dari tim Restok.\nPetugas List dan tanggal list: yang mendata stok. Petugas Input dan tanggal input: yang menginput.\nPilih nama dari saran atau ketik bebas.\nSetiap simpan menghasilkan satu nomor transfer TTL-TAHUN-NNNNN untuk stok masuk.\nRak baru dibuat otomatis.\nSKU dan rak yang sudah punya stok ditandai merah sebagai duplikat dan tidak bisa disimpan.\nSKU dan rak yang sama boleh diisi lebih dari satu baris asalkan qty-nya berbeda; qty dijumlahkan. Qty yang sama persis ditandai dobel.') + '</div></div>';
   }
 
   function paint() {
