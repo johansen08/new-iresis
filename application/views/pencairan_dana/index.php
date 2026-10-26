@@ -115,9 +115,9 @@ $MP_JSON = json_encode(array_values($mp));
 
 /* Tabel */
 #pd_tablewrap { position:relative; min-height:160px; overflow-x:auto; }
-#pd_wrap table.pd-tabel { width:100%; min-width:820px; border-collapse:collapse; }
-#pd_wrap .pd-tabel th { padding:12px 20px; background:#f6f8fa; border-bottom:1px solid var(--pd-garis); font-size:12px; font-weight:600; color:#6b7c87; text-align:left; }
-#pd_wrap .pd-tabel td { padding:12px 20px; border-bottom:1px solid #eef1f3; font-size:14px; vertical-align:middle; }
+#pd_wrap table.pd-tabel { width:100%; min-width:1180px; border-collapse:collapse; }
+#pd_wrap .pd-tabel th { padding:12px 14px; background:#f6f8fa; border-bottom:1px solid var(--pd-garis); font-size:12px; font-weight:600; color:#6b7c87; text-align:left; }
+#pd_wrap .pd-tabel td { padding:12px 14px; border-bottom:1px solid #eef1f3; font-size:14px; vertical-align:middle; }
 #pd_wrap .pd-tabel tbody tr:hover td { background:#fafbfc; }
 #pd_wrap .pd-id { display:flex; align-items:center; gap:2px; margin:-8px 0; }
 #pd_wrap .pd-id b { font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -259,11 +259,14 @@ $MP_JSON = json_encode(array_values($mp));
       <table class="pd-tabel">
         <thead>
           <tr>
-            <th style="width:30%">ID Pesanan</th>
-            <th style="width:14%">Marketplace</th>
-            <th style="width:18%">Tanggal Completed</th>
-            <th style="width:18%">Tanggal Cair</th>
-            <th style="width:20%">Status</th>
+            <th style="width:20%">ID Pesanan</th>
+            <th style="width:10%">Tgl Shipped</th>
+            <th style="width:10%">Tgl Delivered</th>
+            <th style="width:10%">Tgl Completed</th>
+            <th style="width:10%">Marketplace</th>
+            <th style="width:12%">Toko</th>
+            <th style="width:10%">Tanggal Cair</th>
+            <th style="width:18%">Status</th>
           </tr>
         </thead>
         <tbody id="pd_tbody"></tbody>
@@ -453,8 +456,11 @@ $(document).ready(function () {
                 : '<span class="pd-lencana ' + x.status + '">+' + x.umur + ' hari</span>';
             h += '<tr><td><span class="pd-id"><b>' + tandai(x.no) + '</b>'
                 + '<button type="button" class="pd-salin" data-salin="' + esc(x.no) + '" aria-label="Salin ID pesanan" title="Salin ID pesanan">' + ICON_SALIN + '</button></span></td>'
-                + '<td style="color:#4b5d68">' + esc(x.mp) + '</td>'
+                + '<td style="font-variant-numeric:tabular-nums;color:#4b5d68">' + fmt(x.kirim) + '</td>'
+                + '<td style="font-variant-numeric:tabular-nums;color:#4b5d68">' + fmt(x.deliver) + '</td>'
                 + '<td style="font-variant-numeric:tabular-nums">' + fmt(x.selesai) + '</td>'
+                + '<td style="color:#4b5d68">' + esc(x.mp) + '</td>'
+                + '<td style="color:#4b5d68">' + (x.toko ? esc(x.toko) : '-') + '</td>'
                 + '<td style="font-variant-numeric:tabular-nums;color:#4b5d68">' + fmt(x.cair) + '</td>'
                 + '<td>' + badge + '</td></tr>';
         });

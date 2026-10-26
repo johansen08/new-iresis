@@ -28,6 +28,10 @@ Route: `finance/pencairan-dana`, `finance/get-pencairan-dana`, `finance/export-p
 - **ID Pesanan di layar** = bagian di antara tanda `-` pertama dan kedua
   (`TP-586720295584630101-109465` → `586720295584630101`; `SP-260202KAQK3F9A` → `260202KAQK3F9A`).
   Itu juga yang disalin tombol salin, dan yang dicocokkan saat upload.
+- **Kolom tabel/ekspor** (23 Okt 2026): ID Pesanan, Tgl Shipped (`tanggal_pengiriman`, = `awb_created_date`),
+  Tgl Delivered, Tgl Completed (`tanggal_selesai`), Marketplace, Toko (`tblprintresi.toko`), Tanggal Cair, Status.
+  **Tgl Delivered belum punya kolom di database** sehingga selalu tampil "-" (tempatnya sudah disiapkan di
+  `_baris()` dan ekspor); isi bila nanti ada kolom `tanggal_delivered` (ingat: kolom baru di `tblprintresi` juga ke arsip).
 - **Status** (patokan sama untuk semua marketplace, dari tanggal completed):
   hijau = `tanggal_pencairan` terisi; kuning = belum cair, 0–7 hari; merah = belum cair, ≥ 8 hari
   (`Pencairan_dana_fcd::BATAS_KUNING`).

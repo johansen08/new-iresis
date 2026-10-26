@@ -121,7 +121,8 @@ class Pencairan_dana_fcd extends CI_Model
      * Urutan: belum cair dulu, yang paling lama di atas; sudah cair menyusul, terbaru dulu.
      * Tab Belum/Sudah diurutkan murni menurut tanggal_selesai sehingga MariaDB bisa membaca lewat
      * indeks (status_pesanan, tanggal_selesai) dan berhenti begitu halaman terisi.
-     * Kolom hasil: id_printresi, no_pesanan, mp (awalan), tgl_selesai, tgl_cair, sudah, umur.
+     * Kolom hasil: id_printresi, no_pesanan, mp (awalan), tgl_kirim (Shipped = tanggal_pengiriman),
+     * toko, tgl_selesai, tgl_cair, sudah, umur. Tgl Delivered belum punya kolom di database.
      */
     public function daftar($start, $end, $mps, $tab, $hanya_merah, $offset, $limit, $q = '')
     {
@@ -148,6 +149,8 @@ class Pencairan_dana_fcd extends CI_Model
         $sql = "SELECT p.id_printresi,
                        " . self::SQL_NP . " AS no_pesanan,
                        p.tanggal_selesai AS tgl_selesai,
+                       p.tanggal_pengiriman AS tgl_kirim,
+                       p.toko,
                        p.tanggal_pencairan AS tgl_cair,
                        (p.tanggal_pencairan IS NOT NULL) AS sudah,
                        DATEDIFF(CURDATE(), DATE(p.tanggal_selesai)) AS umur

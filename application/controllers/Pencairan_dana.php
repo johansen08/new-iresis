@@ -88,8 +88,8 @@ class Pencairan_dana extends MY_Controller
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
         $sh->setTitle('Pencairan Dana');
-        $sh->fromArray(array('ID Pesanan', 'Marketplace', 'Tanggal Completed', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status'), null, 'A1');
-        $sh->getStyle('A1:G1')->getFont()->setBold(true);
+        $sh->fromArray(array('ID Pesanan', 'Tgl Shipped', 'Tgl Delivered', 'Tgl Completed', 'Marketplace', 'Toko', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status'), null, 'A1');
+        $sh->getStyle('A1:J1')->getFont()->setBold(true);
 
         $baris = 2;
         $peta = Pencairan_dana_fcd::peta_mp();
@@ -98,16 +98,19 @@ class Pencairan_dana extends MY_Controller
             $st = $r->sudah ? 'sudah' : ($r->umur > Pencairan_dana_fcd::BATAS_KUNING ? 'merah' : 'kuning');
             // Nomor pesanan ditulis sebagai teks: 18 digit angka kehilangan presisi di Excel.
             $sh->setCellValueExplicit('A' . $baris, Pencairan_dana_fcd::nomor_pesanan($r->no_pesanan), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sh->setCellValue('B' . $baris, isset($peta[$r->mp]) ? $peta[$r->mp] : $r->mp);
-            $sh->setCellValue('C' . $baris, substr((string) $r->tgl_selesai, 0, 10));
-            $sh->setCellValue('D' . $baris, $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : '');
+            $sh->setCellValue('B' . $baris, $r->tgl_kirim ? substr((string) $r->tgl_kirim, 0, 10) : '');
+            $sh->setCellValue('C' . $baris, '');   // Tgl Delivered: belum ada kolomnya di database
+            $sh->setCellValue('D' . $baris, substr((string) $r->tgl_selesai, 0, 10));
+            $sh->setCellValue('E' . $baris, isset($peta[$r->mp]) ? $peta[$r->mp] : $r->mp);
+            $sh->setCellValue('F' . $baris, (string) $r->toko);
+            $sh->setCellValue('G' . $baris, $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : '');
             // negatif = cair sebelum Completed, positif = sesudah Completed
-            $sh->setCellValue('E' . $baris, $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : '');
-            $sh->setCellValue('F' . $baris, (int) $r->umur);
-            $sh->setCellValue('G' . $baris, $label[$st]);
+            $sh->setCellValue('H' . $baris, $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : '');
+            $sh->setCellValue('I' . $baris, (int) $r->umur);
+            $sh->setCellValue('J' . $baris, $label[$st]);
             $baris++;
         }
-        foreach (array('A' => 26, 'B' => 14, 'C' => 18, 'D' => 14, 'E' => 24, 'F' => 12, 'G' => 22) as $kol => $lebar) {
+        foreach (array('A' => 26, 'B' => 14, 'C' => 14, 'D' => 16, 'E' => 14, 'F' => 22, 'G' => 14, 'H' => 24, 'I' => 12, 'J' => 22) as $kol => $lebar) {
             $sh->getColumnDimension($kol)->setWidth($lebar);
         }
 
@@ -284,6 +287,9 @@ class Pencairan_dana extends MY_Controller
             $hasil[] = array(
                 'no'      => Pencairan_dana_fcd::nomor_pesanan($r->no_pesanan),
                 'mp'      => isset($peta[$r->mp]) ? $peta[$r->mp] : $r->mp,
+                'toko'    => (string) $r->toko,
+                'kirim'   => $r->tgl_kirim ? substr((string) $r->tgl_kirim, 0, 10) : null,
+                'deliver' => null,   // belum ada kolomnya di database
                 'selesai' => substr((string) $r->tgl_selesai, 0, 10),
                 'cair'    => $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : null,
                 'selisih' => $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : null,
