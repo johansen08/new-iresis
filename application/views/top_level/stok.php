@@ -290,7 +290,7 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '#tls-seg button', function () { v = $(this).data('v'); page = 0; $('#tls-seg button').removeClass('on'); $(this).addClass('on'); gambar(); });
   $r.on('click', '#tls-xls', function () {
     // POST lewat form tersembunyi supaya respons file diunduh browser tanpa meninggalkan halaman.
-    var f = $('<form method="post" action="cs/stok-top-level/export" style="display:none"></form>').appendTo('body');
+    var f = $('<form method="post" class="nojs" action="cs/stok-top-level/export" style="display:none"></form>').appendTo('body');
     f.trigger('submit'); setTimeout(function () { f.remove(); }, 1000);
   });
   $r.on('click', '#tls-prev', function () { page--; gambar(); });
