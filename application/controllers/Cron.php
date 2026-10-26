@@ -165,7 +165,7 @@ class Cron extends CI_Controller
 
     /**
      * Pencairan Dana: dari daftar nomor pesanan Jubelio, balikin yang resinya sudah COMPLETED di
-     * Iresis tapi dana_diterima_mp-nya masih kosong (perlu diambil detailnya).
+     * Iresis tapi nilai_pesanan-nya masih kosong (perlu diambil detailnya).
      * Dipanggil scripts/sinkron_nominal_mp.py. Body: {"no_pesanan": ["TT-...-48087", ...]}
      */
     public function nominal_mp_butuh()

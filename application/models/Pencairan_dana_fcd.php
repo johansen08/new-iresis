@@ -239,7 +239,7 @@ class Pencairan_dana_fcd extends CI_Model
 
     /**
      * Dari daftar nomor pesanan (salesorder_no Jubelio), kembalikan yang resinya ada di Iresis,
-     * berstatus COMPLETED, dan dana_diterima_mp-nya masih kosong -- yang perlu diambil detailnya.
+     * berstatus COMPLETED, dan nilai_pesanan-nya masih kosong -- yang perlu diambil detailnya.
      */
     public function butuh_nominal_mp(array $no_pesanan)
     {
@@ -251,7 +251,7 @@ class Pencairan_dana_fcd extends CI_Model
                 "SELECT DISTINCT d.no_pesanan
                    FROM tbldetailprintresi d
                    JOIN tblprintresi p ON p.id_printresi = d.id_resi
-                  WHERE d.no_pesanan IN ($ph) AND p.status_pesanan = 'COMPLETED' AND p.dana_diterima_mp IS NULL",
+                  WHERE d.no_pesanan IN ($ph) AND p.status_pesanan = 'COMPLETED' AND p.nilai_pesanan IS NULL",
                 $bagian
             )->result();
             foreach ($rows as $r) $hasil[] = $r->no_pesanan;
@@ -261,22 +261,24 @@ class Pencairan_dana_fcd extends CI_Model
 
     /**
      * Simpan nilai_pesanan dan dana_diterima_mp dari Jubelio. Baris: no_pesanan, nilai_pesanan,
-     * dana_diterima_mp (angka rupiah). Hanya mengisi yang masih kosong. Mengembalikan jumlah baris terisi.
+     * dana_diterima_mp (angka rupiah, boleh kosong: TikTok di Jubelio hanya sampai harga final).
+     * nilai_pesanan wajib ada. Hanya mengisi yang masih kosong. Mengembalikan jumlah baris terisi.
      */
     public function simpan_nominal_mp(array $baris)
     {
         $diisi = 0;
         $this->db->trans_start();
         foreach ($baris as $b) {
-            if (empty($b['no_pesanan']) || !isset($b['dana_diterima_mp']) || !is_numeric($b['dana_diterima_mp'])) continue;
-            $nilai = isset($b['nilai_pesanan']) && is_numeric($b['nilai_pesanan']) ? (float) $b['nilai_pesanan'] : null;
+            if (empty($b['no_pesanan']) || !isset($b['nilai_pesanan']) || !is_numeric($b['nilai_pesanan'])) continue;
+            $nilai = (float) $b['nilai_pesanan'];
+            $dana = isset($b['dana_diterima_mp']) && is_numeric($b['dana_diterima_mp']) ? (float) $b['dana_diterima_mp'] : null;
             $this->db->query(
                 'UPDATE tblprintresi p
                    JOIN tbldetailprintresi d ON d.id_resi = p.id_printresi AND d.no_pesanan = ?
                     SET p.nilai_pesanan = COALESCE(p.nilai_pesanan, ?),
                         p.dana_diterima_mp = COALESCE(p.dana_diterima_mp, ?)
-                  WHERE p.dana_diterima_mp IS NULL',
-                array((string) $b['no_pesanan'], $nilai, (float) $b['dana_diterima_mp'])
+                  WHERE p.nilai_pesanan IS NULL',
+                array((string) $b['no_pesanan'], $nilai, $dana)
             );
             $diisi += $this->db->affected_rows() > 0 ? 1 : 0;
         }
