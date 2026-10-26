@@ -54,6 +54,12 @@ class Top_level_fcd extends CI_Model
         ));
     }
 
+    /** No rak dirapikan: huruf besar dan tanpa spasi apa pun ("2a - e4" menjadi "2A-E4"). */
+    public static function rapikan_rak($v)
+    {
+        return strtoupper(preg_replace('/[\s\x{00A0}]+/u', '', (string) $v));
+    }
+
     public static function kode_transfer($tahun, $urut)
     {
         return 'TTL-' . $tahun . '-' . str_pad((string) $urut, 5, '0', STR_PAD_LEFT);
@@ -199,7 +205,7 @@ class Top_level_fcd extends CI_Model
         $bind = array();
         foreach ($pasang as $p) {
             $sku = trim((string) (isset($p['sku']) ? $p['sku'] : ''));
-            $rak = strtoupper(trim((string) (isset($p['rak']) ? $p['rak'] : '')));
+            $rak = self::rapikan_rak(isset($p['rak']) ? $p['rak'] : '');
             if ($sku === '' || $rak === '') continue;
             $kondisi[] = '(sku = ? AND no_rak = ?)';
             $bind[] = $sku;
@@ -314,7 +320,7 @@ class Top_level_fcd extends CI_Model
         $skus = array();
         foreach ($baris as $i => $b) {
             $sku = trim((string) (isset($b['sku']) ? $b['sku'] : ''));
-            $rak = strtoupper(trim((string) (isset($b['rak']) ? $b['rak'] : '')));
+            $rak = self::rapikan_rak(isset($b['rak']) ? $b['rak'] : '');
             $qty = isset($b['qty']) ? $b['qty'] : '';
             if ($sku === '' && $rak === '' && $qty === '') {
                 continue;
@@ -794,7 +800,7 @@ class Top_level_fcd extends CI_Model
             $trf = array();
             $seen = array();
             foreach ($rows as $x) {
-                $rak  = strtoupper(trim((string) (isset($x['rak']) ? $x['rak'] : '')));
+                $rak  = self::rapikan_rak(isset($x['rak']) ? $x['rak'] : '');
                 $amb  = isset($x['amb']) && $x['amb'] !== '' ? $x['amb'] : 0;
                 $sisa = isset($x['sisa']) ? $x['sisa'] : '';
                 if ($rak === '' || isset($seen[$rak])) {
@@ -930,7 +936,7 @@ class Top_level_fcd extends CI_Model
             $keluar = array();
             $seen = array();
             foreach ($rows as $x) {
-                $rak = strtoupper(trim((string) (isset($x['rak']) ? $x['rak'] : '')));
+                $rak = self::rapikan_rak(isset($x['rak']) ? $x['rak'] : '');
                 $qty = isset($x['qty']) ? $x['qty'] : '';
                 if ($rak === '' && $qty === '') {
                     continue;
@@ -1007,8 +1013,8 @@ class Top_level_fcd extends CI_Model
         $asal_set = array();
         $ganti_rak = array();
         foreach ($rows as $x) {
-            $asal = strtoupper(trim((string) (isset($x['asal']) ? $x['asal'] : '')));
-            $rak = strtoupper(trim((string) (isset($x['rak']) ? $x['rak'] : '')));
+            $asal = self::rapikan_rak(isset($x['asal']) ? $x['asal'] : '');
+            $rak = self::rapikan_rak(isset($x['rak']) ? $x['rak'] : '');
             $qty = isset($x['qty']) ? $x['qty'] : '';
             if ($rak === '' && $qty === '' && $asal === '') {
                 continue;
@@ -1441,7 +1447,7 @@ class Top_level_fcd extends CI_Model
             foreach ($baris as $x) {
                 $bid = isset($x['id']) && $x['id'] !== '' ? (int) $x['id'] : 0;
                 $sku = trim((string) (isset($x['sku']) ? $x['sku'] : ''));
-                $rak = strtoupper(trim((string) (isset($x['rak']) ? $x['rak'] : '')));
+                $rak = self::rapikan_rak(isset($x['rak']) ? $x['rak'] : '');
                 $qty = isset($x['qty']) ? $x['qty'] : '';
                 if ($sku === '' || $rak === '') {
                     return array('ok' => false, 'pesan' => 'SKU dan no rak tiap baris wajib diisi.');
