@@ -280,6 +280,7 @@
 .tls-sp{flex:1}.tls-cnt{color:var(--tl-faint);font-size:12px;display:inline-flex;align-items:center;gap:6px}
 .tls-cnt select{border:1px solid var(--tl-line);border-radius:6px;padding:0 8px;height:40px;font:inherit;font-size:13px;color:var(--tl-ink);background:#fff}
 .tl-btn.tls-xls{height:40px;padding:0 18px;gap:8px;margin-left:auto;background:var(--tl-ok);border-color:var(--tl-ok);color:#fff;font-weight:600}.tl-btn.tls-xls:hover{filter:brightness(1.1);border-color:var(--tl-ok)}
+.tl-btn.tls-xls .tl-ic{stroke-width:2.4;color:#fff;opacity:1}
 .tls-seg{display:inline-flex;height:40px;border:1px solid var(--tl-line);border-radius:6px;overflow:hidden}
 .tls-seg button{border:0;background:#fff;padding:0 16px;font:inherit;cursor:pointer;color:var(--tl-muted)}
 .tls-seg button.on{background:var(--tl-accent);color:#fff;font-weight:600}
