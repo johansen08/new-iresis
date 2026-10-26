@@ -1700,6 +1700,11 @@ class Receipt_fcd extends CI_Model
                         if (!empty($row['C'])) {
                             $batch_update_map[$noresi]['nomorpicklist'] = $row['C'];
                         }
+                        // Nama toko (kolom O) - jangan kosongkan toko yang sudah tersimpan.
+                        $toko_baru = mb_substr(trim((string)($row['O'] ?? '')), 0, 100);
+                        if ($toko_baru !== '') {
+                            $batch_update_map[$noresi]['toko'] = $toko_baru;
+                        }
                         // tanggal_retur: Excel pesanan (kolom TGL_RETUR/WAKTU_RETUR) adalah sumber
                         // yang akurat, jadi nilai yang ada selalu menimpa. Tapi baris tanpa
                         // tanggal retur (mis. Jubelio core-api, atau resi yang belum berstatus
@@ -1773,6 +1778,7 @@ class Receipt_fcd extends CI_Model
                         'batal'               => '',
                         'keterangan'          => '',
                         'nomorpicklist'       => $row['C'] ?? '',
+                        'toko'                => ($t = mb_substr(trim((string)($row['O'] ?? '')), 0, 100)) !== '' ? $t : null,
                         'created_at'          => $now,
                         'created_by'          => $user_id
                     ];
