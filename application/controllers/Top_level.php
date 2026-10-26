@@ -223,16 +223,43 @@ class Top_level extends MY_Controller
         $sheet->fromArray(array('SKU', 'No Rak', 'Stok'), null, 'A1');
         $sheet->getStyle('A1:C1')->getFont()->setBold(true);
         $baris = 2;
-        foreach ($this->top_level_fcd->stok_export() as $r) {
+        $data = $this->top_level_fcd->stok_export();
+        $total_sku = array();
+        foreach ($data as $r) {
             $sheet->setCellValueExplicit('A' . $baris, (string) $r['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('B' . $baris, (string) $r['no_rak'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $sheet->setCellValue('C' . $baris, (int) $r['qty']);
+            $total_sku[$r['sku']] = (isset($total_sku[$r['sku']]) ? $total_sku[$r['sku']] : 0) + (int) $r['qty'];
             $baris++;
+        }
+        if ($baris > 2) {
+            $sheet->getStyle('C2:C' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
         }
         foreach (array('A' => 28, 'B' => 18, 'C' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
         $sheet->freezePane('A2');
+
+        // Sheet Rekap: satu baris per SKU per rak; SKU dan stok total diulang di tiap barisnya, rak ditulis "no rak: stok".
+        $rekap = $xls->createSheet();
+        $rekap->setTitle('Rekap');
+        $rekap->fromArray(array('SKU', 'Stok Total', 'Rak'), null, 'A1');
+        $rekap->getStyle('A1:C1')->getFont()->setBold(true);
+        $baris = 2;
+        foreach ($data as $r) {
+            $rekap->setCellValueExplicit('A' . $baris, (string) $r['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $rekap->setCellValue('B' . $baris, $total_sku[$r['sku']]);
+            $rekap->setCellValueExplicit('C' . $baris, $r['no_rak'] . ': ' . number_format((int) $r['qty'], 0, ',', '.'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $baris++;
+        }
+        if ($baris > 2) {
+            $rekap->getStyle('B2:B' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
+        }
+        foreach (array('A' => 28, 'B' => 14, 'C' => 24) as $kol => $lebar) {
+            $rekap->getColumnDimension($kol)->setWidth($lebar);
+        }
+        $rekap->freezePane('A2');
+        $xls->setActiveSheetIndex(0);
         while (ob_get_level()) { ob_end_clean(); }
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="Stok_Top_Level_' . date('Ymd_His') . '.xlsx"');
