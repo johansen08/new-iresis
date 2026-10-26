@@ -31,8 +31,8 @@ $this->load->view('top_level/_dasar'); ?>
     '<label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
     '<div class="tls-seg" id="tls-seg"><button type="button" class="on" data-v="sku">Per SKU</button><button type="button" data-v="rak">Per Rak</button></div>' +
     '<span class="tls-sp"></span><span class="tls-cnt" id="tls-cnt"></span>' +
-    '<button type="button" class="tl-btn sm" id="tls-xls">' + T.ic('download', 14) + 'Export Excel</button>' +
-    '<label class="tls-cnt">Per halaman <select id="tls-ps"><option>10</option><option>50</option><option>100</option></select></label></div>' +
+    '<label class="tls-cnt">Per halaman <select id="tls-ps"><option>10</option><option>50</option><option>100</option></select></label>' +
+    '<button type="button" class="tl-btn tls-xls" id="tls-xls" title="Unduh semua stok top level (SKU, no rak, stok)">' + T.ic('download', 16) + 'Export Excel</button></div>' +
     '<div id="tls-tbl"></div><div class="tls-pg"><span id="tls-info"></span><span><button type="button" class="tl-btn sm" id="tls-prev">&lsaquo;</button> <button type="button" class="tl-btn sm" id="tls-next">&rsaquo;</button></span></div></section>'
   );
 
