@@ -211,54 +211,79 @@ class Top_level extends MY_Controller
         $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->stok_list($this->input->post('q'))));
     }
 
-    /** Unduh Excel stok top level: kolom SKU, No Rak, Stok (satu baris per SKU per rak). */
+    /** Unduh Excel stok top level: sheet DATA BASE (SKU, NO RAK, STOCK per rak) dan REKAP (satu baris per SKU), format mengikuti contoh tim CS. */
     public function stok_export()
     {
         $this->_wajib(self::URI_STOK);
         ini_set('memory_limit', '1024M');
         set_time_limit(0);
         $xls = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $xls->getActiveSheet();
-        $sheet->setTitle('Stok Top Level');
-        $sheet->fromArray(array('SKU', 'No Rak', 'Stok'), null, 'A1');
-        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
-        $baris = 2;
+        $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
         $data = $this->top_level_fcd->stok_export();
-        $total_sku = array();
+
+        // Ringkasan untuk baris 1 kedua sheet: SKU unik, total stok, dan rak yang berisi stok.
+        $per_sku = array();
+        $rak_pakai = array();
+        $total_stok = 0;
         foreach ($data as $r) {
-            $sheet->setCellValueExplicit('A' . $baris, (string) $r['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('B' . $baris, (string) $r['no_rak'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $per_sku[$r['sku']][] = array('rak' => (string) $r['no_rak'], 'qty' => (int) $r['qty']);
+            $rak_pakai[$r['no_rak']] = true;
+            $total_stok += (int) $r['qty'];
+        }
+        $info = 'Total SKU Unik: ' . number_format(count($per_sku)) . '   |   Total Stok: ' . number_format($total_stok)
+            . '   |   Total Rak Terpakai: ' . number_format(count($rak_pakai));
+
+        // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 kosong), satu baris per SKU per rak.
+        $sheet = $xls->getActiveSheet();
+        $sheet->setTitle('DATA BASE');
+        $sheet->setCellValue('A1', $info);
+        $sheet->getStyle('A1')->getFont()->setBold(true);
+        $sheet->fromArray(array('SKU', 'NO RAK', 'STOCK'), null, 'A2');
+        $sheet->getStyle('A2:C2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:C2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $baris = 4;
+        foreach ($data as $r) {
+            $sheet->setCellValueExplicit('A' . $baris, (string) $r['sku'], $teks);
+            $sheet->setCellValueExplicit('B' . $baris, (string) $r['no_rak'], $teks);
             $sheet->setCellValue('C' . $baris, (int) $r['qty']);
-            $total_sku[$r['sku']] = (isset($total_sku[$r['sku']]) ? $total_sku[$r['sku']] : 0) + (int) $r['qty'];
             $baris++;
         }
-        if ($baris > 2) {
-            $sheet->getStyle('C2:C' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
+        if ($baris > 4) {
+            $sheet->getStyle('C4:C' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
         }
-        foreach (array('A' => 28, 'B' => 18, 'C' => 10) as $kol => $lebar) {
+        foreach (array('A' => 18, 'B' => 18, 'C' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
-        $sheet->freezePane('A2');
+        $sheet->freezePane('C4');
 
-        // Sheet Rekap: satu baris per SKU per rak; SKU dan stok total diulang di tiap barisnya, rak ditulis "no rak: stok".
+        // Sheet REKAP: satu baris per SKU, rak ditulis "no rak ( stok ) / no rak ( stok )".
         $rekap = $xls->createSheet();
-        $rekap->setTitle('Rekap');
-        $rekap->fromArray(array('SKU', 'Stok Total', 'Rak'), null, 'A1');
-        $rekap->getStyle('A1:C1')->getFont()->setBold(true);
-        $baris = 2;
-        foreach ($data as $r) {
-            $rekap->setCellValueExplicit('A' . $baris, (string) $r['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $rekap->setCellValue('B' . $baris, $total_sku[$r['sku']]);
-            $rekap->setCellValueExplicit('C' . $baris, $r['no_rak'] . ': ' . number_format((int) $r['qty'], 0, ',', '.'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $rekap->setTitle('REKAP');
+        $rekap->setCellValue('A1', $info);
+        $rekap->getStyle('A1')->getFont()->setBold(true);
+        $rekap->fromArray(array('SKU', 'STOCK', 'NO RAK'), null, 'A2');
+        $rekap->getStyle('A2:C2')->getFont()->setBold(true);
+        $rekap->getStyle('A2:C2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $baris = 4;
+        foreach ($per_sku as $sku => $raks) {
+            $total = 0;
+            $teks_rak = array();
+            foreach ($raks as $x) {
+                $total += $x['qty'];
+                $teks_rak[] = $x['rak'] . ' ( ' . number_format($x['qty']) . ' )';
+            }
+            $rekap->setCellValueExplicit('A' . $baris, (string) $sku, $teks);
+            $rekap->setCellValue('B' . $baris, $total);
+            $rekap->setCellValueExplicit('C' . $baris, implode(' / ', $teks_rak), $teks);
             $baris++;
         }
-        if ($baris > 2) {
-            $rekap->getStyle('B2:B' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
+        if ($baris > 4) {
+            $rekap->getStyle('B4:B' . ($baris - 1))->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
         }
-        foreach (array('A' => 28, 'B' => 14, 'C' => 24) as $kol => $lebar) {
+        foreach (array('A' => 18, 'B' => 12, 'C' => 60) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
-        $rekap->freezePane('A2');
+        $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
         while (ob_get_level()) { ob_end_clean(); }
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
