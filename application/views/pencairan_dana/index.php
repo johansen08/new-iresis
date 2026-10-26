@@ -191,7 +191,8 @@ $MP_JSON = json_encode(array_values($mp));
       <div id="pd_w_merah" style="width:0;background:#d6392b"></div>
     </div>
     <div class="pd-kotak">
-      <div style="background:#f1f8f6;color:#0b5a4d"><span class="t"><span class="pd-dot" style="background:#1f9d7f"></span>Sudah cair</span><span class="a"><span id="pd_k_sudah">0</span> <small id="pd_kp_sudah">0,0%</small></span></div>
+      <div style="background:#f1f8f6;color:#0b5a4d"><span class="t"><span class="pd-dot" style="background:#1f9d7f"></span>Sudah cair, Full</span><span class="a"><span id="pd_k_full">0</span> <small id="pd_kp_full">0,0%</small></span></div>
+      <div style="background:#fff1e6;color:#8a3b00"><span class="t"><span class="pd-dot" style="background:#e8710a"></span>Sudah cair, Ada selisih</span><span class="a"><span id="pd_k_selisih">0</span> <small id="pd_kp_selisih">0,0%</small></span></div>
       <div style="background:#fff8e1;color:#6b4a00"><span class="t"><span class="pd-dot" style="background:#e0a800"></span>Belum cair, dalam 7 hari</span><span class="a"><span id="pd_k_kuning">0</span> <small id="pd_kp_kuning">0,0%</small></span></div>
       <div style="background:#fdf0ee;color:#8a2a1e"><span class="t"><span class="pd-dot" style="background:#d6392b"></span>Belum cair, lewat 7 hari</span><span class="a"><span id="pd_k_merah">0</span> <small id="pd_kp_merah">0,0%</small></span></div>
     </div>
@@ -437,7 +438,8 @@ $(document).ready(function () {
         $('#pd_w_kuning').css('width', (r.total ? r.kuning * 100 / r.total : 0) + '%');
         $('#pd_w_merah').css('width', (r.total ? r.merah * 100 / r.total : 0) + '%');
         $('#pd_batang').attr('aria-label', 'Sudah cair ' + persen(r.sudah, r.total) + ' persen, belum cair dalam 7 hari ' + persen(r.kuning, r.total) + ' persen, lewat 7 hari ' + persen(r.merah, r.total) + ' persen');
-        $('#pd_k_sudah').text(angka(r.sudah)); $('#pd_kp_sudah').text(persen(r.sudah, r.total) + '%');
+        $('#pd_k_full').text(angka(r.full)); $('#pd_kp_full').text(persen(r.full, r.total) + '%');
+        $('#pd_k_selisih').text(angka(r.selisih)); $('#pd_kp_selisih').text(persen(r.selisih, r.total) + '%');
         $('#pd_k_kuning').text(angka(r.kuning)); $('#pd_kp_kuning').text(persen(r.kuning, r.total) + '%');
         $('#pd_k_merah').text(angka(r.merah)); $('#pd_kp_merah').text(persen(r.merah, r.total) + '%');
 
