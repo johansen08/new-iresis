@@ -1,12 +1,12 @@
 """
 Sinkron nominal pencairan dari Jubelio untuk menu Pencairan Dana (TIM FINANCE).
 
-Untuk pesanan yang sudah COMPLETED di Iresis tetapi dana_diterima_mp-nya masih kosong, ambil detail
+Untuk pesanan yang sudah COMPLETED di Iresis tetapi nilai_pesanan-nya masih kosong, ambil detail
 pesanan di Jubelio lalu kirim:
   nilai_pesanan    <- escrow_list.revenue_amount (cadangan: grand_total)
   dana_diterima_mp <- escrow_list.settlement_amount
-Pesanan yang tidak punya escrow_list.settlement_amount (belum ada rincian dari marketplace) dilewati
-dan dicoba lagi di putaran berikutnya. Hanya MEMBACA dari Jubelio; Iresis hanya mengisi yang kosong.
+Pesanan tanpa escrow_list.settlement_amount (mis. TikTok: Jubelio hanya sampai harga final) tetap
+disimpan nilai_pesanan-nya; dana_diterima_mp dibiarkan kosong. Pesanan tanpa nilai sama sekali dilewati. Hanya MEMBACA dari Jubelio; Iresis hanya mengisi yang kosong.
 
 Pakai ulang login/list/detail dari auto_upload_resi_api.py (kredensial dari jubelio_credentials.py).
 
@@ -74,7 +74,7 @@ def main():
 
     butuh = set(tanya_butuh([o['salesorder_no'] for o in selesai]))
     target = [o for o in selesai if o['salesorder_no'] in butuh]
-    log(f'Perlu nominal (COMPLETED di Iresis, dana MP kosong): {len(target)}')
+    log(f'Perlu nominal (COMPLETED di Iresis, nilai pesanan kosong): {len(target)}')
 
     baris, tanpa_escrow, t0 = [], 0, time.time()
     for i, o in enumerate(target, 1):
@@ -84,12 +84,12 @@ def main():
             continue
         esc = d.get('escrow_list') or {}
         dana = angka(esc.get('settlement_amount'))
-        if dana is None:
-            tanpa_escrow += 1
-            continue
         nilai = angka(esc.get('revenue_amount'))
         if nilai is None:
             nilai = angka(d.get('grand_total'))
+        if nilai is None:
+            tanpa_escrow += 1
+            continue
         baris.append({'no_pesanan': o['salesorder_no'], 'nilai_pesanan': nilai, 'dana_diterima_mp': dana})
         if i % 50 == 0 or i == len(target):
             log(f'  [{i}/{len(target)}] ({time.time() - t0:.0f}s, {len(baris)} siap kirim)')
@@ -99,7 +99,7 @@ def main():
 
     if baris:
         kirim(baris)
-    log(f'Dilewati (belum ada escrow_list.settlement_amount): {tanpa_escrow}')
+    log(f'Dilewati (tanpa nilai pesanan): {tanpa_escrow}')
     log('=== SELESAI ===')
 
 
