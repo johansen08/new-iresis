@@ -231,7 +231,7 @@ class Top_level extends MY_Controller
             $total_stok += (int) $r['qty'];
         }
         $info = array(
-            'Total SKU Unik: ' . number_format(count($per_sku)),
+            'Total SKU: ' . number_format(count($per_sku)),
             'Total Stok: ' . number_format($total_stok),
             'Total Rak: ' . number_format(count($rak_pakai)),
         );
