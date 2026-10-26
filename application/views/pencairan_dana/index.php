@@ -115,7 +115,7 @@ $MP_JSON = json_encode(array_values($mp));
 
 /* Tabel */
 #pd_tablewrap { position:relative; min-height:160px; overflow-x:auto; }
-#pd_wrap table.pd-tabel { width:100%; min-width:1180px; border-collapse:collapse; }
+#pd_wrap table.pd-tabel { width:100%; min-width:1500px; border-collapse:collapse; }
 #pd_wrap .pd-tabel th { padding:12px 14px; background:#f6f8fa; border-bottom:1px solid var(--pd-garis); font-size:12px; font-weight:600; color:#6b7c87; text-align:left; }
 #pd_wrap .pd-tabel td { padding:12px 14px; border-bottom:1px solid #eef1f3; font-size:14px; vertical-align:middle; }
 #pd_wrap .pd-tabel tbody tr:hover td { background:#fafbfc; }
@@ -203,7 +203,8 @@ $MP_JSON = json_encode(array_values($mp));
       <div class="pd-tabs" id="pd_tabs">
         <button type="button" class="pd-tab" data-tab="semua">Semua <span class="n" id="pd_t_semua">0</span></button>
         <button type="button" class="pd-tab on" data-tab="belum">Belum Cair <span class="n" id="pd_t_belum">0</span></button>
-        <button type="button" class="pd-tab" data-tab="sudah">Sudah Cair <span class="n" id="pd_t_sudah">0</span></button>
+        <button type="button" class="pd-tab" data-tab="selisih">Sudah Cair, Ada Selisih <span class="n" id="pd_t_selisih">0</span></button>
+        <button type="button" class="pd-tab" data-tab="full">Sudah Cair, Full <span class="n" id="pd_t_full">0</span></button>
       </div>
       <span class="pd-tip kanan">
         <button type="button" class="pd-tip-btn" aria-label="Arti warna status">
@@ -213,6 +214,7 @@ $MP_JSON = json_encode(array_values($mp));
           <span style="display:block"><span class="pd-dot" style="background:#e0a800"></span>Kuning: belum cair, +1 sampai +<?= (int) $batas_kuning ?> hari dari tanggal Completed.</span>
           <span style="display:block;margin-top:4px"><span class="pd-dot" style="background:#ef5b4d"></span>Merah: belum cair, +<?= (int) $batas_kuning + 1 ?> hari atau lebih.</span>
           <span style="display:block;margin-top:4px"><span class="pd-dot" style="background:#3fc2a3"></span>Hijau: sudah ada tanggal pencairan.</span>
+          <span style="display:block;margin-top:8px">Tab <b>Ada Selisih</b>: dana diterima menurut Jubelio berbeda dari laporan marketplace yang diunggah. Tab <b>Full</b>: sama. Pesanan sudah cair yang salah satu nominalnya belum ada hanya tampil di tab Semua.</span>
         </span>
       </span>
     </div>
@@ -259,14 +261,16 @@ $MP_JSON = json_encode(array_values($mp));
       <table class="pd-tabel">
         <thead>
           <tr>
-            <th style="width:20%">ID Pesanan</th>
-            <th style="width:10%">Tgl Shipped</th>
-            <th style="width:10%">Tgl Delivered</th>
-            <th style="width:10%">Tgl Completed</th>
-            <th style="width:10%">Marketplace</th>
-            <th style="width:12%">Toko</th>
-            <th style="width:10%">Tanggal Cair</th>
-            <th style="width:18%">Status</th>
+            <th style="width:15%">ID Pesanan</th>
+            <th style="width:7%">Tgl Shipped</th>
+            <th style="width:7%">Tgl Delivered</th>
+            <th style="width:7%">Tgl Completed</th>
+            <th style="width:8%">Marketplace</th>
+            <th style="width:10%">Toko</th>
+            <th style="width:7%">Tanggal Cair</th>
+            <th style="width:9%;text-align:right">Dana Jubelio</th>
+            <th style="width:9%;text-align:right">Dana Laporan MP</th>
+            <th style="width:15%">Status</th>
           </tr>
         </thead>
         <tbody id="pd_tbody"></tbody>
@@ -295,12 +299,12 @@ $MP_JSON = json_encode(array_values($mp));
 <div id="pd_upload" role="dialog" aria-modal="true" aria-label="Upload laporan MP">
   <div class="kotak">
     <h2>Upload laporan MP</h2>
-    <p>Mengisi tanggal pencairan dari file Excel. Hanya pesanan yang tanggal pencairannya masih kosong yang diisi; yang sudah terisi tidak diubah.</p>
+    <p>Mengisi tanggal pencairan dan dana diterima dari file laporan marketplace. Hanya kolom yang masih kosong yang diisi; yang sudah terisi tidak diubah.</p>
     <div class="kolom">
-      <b>Kolom A</b><span>Nomor pesanan marketplace, format <u>Teks</u> (mis. 586720295584630101)</span>
-      <b>Kolom B</b><span>Tanggal pencairan (mis. 05-10-2026 08:10 atau 2026-10-05)</span>
+      <b>Laporan MP</b><span>Judul kolom dikenali otomatis: <u>ID Pesanan</u>, <u>Tanggal pencairan</u>, <u>Dana diterima</u> (mis. Rp7.577)</span>
+      <b>Format lama</b><span>Tanpa judul: kolom A nomor pesanan (<u>Teks</u>), B tanggal pencairan, C dana diterima (opsional)</span>
     </div>
-    <p style="font-size:13px">Baris pertama boleh judul kolom. File .xlsx, .xls, atau .csv, maksimal 20.000 baris. Kolom A berformat angka merusak 18 digit nomor pesanan, jadi ubah jadi Teks lebih dulu.</p>
+    <p style="font-size:13px">File .xlsx, .xls, atau .csv, maksimal 20.000 baris. Nomor pesanan berformat angka merusak 18 digit, jadi pastikan kolomnya Teks.</p>
     <input type="file" id="pd_file" accept=".xlsx,.xls,.csv">
     <div id="pd_upload_hasil"></div>
     <div class="bawah">
@@ -326,6 +330,12 @@ $(document).ready(function () {
     function fmt(s) { if (!s) return '-'; var p = s.split('-'); return p[2] + ' ' + BULAN_S[+p[1] - 1] + ' ' + p[0]; }
     function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function angka(n) { return Number(n).toLocaleString('id-ID'); }
+    // Nominal rupiah; null = '-'. tanda=true menampilkan +/- di depan (untuk selisih).
+    function rupiah(n, tanda) {
+        if (n === null || n === undefined) return '-';
+        var teks = 'Rp' + Math.abs(n).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+        return (n < 0 ? '-' : (tanda && n > 0 ? '+' : '')) + teks;
+    }
 
     var T = utc(HARI_INI);
     var PD = {
@@ -388,14 +398,14 @@ $(document).ready(function () {
 
     // Jumlah dari PD.ring menurut marketplace terpilih (kosong = semua), tab, dan centang.
     function hitung() {
-        var h = { n: 0, sudah: 0, kuning: 0, merah: 0 };
+        var h = { n: 0, sudah: 0, kuning: 0, merah: 0, selisih: 0, full: 0 };
         var daftar = PD.mps.length ? PD.mps : NAMA_MP;
         if (PD.ring) daftar.forEach(function (nama) {
             var x = PD.ring[nama];
-            if (x) { h.n += x.n; h.sudah += x.sudah; h.kuning += x.kuning; h.merah += x.merah; }
+            if (x) { h.n += x.n; h.sudah += x.sudah; h.kuning += x.kuning; h.merah += x.merah; h.selisih += x.selisih; h.full += x.full; }
         });
         h.belum = h.kuning + h.merah;
-        h.total_tab = PD.tab === 'sudah' ? h.sudah : (PD.tab === 'belum' ? (PD.merah ? h.merah : h.belum) : h.n);
+        h.total_tab = PD.tab === 'selisih' ? h.selisih : (PD.tab === 'full' ? h.full : (PD.tab === 'sudah' ? h.sudah : (PD.tab === 'belum' ? (PD.merah ? h.merah : h.belum) : h.n)));
         h.pages = Math.max(1, Math.ceil(h.total_tab / PD.size));
         return h;
     }
@@ -433,7 +443,8 @@ $(document).ready(function () {
 
         $('#pd_t_semua').text(angka(r.total));
         $('#pd_t_belum').text(angka(r.belum));
-        $('#pd_t_sudah').text(angka(r.sudah));
+        $('#pd_t_selisih').text(angka(r.selisih));
+        $('#pd_t_full').text(angka(r.full));
         $('#pd_tabs .pd-tab').removeClass('on').filter('[data-tab="' + PD.tab + '"]').addClass('on');
         $('#pd_cek_wrap').toggle(PD.tab === 'belum');
 
@@ -452,8 +463,16 @@ $(document).ready(function () {
     function renderBaris(rows) {
         var h = '';
         rows.forEach(function (x) {
-            var badge = x.status === 'sudah' ? '<span class="pd-lencana sudah">Sudah cair</span><div class="pd-selisih">' + selisihTeks(x.selisih) + '</div>'
-                : '<span class="pd-lencana ' + x.status + '">+' + x.umur + ' hari</span>';
+            var badge;
+            if (x.status === 'sudah') {
+                badge = '<span class="pd-lencana sudah">Sudah cair</span>';
+                if (x.cek === 'selisih') badge += ' <span class="pd-lencana merah">Selisih ' + rupiah(x.rp_selisih, true) + '</span>';
+                else if (x.cek === 'penuh') badge += ' <span class="pd-lencana sudah">Full</span>';
+                else badge += '<div class="pd-selisih">Nominal belum dicek</div>';
+                badge += '<div class="pd-selisih">' + selisihTeks(x.selisih) + '</div>';
+            } else {
+                badge = '<span class="pd-lencana ' + x.status + '">+' + x.umur + ' hari</span>';
+            }
             h += '<tr><td><span class="pd-id"><b>' + tandai(x.no) + '</b>'
                 + '<button type="button" class="pd-salin" data-salin="' + esc(x.no) + '" aria-label="Salin ID pesanan" title="Salin ID pesanan">' + ICON_SALIN + '</button></span></td>'
                 + '<td style="font-variant-numeric:tabular-nums;color:#4b5d68">' + fmt(x.kirim) + '</td>'
@@ -462,6 +481,8 @@ $(document).ready(function () {
                 + '<td style="color:#4b5d68">' + esc(x.mp) + '</td>'
                 + '<td style="color:#4b5d68">' + (x.toko ? esc(x.toko) : '-') + '</td>'
                 + '<td style="font-variant-numeric:tabular-nums;color:#4b5d68">' + fmt(x.cair) + '</td>'
+                + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + rupiah(x.dana_mp) + '</td>'
+                + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + rupiah(x.dana_file) + '</td>'
                 + '<td>' + badge + '</td></tr>';
         });
         $('#pd_tbody').html(h);
@@ -699,7 +720,7 @@ $(document).ready(function () {
     }
     function tampilLaporan(d, dry) {
         var h = '<b>' + (dry ? 'Hasil pemeriksaan' : 'Tersimpan') + '</b> — ' + angka(d.total) + ' baris dibaca<br>'
-            + '<b>' + angka(d.diisi) + '</b> ' + (dry ? 'tanggal pencairan akan diisi' : 'tanggal pencairan diisi') + '<br>'
+            + '<b>' + angka(d.diisi) + '</b> ' + (dry ? 'pesanan akan diisi' : 'pesanan diisi') + ' (' + angka(d.nominal_diisi) + ' di antaranya dengan dana diterima)<br>'
             + angka(d.sudah_terisi) + ' sudah terisi sebelumnya (tidak diubah)<br>'
             + angka(d.tidak_ditemukan) + ' nomor pesanan tidak ditemukan<br>'
             + angka(d.tanggal_salah + d.nomor_salah) + ' baris tidak valid<br>'

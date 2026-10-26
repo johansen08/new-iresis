@@ -88,8 +88,9 @@ class Pencairan_dana extends MY_Controller
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
         $sh->setTitle('Pencairan Dana');
-        $sh->fromArray(array('ID Pesanan', 'Tgl Shipped', 'Tgl Delivered', 'Tgl Completed', 'Marketplace', 'Toko', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status'), null, 'A1');
-        $sh->getStyle('A1:J1')->getFont()->setBold(true);
+        $sh->fromArray(array('ID Pesanan', 'Tgl Shipped', 'Tgl Delivered', 'Tgl Completed', 'Marketplace', 'Toko', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status', 'Dana Jubelio', 'Dana Laporan MP', 'Selisih (Jubelio - Laporan)', 'Cek Nominal'), null, 'A1');
+        $sh->getStyle('A1:N1')->getFont()->setBold(true);
+        $cek_label = array('selisih' => 'Ada selisih', 'penuh' => 'Full');
 
         $baris = 2;
         $peta = Pencairan_dana_fcd::peta_mp();
@@ -108,9 +109,15 @@ class Pencairan_dana extends MY_Controller
             $sh->setCellValue('H' . $baris, $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : '');
             $sh->setCellValue('I' . $baris, (int) $r->umur);
             $sh->setCellValue('J' . $baris, $label[$st]);
+            $sh->setCellValue('K' . $baris, $r->dana_mp !== null ? (float) $r->dana_mp : '');
+            $sh->setCellValue('L' . $baris, $r->dana_file !== null ? (float) $r->dana_file : '');
+            $sel = $this->_selisih_rp($r);
+            $sh->setCellValue('M' . $baris, $sel !== null ? $sel : '');
+            $cek = $this->_cek_nominal($r);
+            $sh->setCellValue('N' . $baris, $cek ? $cek_label[$cek] : ($r->sudah ? 'Nominal belum lengkap' : ''));
             $baris++;
         }
-        foreach (array('A' => 26, 'B' => 14, 'C' => 14, 'D' => 16, 'E' => 14, 'F' => 22, 'G' => 14, 'H' => 24, 'I' => 12, 'J' => 22) as $kol => $lebar) {
+        foreach (array('A' => 26, 'B' => 14, 'C' => 14, 'D' => 16, 'E' => 14, 'F' => 22, 'G' => 14, 'H' => 24, 'I' => 12, 'J' => 22, 'K' => 16, 'L' => 18, 'M' => 26, 'N' => 22) as $kol => $lebar) {
             $sh->getColumnDimension($kol)->setWidth($lebar);
         }
 
@@ -157,11 +164,20 @@ class Pencairan_dana extends MY_Controller
                 throw new \Exception('Maksimal ' . self::MAKS_BARIS . ' baris per unggahan.');
             }
 
-            // Baris pertama = judul kolom bila kolom B-nya bukan tanggal.
-            $mulai = ($this->_tanggal(isset($mentah[0][1]) ? $mentah[0][1] : '') === null) ? 1 : 0;
+            // Peta kolom. Bila baris pertama berisi judul "ID Pesanan" + "Tanggal pencairan" dan/atau
+            // "Dana diterima" (format laporan MP), kolom dicari lewat judul; bila tidak, format lama:
+            // A = nomor pesanan, B = tanggal pencairan, C (opsional) = dana diterima.
+            $kol = $this->_peta_kolom(isset($mentah[0]) ? $mentah[0] : array());
+            if ($kol) {
+                $mulai = 1;
+            } else {
+                $kol = array('id' => 0, 'tgl' => 1, 'dana' => 2);
+                // Baris pertama = judul kolom bila kolom B-nya bukan tanggal.
+                $mulai = ($this->_tanggal(isset($mentah[0][1]) ? $mentah[0][1] : '') === null) ? 1 : 0;
+            }
 
             $lap = array(
-                'dry' => $dry, 'total' => 0, 'diisi' => 0, 'sudah_terisi' => 0, 'tidak_ditemukan' => 0,
+                'dry' => $dry, 'total' => 0, 'diisi' => 0, 'nominal_diisi' => 0, 'sudah_terisi' => 0, 'tidak_ditemukan' => 0,
                 'tanggal_salah' => 0, 'nomor_salah' => 0, 'duplikat' => 0, 'belum_completed' => 0,
                 'contoh_tidak_ditemukan' => array(), 'contoh_salah' => array(),
             );
@@ -170,9 +186,10 @@ class Pencairan_dana extends MY_Controller
             if (!$dry) $this->db->trans_start();
 
             for ($i = $mulai; $i < count($mentah); $i++) {
-                $a = isset($mentah[$i][0]) ? $mentah[$i][0] : '';
-                $b = isset($mentah[$i][1]) ? $mentah[$i][1] : '';
-                if (trim((string) $a) === '' && trim((string) $b) === '') continue;
+                $a = isset($mentah[$i][$kol['id']]) ? $mentah[$i][$kol['id']] : '';
+                $b = ($kol['tgl'] !== null && isset($mentah[$i][$kol['tgl']])) ? $mentah[$i][$kol['tgl']] : '';
+                $c = ($kol['dana'] !== null && isset($mentah[$i][$kol['dana']])) ? $mentah[$i][$kol['dana']] : '';
+                if (trim((string) $a) === '' && trim((string) $b) === '' && trim((string) $c) === '') continue;
                 $lap['total']++;
                 $baris_ke = $i + 1;
 
@@ -189,9 +206,13 @@ class Pencairan_dana extends MY_Controller
                     continue;
                 }
                 $tgl = $this->_tanggal($b);
-                if ($tgl === null) {
+                $dana = $this->_rupiah($c);
+                // Tanggal boleh kosong asal dana diterima ada (dan sebaliknya); tanggal yang diisi tapi
+                // tidak terbaca, atau dana yang diisi tapi bukan angka, menolak barisnya.
+                if (($tgl === null && trim((string) $b) !== '') || ($dana === null && trim((string) $c) !== '')
+                    || ($tgl === null && $dana === null)) {
                     $lap['tanggal_salah']++;
-                    $this->_contoh($lap['contoh_salah'], 'Baris ' . $baris_ke . ': tanggal pencairan tidak terbaca (' . mb_substr((string) $b, 0, 30) . ')');
+                    $this->_contoh($lap['contoh_salah'], 'Baris ' . $baris_ke . ': tanggal/dana tidak terbaca (' . mb_substr((string) $b, 0, 30) . ' | ' . mb_substr((string) $c, 0, 20) . ')');
                     continue;
                 }
                 if (isset($lihat[$nomor])) {
@@ -206,13 +227,16 @@ class Pencairan_dana extends MY_Controller
                     $this->_contoh($lap['contoh_tidak_ditemukan'], $nomor);
                     continue;
                 }
-                if ($resi->tanggal_pencairan !== null) {
+                $perlu_tgl  = $tgl !== null && $resi->tanggal_pencairan === null;
+                $perlu_dana = $dana !== null && $resi->dana_diterima_file === null;
+                if (!$perlu_tgl && !$perlu_dana) {
                     $lap['sudah_terisi']++;
                     continue;
                 }
                 if ($resi->status_pesanan !== 'COMPLETED') $lap['belum_completed']++;
-                if ($dry || $this->pencairan_dana_fcd->isi_pencairan($resi->id_printresi, $tgl)) {
+                if ($dry || $this->pencairan_dana_fcd->isi_pencairan($resi->id_printresi, $perlu_tgl ? $tgl : null, $perlu_dana ? $dana : null)) {
                     $lap['diisi']++;
+                    if ($perlu_dana) $lap['nominal_diisi']++;
                 }
             }
 
@@ -274,7 +298,7 @@ class Pencairan_dana extends MY_Controller
     private function _tab()
     {
         $tab = $this->input->post_get('tab');
-        return in_array($tab, array('semua', 'belum', 'sudah'), true) ? $tab : 'belum';
+        return in_array($tab, array('semua', 'belum', 'sudah', 'selisih', 'full'), true) ? $tab : 'belum';
     }
 
     /** Baris untuk JSON: tanggal ISO (format tampil diurus view), status sudah dihitung. */
@@ -293,11 +317,31 @@ class Pencairan_dana extends MY_Controller
                 'selesai' => substr((string) $r->tgl_selesai, 0, 10),
                 'cair'    => $r->tgl_cair ? substr((string) $r->tgl_cair, 0, 10) : null,
                 'selisih' => $r->tgl_cair ? $this->_selisih_hari($r->tgl_selesai, $r->tgl_cair) : null,
+                'dana_mp'   => $r->dana_mp !== null ? (float) $r->dana_mp : null,
+                'dana_file' => $r->dana_file !== null ? (float) $r->dana_file : null,
+                'rp_selisih' => $this->_selisih_rp($r),
+                'cek'     => $this->_cek_nominal($r),
                 'umur'    => $umur,
                 'status'  => $r->sudah ? 'sudah' : ($umur > Pencairan_dana_fcd::BATAS_KUNING ? 'merah' : 'kuning'),
             );
         }
         return $hasil;
+    }
+
+    /** Selisih rupiah Jubelio - laporan MP; null bila salah satu nominal belum ada. */
+    private function _selisih_rp($r)
+    {
+        if ($r->dana_mp === null || $r->dana_file === null) return null;
+        return round((float) $r->dana_mp - (float) $r->dana_file, 2);
+    }
+
+    /** Hasil banding nominal pesanan yang sudah cair: 'selisih', 'penuh', atau null (belum cair / nominal belum lengkap). */
+    private function _cek_nominal($r)
+    {
+        if (!$r->sudah) return null;
+        $d = $this->_selisih_rp($r);
+        if ($d === null) return null;
+        return abs($d) > Pencairan_dana_fcd::TOLERANSI ? 'selisih' : 'penuh';
     }
 
     /** Selisih hari kalender antara tanggal completed dan tanggal cair: negatif = cair sebelum Completed. */
@@ -306,6 +350,42 @@ class Pencairan_dana extends MY_Controller
         $a = strtotime(substr((string) $selesai, 0, 10));
         $b = strtotime(substr((string) $cair, 0, 10));
         return (int) round(($b - $a) / 86400);
+    }
+
+    /**
+     * Peta kolom dari baris judul laporan MP: 'id' (ID Pesanan / nomor pesanan), 'tgl' (Tanggal pencairan),
+     * 'dana' (Dana diterima). Mengembalikan null bila bukan baris judul (kolom ID + salah satu dari
+     * tanggal/dana tidak ketemu), supaya format lama A/B tetap berlaku.
+     */
+    private function _peta_kolom(array $baris)
+    {
+        $peta = array('id' => null, 'tgl' => null, 'dana' => null);
+        foreach ($baris as $i => $sel) {
+            $t = strtolower(trim(preg_replace('/\s+/', ' ', (string) $sel)));
+            if ($t === '') continue;
+            if ($peta['id'] === null && in_array($t, array('id pesanan', 'no pesanan', 'nomor pesanan', 'order id'), true)) $peta['id'] = $i;
+            elseif ($peta['tgl'] === null && strpos($t, 'tanggal pencairan') === 0) $peta['tgl'] = $i;
+            elseif ($peta['dana'] === null && $t === 'dana diterima') $peta['dana'] = $i;
+        }
+        return ($peta['id'] !== null && ($peta['tgl'] !== null || $peta['dana'] !== null)) ? $peta : null;
+    }
+
+    /**
+     * Baca nominal rupiah dari sel: angka, atau teks seperti "Rp7.577", "-Rp1.870", "7.577,50".
+     * Mengembalikan float, atau null bila kosong / bukan angka.
+     */
+    private function _rupiah($v)
+    {
+        if ($v === null || trim((string) $v) === '') return null;
+        if (is_int($v) || is_float($v)) return (float) $v;
+        $s = preg_replace('/[^0-9,.\-]/', '', (string) $v);
+        if ($s === '' || $s === '-') return null;
+        if (strpos($s, ',') !== false) {
+            $s = str_replace(',', '.', str_replace('.', '', $s));      // 7.577,50 -> 7577.50
+        } elseif (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $s)) {
+            $s = str_replace('.', '', $s);                             // 7.577 -> 7577
+        }
+        return is_numeric($s) ? (float) $s : null;
     }
 
     /** Batasi contoh yang dikembalikan supaya respons tetap kecil. */

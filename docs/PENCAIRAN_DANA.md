@@ -68,3 +68,21 @@ Pencocokan: Shopee `SP-<nomor>`; lainnya `TT|TP|LZ-<nomor>-<sufiks>`.
 - **Selisih cair vs Completed**: di bawah badge "Sudah cair" tertulis berapa hari tanggal cair sebelum/sesudah tanggal Completed; di ekspor kolom "Cair vs Completed (hari)" (negatif = sebelum).
 - **Indeks** `idx_printresi_status_selesai (status_pesanan, tanggal_selesai)` di `tblprintresi` (migrasi `run_indeks_pencairan_dana_migration`, dibuat online) menurunkan query dari ±1 dtk menjadi ±0,1 dtk. Indeks tidak dibandingkan `Arsip_fcd::cek_skema`, jadi tidak perlu ada di arsip.
 - **Optimasi query/web (22 Okt 2026):** daftar dibaca langsung dari `tblprintresi` lewat indeks `idx_printresi_status_selesai` dengan nomor pesanan dari subquery skalar (tanpa GROUP BY/tabel sementara); tab Belum/Sudah diurutkan murni menurut `tanggal_selesai` agar bisa berhenti begitu halaman terisi. Ringkasan per marketplace hanya bergantung pada rentang tanggal + kotak cari, jadi view menyimpannya (`PD.ring`) dan hanya meminta ulang bila kuncinya berubah, lewat 60 detik, atau setelah upload (`ring=1`); pindah tab/halaman/ukuran/marketplace/centang hanya mengambil baris (`ring=0`) dan angka kartu/tab/halaman dihitung di browser. Permintaan yang masih berjalan dibatalkan saat ada ketikan/klik baru. Hasilnya diverifikasi identik dengan query lama pada 228 kombinasi (rentang x pencarian x marketplace x tab x centang).
+
+## Nominal & tab selisih (26 Okt 2026)
+
+Tab: **Semua**, **Belum Cair**, **Sudah Cair, Ada Selisih**, **Sudah Cair, Full** (tab "Sudah Cair" lama diganti dua tab ini).
+
+Tiga kolom baru di `tblprintresi` (prod **dan** arsip, migrasi `run_nominal_pencairan_migration`, `BOOTSTRAP_VERSI` 2026-10-26.1):
+
+| Kolom | Sumber |
+|---|---|
+| `nilai_pesanan` | Jubelio `escrow_list.revenue_amount` (cadangan `grand_total`) = "Harga final" di laporan TikTok |
+| `dana_diterima_mp` | Jubelio `escrow_list.settlement_amount` = "Dana diterima" menurut Jubelio |
+| `dana_diterima_file` | kolom "Dana diterima" di laporan MP yang diunggah finance |
+
+- **Ada selisih** = sudah cair, kedua dana ada, `|dana_diterima_mp − dana_diterima_file| > Rp0,5`. **Full** = kedua dana ada dan sama. Sudah cair tetapi salah satu dana belum ada **tidak masuk kedua tab** (hanya di Semua, label "Nominal belum dicek"), jadi jumlah tab Selisih + Full bisa lebih kecil dari Sudah Cair.
+- Selisih = Jubelio − laporan. Kolom ekspor: Dana Jubelio, Dana Laporan MP, Selisih, Cek Nominal.
+- **Sinkron Jubelio**: `scripts/sinkron_nominal_mp.py [--hari N]` (default 30 hari tanggal transaksi). Memakai login/list/detail dari `auto_upload_resi_api.py`; menanyakan `cron/nominal_mp_butuh` pesanan COMPLETED yang dana MP-nya kosong, mengambil detailnya, lalu POST ke `cron/auto_upload_nominal_mp`. Hanya mengisi yang kosong; pesanan tanpa `escrow_list.settlement_amount` dilewati dan dicoba lagi. Dijalankan **di PC yang punya `jubelio_credentials.py`** (PC ini tidak punya). Backfill pesanan lama: jalankan dengan `--hari` besar (detail dipanggil satu per satu, jeda 0,5 dtk).
+- **Upload laporan MP**: baris judul dikenali otomatis (`ID Pesanan`, `Tanggal pencairan`, `Dana diterima`; angka seperti `Rp7.577` terbaca). Tanpa judul tetap format lama A = nomor, B = tanggal, C = dana (opsional). Tanggal dan dana diisi terpisah dan tidak menimpa; pesanan yang tanggal cairnya sudah ada tetap bisa diisi dana-nya.
+- Sampel Jubelio yang dipakai merancang ini: satu pesanan TikTok COD; `escrow_list` untuk Shopee/Tokopedia/Lazada belum diperiksa.

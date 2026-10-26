@@ -164,6 +164,51 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Pencairan Dana: dari daftar nomor pesanan Jubelio, balikin yang resinya sudah COMPLETED di
+     * Iresis tapi dana_diterima_mp-nya masih kosong (perlu diambil detailnya).
+     * Dipanggil scripts/sinkron_nominal_mp.py. Body: {"no_pesanan": ["TT-...-48087", ...]}
+     */
+    public function nominal_mp_butuh()
+    {
+        header('Content-Type: application/json');
+        try {
+            $body = json_decode(file_get_contents('php://input'), true);
+            $daftar = is_array($body) && isset($body['no_pesanan']) && is_array($body['no_pesanan']) ? $body['no_pesanan'] : [];
+            $this->load->model('pencairan_dana_fcd');
+            echo json_encode(['success' => true, 'butuh' => $this->pencairan_dana_fcd->butuh_nominal_mp($daftar)]);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * Pencairan Dana: simpan nilai_pesanan + dana_diterima_mp dari Jubelio (hanya mengisi yang kosong).
+     * Body: JSON array {no_pesanan, nilai_pesanan, dana_diterima_mp}.
+     */
+    public function auto_upload_nominal_mp()
+    {
+        ini_set('memory_limit', '512M');
+        set_time_limit(0);
+        header('Content-Type: application/json');
+        try {
+            $baris = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($baris) || empty($baris)) {
+                throw new \Exception('Data JSON kosong atau tidak valid');
+            }
+            $this->load->model('pencairan_dana_fcd');
+            $diisi = $this->pencairan_dana_fcd->simpan_nominal_mp($baris);
+            $pesan = $diisi . ' dari ' . count($baris) . ' pesanan terisi nominalnya';
+            $this->_log('auto_upload_nominal_mp', ['success' => true, 'message' => $pesan]);
+            echo json_encode(['success' => true, 'message' => $pesan]);
+        } catch (\Throwable $e) {
+            $this->_log('auto_upload_nominal_mp', ['success' => false, 'message' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
      * PERBAIKAN SEKALI-JALAN: memperbaiki qty (jumlah) & no_rak pada
      * tbldetailprintresi yang rusak akibat bug run auto_upload_resi_api
      * 2026-07-04. Dipanggil oleh scripts/arsip/fix_resi_detail_20260704.py.

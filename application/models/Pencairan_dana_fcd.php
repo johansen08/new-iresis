@@ -54,6 +54,16 @@ class Pencairan_dana_fcd extends CI_Model
      */
     const SQL_NP = "(SELECT d.no_pesanan FROM tbldetailprintresi d WHERE d.id_resi = p.id_printresi LIMIT 1)";
 
+    /**
+     * Perbandingan nominal untuk pesanan yang sudah cair (alias tabel p): dana diterima menurut
+     * Jubelio (dana_diterima_mp) vs menurut laporan MP yang diunggah (dana_diterima_file).
+     * Beda lebih dari Rp0,5 = ada selisih; sama = full. Salah satu NULL = nominal belum lengkap,
+     * tidak masuk keduanya (tampil di tab Semua dengan label "nominal belum dicek").
+     */
+    const TOLERANSI = 0.5;
+    const SQL_ADA_SELISIH = "(p.tanggal_pencairan IS NOT NULL AND p.dana_diterima_mp IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.dana_diterima_mp - p.dana_diterima_file) > 0.5)";
+    const SQL_FULL        = "(p.tanggal_pencairan IS NOT NULL AND p.dana_diterima_mp IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.dana_diterima_mp - p.dana_diterima_file) <= 0.5)";
+
     /** Daftar awalan marketplace yang valid, dari pilihan user ([] = semua). */
     private function _awalan($mps)
     {
@@ -84,7 +94,7 @@ class Pencairan_dana_fcd extends CI_Model
     /**
      * Ringkasan per marketplace pada rentang tanggal (tanpa filter marketplace),
      * supaya jumlah di daftar pilihan marketplace dan semua angka tab bisa dihitung sekali.
-     * Hasil: array awalan => array(n, sudah, kuning, merah).
+     * Hasil: array awalan => array(n, sudah, kuning, merah, selisih, full); selisih + full <= sudah.
      */
     public function ringkasan($start, $end, $q = '')
     {
@@ -94,9 +104,13 @@ class Pencairan_dana_fcd extends CI_Model
                        COUNT(*) AS n,
                        SUM(y.sudah) AS sudah,
                        SUM(y.sudah = 0 AND y.umur <= " . self::BATAS_KUNING . ") AS kuning,
-                       SUM(y.sudah = 0 AND y.umur > " . self::BATAS_KUNING . ") AS merah
+                       SUM(y.sudah = 0 AND y.umur > " . self::BATAS_KUNING . ") AS merah,
+                       SUM(y.selisih) AS selisih,
+                       SUM(y.penuh) AS penuh
                 FROM (SELECT " . self::SQL_NP . " AS np,
                              (p.tanggal_pencairan IS NOT NULL) AS sudah,
+                             " . self::SQL_ADA_SELISIH . " AS selisih,
+                             " . self::SQL_FULL . " AS penuh,
                              DATEDIFF(CURDATE(), DATE(p.tanggal_selesai)) AS umur
                       FROM tblprintresi p
                       WHERE p.status_pesanan = 'COMPLETED'
@@ -105,12 +119,13 @@ class Pencairan_dana_fcd extends CI_Model
                 GROUP BY LEFT(y.np, 2)";
         $hasil = array();
         foreach (array_keys(self::peta_mp()) as $k) {
-            $hasil[$k] = array('n' => 0, 'sudah' => 0, 'kuning' => 0, 'merah' => 0);
+            $hasil[$k] = array('n' => 0, 'sudah' => 0, 'kuning' => 0, 'merah' => 0, 'selisih' => 0, 'full' => 0);
         }
         foreach ($this->db->query($sql, array_merge(array($start, $end), $bind_cari))->result() as $r) {
             $hasil[$r->mp] = array(
                 'n' => (int) $r->n, 'sudah' => (int) $r->sudah,
                 'kuning' => (int) $r->kuning, 'merah' => (int) $r->merah,
+                'selisih' => (int) $r->selisih, 'full' => (int) $r->penuh,
             );
         }
         return $hasil;
@@ -129,7 +144,10 @@ class Pencairan_dana_fcd extends CI_Model
         list($sql_cari, $bind_cari) = self::syarat_cari($q, 'd.no_pesanan');
         $in = $this->_in($this->_awalan($mps));
 
-        if ($tab === 'sudah') {
+        if ($tab === 'selisih' || $tab === 'full') {
+            $syarat_tab = ' AND ' . ($tab === 'selisih' ? self::SQL_ADA_SELISIH : self::SQL_FULL);
+            $urut = 'p.tanggal_selesai DESC, p.id_printresi DESC';
+        } elseif ($tab === 'sudah') {
             $syarat_tab = ' AND p.tanggal_pencairan IS NOT NULL';
             $urut = 'p.tanggal_selesai DESC, p.id_printresi DESC';
         } elseif ($tab === 'belum') {
@@ -151,6 +169,8 @@ class Pencairan_dana_fcd extends CI_Model
                        p.tanggal_selesai AS tgl_selesai,
                        p.tanggal_pengiriman AS tgl_kirim,
                        p.toko,
+                       p.dana_diterima_mp AS dana_mp,
+                       p.dana_diterima_file AS dana_file,
                        p.tanggal_pencairan AS tgl_cair,
                        (p.tanggal_pencairan IS NOT NULL) AS sudah,
                        DATEDIFF(CURDATE(), DATE(p.tanggal_selesai)) AS umur
@@ -182,7 +202,7 @@ class Pencairan_dana_fcd extends CI_Model
     {
         $nomor = (string) $nomor;
         $like = str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $nomor);
-        $sql = "SELECT p.id_printresi, p.tanggal_pencairan, p.status_pesanan
+        $sql = "SELECT p.id_printresi, p.tanggal_pencairan, p.status_pesanan, p.dana_diterima_file
                 FROM tbldetailprintresi d
                 JOIN tblprintresi p ON p.id_printresi = d.id_resi
                 WHERE d.no_pesanan = ?
@@ -198,13 +218,68 @@ class Pencairan_dana_fcd extends CI_Model
         return $row ? $row : null;
     }
 
-    /** Isi tanggal pencairan hanya bila masih kosong. Mengembalikan true bila baris berubah. */
-    public function isi_pencairan($id_printresi, $tanggal)
+    /**
+     * Isi tanggal pencairan dan/atau dana_diterima_file hanya pada kolom yang masih kosong (tidak
+     * menimpa). $nominal null = tidak mengisi nominal. Mengembalikan true bila baris berubah.
+     */
+    public function isi_pencairan($id_printresi, $tanggal, $nominal = null)
     {
         $this->db->query(
-            'UPDATE tblprintresi SET tanggal_pencairan = ? WHERE id_printresi = ? AND tanggal_pencairan IS NULL',
-            array($tanggal, (int) $id_printresi)
+            'UPDATE tblprintresi
+                SET tanggal_pencairan = COALESCE(tanggal_pencairan, ?),
+                    dana_diterima_file = COALESCE(dana_diterima_file, ?)
+              WHERE id_printresi = ?',
+            array($tanggal, $nominal, (int) $id_printresi)
         );
         return $this->db->affected_rows() > 0;
+    }
+
+    // ------------------------------------------------------------ nominal dari Jubelio
+
+    /**
+     * Dari daftar nomor pesanan (salesorder_no Jubelio), kembalikan yang resinya ada di Iresis,
+     * berstatus COMPLETED, dan dana_diterima_mp-nya masih kosong -- yang perlu diambil detailnya.
+     */
+    public function butuh_nominal_mp(array $no_pesanan)
+    {
+        $no_pesanan = array_values(array_unique(array_filter(array_map('strval', $no_pesanan))));
+        $hasil = array();
+        foreach (array_chunk($no_pesanan, 500) as $bagian) {
+            $ph = implode(',', array_fill(0, count($bagian), '?'));
+            $rows = $this->db->query(
+                "SELECT DISTINCT d.no_pesanan
+                   FROM tbldetailprintresi d
+                   JOIN tblprintresi p ON p.id_printresi = d.id_resi
+                  WHERE d.no_pesanan IN ($ph) AND p.status_pesanan = 'COMPLETED' AND p.dana_diterima_mp IS NULL",
+                $bagian
+            )->result();
+            foreach ($rows as $r) $hasil[] = $r->no_pesanan;
+        }
+        return $hasil;
+    }
+
+    /**
+     * Simpan nilai_pesanan dan dana_diterima_mp dari Jubelio. Baris: no_pesanan, nilai_pesanan,
+     * dana_diterima_mp (angka rupiah). Hanya mengisi yang masih kosong. Mengembalikan jumlah baris terisi.
+     */
+    public function simpan_nominal_mp(array $baris)
+    {
+        $diisi = 0;
+        $this->db->trans_start();
+        foreach ($baris as $b) {
+            if (empty($b['no_pesanan']) || !isset($b['dana_diterima_mp']) || !is_numeric($b['dana_diterima_mp'])) continue;
+            $nilai = isset($b['nilai_pesanan']) && is_numeric($b['nilai_pesanan']) ? (float) $b['nilai_pesanan'] : null;
+            $this->db->query(
+                'UPDATE tblprintresi p
+                   JOIN tbldetailprintresi d ON d.id_resi = p.id_printresi AND d.no_pesanan = ?
+                    SET p.nilai_pesanan = COALESCE(p.nilai_pesanan, ?),
+                        p.dana_diterima_mp = COALESCE(p.dana_diterima_mp, ?)
+                  WHERE p.dana_diterima_mp IS NULL',
+                array((string) $b['no_pesanan'], $nilai, (float) $b['dana_diterima_mp'])
+            );
+            $diisi += $this->db->affected_rows() > 0 ? 1 : 0;
+        }
+        $this->db->trans_complete();
+        return $diisi;
     }
 }
