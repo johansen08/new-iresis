@@ -71,6 +71,8 @@ Pencocokan: Shopee `SP-<nomor>`; lainnya `TT|TP|LZ-<nomor>-<sufiks>`.
 
 ## Nominal & tab selisih (26 Okt 2026)
 
+Kartu ringkasan (4): Sudah cair Full, Sudah cair Ada selisih, Belum cair dalam 7 hari, Belum cair lewat 7 hari; persen sudah cair di atas tetap menghitung ketiga status sudah cair (termasuk "nominal belum dicek").
+
 Tab: **Semua**, **Belum Cair**, **Sudah Cair, Ada Selisih**, **Sudah Cair, Full** (tab "Sudah Cair" lama diganti dua tab ini).
 
 Tiga kolom baru di `tblprintresi` (prod **dan** arsip, migrasi `run_nominal_pencairan_migration`, `BOOTSTRAP_VERSI` 2026-10-26.1):
