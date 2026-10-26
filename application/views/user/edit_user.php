@@ -50,6 +50,19 @@
                                 </div>
                             </div>
                         </div>
+                    <?php elseif (!empty($is_webmaster)) : ?>
+                        <div class="form-group">
+                            <label class="col-md-3 col-xs-12 control-label">Password</label>
+                            <div class="col-md-4 col-xs-12">
+                                <div class="input-group">
+                                    <input type="text" name="password" class="form-control" autocomplete="off" placeholder="<?= empty($user['password']) ? 'Belum ada password — isi untuk menambahkan' : 'Kosongkan jika tidak diubah' ?>" />
+                                    <span class="input-group-btn">
+                                        <button id="btn_generate_password" type="button" class="btn btn-default"><i class="fa fa-gears"></i> </button>
+                                    </span>
+                                </div>
+                                <span class="help-block"><?= empty($user['password']) ? 'User ini belum punya password.' : 'Isi hanya untuk mengganti password user.' ?> Fitur ini hanya untuk webmaster.</span>
+                            </div>
+                        </div>
                     <?php endif; ?>
 
                     <div class="form-group" style="margin-bottom: 20px;">

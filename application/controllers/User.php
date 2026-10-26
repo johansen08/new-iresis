@@ -29,6 +29,7 @@ class User extends MY_Controller
 		$data['action'] = 'Add new user';
 		$data['list_role'] = $this->role_fcd->get_role()->result_array();
 		$data['list_status'] = array("AKTIF", "NON_AKTIF");
+		$data['is_webmaster'] = $this->adalah_webmaster();
 
 		if (!empty($user_id)) {
 			$data['action'] = 'Edit user';
@@ -122,7 +123,19 @@ class User extends MY_Controller
 			];
 		}
 
+		// Password baru dari form edit: hanya webmaster, kosong = tidak diubah
+		$password_baru = (string) $this->input->post('password');
+		$ganti_password = !empty($user['id_user']) && $this->adalah_webmaster() && $password_baru !== '';
+
 		$save = $this->user_fcd->save($user, $this->data['user']['id_user']);
+
+		if ($ganti_password) {
+			$ubah = $this->user_fcd->update_password([
+				'id_user'  => $user['id_user'],
+				'password' => md5($password_baru),
+			], $this->data['user']['id_user']);
+			$save['affected_rows'] += $ubah['affected_rows'];
+		}
 
 		if ($save['affected_rows'] > 0) {
 			$this->set_message('Success', SUCCESS_SAVE_DATA, 'information');
@@ -139,8 +152,19 @@ class User extends MY_Controller
 		$this->show_index();
 	}
 
+	private function adalah_webmaster()
+	{
+		return (int) $this->data['user']['hakakses'] === 1;
+	}
+
 	public function generate_password_user($user_id)
 	{
+		if (!$this->adalah_webmaster()) {
+			$this->set_message('Error', 'Hanya webmaster yang boleh mengubah password user', 'error');
+			$this->show_index();
+			return;
+		}
+
 		$data['action'] = 'Generate user password';
 		$data['user'] = $this->user_fcd->get_user($user_id)->row_array();
 
@@ -149,6 +173,12 @@ class User extends MY_Controller
 
 	public function update_password_user()
 	{
+		if (!$this->adalah_webmaster()) {
+			$this->set_message('Error', 'Hanya webmaster yang boleh mengubah password user', 'error');
+			$this->show_index();
+			return;
+		}
+
 		$user['id_user'] =  $this->input->post('id_user');
 		$user['password'] = md5($this->input->post('password'));
 
