@@ -415,7 +415,7 @@ class Top_level extends MY_Controller
                 $baris[] = array(
                     'baris'      => $i + 1,
                     'sku'        => $this->_teks(isset($r[0]) ? $r[0] : ''),
-                    'rak'        => strtoupper($this->_teks(isset($r[1]) ? $r[1] : '')),
+                    'rak'        => Top_level_fcd::rapikan_rak($this->_teks(isset($r[1]) ? $r[1] : '')),
                     'qty'        => $qty,
                     'ac_list'    => $this->_teks(isset($r[3]) ? $r[3] : ''),
                     'nama_list'  => $this->_teks(isset($r[4]) ? $r[4] : ''),
