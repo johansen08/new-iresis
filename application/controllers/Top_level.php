@@ -230,16 +230,20 @@ class Top_level extends MY_Controller
             $rak_pakai[$r['no_rak']] = true;
             $total_stok += (int) $r['qty'];
         }
-        $info = 'Total SKU Unik: ' . number_format(count($per_sku)) . '   |   Total Stok: ' . number_format($total_stok)
-            . '   |   Total Rak Terpakai: ' . number_format(count($rak_pakai));
+        $info = array(
+            'Total SKU Unik: ' . number_format(count($per_sku)),
+            'Total Stok: ' . number_format($total_stok),
+            'Total Rak: ' . number_format(count($rak_pakai)),
+        );
 
-        // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 kosong), satu baris per SKU per rak.
+        // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 hanya tombol filter), satu baris per SKU per rak.
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('DATA BASE');
-        $sheet->setCellValue('A1', $info);
-        $sheet->getStyle('A1')->getFont()->setBold(true);
+        $sheet->fromArray($info, null, 'A1');
+        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
         $sheet->fromArray(array('SKU', 'NO RAK', 'STOCK'), null, 'A2');
         $sheet->getStyle('A2:C2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:C2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         $sheet->getStyle('A2:C2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $baris = 4;
         foreach ($data as $r) {
@@ -251,18 +255,20 @@ class Top_level extends MY_Controller
         if ($baris > 4) {
             $sheet->getStyle('C4:C' . ($baris - 1))->getNumberFormat()->setFormatCode('#,##0');
         }
-        foreach (array('A' => 18, 'B' => 18, 'C' => 10) as $kol => $lebar) {
+        foreach (array('A' => 22, 'B' => 20, 'C' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
+        $sheet->setAutoFilter('A3:C' . max($baris - 1, 3)); // filter di baris 3, seperti contoh
         $sheet->freezePane('C4');
 
         // Sheet REKAP: satu baris per SKU, rak ditulis "no rak ( stok ) / no rak ( stok )".
         $rekap = $xls->createSheet();
         $rekap->setTitle('REKAP');
-        $rekap->setCellValue('A1', $info);
-        $rekap->getStyle('A1')->getFont()->setBold(true);
+        $rekap->fromArray($info, null, 'A1');
+        $rekap->getStyle('A1:C1')->getFont()->setBold(true);
         $rekap->fromArray(array('SKU', 'STOCK', 'NO RAK'), null, 'A2');
         $rekap->getStyle('A2:C2')->getFont()->setBold(true);
+        $rekap->getStyle('A2:C2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         $rekap->getStyle('A2:C2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $baris = 4;
         foreach ($per_sku as $sku => $raks) {
@@ -280,9 +286,10 @@ class Top_level extends MY_Controller
         if ($baris > 4) {
             $rekap->getStyle('B4:B' . ($baris - 1))->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
         }
-        foreach (array('A' => 18, 'B' => 12, 'C' => 60) as $kol => $lebar) {
+        foreach (array('A' => 22, 'B' => 20, 'C' => 60) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
+        $rekap->setAutoFilter('A3:C' . max($baris - 1, 3));
         $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
         while (ob_get_level()) { ob_end_clean(); }
