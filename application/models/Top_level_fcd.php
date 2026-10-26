@@ -861,6 +861,12 @@ class Top_level_fcd extends CI_Model
      *
      * @return array [['sku'=>, 'total'=>int, 'rak'=>[['rak'=>, 'stok'=>int], ...]], ...]
      */
+    /** Semua baris stok untuk export Excel: satu baris per SKU + rak yang stoknya > 0, tanpa batas jumlah. */
+    public function stok_export()
+    {
+        return $this->db->select('sku, no_rak, qty')->where('qty >', 0)->order_by('sku', 'ASC')->order_by('no_rak', 'ASC')->get('tbltoplevel')->result_array();
+    }
+
     public function stok_list($cari)
     {
         // SKU yang total stoknya 0 (semua rak kosong) tidak ditampilkan.
