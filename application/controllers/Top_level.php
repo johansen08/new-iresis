@@ -211,6 +211,37 @@ class Top_level extends MY_Controller
         $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->stok_list($this->input->post('q'))));
     }
 
+    /** Unduh Excel stok top level: kolom SKU, No Rak, Stok (satu baris per SKU per rak). */
+    public function stok_export()
+    {
+        $this->_wajib(self::URI_STOK);
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+        $xls = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $xls->getActiveSheet();
+        $sheet->setTitle('Stok Top Level');
+        $sheet->fromArray(array('SKU', 'No Rak', 'Stok'), null, 'A1');
+        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
+        $baris = 2;
+        foreach ($this->top_level_fcd->stok_export() as $r) {
+            $sheet->setCellValueExplicit('A' . $baris, (string) $r['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('B' . $baris, (string) $r['no_rak'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('C' . $baris, (int) $r['qty']);
+            $baris++;
+        }
+        foreach (array('A' => 28, 'B' => 18, 'C' => 10) as $kol => $lebar) {
+            $sheet->getColumnDimension($kol)->setWidth($lebar);
+        }
+        $sheet->freezePane('A2');
+        while (ob_get_level()) { ob_end_clean(); }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="Stok_Top_Level_' . date('Ymd_His') . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($xls);
+        $writer->save('php://output');
+        exit;
+    }
+
     public function stok_detail()
     {
         $this->_wajib(self::URI_STOK);

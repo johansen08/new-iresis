@@ -556,6 +556,7 @@ $route['cs/upload-top-level/proses']   = 'top_level/upload_proses';
 $route['cs/upload-top-level/riwayat']  = 'top_level/upload_riwayat';
 $route['cs/stok-top-level']            = 'top_level/stok';
 $route['cs/stok-top-level/data']       = 'top_level/stok_data';
+$route['cs/stok-top-level/export']     = 'top_level/stok_export';
 $route['cs/stok-top-level/detail']     = 'top_level/stok_detail';
 $route['cs/stok-top-level/koreksi']    = 'top_level/stok_koreksi';
 $route['cs/stok-top-level/sku']        = 'top_level/stok_sku';

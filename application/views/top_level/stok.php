@@ -31,6 +31,7 @@ $this->load->view('top_level/_dasar'); ?>
     '<label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
     '<div class="tls-seg" id="tls-seg"><button type="button" class="on" data-v="sku">Per SKU</button><button type="button" data-v="rak">Per Rak</button></div>' +
     '<span class="tls-sp"></span><span class="tls-cnt" id="tls-cnt"></span>' +
+    '<button type="button" class="tl-btn sm" id="tls-xls">' + T.ic('download', 14) + 'Export Excel</button>' +
     '<label class="tls-cnt">Per halaman <select id="tls-ps"><option>10</option><option>50</option><option>100</option></select></label></div>' +
     '<div id="tls-tbl"></div><div class="tls-pg"><span id="tls-info"></span><span><button type="button" class="tl-btn sm" id="tls-prev">&lsaquo;</button> <button type="button" class="tl-btn sm" id="tls-next">&rsaquo;</button></span></div></section>'
   );
@@ -287,6 +288,11 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '[data-s]', function () { var k = $(this).data('s'); if (sortK === k) sortD *= -1; else { sortK = k; sortD = 1; } page = 0; gambar(); });
   $r.on('click', '[data-k]', function () { filt = $(this).data('k'); page = 0; gambar(); });
   $r.on('click', '#tls-seg button', function () { v = $(this).data('v'); page = 0; $('#tls-seg button').removeClass('on'); $(this).addClass('on'); gambar(); });
+  $r.on('click', '#tls-xls', function () {
+    // POST lewat form tersembunyi supaya respons file diunduh browser tanpa meninggalkan halaman.
+    var f = $('<form method="post" action="cs/stok-top-level/export" style="display:none"></form>').appendTo('body');
+    f.trigger('submit'); setTimeout(function () { f.remove(); }, 1000);
+  });
   $r.on('click', '#tls-prev', function () { page--; gambar(); });
   $r.on('click', '#tls-next', function () { page++; gambar(); });
   $r.on('change', '#tls-ps', function () { ps = +this.value; page = 0; gambar(); });
