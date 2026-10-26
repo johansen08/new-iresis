@@ -88,7 +88,7 @@ class Pencairan_dana extends MY_Controller
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
         $sh->setTitle('Pencairan Dana');
-        $sh->fromArray(array('ID Pesanan', 'Tgl Shipped', 'Tgl Delivered', 'Tgl Completed', 'Marketplace', 'Toko', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status', 'Dana Jubelio', 'Dana Laporan MP', 'Selisih (Jubelio - Laporan)', 'Cek Nominal'), null, 'A1');
+        $sh->fromArray(array('ID Pesanan', 'Tgl Shipped', 'Tgl Delivered', 'Tgl Completed', 'Marketplace', 'Toko', 'Tanggal Cair', 'Cair vs Completed (hari)', 'Umur (hari)', 'Status', 'Harga Final Jubelio', 'Harga Final Laporan MP', 'Selisih (Jubelio - Laporan)', 'Cek Nominal'), null, 'A1');
         $sh->getStyle('A1:N1')->getFont()->setBold(true);
         $cek_label = array('selisih' => 'Ada selisih', 'penuh' => 'Full');
 
@@ -165,8 +165,8 @@ class Pencairan_dana extends MY_Controller
             }
 
             // Peta kolom. Bila baris pertama berisi judul "ID Pesanan" + "Tanggal pencairan" dan/atau
-            // "Dana diterima" (format laporan MP), kolom dicari lewat judul; bila tidak, format lama:
-            // A = nomor pesanan, B = tanggal pencairan, C (opsional) = dana diterima.
+            // "Harga final (setelah diskon)" (format laporan MP), kolom dicari lewat judul; bila tidak, format lama:
+            // A = nomor pesanan, B = tanggal pencairan, C (opsional) = harga final.
             $kol = $this->_peta_kolom(isset($mentah[0]) ? $mentah[0] : array());
             if ($kol) {
                 $mulai = 1;
@@ -354,7 +354,7 @@ class Pencairan_dana extends MY_Controller
 
     /**
      * Peta kolom dari baris judul laporan MP: 'id' (ID Pesanan / nomor pesanan), 'tgl' (Tanggal pencairan),
-     * 'dana' (Dana diterima). Mengembalikan null bila bukan baris judul (kolom ID + salah satu dari
+     * 'dana' (Harga final (setelah diskon); "Dana diterima" sementara tidak dipakai). Mengembalikan null bila bukan baris judul (kolom ID + salah satu dari
      * tanggal/dana tidak ketemu), supaya format lama A/B tetap berlaku.
      */
     private function _peta_kolom(array $baris)
@@ -365,7 +365,7 @@ class Pencairan_dana extends MY_Controller
             if ($t === '') continue;
             if ($peta['id'] === null && in_array($t, array('id pesanan', 'no pesanan', 'nomor pesanan', 'order id'), true)) $peta['id'] = $i;
             elseif ($peta['tgl'] === null && strpos($t, 'tanggal pencairan') === 0) $peta['tgl'] = $i;
-            elseif ($peta['dana'] === null && $t === 'dana diterima') $peta['dana'] = $i;
+            elseif ($peta['dana'] === null && ($t === 'harga final (setelah diskon)' || $t === 'harga final')) $peta['dana'] = $i;
         }
         return ($peta['id'] !== null && ($peta['tgl'] !== null || $peta['dana'] !== null)) ? $peta : null;
     }

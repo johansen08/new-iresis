@@ -214,7 +214,7 @@ $MP_JSON = json_encode(array_values($mp));
           <span style="display:block"><span class="pd-dot" style="background:#e0a800"></span>Kuning: belum cair, +1 sampai +<?= (int) $batas_kuning ?> hari dari tanggal Completed.</span>
           <span style="display:block;margin-top:4px"><span class="pd-dot" style="background:#ef5b4d"></span>Merah: belum cair, +<?= (int) $batas_kuning + 1 ?> hari atau lebih.</span>
           <span style="display:block;margin-top:4px"><span class="pd-dot" style="background:#3fc2a3"></span>Hijau: sudah ada tanggal pencairan.</span>
-          <span style="display:block;margin-top:8px">Tab <b>Ada Selisih</b>: dana diterima menurut Jubelio berbeda dari laporan marketplace yang diunggah. Tab <b>Full</b>: sama. Pesanan sudah cair yang salah satu nominalnya belum ada hanya tampil di tab Semua.</span>
+          <span style="display:block;margin-top:8px">Tab <b>Ada Selisih</b>: harga final menurut Jubelio berbeda dari laporan marketplace yang diunggah. Tab <b>Full</b>: sama. Pesanan sudah cair yang salah satu nominalnya belum ada hanya tampil di tab Semua.</span>
         </span>
       </span>
     </div>
@@ -268,8 +268,8 @@ $MP_JSON = json_encode(array_values($mp));
             <th style="width:8%">Marketplace</th>
             <th style="width:10%">Toko</th>
             <th style="width:7%">Tanggal Cair</th>
-            <th style="width:9%;text-align:right">Dana Jubelio</th>
-            <th style="width:9%;text-align:right">Dana Laporan MP</th>
+            <th style="width:9%;text-align:right">Harga Final Jubelio</th>
+            <th style="width:9%;text-align:right">Harga Final Laporan MP</th>
             <th style="width:15%">Status</th>
           </tr>
         </thead>
@@ -299,10 +299,10 @@ $MP_JSON = json_encode(array_values($mp));
 <div id="pd_upload" role="dialog" aria-modal="true" aria-label="Upload laporan MP">
   <div class="kotak">
     <h2>Upload laporan MP</h2>
-    <p>Mengisi tanggal pencairan dan dana diterima dari file laporan marketplace. Hanya kolom yang masih kosong yang diisi; yang sudah terisi tidak diubah.</p>
+    <p>Mengisi tanggal pencairan dan harga final dari file laporan marketplace. Hanya kolom yang masih kosong yang diisi; yang sudah terisi tidak diubah.</p>
     <div class="kolom">
-      <b>Laporan MP</b><span>Judul kolom dikenali otomatis: <u>ID Pesanan</u>, <u>Tanggal pencairan</u>, <u>Dana diterima</u> (mis. Rp7.577)</span>
-      <b>Format lama</b><span>Tanpa judul: kolom A nomor pesanan (<u>Teks</u>), B tanggal pencairan, C dana diterima (opsional)</span>
+      <b>Laporan MP</b><span>Judul kolom dikenali otomatis: <u>ID Pesanan</u>, <u>Tanggal pencairan</u>, <u>Harga final (setelah diskon)</u> (mis. Rp35.900)</span>
+      <b>Format lama</b><span>Tanpa judul: kolom A nomor pesanan (<u>Teks</u>), B tanggal pencairan, C harga final (opsional)</span>
     </div>
     <p style="font-size:13px">File .xlsx, .xls, atau .csv, maksimal 20.000 baris. Nomor pesanan berformat angka merusak 18 digit, jadi pastikan kolomnya Teks.</p>
     <input type="file" id="pd_file" accept=".xlsx,.xls,.csv">
@@ -720,7 +720,7 @@ $(document).ready(function () {
     }
     function tampilLaporan(d, dry) {
         var h = '<b>' + (dry ? 'Hasil pemeriksaan' : 'Tersimpan') + '</b> — ' + angka(d.total) + ' baris dibaca<br>'
-            + '<b>' + angka(d.diisi) + '</b> ' + (dry ? 'pesanan akan diisi' : 'pesanan diisi') + ' (' + angka(d.nominal_diisi) + ' di antaranya dengan dana diterima)<br>'
+            + '<b>' + angka(d.diisi) + '</b> ' + (dry ? 'pesanan akan diisi' : 'pesanan diisi') + ' (' + angka(d.nominal_diisi) + ' di antaranya dengan harga final)<br>'
             + angka(d.sudah_terisi) + ' sudah terisi sebelumnya (tidak diubah)<br>'
             + angka(d.tidak_ditemukan) + ' nomor pesanan tidak ditemukan<br>'
             + angka(d.tanggal_salah + d.nomor_salah) + ' baris tidak valid<br>'

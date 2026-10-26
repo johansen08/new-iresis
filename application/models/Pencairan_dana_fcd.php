@@ -55,14 +55,15 @@ class Pencairan_dana_fcd extends CI_Model
     const SQL_NP = "(SELECT d.no_pesanan FROM tbldetailprintresi d WHERE d.id_resi = p.id_printresi LIMIT 1)";
 
     /**
-     * Perbandingan nominal untuk pesanan yang sudah cair (alias tabel p): dana diterima menurut
-     * Jubelio (dana_diterima_mp) vs menurut laporan MP yang diunggah (dana_diterima_file).
+     * Perbandingan nominal untuk pesanan yang sudah cair (alias tabel p): harga final (setelah diskon)
+     * menurut Jubelio (nilai_pesanan) vs menurut laporan MP yang diunggah (dana_diterima_file, berisi
+     * kolom "Harga final (setelah diskon)"; sementara belum memakai "Dana diterima").
      * Beda lebih dari Rp0,5 = ada selisih; sama = full. Salah satu NULL = nominal belum lengkap,
      * tidak masuk keduanya (tampil di tab Semua dengan label "nominal belum dicek").
      */
     const TOLERANSI = 0.5;
-    const SQL_ADA_SELISIH = "(p.tanggal_pencairan IS NOT NULL AND p.dana_diterima_mp IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.dana_diterima_mp - p.dana_diterima_file) > 0.5)";
-    const SQL_FULL        = "(p.tanggal_pencairan IS NOT NULL AND p.dana_diterima_mp IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.dana_diterima_mp - p.dana_diterima_file) <= 0.5)";
+    const SQL_ADA_SELISIH = "(p.tanggal_pencairan IS NOT NULL AND p.nilai_pesanan IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.nilai_pesanan - p.dana_diterima_file) > 0.5)";
+    const SQL_FULL        = "(p.tanggal_pencairan IS NOT NULL AND p.nilai_pesanan IS NOT NULL AND p.dana_diterima_file IS NOT NULL AND ABS(p.nilai_pesanan - p.dana_diterima_file) <= 0.5)";
 
     /** Daftar awalan marketplace yang valid, dari pilihan user ([] = semua). */
     private function _awalan($mps)
@@ -169,7 +170,7 @@ class Pencairan_dana_fcd extends CI_Model
                        p.tanggal_selesai AS tgl_selesai,
                        p.tanggal_pengiriman AS tgl_kirim,
                        p.toko,
-                       p.dana_diterima_mp AS dana_mp,
+                       p.nilai_pesanan AS dana_mp,
                        p.dana_diterima_file AS dana_file,
                        p.tanggal_pencairan AS tgl_cair,
                        (p.tanggal_pencairan IS NOT NULL) AS sudah,
