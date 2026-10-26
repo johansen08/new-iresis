@@ -236,7 +236,7 @@ class Top_level extends MY_Controller
             'Total Rak: ' . number_format(count($rak_pakai)),
         );
 
-        $warna_banyak_rak = 'FFE699'; // SKU yang tersebar di lebih dari 2 rak
+        $warna_banyak_rak = 'FFE699'; // SKU yang tersebar di lebih dari 1 rak
         // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 hanya tombol filter), satu baris per SKU per rak.
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('DATA BASE');
@@ -252,7 +252,7 @@ class Top_level extends MY_Controller
             $sheet->setCellValueExplicit('B' . $baris, (string) $r['no_rak'], $teks);
             $sheet->setCellValue('C' . $baris, (int) $r['qty']);
             $sheet->setCellValue('D' . $baris, count($per_sku[$r['sku']]) > 1 ? 1 : 0);
-            if (count($per_sku[$r['sku']]) > 2) {
+            if (count($per_sku[$r['sku']]) > 1) {
                 $sheet->getStyle('A' . $baris)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($warna_banyak_rak);
             }
             $baris++;
@@ -289,7 +289,7 @@ class Top_level extends MY_Controller
             // Satu rak: cukup no rak (stok = stok total di kolom STOCK); lebih dari satu: no rak beserta stoknya.
             $rekap->setCellValueExplicit('C' . $baris, count($raks) > 1 ? implode(' / ', $teks_rak) : $raks[0]['rak'], $teks);
             $rekap->setCellValue('D' . $baris, count($raks) > 1 ? 1 : 0);
-            if (count($raks) > 2) {
+            if (count($raks) > 1) {
                 $rekap->getStyle('A' . $baris)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($warna_banyak_rak);
             }
             $baris++;
