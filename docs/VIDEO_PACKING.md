@@ -76,11 +76,13 @@ packer buka menu Scan Resi Packer (Webcam)
             │                                              pernah di-scan
             │
             └──► scan resi sama lagi, ≥ jeda minimum   → tersimpan ke tblpacking,
-                  kamera merekam 3 detik lagi (ekor), lalu rekaman
-                  DIHENTIKAN & diunggah (status SELESAI)
+                  kamera merekam terus sampai ekor adaptif terpenuhi (≥ 5 detik,
+                  ≥ 60 frame dari kamera, +2 detik kuras encoder, maks. 15 detik),
+                  lalu rekaman DIHENTIKAN & diunggah (status SELESAI)
 ```
 
-Ekor 3 detik (`EKOR_REKAM_MS`) juga berlaku untuk tombol Submit. Kalau resi
+Ekor adaptif (`EKOR_MIN_MS`, `EKOR_MIN_FRAME`, `EKOR_KURAS_MS`,
+`EKOR_MAKS_MS`) juga berlaku untuk tombol Submit. Kalau resi
 berikutnya keburu discan selama ekor berjalan, rekaman lama langsung ditutup
 dan rekaman resi baru dimulai — tidak ada dua rekaman yang berjalan bersamaan.
 
@@ -115,10 +117,10 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 | Setelan | Nilai | Keterangan |
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
-| Frame rate | 24 fps (sebelum 12 Okt 2026: 15 fps) | Gerakan tangan lebih mulus |
+| Frame rate | 30 fps, dikunci `exact` (27 Okt 2026; sebelum itu 24 fps `ideal`, sebelum 12 Okt 2026 15 fps) | Webcam tanpa mode 30 fps jatuh ke constraint lunak. Panel menampilkan fps terukur dari frame yang benar-benar tiba |
 | Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
-| Bitrate | VP9 12,8 Mbps / H.264 16,0 Mbps / VP8 16,0 Mbps (sebelum 12 Okt 2026: 8 / 10 / 10 Mbps) | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026). Dikali 1,6 saat fps naik 15 → 24 supaya bit per frame tetap; ±96–120 MB per menit rekaman |
-| Ekor setelah scan kedua | 3 detik (`EKOR_REKAM_MS`) | `recorder.stop()` membuang frame yang masih antre di encoder; tanpa ekor, momen scan kedua tidak terekam |
+| Bitrate | VP9 16 Mbps / H.264 20 Mbps / VP8 20 Mbps (sebelum 27 Okt 2026: 12,8 / 16 / 16; sebelum 12 Okt 2026: 8 / 10 / 10) | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026). Dikali 1,25 saat fps naik 24 → 30 supaya bit per frame tetap; ±120–150 MB per menit rekaman |
+| Ekor setelah scan kedua | Adaptif (sejak 27 Okt 2026; sebelumnya 3 detik tetap): minimal 5 detik **dan** 60 frame dari kamera, lalu 2 detik kuras encoder, maksimal 15 detik | `recorder.stop()` membuang frame yang masih antre di encoder; di PC ber-fps rendah 3 detik tetap tidak cukup untuk memunculkan scan kedua |
 | Audio | **Tidak ada** | Sejak awal tidak pernah ada track audio — bukti packing cukup gambarnya |
 | Potongan unggah | Tiap 2 detik | Supaya muat batas upload PHP dan bagian yang sudah naik tetap aman kalau tab ditutup mendadak |
 
