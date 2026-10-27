@@ -676,6 +676,7 @@
 	<!-- Perekam video packing. Dimuat global (bukan di view) karena panel kameranya
 	     harus selamat dari pergantian isi .page-content-wrap tiap kali packer scan.
 	     Pasif sampai halaman Scan Resi Packer (Webcam) memanggil PackerVideo.sinkron(). -->
+	<script type="text/javascript">window.PACKER_VIDEO_KOMPUTER = <?= json_encode((string) (isset($nama_pk) ? $nama_pk : '')) ?>;</script>
 	<script type="text/javascript" src="assets/js/packer_video.js?v=<?= @filemtime(FCPATH . 'assets/js/packer_video.js') ?: '1.0.0' ?>"></script>
 	<!-- Foto produk: coba URL asli dulu, ganti ke salinan lokal (/foto-produk/) bila gagal -- lihat helper foto_sku -->
 	<script type="text/javascript" src="assets/js/foto_sku.js?v=<?= @filemtime(FCPATH . 'assets/js/foto_sku.js') ?: '1.0.0' ?>"></script>

@@ -70,6 +70,32 @@
     // H.264 (dari encoder GPU maupun OpenH264 di CPU) pada bitrate sama kurang
     // efisien dibanding VP9 -- jadi disamakan dengan VP8.
     var BITRATE_H264     = 20000000;
+
+    // Profil khusus per komputer packer (nama_pk = kolom nama_komputer), diisi
+    // main.php lewat window.PACKER_VIDEO_KOMPUTER. PC yang tidak terdaftar di
+    // sini tetap memakai setelan 1080p di atas. F19-16 dipakai packing resi qty
+    // banyak dan dipasangi kamera 4K (28 Okt 2026), jadi merekam 2560x1440
+    // 30 fps. Bitrate dikali 1,78 (rasio piksel 2560x1440 : 1920x1080) supaya
+    // jatah bit per frame sama:
+    //   VP9 28 Mbps = ~210 MB per menit rekaman
+    //   VP8/H.264 36 Mbps = ~270 MB per menit rekaman
+    // Beban encode CPU ikut naik; panel kamera menandai oranye kalau fps
+    // terukur di bawah ±27.
+    var PROFIL_KOMPUTER = {
+        'F19-16': {
+            lebar: 2560, tinggi: 1440, fps: 30,
+            bitrateVp9: 28000000, bitrateVp8: 36000000, bitrateH264: 36000000
+        }
+    };
+    var profilPc = PROFIL_KOMPUTER[String(window.PACKER_VIDEO_KOMPUTER || '').toUpperCase()];
+    if (profilPc) {
+        LEBAR_IDEAL  = profilPc.lebar;
+        TINGGI_IDEAL = profilPc.tinggi;
+        FPS_IDEAL    = profilPc.fps;
+        BITRATE_VP9  = profilPc.bitrateVp9;
+        BITRATE_VP8  = profilPc.bitrateVp8;
+        BITRATE_H264 = profilPc.bitrateH264;
+    }
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
 
     // Codec yang boleh dipakai. Yang terpilih ditentukan pilihCodecTerbaik():

@@ -117,6 +117,7 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 | Setelan | Nilai | Keterangan |
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
+| Profil per PC | **F19-16**: 2560×1440 (2K) 30 fps, bitrate VP9 28 / VP8·H.264 36 Mbps (≈210–270 MB/menit), untuk packing resi qty banyak dengan kamera 4K (28 Okt 2026). Peta `PROFIL_KOMPUTER` di `packer_video.js`; nama PC diteruskan `main.php` lewat `window.PACKER_VIDEO_KOMPUTER` (= `nama_pk`). PC lain tidak terpengaruh | Tambah PC lain cukup menambah entri di peta itu. Cek fps terukur di panel kamera; oranye = encode tidak sanggup |
 | Frame rate | 30 fps, dikunci `exact` (27 Okt 2026; sebelum itu 24 fps `ideal`, sebelum 12 Okt 2026 15 fps) | Webcam tanpa mode 30 fps jatuh ke constraint lunak. Panel menampilkan fps terukur dari frame yang benar-benar tiba |
 | Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
 | Bitrate | VP9 16 Mbps / H.264 20 Mbps / VP8 20 Mbps (sebelum 27 Okt 2026: 12,8 / 16 / 16; sebelum 12 Okt 2026: 8 / 10 / 10) | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026). Dikali 1,25 saat fps naik 24 → 30 supaya bit per frame tetap; ±120–150 MB per menit rekaman |
