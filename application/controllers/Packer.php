@@ -897,6 +897,28 @@ class Packer extends MY_Controller
         return TRUE;
     }
 
+    /**
+     * Satu baris log per rekaman yang selesai: PC mana, kamera memberi apa,
+     * fps yang terukur, encoder GPU atau CPU. Dipakai untuk menelusuri PC yang
+     * tidak mencapai 1080p 30 fps. Berkas: application/logs/kamera_pc.log.
+     * Gagal menulis log tidak boleh mengganggu unggahan.
+     */
+    private function catat_kamera_pc($noresi, $durasi, $kamera)
+    {
+        $kamera = preg_replace('/[^A-Za-z0-9 =x\/._?-]/', '', substr($kamera, 0, 160));
+        if ($kamera === '') {
+            return;
+        }
+
+        $pc = isset($this->data['nama_pk']) ? $this->data['nama_pk'] : '-';
+
+        @file_put_contents(
+            APPPATH . 'logs/kamera_pc.log',
+            date('Y-m-d H:i:s') . ' ' . $pc . ' ' . $noresi . ' dur=' . (int) $durasi . 's ' . $kamera . PHP_EOL,
+            FILE_APPEND | LOCK_EX
+        );
+    }
+
     public function upload_video_packing()
     {
         // Hanya membaca session (user sudah di $this->data); kunci dilepas supaya
@@ -1004,6 +1026,10 @@ class Packer extends MY_Controller
 
         if (!$tulis_ok) {
             $this->make_ajax_response(500, 'Gagal menulis berkas video ke server.');
+        }
+
+        if ($terakhir) {
+            $this->catat_kamera_pc($noresi, $durasi, (string) $this->input->post('kamera'));
         }
 
         $now = date('Y-m-d H:i:s');
