@@ -57,7 +57,7 @@
     var noresiAktif = '';
     var xhrCari = null;
     var KUNCI_RIWAYAT = 'vp_riwayat';
-    var MAKS_RIWAYAT  = 6;
+    var MAKS_RIWAYAT  = 3;
 
     function escapeHtml(teks) {
       return $('<div>').text(teks == null ? '' : teks).html();
@@ -98,7 +98,7 @@
     function bacaRiwayat() {
       try {
         var a = JSON.parse(localStorage.getItem(KUNCI_RIWAYAT) || '[]');
-        return $.isArray(a) ? a : [];
+        return $.isArray(a) ? a.slice(0, MAKS_RIWAYAT) : [];
       } catch (e) { return []; }
     }
 
