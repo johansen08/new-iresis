@@ -45,7 +45,11 @@
     // Dinaikkan lagi ke 30 fps (27 Okt 2026) dan dikunci lewat `exact` di
     // constraintKeras(): webcam yang sanggup 1080p 30 fps tidak boleh
     // diam-diam diberi mode 15/24 fps. Bitrate ikut dikali 30/24 = 1,25.
-    var FPS_IDEAL        = 30;
+    //
+    // Diturunkan ke 24 fps untuk semua PC (28 Okt 2026) supaya encode lebih
+    // ringan dan trafik ke server berkurang; bitrate tidak diubah, jadi jatah
+    // bit per frame justru naik. Tetap dikunci `exact` di constraintKeras().
+    var FPS_IDEAL        = 24;
     // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
     // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
     // berkas (keputusan 2026-10-01). Rekaman sudah lossy sejak keluar dari
@@ -75,7 +79,8 @@
     // main.php lewat window.PACKER_VIDEO_KOMPUTER. PC yang tidak terdaftar di
     // sini tetap memakai setelan 1080p di atas. F19-16 dipakai packing resi qty
     // banyak dan dipasangi kamera 4K (28 Okt 2026), jadi merekam 2560x1440
-    // 30 fps. Bitrate dikali 1,78 (rasio piksel 2560x1440 : 1920x1080) supaya
+    // 24 fps (diturunkan dari 30 fps, 28 Okt 2026, supaya encode 2K lebih ringan).
+    // Bitrate awalnya dikali 1,78 (rasio piksel 2560x1440 : 1920x1080) supaya
     // jatah bit per frame sama:
     // Diturunkan (28 Okt 2026) ke VP9 18 / VP8-H.264 24 Mbps karena lima PC
     // merekam bersamaan hampir memenuhi jaringan LAN ke server (sebelumnya
@@ -83,10 +88,10 @@
     //   VP9 18 Mbps = ~135 MB per menit rekaman
     //   VP8/H.264 24 Mbps = ~180 MB per menit rekaman
     // Beban encode CPU ikut naik; panel kamera menandai oranye kalau fps
-    // terukur di bawah ±27.
+    // terukur di bawah 90% fps profil (±21 untuk 24 fps).
     var PROFIL_KOMPUTER = {
         'F19-16': {
-            lebar: 2560, tinggi: 1440, fps: 30,
+            lebar: 2560, tinggi: 1440, fps: 24,
             bitrateVp9: 18000000, bitrateVp8: 24000000, bitrateH264: 24000000
         }
     };
