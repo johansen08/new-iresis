@@ -39,6 +39,17 @@
   .vp-berkas { font-size: 12px; color: var(--vp-label); margin-top: 8px; word-break: break-all; }
   #vp-hasil .panel-heading { font-size: 14px; color: var(--vp-teks); }
   #vp-hasil th { font-size: 11px; font-weight: 600; color: var(--vp-label); text-transform: uppercase; letter-spacing: .06em; }
+  .vp-video { width: 100%; max-height: calc(70vh / var(--vp-zoom, 1)); background: #000; display: block; }
+
+  /* Monitor besar (Full HD ke atas, QHD, 4K, TV): seluruh isi menu diperbesar
+     bertahap menurut lebar layar supaya terbaca dari jarak meja/dinding. Pakai
+     `zoom` agar font, jarak, foto SKU, dan video ikut membesar sebanding; tinggi
+     video dibagi faktor zoom supaya tetap muat di layar tanpa menggulir. */
+  .vp-root { zoom: var(--vp-zoom, 1); }
+  @media (min-width: 1700px) { .vp-root { --vp-zoom: 1.2; } }
+  @media (min-width: 2200px) { .vp-root { --vp-zoom: 1.5; } }
+  @media (min-width: 3000px) { .vp-root { --vp-zoom: 2; } }
+  @media (min-width: 3800px) { .vp-root { --vp-zoom: 2.6; } }
   #vp-riwayat { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
   #vp-hasil .vp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
   @media (max-width: 575px) { #vp-hasil .vp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -262,7 +273,7 @@
         '<div class="panel-body" style="padding: 10px;">' +
           '<video src="' + escapeHtml(v.url) + '" controls playsinline ' +
             'preload="' + (i === 0 ? 'metadata' : 'none') + '" ' +
-            'style="width: 100%; max-height: 70vh; background: #000; display: block;"></video>' +
+            'class="vp-video"></video>' +
           '<div class="vp-galat text-danger" style="display: none; margin-top: 6px;"></div>' +
           '<div style="margin-top: 8px;">' +
             '<a href="' + escapeHtml(v.url) + '?unduh=1" class="btn btn-default btn-sm">' +
