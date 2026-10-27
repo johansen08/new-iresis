@@ -358,7 +358,7 @@ class Packer extends MY_Controller
             }
 
             $receipts = $resi_tampil !== ''
-                ? $this->receipt_fcd->get_detail_receipt($resi_tampil)->result()
+                ? $this->detail_resi_webcam($resi_tampil)->result()
                 : [];
             $picker_detail = $resi_tampil !== ''
                 ? $this->packer_fcd->get_picker_detail_for_packer($resi_tampil)
@@ -460,11 +460,50 @@ class Packer extends MY_Controller
 
         // Request GET (halaman dibuka lagi): pastikan dulu resinya punya detail
         // sebelum kamera disuruh merekam.
-        return $this->receipt_fcd->get_detail_receipt($resi)->num_rows() > 0 ? $resi : '';
+        return $this->detail_resi_webcam($resi)->num_rows() > 0 ? $resi : '';
+    }
+
+    /**
+     * Detail resi untuk halaman webcam, dibaca sekali per request.
+     *
+     * Satu scan pertama sebelumnya memanggil get_detail_receipt() dua kali untuk
+     * resi yang sama (penjaga "resi tidak dikenal", lalu render layar), dan
+     * tiap panggilan masih ditambah pastikan_resi_live(). Hasilnya dipegang di
+     * sini selama request berjalan.
+     */
+    private $cache_detail_resi = [];
+
+    private function detail_resi_webcam($noresi)
+    {
+        if (!isset($this->cache_detail_resi[$noresi])) {
+            $this->cache_detail_resi[$noresi] = $this->receipt_fcd->get_detail_receipt($noresi);
+        }
+
+        return $this->cache_detail_resi[$noresi];
+    }
+
+    /**
+     * Lepas kunci file session sebelum pekerjaan berat.
+     *
+     * Driver session `files` mengunci berkas session selama request hidup, jadi
+     * semua request dari browser yang sama antre satu per satu. Potongan video
+     * dikirim tiap 2 detik; scan pertama dan kedua ikut antre di belakang
+     * potongan yang sedang menulis berkas, padahal scan itulah yang ditunggu
+     * packer. Endpoint yang cuma MEMBACA session boleh melepasnya begitu
+     * constructor selesai. Jangan dipakai di endpoint yang menulis session.
+     */
+    private function lepas_kunci_session()
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
     }
 
     public function get_scan_packer_data($noresi)
     {
+        // Hanya membaca session; jangan menahan scan berikutnya.
+        $this->lepas_kunci_session();
+
         // Decode the noresi parameter in case it contains special characters
         $noresi = urldecode($noresi);
 
@@ -777,6 +816,10 @@ class Packer extends MY_Controller
      */
     public function upload_video_packing()
     {
+        // Hanya membaca session (user sudah di $this->data); kunci dilepas supaya
+        // scan packer tidak antre di belakang penulisan potongan video.
+        $this->lepas_kunci_session();
+
         if ($this->input->method() !== 'post') {
             $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
         }
@@ -1496,7 +1539,7 @@ class Packer extends MY_Controller
         // produk, label rak, apa pun yang bukan resi -- akan mengunci packer:
         // siklusnya terbuka atas nama resi hantu dan semua scan berikutnya
         // ditolak sampai Batal Scan ditekan.
-        if ($resi_aktif === null && $this->receipt_fcd->get_detail_receipt($noresi)->num_rows() === 0) {
+        if ($resi_aktif === null && $this->detail_resi_webcam($noresi)->num_rows() === 0) {
             return [
                 'feedback' => [
                     'status'     => 'resi_tidak_dikenal',
