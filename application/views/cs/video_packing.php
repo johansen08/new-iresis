@@ -281,7 +281,7 @@
       }
 
       if (!resi || !resi.items || !resi.items.length) {
-        return { ringkasan: ringkasan, sku: infoPicker + '<div class="panel panel-default"><div class="panel-body text-muted">Daftar SKU untuk resi ini tidak ditemukan.</div></div>' };
+        return { ringkasan: ringkasan, picker: infoPicker, sku: '<div class="panel panel-default"><div class="panel-body text-muted">Daftar SKU untuk resi ini tidak ditemukan.</div></div>' };
       }
 
       // Panel kedua: daftar SKU, terpisah dari ringkasan supaya di ponsel bisa
@@ -324,7 +324,7 @@
       });
 
       html += '</tbody></table></div></div></div>';
-      return { ringkasan: ringkasan, sku: infoPicker + html };
+      return { ringkasan: ringkasan, picker: infoPicker, sku: html };
     }
 
     // Tombol salin satu klik di samping nomor.
@@ -562,6 +562,8 @@
         // Info packing menempel tepat di bawah video bagiannya.
         kiri += gambarVideo(v, i, list.length) + gambarInfoPacking(v, i, list.length);
       });
+      // Info picking tepat di bawah Info packing (sekali per resi, setelah rekaman terakhir).
+      kiri += isi.picker || '';
 
       $('#vp-hasil').html(
         '<div class="vp-layout">' +
