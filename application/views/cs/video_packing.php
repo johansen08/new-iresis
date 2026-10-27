@@ -26,8 +26,10 @@
               </span>
             </div>
             <p class="help-block" style="margin-top: 6px;">
-              Scan resi lalu tekan Enter. Video packing untuk resi tersebut akan langsung diputar.
+              <strong>Cara pakai:</strong> scan atau ketik nomor resi, lalu tekan <kbd>Enter</kbd>.
+              Video langsung muncul dan diputar. Tekan <kbd>Esc</kbd> untuk mengosongkan kolom.
             </p>
+            <div id="vp-riwayat" style="display: none; margin-top: 4px;"></div>
           </div>
         </div>
       </div>
@@ -52,6 +54,9 @@
     var pemantauMp4 = null;
     var pemantauMulai = 0;
     var noresiAktif = '';
+    var xhrCari = null;
+    var KUNCI_RIWAYAT = 'vp_riwayat';
+    var MAKS_RIWAYAT  = 6;
 
     function escapeHtml(teks) {
       return $('<div>').text(teks == null ? '' : teks).html();
@@ -189,6 +194,37 @@
       }, jeda);
     }
 
+    // Riwayat resi terakhir: hanya kemudahan per browser, jadi gagal diam-diam
+    // kalau localStorage diblokir.
+    function bacaRiwayat() {
+      try {
+        var a = JSON.parse(localStorage.getItem(KUNCI_RIWAYAT) || '[]');
+        return $.isArray(a) ? a : [];
+      } catch (e) { return []; }
+    }
+
+    function simpanRiwayat(noresi) {
+      try {
+        var a = bacaRiwayat().filter(function (x) { return x !== noresi; });
+        a.unshift(noresi);
+        localStorage.setItem(KUNCI_RIWAYAT, JSON.stringify(a.slice(0, MAKS_RIWAYAT)));
+      } catch (e) {}
+      gambarRiwayat();
+    }
+
+    function gambarRiwayat() {
+      var a = bacaRiwayat();
+      var box = $('#vp-riwayat');
+      if (!a.length) { box.hide().empty(); return; }
+      var html = '<small class="text-muted">Terakhir dicari:</small> ';
+      a.forEach(function (r) {
+        html += '<a href="#" class="label label-default vp-riwayat-item" data-resi="' + escapeHtml(r) +
+          '" style="margin-right: 4px; font-size: 90%;">' + escapeHtml(r) + '</a>';
+      });
+      html += ' <a href="#" id="vp-riwayat-hapus" class="text-muted"><small>hapus</small></a>';
+      box.html(html).show();
+    }
+
     function pesan(tipe, teks) {
       $('#vp-hasil').html(
         '<div class="alert alert-' + tipe + '" style="margin-bottom: 0;">' + escapeHtml(teks) + '</div>'
@@ -224,22 +260,40 @@
               '<span class="pull-right text-muted">' + escapeHtml(v.mulai_at) + '</span>' +
             '</div>' +
             '<div class="panel-body">' +
-              '<video src="' + escapeHtml(v.url) + '" controls preload="metadata" ' +
-                'style="width: 100%; max-width: 640px; background: #000;"></video>' +
+              '<video src="' + escapeHtml(v.url) + '" controls playsinline ' +
+                'preload="' + (i === 0 ? 'metadata' : 'none') + '" ' +
+                'style="width: 100%; max-width: 720px; background: #000;"></video>' +
+              '<div class="vp-galat text-danger" style="display: none; margin-top: 6px;"></div>' +
+              '<table class="table table-condensed" style="margin: 10px 0 0; max-width: 720px;"><tbody>' +
+                '<tr><td class="text-muted" style="width: 120px; border-top: 0;">Packer</td><td style="border-top: 0;"><strong>' +
+                  escapeHtml(v.nama_packer) + '</strong> (' + escapeHtml(v.nama_komputer) + ')</td></tr>' +
+                '<tr><td class="text-muted">Durasi / ukuran</td><td>' + formatDurasi(v.durasi_detik) +
+                  ' &middot; ' + formatUkuran(v.ukuran_byte) + '</td></tr>' +
+                '<tr><td class="text-muted">Berkas</td><td><code>' + escapeHtml(v.nama_file || '-') + '</code></td></tr>' +
+              '</tbody></table>' +
               '<div style="margin-top: 8px;">' +
-                'Packer: <strong>' + escapeHtml(v.nama_packer) + '</strong> &middot; ' +
-                'Komputer: ' + escapeHtml(v.nama_komputer) + ' &middot; ' +
-                'Durasi: ' + formatDurasi(v.durasi_detik) + ' &middot; ' +
-                'Ukuran: ' + formatUkuran(v.ukuran_byte) + ' &middot; ' +
-                'Berkas: <code>' + escapeHtml(v.nama_file || '-') + '</code> &middot; ' +
-                '<a href="' + escapeHtml(v.url) + '?unduh=1">Unduh WebM</a>' +
+                '<a href="' + escapeHtml(v.url) + '?unduh=1" class="btn btn-default btn-sm">' +
+                  '<i class="fa fa-download"></i> Unduh WebM</a> ' +
+                '<span style="display: inline-block; margin-left: 6px;">' + gambarMp4(v) + '</span>' +
               '</div>' +
-              '<div style="margin-top: 8px;">' + gambarMp4(v) + '</div>' +
             '</div>' +
           '</div>';
       });
 
       $('#vp-hasil').html(html);
+
+      $('#vp-hasil video').each(function (i) {
+        var el = this;
+        var galat = $(el).siblings('.vp-galat');
+        el.addEventListener('error', function () {
+          galat.text('Video gagal dimuat. Coba cari ulang, atau pakai Unduh WebM / Siapkan MP4.').show();
+        });
+        // Scan + Enter adalah interaksi pengguna, jadi autoplay diizinkan browser.
+        if (i === 0 && list[0].status !== 'MEREKAM') {
+          var p = el.play();
+          if (p && p.catch) { p.catch(function () {}); }
+        }
+      });
 
       var adaAntrian = list.some(function (v) {
         return v.mp4 && (v.mp4.status === 'ANTRI' || v.mp4.status === 'PROSES');
@@ -247,22 +301,31 @@
       aturPemantauMp4(adaAntrian);
     }
 
-    function cari() {
-      var noresi = $.trim($('#vp-noresi').val());
+    function cari(noresiLangsung) {
+      var noresi = $.trim(typeof noresiLangsung === 'string' ? noresiLangsung : $('#vp-noresi').val());
 
       if (noresi === '') {
         pesan('warning', 'Nomor resi tidak boleh kosong.');
         return;
       }
+      $('#vp-noresi').val(noresi);
 
+      // Scan beruntun: hasil pencarian lama tidak boleh menimpa yang baru.
+      if (xhrCari) { xhrCari.abort(); }
+
+      var tombol = $('#vp-cari').prop('disabled', true);
       pesan('info', 'Mencari video untuk resi ' + noresi + '...');
 
-      $.ajax({
+      xhrCari = $.ajax({
         url: urlCari,
         method: 'POST',
         data: { noresi: noresi },
         dataType: 'json',
         success: function (res) {
+          if (res && res.status === 401) {
+            pesan('danger', 'Sesi login habis. Muat ulang halaman lalu login kembali.');
+            return;
+          }
           if (!res || res.code !== 200) {
             pesan('warning', res && res.message ? res.message : 'Video tidak ditemukan.');
             noresiAktif = '';
@@ -270,10 +333,16 @@
             return;
           }
           noresiAktif = noresi;
+          simpanRiwayat(noresi);
           gambarHasil(noresi, res.data);
         },
-        error: function () {
-          pesan('danger', 'Gagal menghubungi server.');
+        error: function (xhr, status) {
+          if (status === 'abort') return;
+          pesan('danger', 'Gagal menghubungi server. Periksa koneksi lalu cari lagi.');
+        },
+        complete: function () {
+          xhrCari = null;
+          tombol.prop('disabled', false);
         }
       });
 
@@ -281,7 +350,18 @@
       $('#vp-noresi').select();
     }
 
-    $('#vp-cari').on('click', cari);
+    $('#vp-cari').on('click', function () { cari(); });
+
+    $('#vp-riwayat').on('click', '.vp-riwayat-item', function (e) {
+      e.preventDefault();
+      cari(String($(this).data('resi')));
+    });
+
+    $('#vp-riwayat').on('click', '#vp-riwayat-hapus', function (e) {
+      e.preventDefault();
+      try { localStorage.removeItem(KUNCI_RIWAYAT); } catch (err) {}
+      gambarRiwayat();
+    });
 
     $('#vp-hasil').on('click', '.vp-minta-mp4', function () {
       var tombol = $(this);
@@ -312,9 +392,12 @@
       if (e.which === 13) {
         e.preventDefault();
         cari();
+      } else if (e.which === 27) {
+        $(this).val('');
       }
     });
 
+    gambarRiwayat();
     $('#vp-noresi').focus();
   })();
 </script>
