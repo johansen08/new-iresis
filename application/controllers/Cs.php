@@ -2146,10 +2146,13 @@ class Cs extends MY_Controller
     {
         header('Content-Type: application/json');
 
-        $noresi = trim((string) $this->input->post('noresi'));
-        if ($noresi === '') {
-            $noresi = trim((string) $this->input->get('noresi'));
+        // Resi tidak pernah memuat spasi: buang semua whitespace, termasuk NBSP,
+        // CR/LF sisa scanner, dan karakter zero-width dari hasil tempel.
+        $mentah = (string) $this->input->post('noresi');
+        if ($mentah === '') {
+            $mentah = (string) $this->input->get('noresi');
         }
+        $noresi = (string) preg_replace('/[\s\x{00A0}\x{200B}-\x{200D}\x{FEFF}]+/u', '', $mentah);
 
         if ($noresi === '') {
             echo json_encode(['code' => 400, 'message' => 'Nomor resi tidak boleh kosong.', 'data' => []]);

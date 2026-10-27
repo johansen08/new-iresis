@@ -19,15 +19,12 @@
                 placeholder="Scan atau ketik nomor resi"
                 autocomplete="off"
               />
-              <span class="input-group-btn">
-                <button class="btn btn-default" type="button" id="vp-cari">
-                  <i class="fa fa-search"></i> Cari
-                </button>
-              </span>
+              <span class="input-group-addon" id="vp-status-cari"><i class="fa fa-search"></i></span>
             </div>
             <p class="help-block" style="margin-top: 6px;">
-              <strong>Cara pakai:</strong> scan atau ketik nomor resi, lalu tekan <kbd>Enter</kbd>.
-              Video langsung muncul dan diputar. Tekan <kbd>Esc</kbd> untuk mengosongkan kolom.
+              <strong>Cara pakai:</strong> scan atau tempel (<kbd>Ctrl</kbd>+<kbd>V</kbd>) nomor resi.
+              Pencarian jalan otomatis dan video langsung diputar. Scan berikutnya otomatis
+              menggantikan resi sebelumnya. Tekan <kbd>Esc</kbd> untuk mengosongkan kolom.
             </p>
             <div id="vp-riwayat" style="display: none; margin-top: 4px;"></div>
           </div>
@@ -301,19 +298,33 @@
       aturPemantauMp4(adaAntrian);
     }
 
+    // Nomor resi tidak pernah memuat spasi: buang semua whitespace (spasi, tab,
+    // CR/LF sisa scanner, NBSP, zero-width) bukan hanya di ujung.
+    function bersihkanResi(teks) {
+      return String(teks == null ? '' : teks).replace(/[\s ​-‍﻿]+/g, '');
+    }
+
+    var pencarianTertunda = null;
+    // Setelah pencarian, isi kolom dianggap "bekas": karakter berikutnya (scan
+    // atau ketik) menghapusnya dulu, jadi resi baru tidak ditempel di belakang lama.
+    var siapGanti = false;
+
     function cari(noresiLangsung) {
-      var noresi = $.trim(typeof noresiLangsung === 'string' ? noresiLangsung : $('#vp-noresi').val());
+      if (pencarianTertunda) { clearTimeout(pencarianTertunda); pencarianTertunda = null; }
+
+      var noresi = bersihkanResi(typeof noresiLangsung === 'string' ? noresiLangsung : $('#vp-noresi').val());
 
       if (noresi === '') {
-        pesan('warning', 'Nomor resi tidak boleh kosong.');
+        $('#vp-noresi').val('');
         return;
       }
       $('#vp-noresi').val(noresi);
+      siapGanti = true;
 
       // Scan beruntun: hasil pencarian lama tidak boleh menimpa yang baru.
       if (xhrCari) { xhrCari.abort(); }
 
-      var tombol = $('#vp-cari').prop('disabled', true);
+      var ikon = $('#vp-status-cari i').attr('class', 'fa fa-spinner fa-spin');
       pesan('info', 'Mencari video untuk resi ' + noresi + '...');
 
       xhrCari = $.ajax({
@@ -342,15 +353,13 @@
         },
         complete: function () {
           xhrCari = null;
-          tombol.prop('disabled', false);
+          ikon.attr('class', 'fa fa-search');
         }
       });
 
-      // Siapkan input untuk scan berikutnya.
-      $('#vp-noresi').select();
+      $('#vp-noresi').focus().select();
     }
 
-    $('#vp-cari').on('click', function () { cari(); });
 
     $('#vp-riwayat').on('click', '.vp-riwayat-item', function (e) {
       e.preventDefault();
@@ -388,14 +397,40 @@
       });
     });
 
+    // Scanner mengetik cepat lalu (biasanya) Enter. Karakter pertama setelah
+    // pencarian menghapus isi lama dulu, jadi resi tidak pernah menumpuk.
     $('#vp-noresi').on('keydown', function (e) {
       if (e.which === 13) {
         e.preventDefault();
         cari();
       } else if (e.which === 27) {
         $(this).val('');
+        siapGanti = false;
+      } else if (siapGanti && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        $(this).val('');
+        siapGanti = false;
       }
     });
+
+    // Tempel: gantikan seluruh isi (bukan menyisipkan di tengah), bersihkan, cari.
+    $('#vp-noresi').on('paste', function (e) {
+      var asli = e.originalEvent || e;
+      var teks = asli.clipboardData ? asli.clipboardData.getData('text') : (window.clipboardData ? window.clipboardData.getData('Text') : '');
+      e.preventDefault();
+      cari(teks);
+    });
+
+    // Scanner tanpa suffix Enter, atau isian lain: cari otomatis begitu input
+    // berhenti sebentar. Batas panjang mencegah mencari di tengah ketikan manual.
+    $('#vp-noresi').on('input', function () {
+      if (pencarianTertunda) { clearTimeout(pencarianTertunda); }
+      var bersih = bersihkanResi($(this).val());
+      if (bersih.length < 8) { return; }
+      pencarianTertunda = setTimeout(function () { cari(); }, 350);
+    });
+
+    // Klik / fokus ke kolom memilih seluruh isi: ketikan berikutnya menggantikannya.
+    $('#vp-noresi').on('focus click', function () { this.select(); });
 
     gambarRiwayat();
     $('#vp-noresi').focus();
