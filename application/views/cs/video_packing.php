@@ -2,10 +2,6 @@
   <div class="col-md-12">
     <div class="panel panel-default">
 
-      <div class="panel-heading">
-        <h3 class="panel-title"><strong>Video Packing</strong></h3>
-      </div>
-
       <div class="panel-body">
         <!-- Sengaja bukan <form>: submit form di aplikasi ini dibajak SPA
              (plugins.js) dan hasilnya diperlakukan sebagai ganti halaman. -->
@@ -20,12 +16,15 @@
                 autocomplete="off"
               />
               <span class="input-group-addon" id="vp-status-cari"><i class="fa fa-search"></i></span>
+              <a href="#" class="input-group-addon" id="vp-info-tombol" title="Cara pakai">
+                <i class="fa fa-info-circle"></i>
+              </a>
             </div>
-            <p class="help-block" style="margin-top: 6px;">
+            <div id="vp-info" class="well well-sm" style="display: none; margin: 8px 0 0;">
               <strong>Cara pakai:</strong> scan atau tempel (<kbd>Ctrl</kbd>+<kbd>V</kbd>) nomor resi.
               Pencarian jalan otomatis dan video langsung diputar. Scan berikutnya otomatis
               menggantikan resi sebelumnya. Tekan <kbd>Esc</kbd> untuk mengosongkan kolom.
-            </p>
+            </div>
             <div id="vp-riwayat" style="display: none; margin-top: 4px;"></div>
           </div>
         </div>
@@ -125,18 +124,18 @@
       // jadi itu dikatakan terus terang alih-alih sekadar menomori panel.
       if (list.length > 1) {
         html +=
-          '<div class="alert alert-warning">' +
-            '<i class="fa fa-info-circle"></i> ' +
-            'Rekaman resi ini <strong>terbagi ' + list.length + ' bagian</strong> karena sempat ' +
-            'terputus di tengah packing. Tonton berurutan dari Bagian 1; ada jeda beberapa detik ' +
-            'antar bagian, yaitu saat rekamannya mati.' +
+          '<p class="text-warning"><strong>Terbagi ' + list.length + ' bagian</strong> ' +
+            '<a href="#" class="vp-info-bagian text-muted" title="Penjelasan"><i class="fa fa-info-circle"></i></a></p>' +
+          '<div class="well well-sm vp-info-bagian-isi" style="display: none;">' +
+            'Rekaman sempat terputus di tengah packing (biasanya tab packer mati). Tonton berurutan ' +
+            'dari Bagian 1; ada jeda beberapa detik antar bagian, yaitu saat rekamannya mati.' +
           '</div>';
       }
 
       list.forEach(function (v, i) {
         var judul = list.length > 1
           ? 'Bagian ' + (v.bagian || (i + 1)) + ' dari ' + list.length
-          : 'Rekaman packing';
+          : '';
 
         html +=
           '<div class="panel panel-default">' +
@@ -241,6 +240,16 @@
       $('#vp-noresi').focus().select();
     }
 
+
+    $('#vp-info-tombol').on('click', function (e) {
+      e.preventDefault();
+      $('#vp-info').slideToggle(120);
+    });
+
+    $('#vp-hasil').on('click', '.vp-info-bagian', function (e) {
+      e.preventDefault();
+      $('#vp-hasil .vp-info-bagian-isi').slideToggle(120);
+    });
 
     $('#vp-riwayat').on('click', '.vp-riwayat-item', function (e) {
       e.preventDefault();
