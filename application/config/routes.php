@@ -101,6 +101,7 @@ $route['picker/validasi-upload-resi-spesial'] = 'picker/validasi_upload_resi_spe
 $route['picker/simpan-upload-resi-spesial'] = 'picker/simpan_upload_resi_spesial';
 $route['laporan-resi-spesial'] = 'laporan_resi_spesial/index';
 $route['laporan-resi-spesial/get-data'] = 'laporan_resi_spesial/get_data';
+$route['laporan-resi-spesial/export'] = 'laporan_resi_spesial/export';
 
 $route['packer/scan-packer'] = 'packer/scan_packer';
 $route['packer/scan-packer-webcam'] = 'packer/scan_packer_webcam';

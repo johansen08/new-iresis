@@ -25,6 +25,59 @@ class Laporan_resi_spesial extends MY_Controller
         ));
     }
 
+    /** Rentang tanggal 'Y-m-d' dari POST/GET; default 1 bulan ini sampai hari ini. */
+    private function _rentang()
+    {
+        $ok = function ($t) { return is_string($t) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $t) && strtotime($t) !== false; };
+        $start = $this->input->post_get('start_date');
+        $end   = $this->input->post_get('end_date');
+        $start = $ok($start) ? $start : date('Y-m-01');
+        $end   = $ok($end) ? $end : date('Y-m-d');
+        if ($start > $end) { $tmp = $start; $start = $end; $end = $tmp; }
+        return array($start, $end);
+    }
+
+    /** Ekspor Excel seluruh tanggal pada rentang yang sedang tampil. Parameter lewat GET (unduhan). */
+    public function export()
+    {
+        if (!$this->_boleh()) {
+            show_error('Anda tidak punya akses ke menu ini.', 403);
+        }
+        ini_set('memory_limit', '512M');
+        set_time_limit(0);
+
+        list($start, $end) = $this->_rentang();
+        $rows = $this->laporan_resi_spesial_fcd->daftar($start, $end, 0, 0);
+
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sh = $ss->getActiveSheet();
+        $sh->setTitle('Laporan Resi Spesial');
+        $sh->fromArray(array('Tanggal Scan Picker', '1 SKU 1 QTY', '1 SKU PICKER', 'Persen'), null, 'A1');
+        $sh->getStyle('A1:D1')->getFont()->setBold(true);
+
+        $baris = 2;
+        foreach ($rows as $r) {
+            $sh->setCellValue('A' . $baris, $r['tanggal']);
+            $sh->setCellValue('B' . $baris, $r['satu_sku_satu_qty']);
+            $sh->setCellValue('C' . $baris, $r['satu_sku_picker']);
+            $sh->setCellValue('D' . $baris, $r['persen'] / 100);
+            $baris++;
+        }
+        if ($baris > 2) {
+            $sh->getStyle('D2:D' . ($baris - 1))->getNumberFormat()->setFormatCode('0.0%');
+        }
+        foreach (array('A' => 22, 'B' => 14, 'C' => 14, 'D' => 10) as $kol => $lebar) {
+            $sh->getColumnDimension($kol)->setWidth($lebar);
+        }
+
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="Laporan_Resi_Spesial_' . $start . '_sd_' . $end . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit;
+    }
+
     /** Satu halaman baris (JSON). POST: start_date, end_date, size (10/20/50), page. */
     public function get_data()
     {
@@ -32,12 +85,7 @@ class Laporan_resi_spesial extends MY_Controller
             $this->make_ajax_response(403, 'Anda tidak punya akses ke menu ini.');
         }
 
-        $ok = function ($t) { return is_string($t) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $t) && strtotime($t) !== false; };
-        $start = $this->input->post('start_date');
-        $end   = $this->input->post('end_date');
-        $start = $ok($start) ? $start : date('Y-m-01');
-        $end   = $ok($end) ? $end : date('Y-m-d');
-        if ($start > $end) { $tmp = $start; $start = $end; $end = $tmp; }
+        list($start, $end) = $this->_rentang();
 
         $size = (int) $this->input->post('size');
         if (!in_array($size, array(10, 20, 50), true)) $size = 10;

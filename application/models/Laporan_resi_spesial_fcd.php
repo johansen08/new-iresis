@@ -24,9 +24,16 @@ class Laporan_resi_spesial_fcd extends CI_Model
         return $row ? (int) $row->n : 0;
     }
 
-    /** Satu halaman baris per tanggal, tanggal terbaru dulu. */
+    /** Satu halaman baris per tanggal, tanggal terbaru dulu. $limit 0 = semua baris (untuk ekspor). */
     public function daftar($start, $end, $offset, $limit)
     {
+        $batas = (int) $limit > 0 ? 'LIMIT ?, ?' : '';
+        $param = array(self::STATUS_SPESIAL, $start, $end);
+        if ($batas !== '') {
+            $param[] = (int) $offset;
+            $param[] = (int) $limit;
+        }
+
         $rows = $this->db->query(
             "SELECT DATE(r.tanggal_resiambilbarang) AS tanggal,
                     COUNT(*) AS satu_sku_satu_qty,
@@ -37,8 +44,8 @@ class Laporan_resi_spesial_fcd extends CI_Model
               WHERE r.tanggal_resiambilbarang >= ? AND r.tanggal_resiambilbarang < DATE_ADD(?, INTERVAL 1 DAY)
               GROUP BY DATE(r.tanggal_resiambilbarang)
               ORDER BY tanggal DESC
-              LIMIT ?, ?",
-            array(self::STATUS_SPESIAL, $start, $end, (int) $offset, (int) $limit)
+              $batas",
+            $param
         )->result_array();
 
         foreach ($rows as &$r) {
