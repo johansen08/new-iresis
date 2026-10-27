@@ -49,7 +49,10 @@
     // Diturunkan ke 24 fps untuk semua PC (28 Okt 2026) supaya encode lebih
     // ringan dan trafik ke server berkurang; bitrate tidak diubah, jadi jatah
     // bit per frame justru naik. Tetap dikunci `exact` di constraintKeras().
-    var FPS_IDEAL        = 24;
+    // Diturunkan lagi ke 20 fps untuk SEMUA PC tanpa kecuali, termasuk PC berkamera
+    // 2K/4K (28 Okt 2026). Dipasang sebagai batas `max` di kedua constraint, jadi
+    // kamera yang hanya punya mode 30 fps tetap dibatasi 20 fps oleh browser.
+    var FPS_IDEAL        = 20;
     // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
     // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
     // berkas (keputusan 2026-10-01). Rekaman sudah lossy sejak keluar dari
@@ -77,24 +80,11 @@
 
     // Profil khusus per komputer packer (nama_pk = kolom nama_komputer), diisi
     // main.php lewat window.PACKER_VIDEO_KOMPUTER. PC yang tidak terdaftar di
-    // sini tetap memakai setelan 1080p di atas. F19-16 dipakai packing resi qty
-    // banyak dan dipasangi kamera 4K (28 Okt 2026), jadi merekam 2560x1440
-    // 24 fps (diturunkan dari 30 fps, 28 Okt 2026, supaya encode 2K lebih ringan).
-    // Bitrate awalnya dikali 1,78 (rasio piksel 2560x1440 : 1920x1080) supaya
-    // jatah bit per frame sama:
-    // Diturunkan (28 Okt 2026) ke VP9 18 / VP8-H.264 24 Mbps karena lima PC
-    // merekam bersamaan hampir memenuhi jaringan LAN ke server (sebelumnya
-    // VP9 28 / VP8-H.264 36 Mbps, rasio piksel penuh 1,78x):
-    //   VP9 18 Mbps = ~135 MB per menit rekaman
-    //   VP8/H.264 24 Mbps = ~180 MB per menit rekaman
-    // Beban encode CPU ikut naik; panel kamera menandai oranye kalau fps
-    // terukur di bawah 90% fps profil (±21 untuk 24 fps).
-    var PROFIL_KOMPUTER = {
-        'F19-16': {
-            lebar: 2560, tinggi: 1440, fps: 24,
-            bitrateVp9: 18000000, bitrateVp8: 24000000, bitrateH264: 24000000
-        }
-    };
+    // sini memakai setelan 1080p 20 fps di atas. Saat ini KOSONG: F19-16 sempat
+    // dipasang profil 2K (28 Okt 2026) tapi dikembalikan ke 1080p 20 fps seperti
+    // PC lain. Contoh entri: 'F19-XX': { lebar, tinggi, fps, bitrateVp9,
+    // bitrateVp8, bitrateH264 }.
+    var PROFIL_KOMPUTER = {};
     var profilPc = PROFIL_KOMPUTER[String(window.PACKER_VIDEO_KOMPUTER || '').toUpperCase()];
     if (profilPc) {
         LEBAR_IDEAL  = profilPc.lebar;
@@ -149,7 +139,7 @@
     // encoder sempat menuntaskan antreannya. EKOR_MAKS_MS adalah pagar kalau
     // fps jatuh sangat rendah.
     var EKOR_MIN_MS      = 5000;
-    var EKOR_MIN_FRAME   = 60;      // ±2 detik gerakan pada 30 fps
+    var EKOR_MIN_FRAME   = 60;      // ±3 detik gerakan pada 20 fps
     var EKOR_KURAS_MS    = 2000;
     var EKOR_MAKS_MS     = 15000;
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
@@ -546,11 +536,12 @@
      */
     function constraintKeras(deviceId) {
         var video = {
-            width:     { min: LEBAR_IDEAL,  ideal: LEBAR_IDEAL },
-            height:    { min: TINGGI_IDEAL, ideal: TINGGI_IDEAL },
-            // `exact`: kamera harus mengirim mode 30 fps, kalau tidak ditolak
-            // dan bukaKamera() jatuh ke constraintLunak().
-            frameRate: { exact: FPS_IDEAL }
+            // `max` = kamera 2K/4K tidak boleh merekam di atas 1080p.
+            width:     { min: LEBAR_IDEAL,  ideal: LEBAR_IDEAL,  max: LEBAR_IDEAL },
+            height:    { min: TINGGI_IDEAL, ideal: TINGGI_IDEAL, max: TINGGI_IDEAL },
+            // `max` = batas keras (fps tidak boleh lewat FPS_IDEAL, walau kamera
+            // aslinya 30 fps), `ideal` = pilih mode terdekat di bawahnya.
+            frameRate: { ideal: FPS_IDEAL, max: FPS_IDEAL }
         };
         if (deviceId) video.deviceId = { ideal: deviceId };
         return video;
@@ -564,9 +555,9 @@
      */
     function constraintLunak(deviceId) {
         var video = {
-            width:     { ideal: LEBAR_IDEAL },
-            height:    { ideal: TINGGI_IDEAL },
-            frameRate: { ideal: FPS_IDEAL }
+            width:     { ideal: LEBAR_IDEAL,  max: LEBAR_IDEAL },
+            height:    { ideal: TINGGI_IDEAL, max: TINGGI_IDEAL },
+            frameRate: { ideal: FPS_IDEAL, max: FPS_IDEAL }
         };
         if (deviceId) video.deviceId = { ideal: deviceId };
         return video;
