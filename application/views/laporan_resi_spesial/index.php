@@ -64,6 +64,12 @@
 #lrs_wrap .lrs-btn.utama:hover:not(:disabled) { background:#095a4f; }
 #lrs_wrap .lrs-btn:disabled { opacity:.45; cursor:not-allowed; }
 #lrs_wrap .lrs-err { color:#b3261e; margin-bottom:12px; }
+#lrs_wrap .lrs-prog { margin-bottom:12px; padding:12px 16px; border:1px solid var(--lrs-garis); border-radius:10px; background:#fff; }
+#lrs_wrap .lrs-prog-teks { display:flex; justify-content:space-between; gap:12px; margin-bottom:8px; font-size:13px; color:var(--lrs-redup); }
+#lrs_wrap .lrs-prog-bar { height:8px; border-radius:4px; background:#eef1f3; overflow:hidden; position:relative; }
+#lrs_wrap .lrs-prog-isi { height:100%; width:0; border-radius:4px; background:var(--lrs-hijau); transition:width .25s; }
+#lrs_wrap .lrs-prog.tak-tentu .lrs-prog-isi { position:absolute; width:35%; animation:lrs-geser 1.1s ease-in-out infinite; transition:none; }
+@keyframes lrs-geser { 0% { left:-35%; } 100% { left:100%; } }
 </style>
 <div id="lrs_wrap">
     <div class="lrs-filter">
@@ -91,6 +97,10 @@
         </button>
     </div>
     <div class="lrs-err" id="lrs_err" style="display:none"></div>
+    <div class="lrs-prog" id="lrs_prog" style="display:none" role="status" aria-live="polite">
+        <div class="lrs-prog-teks"><span id="lrs_prog_teks"></span><span id="lrs_prog_waktu"></span></div>
+        <div class="lrs-prog-bar"><div class="lrs-prog-isi" id="lrs_prog_isi"></div></div>
+    </div>
     <table>
         <thead><tr><th>Tanggal Scan Picker</th><th>1 SKU 1 QTY</th><th>1 SKU PICKER</th><th>Persen</th></tr></thead>
         <tbody id="lrs_body"><tr><td colspan="4" class="lrs-kosong">Memuat...</td></tr></tbody>
@@ -121,7 +131,7 @@ $(document).ready(function () {
 
     var T = utc(HARI_INI);
     var S = {
-        from: '<?= htmlspecialchars($start) ?>', to: HARI_INI, page: 1, req: 0,
+        from: '<?= htmlspecialchars($start) ?>', to: HARI_INI, page: 1, req: 0, rows: [],
         dp: { open: false, dFrom: '', dTo: '', hover: '', vy: 0, vm: 0 }
     };
 
@@ -129,36 +139,92 @@ $(document).ready(function () {
     var ICON_NEXT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 5 16 12 9 19"></polyline></svg>';
 
     // ------------------------------------------------------------ muat data
-    function galat(m) { $('#lrs_err').text(m).show(); $('#lrs_body').html('<tr><td colspan="4" class="lrs-kosong">Gagal memuat data.</td></tr>'); }
+    // Progress bar muncul hanya bila proses lebih dari 0,2 detik, supaya tidak berkedip pada data yang sudah di-cache server.
+    var PR = { timer: null, tick: null, mulai: 0 };
+    function progMulai(teks, takTentu) {
+        progSelesai();
+        PR.mulai = Date.now();
+        PR.timer = setTimeout(function () {
+            $('#lrs_prog').toggleClass('tak-tentu', !!takTentu).show();
+            $('#lrs_prog_teks').text(teks);
+            $('#lrs_prog_isi').css('width', takTentu ? '' : '0%');
+            PR.tick = setInterval(function () { $('#lrs_prog_waktu').text(Math.round((Date.now() - PR.mulai) / 1000) + ' dtk'); }, 500);
+        }, 200);
+    }
+    function progUbah(teks, persen) {
+        $('#lrs_prog_teks').text(teks);
+        $('#lrs_prog_isi').css('width', persen + '%');
+    }
+    function progSelesai() {
+        clearTimeout(PR.timer); clearInterval(PR.tick);
+        $('#lrs_prog').hide().removeClass('tak-tentu');
+        $('#lrs_prog_waktu').text('');
+    }
 
-    function muat(page) {
-        var id = ++S.req;
+    function galat(m) {
+        progSelesai();
+        $('#lrs_err').text(m).show();
+        $('#lrs_body').html('<tr><td colspan="4" class="lrs-kosong">Gagal memuat data.</td></tr>');
+        $('#lrs_info, #lrs_hal').text('');
+    }
+
+    // Pecah rentang jadi potongan <= 31 hari, terbaru dulu.
+    function potongan(from, to) {
+        var out = [], akhir = utc(to), awal = utc(from);
+        while (akhir >= awal) {
+            var mulai = Math.max(awal, akhir - 30 * DAY);
+            out.push([iso(mulai), iso(akhir)]);
+            akhir = mulai - DAY;
+        }
+        return out;
+    }
+
+    // Ambil data per potongan (progress bar bergerak per potongan); paginasi dilakukan di browser.
+    function muat() {
+        var id = ++S.req, bagian = potongan(S.from, S.to), i = 0;
+        S.rows = [];
         $('#lrs_err').hide();
+        $('#lrs_body').html('<tr><td colspan="4" class="lrs-kosong">Memuat...</td></tr>');
         $('#lrs_prev, #lrs_next').prop('disabled', true);
-        $.ajax({
-            url: BASE + 'laporan-resi-spesial/get-data', type: 'POST', dataType: 'text', timeout: 120000,
-            data: { start_date: S.from, end_date: S.to, size: $('#lrs_size').val(), page: page }
-        }).done(function (teks) {
-            if (id !== S.req) return;
-            var r;
-            try { r = JSON.parse(teks); } catch (e) { return galat('Respons server bukan JSON: ' + teks.substring(0, 300)); }
-            if (r.code !== 200) return galat(r.message || 'Gagal memuat data.');
-            var d = r.data, h = '';
-            S.page = d.page;
-            var maks = Math.max(1, Math.ceil(d.total / d.size));
-            if (!d.rows.length) h = '<tr><td colspan="4" class="lrs-kosong">Tidak ada scan picker 1 SKU 1 QTY pada rentang ini.</td></tr>';
-            $.each(d.rows, function (i, x) {
-                var kls = x.persen >= 50 ? 'lrs-ok' : 'lrs-kurang';
-                h += '<tr><td>' + esc(fmt(x.tanggal)) + '</td><td>' + angka(x.satu_sku_satu_qty) + '</td><td>' + angka(x.satu_sku_picker)
-                   + '</td><td class="' + kls + '">' + Number(x.persen).toFixed(1).replace('.', ',') + '%</td></tr>';
-            });
-            $('#lrs_body').html(h);
-            var dari = d.total ? (d.page - 1) * d.size + 1 : 0, sampai = Math.min(d.total, d.page * d.size);
-            $('#lrs_info').text('Menampilkan ' + dari + '-' + sampai + ' dari ' + d.total + ' tanggal');
-            $('#lrs_hal').text('Halaman ' + S.page + ' / ' + maks);
-            $('#lrs_prev').prop('disabled', S.page <= 1);
-            $('#lrs_next').prop('disabled', S.page >= maks);
-        }).fail(function (xhr) { if (id === S.req) galat('Gagal memuat (' + (xhr.status || 'tanpa respons') + ').'); });
+        $('#lrs_info, #lrs_hal').text('');
+        progMulai('Memuat data 0 dari ' + bagian.length + ' bagian...', false);
+
+        (function berikut() {
+            if (i >= bagian.length) { progSelesai(); render(1); return; }
+            $.ajax({
+                url: BASE + 'laporan-resi-spesial/get-data', type: 'POST', dataType: 'text', timeout: 180000,
+                data: { start_date: bagian[i][0], end_date: bagian[i][1] }
+            }).done(function (teks) {
+                if (id !== S.req) return;
+                var r;
+                try { r = JSON.parse(teks); } catch (e) { return galat('Respons server bukan JSON: ' + teks.substring(0, 300)); }
+                if (r.code !== 200) return galat(r.message || 'Gagal memuat data.');
+                S.rows = S.rows.concat(r.data.rows);
+                i++;
+                progUbah('Memuat data ' + i + ' dari ' + bagian.length + ' bagian...', Math.round(100 * i / bagian.length));
+                if (i === 1) render(1);   // tampilkan hasil pertama (terbaru) segera
+                berikut();
+            }).fail(function (xhr, st) { if (id === S.req) galat('Gagal memuat (' + (st === 'timeout' ? 'waktu habis' : (xhr.status || 'tanpa respons')) + ').'); });
+        })();
+    }
+
+    function render(page) {
+        var size = +$('#lrs_size').val(), total = S.rows.length;
+        var maks = Math.max(1, Math.ceil(total / size));
+        S.page = Math.min(maks, Math.max(1, page));
+        var h = '', awal = (S.page - 1) * size;
+        if (!total) h = '<tr><td colspan="4" class="lrs-kosong">Tidak ada scan picker 1 SKU 1 QTY pada rentang ini.</td></tr>';
+        $.each(S.rows.slice(awal, awal + size), function (i, x) {
+            var kls = x.persen >= 50 ? 'lrs-ok' : 'lrs-kurang';
+            h += '<tr><td>' + esc(fmt(x.tanggal)) + '</td><td>' + angka(x.satu_sku_satu_qty) + '</td><td>' + angka(x.satu_sku_picker)
+               + '</td><td class="' + kls + '">' + Number(x.persen).toFixed(1).replace('.', ',') + '%</td></tr>';
+        });
+        $('#lrs_body').html(h);
+        var dari = total ? awal + 1 : 0, sampai = Math.min(total, awal + size);
+        $('#lrs_info').text('Menampilkan ' + dari + '-' + sampai + ' dari ' + total + ' tanggal');
+        $('#lrs_hal').text('Halaman ' + S.page + ' / ' + maks);
+        $('#lrs_prev').prop('disabled', S.page <= 1);
+        $('#lrs_next').prop('disabled', S.page >= maks);
     }
 
     // ------------------------------------------------------------ pemilih tanggal
@@ -230,7 +296,7 @@ $(document).ready(function () {
     function terapkanRentang(a, b) {
         S.from = a; S.to = b;
         S.dp.open = false; S.dp.hover = '';
-        renderTglPop(); renderTglLabel(); muat(1);
+        renderTglPop(); renderTglLabel(); muat();
     }
 
     $('#lrs_tgl_btn').on('click', function () { S.dp.open ? tutupTgl() : bukaTgl(); });
@@ -261,14 +327,34 @@ $(document).ready(function () {
     });
     $(document).off('keydown.lrs').on('keydown.lrs', function (e) { if (e.key === 'Escape' && S.dp.open) tutupTgl(); });
 
+    // Export: diunduh lewat fetch supaya ada indikator proses sampai berkas siap.
     $('#lrs_export').on('click', function () {
-        window.location.href = BASE + 'laporan-resi-spesial/export?start_date=' + S.from + '&end_date=' + S.to;
+        var $b = $(this);
+        if ($b.prop('disabled')) return;
+        $b.prop('disabled', true);
+        $('#lrs_err').hide();
+        progMulai('Menyiapkan file Excel...', true);
+        fetch(BASE + 'laporan-resi-spesial/export?start_date=' + S.from + '&end_date=' + S.to, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                var cd = r.headers.get('Content-Disposition') || '', m = /filename="?([^";]+)"?/.exec(cd);
+                return r.blob().then(function (blob) { return { blob: blob, nama: m ? m[1] : 'Laporan_Resi_Spesial.xlsx' }; });
+            })
+            .then(function (f) {
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(f.blob); a.download = f.nama;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+                progSelesai();
+            })
+            .catch(function (e) { galat('Gagal membuat file Excel (' + e.message + ').'); })
+            .then(function () { $b.prop('disabled', false); });
     });
-    $('#lrs_size').on('change', function () { muat(1); });
-    $('#lrs_prev').on('click', function () { muat(S.page - 1); });
-    $('#lrs_next').on('click', function () { muat(S.page + 1); });
+    $('#lrs_size').on('change', function () { render(1); });
+    $('#lrs_prev').on('click', function () { render(S.page - 1); });
+    $('#lrs_next').on('click', function () { render(S.page + 1); });
 
     renderTglLabel();
-    muat(1);
+    muat();
 });
 </script>
