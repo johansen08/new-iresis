@@ -1,16 +1,15 @@
 <?php $BASE = rtrim(base_url(), '/') . '/'; ?>
 <style>
 #lrs_wrap { --lrs-hijau:#0b6b5e; --lrs-teks:#1c2a33; --lrs-redup:#4b5d68; --lrs-garis:#e3e8ec;
-            max-width:960px; margin:0 auto; padding:16px 20px 40px; color:var(--lrs-teks); }
+            max-width:1100px; margin:0 auto; padding:16px 20px 40px; color:var(--lrs-teks); }
 #lrs_wrap * { box-sizing:border-box; }
 #lrs_wrap button { font-family:inherit; }
 #lrs_wrap svg { flex:none; width:18px; height:18px; max-width:none; }
-#lrs_wrap .lrs-judul { display:flex; align-items:center; margin-bottom:8px; }
-#lrs_wrap .lrs-tip { position:relative; display:inline-flex; }
+#lrs_wrap .lrs-tip { position:relative; display:inline-flex; align-self:flex-end; height:44px; align-items:center; margin-left:auto; }
 #lrs_wrap .lrs-tip-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:0; border-radius:16px; background:transparent; color:#6b7c87; cursor:help; }
 #lrs_wrap .lrs-tip-btn:hover, #lrs_wrap .lrs-tip-btn:focus { background:#e9eef1; color:var(--lrs-hijau); outline:none; }
 #lrs_wrap .lrs-tip-btn svg { width:20px; height:20px; }
-#lrs_wrap .lrs-tip-box { display:none; position:absolute; top:36px; left:0; z-index:40; width:300px; padding:12px 14px; border-radius:10px; background:#12212b; color:#fff; font-size:13px; line-height:1.5; box-shadow:0 8px 24px rgba(18,33,43,.18); }
+#lrs_wrap .lrs-tip-box { display:none; position:absolute; top:46px; right:0; z-index:40; width:300px; padding:12px 14px; border-radius:10px; background:#12212b; color:#fff; font-size:13px; line-height:1.5; box-shadow:0 8px 24px rgba(18,33,43,.18); }
 #lrs_wrap .lrs-tip:hover .lrs-tip-box, #lrs_wrap .lrs-tip:focus-within .lrs-tip-box { display:block; }
 
 /* Filter */
@@ -20,7 +19,7 @@
 #lrs_wrap .lrs-input { display:inline-flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; color:var(--lrs-teks); font-size:14px; font-weight:500; cursor:pointer; }
 #lrs_wrap .lrs-input:hover { border-color:#9fb0ba; }
 #lrs_wrap .lrs-input:focus-visible, #lrs_wrap .lrs-input.buka { border-color:var(--lrs-hijau); box-shadow:0 0 0 3px rgba(11,107,94,.15); outline:none; }
-#lrs_wrap select.lrs-input { padding-right:10px; }
+#lrs_wrap select.lrs-input { width:96px; height:44px; padding:0 10px; }
 #lrs_wrap .lrs-lapis { position:fixed; top:0; left:0; right:0; bottom:0; z-index:29; border:0; background:transparent; cursor:default; padding:0; }
 #lrs_wrap .lrs-pop { position:absolute; top:76px; left:0; z-index:30; background:#fff; border:1px solid #dce3e8; border-radius:14px; box-shadow:0 12px 32px rgba(18,33,43,.16); }
 
@@ -59,20 +58,14 @@
 #lrs_wrap .lrs-kosong { text-align:center !important; color:var(--lrs-redup); padding:24px; }
 #lrs_wrap .lrs-bawah { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-top:12px; font-size:14px; color:var(--lrs-redup); }
 #lrs_wrap .lrs-nav { display:flex; gap:8px; align-items:center; }
-#lrs_wrap .lrs-btn { min-height:40px; padding:0 18px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; color:var(--lrs-teks); font-size:14px; font-weight:600; cursor:pointer; }
+#lrs_wrap .lrs-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 18px; border:1px solid #c9d3d9; border-radius:10px; background:#fff; color:var(--lrs-teks); font-size:14px; font-weight:600; cursor:pointer; }
 #lrs_wrap .lrs-btn:hover:not(:disabled) { background:#f3f6f8; }
+#lrs_wrap .lrs-btn.utama { border:0; background:var(--lrs-hijau); color:#fff; }
+#lrs_wrap .lrs-btn.utama:hover:not(:disabled) { background:#095a4f; }
 #lrs_wrap .lrs-btn:disabled { opacity:.45; cursor:not-allowed; }
 #lrs_wrap .lrs-err { color:#b3261e; margin-bottom:12px; }
 </style>
 <div id="lrs_wrap">
-    <div class="lrs-judul">
-        <span class="lrs-tip">
-            <button type="button" class="lrs-tip-btn" aria-label="Penjelasan laporan">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="8" r="0.6"></circle></svg>
-            </button>
-            <span class="lrs-tip-box">Per tanggal scan picker. 1 SKU 1 QTY = resi satuan; 1 SKU PICKER = yang discan sebagai resi spesial. Target minimal 50%.</span>
-        </span>
-    </div>
     <div class="lrs-filter">
         <div class="lrs-fgrup">
             <span class="lrs-flabel">Tanggal Scan Picker</span>
@@ -83,9 +76,19 @@
             <div id="lrs_tgl_pop"></div>
         </div>
         <div class="lrs-fgrup">
-            <label class="lrs-flabel" for="lrs_size" style="margin:0">Baris per halaman</label>
-            <select id="lrs_size" class="lrs-input"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select>
+            <label class="lrs-flabel" for="lrs_size">Baris per halaman</label>
+            <select id="lrs_size" class="lrs-input lrs-size"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select>
         </div>
+        <span class="lrs-tip">
+            <button type="button" class="lrs-tip-btn" aria-label="Penjelasan laporan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="8" r="0.6"></circle></svg>
+            </button>
+            <span class="lrs-tip-box">Per tanggal scan picker. 1 SKU 1 QTY = resi satuan; 1 SKU PICKER = yang discan sebagai resi spesial. Target minimal 50%.</span>
+        </span>
+        <button type="button" class="lrs-btn utama lrs-export" id="lrs_export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export Excel
+        </button>
     </div>
     <div class="lrs-err" id="lrs_err" style="display:none"></div>
     <table>
@@ -147,7 +150,7 @@ $(document).ready(function () {
             $.each(d.rows, function (i, x) {
                 var kls = x.persen >= 50 ? 'lrs-ok' : 'lrs-kurang';
                 h += '<tr><td>' + esc(fmt(x.tanggal)) + '</td><td>' + angka(x.satu_sku_satu_qty) + '</td><td>' + angka(x.satu_sku_picker)
-                   + '</td><td class="' + kls + '">' + String(x.persen).replace('.', ',') + '%</td></tr>';
+                   + '</td><td class="' + kls + '">' + Number(x.persen).toFixed(1).replace('.', ',') + '%</td></tr>';
             });
             $('#lrs_body').html(h);
             var dari = d.total ? (d.page - 1) * d.size + 1 : 0, sampai = Math.min(d.total, d.page * d.size);
@@ -258,6 +261,9 @@ $(document).ready(function () {
     });
     $(document).off('keydown.lrs').on('keydown.lrs', function (e) { if (e.key === 'Escape' && S.dp.open) tutupTgl(); });
 
+    $('#lrs_export').on('click', function () {
+        window.location.href = BASE + 'laporan-resi-spesial/export?start_date=' + S.from + '&end_date=' + S.to;
+    });
     $('#lrs_size').on('change', function () { muat(1); });
     $('#lrs_prev').on('click', function () { muat(S.page - 1); });
     $('#lrs_next').on('click', function () { muat(S.page + 1); });
