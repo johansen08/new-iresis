@@ -109,6 +109,7 @@ $route['packer/save-packer'] = 'packer/save_packer';
 $route['packer/save-packer-webcam'] = 'packer/save_packer_webcam';
 $route['packer/save_packer_webcam'] = 'packer/save_packer_webcam';
 $route['packer/upload-video-packing'] = 'packer/upload_video_packing';
+$route['packer/izin-unggah-video'] = 'packer/izin_unggah_video';
 $route['packer/batalkan-video-packing'] = 'packer/batalkan_video_packing';
 $route['packer/batal-scan'] = 'packer/batal_scan';
 $route['packer/tutup-batas-rekam'] = 'packer/tutup_batas_rekam';

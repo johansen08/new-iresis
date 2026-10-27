@@ -420,6 +420,7 @@
   var resiKedaluwarsa = <?= json_encode(isset($resi_kedaluwarsa) ? $resi_kedaluwarsa : '') ?>;
 
   var videoUploadUrl = <?= json_encode(base_url('packer/upload-video-packing')) ?>;
+  var videoIzinUrl = <?= json_encode(base_url('packer/izin-unggah-video')) ?>;
   var videoBatalUrl  = <?= json_encode(base_url('packer/batalkan-video-packing')) ?>;
   var batalScanUrl   = <?= json_encode(base_url('packer/batal-scan')) ?>;
   var tutupBatasUrl  = <?= json_encode(base_url('packer/tutup-batas-rekam')) ?>;
@@ -871,6 +872,7 @@
         noresi: videoNoresi,
         status: scanFeedback ? scanFeedback.status : null,
         uploadUrl: videoUploadUrl,
+        izinUrl: videoIzinUrl,
         // Diisi ulang tiap render, jadi selalu menunjuk ke DOM halaman yang
         // sekarang -- isi halaman diganti total setiap scan.
         pemberitahu: tanganiKabarVideo
