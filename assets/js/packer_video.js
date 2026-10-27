@@ -9,8 +9,9 @@
  *
  * Alurnya mengikuti aturan double-scan yang sudah ada:
  *   scan ke-1 resi X  -> mulai merekam
- *   scan ke-2 resi X  -> resi tersimpan, rekaman jalan terus EKOR_REKAM_MS lagi
- *                        lalu ditutup dan diunggah (lihat tutupDenganEkor())
+ *   scan ke-2 resi X  -> resi tersimpan, rekaman jalan terus sampai ekor
+ *                        adaptifnya terpenuhi, lalu ditutup dan diunggah
+ *                        (lihat tutupDenganEkor())
  *
  * Rekaman dikirim per potongan (lihat JEDA_CHUNK_MS) supaya muat di batas
  * upload PHP bawaan XAMPP dan supaya bagian yang sudah naik tetap aman kalau
@@ -40,7 +41,11 @@
     // packing lebih mulus. Beban encode CPU naik ±60% di PC tanpa encoder GPU.
     // Bitrate di bawah ikut dikalikan 24/15 = 1,6 supaya jatah bit per frame
     // sama dengan saat 15 fps. Kalau fps diubah lagi, bitrate ikut disesuaikan.
-    var FPS_IDEAL        = 24;
+    //
+    // Dinaikkan lagi ke 30 fps (27 Okt 2026) dan dikunci lewat `exact` di
+    // constraintKeras(): webcam yang sanggup 1080p 30 fps tidak boleh
+    // diam-diam diberi mode 15/24 fps. Bitrate ikut dikali 30/24 = 1,25.
+    var FPS_IDEAL        = 30;
     // Bitrate dinaikkan jauh di atas minimum hemat-storage (dulu VP9 2,0 Mbps
     // / VP8 2,7 Mbps) karena kualitas sekarang diutamakan, bukan ukuran
     // berkas (keputusan 2026-10-01). Rekaman sudah lossy sejak keluar dari
@@ -57,11 +62,14 @@
     // PASTIKAN ruang disk server cukup untuk 16 PC packer merekam paralel
     // dengan angka ini sebelum dipakai produksi. Kalau resolusi diubah, kedua
     // bitrate harus ikut disesuaikan.
-    var BITRATE_VP9      = 12800000;
-    var BITRATE_VP8      = 16000000;
+    // Angka di bawah sudah dikali 1,25 untuk 30 fps (27 Okt 2026):
+    //   VP9 16 Mbps = ~120 MB per menit rekaman
+    //   VP8/H.264 20 Mbps = ~150 MB per menit rekaman
+    var BITRATE_VP9      = 16000000;
+    var BITRATE_VP8      = 20000000;
     // H.264 (dari encoder GPU maupun OpenH264 di CPU) pada bitrate sama kurang
     // efisien dibanding VP9 -- jadi disamakan dengan VP8.
-    var BITRATE_H264     = 16000000;
+    var BITRATE_H264     = 20000000;
     var JEDA_CHUNK_MS    = 2000;    // potongan dikirim tiap 2 detik
 
     // Codec yang boleh dipakai. Yang terpilih ditentukan pilihCodecTerbaik():
@@ -97,7 +105,19 @@
     // dipanggil. stop() membuang frame yang masih antre di encoder, jadi tanpa
     // ekor ini detik-detik penutup packing -- termasuk momen scan kedua yang
     // justru paling dibutuhkan CS -- tidak pernah masuk ke berkas.
-    var EKOR_REKAM_MS    = 3000;
+    //
+    // Ekor ini ADAPTIF (27 Okt 2026), bukan lagi 3 detik tetap. Di PC yang fps
+    // efektifnya rendah, 3 detik hanya menghasilkan beberapa frame -- dan
+    // frame yang masih antre di encoder dibuang saat stop() -- sehingga scan
+    // kedua tidak muncul di video padahal sudah dilakukan. Ekor baru ditutup
+    // setelah SEMUA ini terpenuhi: sudah EKOR_MIN_MS, kamera sudah mengirim
+    // EKOR_MIN_FRAME frame sejak scan kedua, lalu EKOR_KURAS_MS lagi supaya
+    // encoder sempat menuntaskan antreannya. EKOR_MAKS_MS adalah pagar kalau
+    // fps jatuh sangat rendah.
+    var EKOR_MIN_MS      = 5000;
+    var EKOR_MIN_FRAME   = 60;      // ±2 detik gerakan pada 30 fps
+    var EKOR_KURAS_MS    = 2000;
+    var EKOR_MAKS_MS     = 15000;
     // Pengaman untuk resi yang ditinggalkan, BUKAN batas kerja normal. Packing
     // resi berisi ratusan sampai seribu barang yang harus dicek satu per satu
     // memang wajar memakan satu jam, jadi batasnya diberi kelonggaran di atas itu
@@ -164,6 +184,11 @@
     var timerMaks = null;
     var timerDurasi = null;
     var timerEkor = null;     // ekor rekaman setelah scan kedua, lihat tutupDenganEkor()
+
+    // Frame yang BENAR-BENAR sampai dari kamera (bukan yang diminta), dihitung
+    // lewat requestVideoFrameCallback pada <video> panel. Dipakai ekor adaptif
+    // dan ditampilkan di panel sebagai fps terukur.
+    var hitungFrame = { total: 0, fps: 0, aktif: false };
 
     // Hasil pilihCodecTerbaik(): { mime, label, bitrate, gpu }. gpu bernilai
     // true/false, atau null kalau browser tidak bisa ditanya.
@@ -346,7 +371,11 @@
 
         var teks = 'Resolusi: ' + lebar + '×' + tinggi + (fps ? ' @ ' + fps + ' fps' : '') +
             labelCodec();
+        if (hitungFrame.fps) {
+            teks += ' · terukur ' + hitungFrame.fps.toFixed(1) + ' fps';
+        }
         var kurang = lebar < LEBAR_IDEAL || tinggi < TINGGI_IDEAL;
+        var fpsRendah = hitungFrame.fps > 0 && hitungFrame.fps < FPS_IDEAL * 0.9;
         // VP9 1080p di CPU terbukti tidak sanggup real-time (lihat
         // URUTAN_CPU): videonya patah-patah dan ujungnya terpotong. Ditandai
         // oranye supaya PC seperti ini cepat dikenali. H.264/VP8 di CPU tidak
@@ -358,10 +387,42 @@
             teks += ' (di bawah ' + LEBAR_IDEAL + '×' + TINGGI_IDEAL + ' yang diminta)';
         } else if (cpuBerat) {
             teks += ' (VP9 tanpa encoder GPU, video bisa patah-patah)';
+        } else if (fpsRendah) {
+            teks += ' (di bawah ' + FPS_IDEAL + ' fps, cek cahaya/USB/GPU)';
         }
 
         el.resolusi.textContent = teks;
-        el.resolusi.style.color = (kurang || cpuBerat) ? '#f0ad4e' : '';
+        el.resolusi.style.color = (kurang || cpuBerat || fpsRendah) ? '#f0ad4e' : '';
+    }
+
+    /**
+     * Hitung frame yang tiba dari kamera dan perbarui fps terukur tiap 2
+     * detik. Callback-nya menempel di elemen <video>, jadi cukup dipasang
+     * sekali dan ikut hidup lagi saat kamera dibuka ulang.
+     */
+    function mulaiHitungFrame() {
+        var v = el.video;
+        if (hitungFrame.aktif || !v || typeof v.requestVideoFrameCallback !== 'function') {
+            return;
+        }
+        hitungFrame.aktif = true;
+
+        var t0 = window.performance.now();
+        var n0 = hitungFrame.total;
+
+        var tik = function () {
+            hitungFrame.total++;
+
+            var kini = window.performance.now();
+            if (kini - t0 >= 2000) {
+                hitungFrame.fps = (hitungFrame.total - n0) * 1000 / (kini - t0);
+                t0 = kini;
+                n0 = hitungFrame.total;
+                tampilkanResolusi();
+            }
+            v.requestVideoFrameCallback(tik);
+        };
+        v.requestVideoFrameCallback(tik);
     }
 
     /** ' · VP9 (GPU)' dan semacamnya, atau '' kalau codec belum ditentukan. */
@@ -448,7 +509,9 @@
         var video = {
             width:     { min: LEBAR_IDEAL,  ideal: LEBAR_IDEAL },
             height:    { min: TINGGI_IDEAL, ideal: TINGGI_IDEAL },
-            frameRate: { ideal: FPS_IDEAL }
+            // `exact`: kamera harus mengirim mode 30 fps, kalau tidak ditolak
+            // dan bukaKamera() jatuh ke constraintLunak().
+            frameRate: { exact: FPS_IDEAL }
         };
         if (deviceId) video.deviceId = { ideal: deviceId };
         return video;
@@ -485,6 +548,7 @@
             stream = s;
             statusKamera = 'siap';
             el.video.srcObject = s;
+            mulaiHitungFrame();
             setStatus('Kamera siap', '#5cb85c');
             tampilkanResolusi();
             // Dibaca ulang setelah frame pertama masuk: getSettings() bisa
@@ -898,7 +962,7 @@
     function bersihkanTimer() {
         if (timerMaks) { window.clearTimeout(timerMaks); timerMaks = null; }
         if (timerDurasi) { window.clearInterval(timerDurasi); timerDurasi = null; }
-        if (timerEkor) { window.clearTimeout(timerEkor); timerEkor = null; }
+        if (timerEkor) { window.clearInterval(timerEkor); timerEkor = null; }
     }
 
     function mulai(noresi) {
@@ -947,7 +1011,8 @@
 
     /**
      * Tutup rekaman di akhir packing (scan kedua / tombol Submit): kamera
-     * dibiarkan merekam EKOR_REKAM_MS lagi, baru hentikan().
+     * dibiarkan merekam sampai ekor adaptifnya terpenuhi (lihat EKOR_MIN_MS
+     * dan kawan-kawannya), baru hentikan().
      *
      * Kalau resi berikutnya keburu discan selama ekor berjalan, mulai()
      * memanggil hentikan() dan ekornya terpotong -- rekaman lama tetap
@@ -968,15 +1033,37 @@
 
         setStatus('Merekam penutup...', '#f0ad4e');
 
-        var recIni = recorder;
-        timerEkor = window.setTimeout(function () {
-            timerEkor = null;
+        var recIni      = recorder;
+        var mulaiEkor   = Date.now();
+        var frameAwal   = hitungFrame.total;
+        var tercukupiPada = 0;
+
+        timerEkor = window.setInterval(function () {
             // Recorder sudah berganti (resi baru) atau sudah berhenti sendiri:
             // tidak ada yang perlu ditutup lagi di sini.
-            if (recorder === recIni) {
-                hentikan();
+            if (recorder !== recIni) {
+                window.clearInterval(timerEkor);
+                timerEkor = null;
+                return;
             }
-        }, EKOR_REKAM_MS);
+
+            var lalu  = Date.now() - mulaiEkor;
+            var frame = hitungFrame.total - frameAwal;
+            // Penghitung frame tidak jalan (browser tidak punya
+            // requestVideoFrameCallback, atau <video> panel disembunyikan):
+            // jangan menunggu frame yang tidak akan pernah terhitung.
+            var tidakTerukur = lalu >= 2000 && frame === 0;
+
+            if (!tercukupiPada && lalu >= EKOR_MIN_MS &&
+                (frame >= EKOR_MIN_FRAME || tidakTerukur)) {
+                tercukupiPada = Date.now();
+            }
+
+            var tuntas = tercukupiPada && (Date.now() - tercukupiPada) >= EKOR_KURAS_MS;
+            if (tuntas || lalu >= EKOR_MAKS_MS) {
+                hentikan(); // sekaligus membersihkan timerEkor
+            }
+        }, 250);
     }
 
     // Halaman Scan Resi Packer (Webcam) ditandai #scan-packer-webcam-root --
