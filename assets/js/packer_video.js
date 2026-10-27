@@ -750,8 +750,32 @@
             .catch(function () { cb(''); });
     }
 
+    /**
+     * Ringkasan kamera + encoder untuk log server (Packer::catat_kamera_pc):
+     * resolusi dan fps yang diberikan kamera, fps yang benar-benar tiba, serta
+     * encoder GPU/CPU. Dikirim bersama potongan penutup supaya PC yang fps-nya
+     * di bawah target bisa dijelaskan penyebabnya dari log, tanpa harus
+     * mendatangi PC-nya.
+     */
+    function ringkasKamera() {
+        var track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+        var set   = (track && track.getSettings) ? track.getSettings() : {};
+        var enc   = codecAktif && codecAktif.label
+            ? codecAktif.label + (codecAktif.gpu === true ? '/GPU' : (codecAktif.gpu === false ? '/CPU' : '/?'))
+            : '-';
+
+        return [
+            (set.width || 0) + 'x' + (set.height || 0),
+            'kamera=' + (set.frameRate ? Math.round(set.frameRate) : 0) + 'fps',
+            'terukur=' + (hitungFrame.fps ? hitungFrame.fps.toFixed(1) : 0) + 'fps',
+            'enc=' + enc,
+            'bitrate=' + (codecAktif && codecAktif.bitrate ? Math.round(codecAktif.bitrate / 1000000) : 0) + 'Mbps'
+        ].join(' ');
+    }
+
     function kirimPotonganLangsung(item, percobaan, token) {
         var fd = new FormData();
+        if (item.terakhir) fd.append('kamera', ringkasKamera());
         fd.append('slot', token || '');
         fd.append('kode_sesi', item.kode);
         fd.append('noresi', item.noresi);
