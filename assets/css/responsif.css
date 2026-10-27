@@ -1,0 +1,370 @@
+/*
+ * Lapisan responsif BEVERRA (tablet & handphone).
+ *
+ * Dimuat PALING AKHIR di main.php supaya menimpa theme-fresh.css dan <style>
+ * inline-nya. Semua aturan di sini dibungkus media query, jadi tampilan
+ * desktop (> 1024px) TIDAK berubah sama sekali.
+ *
+ * Titik patah:
+ *   <= 1024px  tablet & handphone: sidebar jadi laci (off-canvas), bar atas tetap
+ *   <=  768px  handphone: padding rapat, tabel bisa digeser, tombol/input besar
+ *   <=  480px  handphone kecil: panel notifikasi & kotak dialog selebar layar
+ *
+ * Perilaku laci diatur assets/js/responsif.js (kelas body.sidebar-mobile-open).
+ */
+
+/* ---------- Tablet & handphone: sidebar jadi laci ---------- */
+@media only screen and (max-width: 1024px) {
+  html,
+  body {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Tema bawaan menumpuk sidebar di atas konten (lebar penuh, tinggi 50px). Ganti: laci fixed di kiri. */
+  .page-container .page-sidebar.page-sidebar-fixed,
+  .page-container .page-sidebar.page-sidebar-fixed.scroll {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100%;
+    width: 280px;
+    max-width: 86vw;
+    float: none;
+    z-index: 1060;
+    transform: translateX(-105%);
+    box-shadow: none;
+    background: #ffffff; /* isi penuh tinggi laci walau menunya pendek */
+    will-change: transform;
+  }
+  /* Animasi baru menyala setelah halaman siap, supaya laci tidak terlihat "meluncur keluar" saat dimuat */
+  body.sidebar-anim .page-container .page-sidebar.page-sidebar-fixed {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  body.sidebar-mobile-open .page-container .page-sidebar.page-sidebar-fixed {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Tema membatasi tiap .x-navigation ke 50px (menu lipat atas); untuk laci harus setinggi isinya. */
+  .page-sidebar .x-navigation {
+    max-height: none;
+    overflow: visible;
+    background: #ffffff; /* sama dengan sidebar desktop; tema ≤1024px mengubahnya jadi hitam */
+  }
+  /* Judul BEVERRA & tombol kontrol lama tidak dipakai; bar atas sudah punya tombol menu */
+  .page-sidebar .x-navigation .x-navigation-control {
+    display: none;
+  }
+
+  /* Bar atas: fixed selebar layar, padding kanan desktop (lebar sidebar) dibuang */
+  .page-container.page-navigation-top-fixed .x-navigation.x-navigation-horizontal.x-navigation-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    z-index: 1040;
+  }
+  .page-container.page-navigation-top-fixed .page-content > ul.x-navigation-panel {
+    padding: 0 8px !important;
+  }
+  .page-container.page-navigation-top-fixed .page-content {
+    padding-top: 50px;
+    margin-left: 0 !important;
+  }
+
+  /* Tombol hamburger: tema menyembunyikan .x-navigation-minimize di sini; tampilkan sebagai pembuka laci */
+  .page-content > .x-navigation-panel > li.xn-icon-button > a.x-navigation-minimize {
+    display: flex !important;
+  }
+  .page-content > .x-navigation-panel > li.xn-icon-button > a.x-navigation-minimize .fa:before {
+    content: "\f0c9"; /* fa-bars */
+  }
+
+  /* Breadcrumb di bar atas: sisakan ruang untuk hamburger (kiri) dan dua ikon (kanan) */
+  .page-content > ul.breadcrumb {
+    left: 56px;
+    right: 100px;
+    z-index: 1045; /* di atas bar atas (1040), tetap tembus klik lewat pointer-events */
+  }
+
+  /* Latar gelap di belakang laci; dibuat oleh responsif.js */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 1055;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.sidebar-mobile-open .sidebar-backdrop {
+    display: block;
+  }
+  body.sidebar-mobile-open {
+    overflow: hidden;
+  }
+
+  /* Panel notifikasi: melayang di bawah bar atas, tidak melebihi layar */
+  .x-navigation-panel li > .panel.xn-drop-left {
+    position: fixed;
+    top: 52px;
+    left: auto;
+    right: 8px;
+    width: 380px;
+    max-width: calc(100vw - 16px);
+  }
+
+  /* Lebar tetap bawaan tema yang bikin meluber */
+  .page-content-wrap {
+    max-width: 100%;
+  }
+  .page-content-wrap img {
+    max-width: 100%;
+  }
+  .dataTables_wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ---------- Handphone ---------- */
+@media only screen and (max-width: 768px) {
+  .page-content-wrap {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .page-content-wrap > .row,
+  .page-content-wrap .row {
+    margin-left: -6px;
+    margin-right: -6px;
+  }
+  .page-content-wrap [class*="col-"] {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* Sasaran sentuh: input & tombol cukup besar; font 16px mencegah iOS memperbesar layar saat fokus */
+  .form-control,
+  select.form-control,
+  textarea.form-control,
+  input.form-control {
+    min-height: 40px;
+    font-size: 16px;
+  }
+  .btn {
+    min-height: 38px;
+  }
+  .btn-xs {
+    min-height: 30px;
+    padding: 4px 9px;
+    font-size: 12px;
+  }
+  .input-group-addon {
+    min-width: 38px;
+  }
+
+  /*
+   * Baris filter/toolbar yang di view-nya dipaksa satu baris (flex nowrap) dan
+   * rentang tanggal selebar 340px: izinkan turun baris. Selektor diberi awalan
+   * .page-content-wrap karena <style> view dimuat lewat AJAX SETELAH file ini.
+   */
+  .page-content-wrap .ptr-toolbar,
+  .page-content-wrap .rd-filter {
+    flex-wrap: wrap !important;
+  }
+  .page-content-wrap .ptr-toolbar .ptr-range {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  /* Input group (label + input + tombol) boleh turun baris; display:table bawaan Bootstrap tidak bisa menyusut */
+  .page-content-wrap .input-group {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .page-content-wrap .input-group .form-control {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+    float: none;
+  }
+  .page-content-wrap .input-group .input-group-addon,
+  .page-content-wrap .input-group .input-group-btn {
+    display: flex;
+    flex-wrap: wrap;
+    width: auto;
+    align-items: stretch;
+  }
+  .page-content-wrap .btn-lg {
+    white-space: normal;
+  }
+  .page-content-wrap small,
+  .page-content-wrap .help-block {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .page-content-wrap .rd-pending-tbl {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .panel-heading ul.panel-controls,
+  .panel-heading .panel-controls {
+    float: none !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 100%;
+    padding-left: 0;
+  }
+
+  /* Panel: judul & tombol di kanannya boleh turun baris */
+  .panel-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .panel-heading .panel-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .panel-heading .pull-right {
+    float: none !important;
+    max-width: 100%;
+  }
+  .panel-body {
+    padding: 10px;
+  }
+
+  /* Tab: satu baris yang bisa digeser ke samping, bukan menumpuk */
+  .nav-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .nav-tabs > li {
+    float: none;
+    flex: 0 0 auto;
+  }
+
+  /* Tabel biasa (non-DataTables) di dalam panel: bisa digeser ke samping */
+  .panel-body > table:not(.dataTable),
+  .panel > table:not(.dataTable) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .panel-body > table:not(.dataTable) th,
+  .panel-body > table:not(.dataTable) td,
+  .panel > table:not(.dataTable) th,
+  .panel > table:not(.dataTable) td {
+    min-width: 72px;
+  }
+  .table-responsive {
+    border: 0;
+  }
+  table.dataTable thead th,
+  table.dataTable tbody td {
+    white-space: nowrap;
+  }
+
+  /* DataTables: kontrol (tampilkan N, cari) tidak saling dorong */
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter,
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    float: none !important;
+    text-align: left !important;
+    display: block;
+    margin: 4px 0;
+    white-space: normal;
+  }
+  .dataTables_wrapper .dataTables_filter input {
+    width: 100% !important;
+    margin-left: 0 !important;
+    display: block;
+  }
+  .dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 6px 10px;
+  }
+
+  /* Kotak dialog Bootstrap */
+  .modal-dialog {
+    margin: 8px;
+    width: auto;
+  }
+  .modal-body {
+    padding: 12px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-footer .btn {
+    margin-bottom: 4px;
+  }
+
+  /* Kotak pesan tema (konfirmasi keluar, dsb.) */
+  .message-box .mb-container .mb-middle {
+    width: 94%;
+    margin-left: 3%;
+    left: 0;
+  }
+  .message-box .mb-container .mb-middle .mb-footer .pull-right {
+    float: none !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  /* Date range picker: selebar layar, bukan dua kalender berdampingan yang terpotong */
+  .daterangepicker {
+    max-width: calc(100vw - 16px);
+  }
+
+  /* Pesan toast (noty) */
+  .noty_bar,
+  #noty_topRight_layout_container {
+    max-width: calc(100vw - 16px);
+  }
+}
+
+/* ---------- Handphone kecil ---------- */
+@media only screen and (max-width: 480px) {
+  .x-navigation-panel li > .panel.xn-drop-left {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+  .page-content > ul.breadcrumb li,
+  .page-content > ul.breadcrumb li a {
+    font-size: 13px;
+  }
+  .daterangepicker {
+    left: 8px !important;
+    right: 8px !important;
+  }
+  .daterangepicker .calendar {
+    float: none;
+    max-width: 100%;
+  }
+}
+
+/* Preferensi kurangi gerakan */
+@media (prefers-reduced-motion: reduce) {
+  .page-container .page-sidebar.page-sidebar-fixed {
+    transition: none;
+  }
+}

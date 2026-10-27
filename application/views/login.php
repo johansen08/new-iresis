@@ -137,6 +137,30 @@
             font-size: 11px;
             line-height: 1.4;
         }
+
+        /* Handphone: kotak login selebar layar (bawaan 380px meluber di layar < 400px) */
+        @media (max-width: 480px) {
+            .login-container {
+                height: auto;
+                min-height: 100vh;
+                padding: 12px;
+                box-sizing: border-box;
+            }
+            .login-box {
+                width: 100%;
+                max-width: 380px;
+                padding: 28px 20px;
+                box-sizing: border-box;
+            }
+            .login-logo {
+                font-size: 36px;
+                margin-top: 0;
+            }
+            .login-box input,
+            .login-box select {
+                font-size: 16px; /* cegah iOS memperbesar layar saat fokus */
+            }
+        }
     </style>
 </head>
 
