@@ -2,7 +2,14 @@
 <style>
 #lrs_wrap { max-width:960px; margin:0 auto; padding:16px 20px 40px; color:#1c2a33; }
 #lrs_wrap h1 { margin:0 0 4px; font-size:24px; font-weight:700; }
-#lrs_wrap .lrs-sub { margin:0 0 16px; color:#4b5d68; font-size:14px; }
+#lrs_wrap .lrs-judul { display:flex; align-items:center; gap:4px; margin-bottom:16px; }
+#lrs_wrap .lrs-judul h1 { margin:0; }
+#lrs_wrap .lrs-tip { position:relative; display:inline-flex; }
+#lrs_wrap .lrs-tip-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border-radius:16px; background:transparent; color:#6b7c87; cursor:help; }
+#lrs_wrap .lrs-tip-btn:hover, #lrs_wrap .lrs-tip-btn:focus { background:#e9eef1; color:#0b6b5e; outline:none; }
+#lrs_wrap .lrs-tip-btn svg { width:20px; height:20px; max-width:none; }
+#lrs_wrap .lrs-tip-box { display:none; position:absolute; top:36px; left:0; z-index:40; width:300px; padding:12px 14px; border-radius:10px; background:#12212b; color:#fff; font-size:13px; line-height:1.5; box-shadow:0 8px 24px rgba(18,33,43,.18); }
+#lrs_wrap .lrs-tip:hover .lrs-tip-box, #lrs_wrap .lrs-tip:focus-within .lrs-tip-box { display:block; }
 #lrs_wrap .lrs-filter { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:16px; }
 #lrs_wrap .lrs-filter label { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:600; color:#4b5d68; }
 #lrs_wrap input[type=date], #lrs_wrap select { height:40px; padding:0 10px; border:1px solid #c9d3d9; border-radius:8px; font-size:14px; background:#fff; }
@@ -20,8 +27,15 @@
 #lrs_wrap .lrs-err { color:#b3261e; margin-bottom:12px; }
 </style>
 <div id="lrs_wrap">
-    <h1>Laporan Resi Spesial</h1>
-    <p class="lrs-sub">Per tanggal scan picker. 1 SKU 1 QTY = resi satuan; 1 SKU PICKER = yang discan sebagai resi spesial. Target minimal 50%.</p>
+    <div class="lrs-judul">
+        <h1>Laporan Resi Spesial</h1>
+        <span class="lrs-tip">
+            <button type="button" class="lrs-tip-btn" aria-label="Penjelasan laporan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="8" r="0.6"></circle></svg>
+            </button>
+            <span class="lrs-tip-box">Per tanggal scan picker. 1 SKU 1 QTY = resi satuan; 1 SKU PICKER = yang discan sebagai resi spesial. Target minimal 50%.</span>
+        </span>
+    </div>
     <div class="lrs-filter">
         <label>Dari tanggal <input type="date" id="lrs_start" value="<?= htmlspecialchars($start) ?>"></label>
         <label>Sampai tanggal <input type="date" id="lrs_end" value="<?= htmlspecialchars($end) ?>"></label>
