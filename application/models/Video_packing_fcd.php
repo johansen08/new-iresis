@@ -263,7 +263,7 @@ class Video_packing_fcd extends CI_Model
         }
 
         $rows = $this->db
-            ->select('d.sku, d.jumlah, d.no_rak, d.status_kurangan, d.qty_kurang, s.nama_sku, s.variasi, s.link_foto, s.foto_lokal')
+            ->select('d.sku, d.jumlah, d.no_rak, d.no_pesanan, d.status_kurangan, d.qty_kurang, s.nama_sku, s.variasi, s.link_foto, s.foto_lokal')
             ->from('tbldetailprintresi d')
             ->join('tblsku s', 's.id_sku = d.sku', 'left')
             ->where('d.id_resi', (int) $resi->id_printresi)
@@ -272,9 +272,14 @@ class Video_packing_fcd extends CI_Model
             ->result();
 
         $items = [];
+        $pesanan = [];
         $total_qty = 0;
         foreach ($rows as $r) {
             $qty = (int) $r->jumlah;
+            $np = trim((string) $r->no_pesanan);
+            if ($np !== '' && !in_array($np, $pesanan, true)) {
+                $pesanan[] = $np;
+            }
             $total_qty += $qty;
             $lokal = foto_sku_lokal_url($r->link_foto, $r->foto_lokal);
             $items[] = [
@@ -292,6 +297,7 @@ class Video_packing_fcd extends CI_Model
         return [
             'toko'           => $resi->toko ? $resi->toko : '',
             'status_pesanan' => $resi->status_pesanan ? $resi->status_pesanan : '',
+            'no_pesanan'     => $pesanan,
             'items'          => $items,
             'total_sku'      => count($items),
             'total_qty'      => $total_qty,

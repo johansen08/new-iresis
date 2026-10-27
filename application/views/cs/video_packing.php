@@ -57,7 +57,29 @@
     background: rgba(255,255,255,.18); color: #fff; font-size: 22px; cursor: pointer; }
   #vp-foto-popup .vp-foto-tutup:hover { background: rgba(255,255,255,.34); }
   @media (min-width: 2200px) { #vp-foto-popup img { max-height: 84vh; } #vp-foto-popup .vp-foto-judul { font-size: 22px; } }
-  .vp-video { width: 100%; max-height: calc(70vh / var(--vp-zoom, 1)); background: #000; display: block; }
+  .vp-pemutar { background: #111827; border-radius: 4px; overflow: hidden; }
+  .vp-panggung { position: relative; overflow: hidden; background: #000; line-height: 0; user-select: none; }
+  .vp-video { width: 100%; max-height: calc(70vh / var(--vp-zoom, 1)); background: #000; display: block; transform-origin: 0 0; cursor: pointer; }
+  .vp-panggung.vp-zoomed .vp-video { cursor: grab; }
+  .vp-panggung.vp-geser .vp-video { cursor: grabbing; }
+  .vp-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; color: #fff; font-size: 12px; line-height: 1.2; flex-wrap: wrap; }
+  .vp-bar button { border: 0; background: rgba(255,255,255,.14); color: #fff; min-width: 32px; height: 30px; border-radius: 4px; font-size: 14px; cursor: pointer; padding: 0 8px; }
+  .vp-bar button:hover:not(:disabled) { background: rgba(255,255,255,.3); }
+  .vp-bar button:disabled { opacity: .35; cursor: default; }
+  .vp-bar .vp-seek { flex: 1 1 140px; min-width: 100px; margin: 0; }
+  .vp-bar .vp-waktu { font-family: var(--vp-kode); min-width: 92px; text-align: center; }
+  .vp-bar .vp-skala { font-family: var(--vp-kode); min-width: 44px; text-align: center; }
+  .vp-bar .vp-pisah { width: 1px; height: 20px; background: rgba(255,255,255,.25); margin: 0 2px; }
+  .vp-pemutar:fullscreen { display: flex; flex-direction: column; border-radius: 0; }
+  .vp-pemutar:fullscreen .vp-panggung { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .vp-pemutar:fullscreen .vp-video { max-height: 100%; height: 100%; object-fit: contain; }
+  .vp-nomor + .vp-nomor { margin-top: 8px; }
+  .vp-nilai { display: flex; align-items: center; gap: 8px; }
+  .vp-nilai > span { min-width: 0; }
+  .vp-pesanan { font-family: var(--vp-kode); font-size: 14px; font-weight: 700; color: var(--vp-teks); word-break: normal; }
+  .vp-salin { border: 1px solid #d1d5db; background: #fff; color: var(--vp-sedang); width: 30px; height: 30px; border-radius: 4px; font-size: 14px; cursor: pointer; padding: 0; flex: none; }
+  .vp-salin:hover { background: #f3f4f6; color: var(--vp-teks); }
+  .vp-salin.vp-sudah { background: #16a34a; border-color: #16a34a; color: #fff; }
 
   /* Monitor besar (Full HD ke atas, QHD, 4K, TV): seluruh isi menu diperbesar
      bertahap menurut lebar layar supaya terbaca dari jarak meja/dinding. Pakai
@@ -215,8 +237,16 @@
       var html = '<div class="panel panel-default"><div class="panel-body">';
 
       html += '<div class="row"><div class="col-sm-8">' +
-          judulBagian('No resi') +
-          '<div class="vp-resi">' + escapeHtml(noresi) + '</div>';
+          '<div class="vp-nomor"><div class="vp-lbl">No resi</div><div class="vp-nilai">' +
+            '<span class="vp-resi">' + escapeHtml(noresi) + '</span>' + tombolSalin(noresi, 'no resi') + '</div></div>';
+      if (resi && resi.no_pesanan && resi.no_pesanan.length) {
+        resi.no_pesanan.forEach(function (np) {
+          html += '<div class="vp-nomor"><div class="vp-lbl">No pesanan</div><div class="vp-nilai">' +
+            '<span class="vp-pesanan">' + escapeHtml(np) + '</span>' + tombolSalin(np, 'no pesanan') + '</div></div>';
+        });
+      } else if (resi) {
+        html += '<div class="vp-nomor"><div class="vp-lbl">No pesanan</div><span class="text-muted">-</span></div>';
+      }
       if (resi) {
         html += '<div class="vp-toko">' + escapeHtml(resi.toko || '-') +
           (resi.status_pesanan ? ' &middot; <span class="label label-default">' + escapeHtml(resi.status_pesanan) + '</span>' : '') +
@@ -283,6 +313,12 @@
       return { ringkasan: ringkasan, sku: html };
     }
 
+    // Tombol salin satu klik di samping nomor.
+    function tombolSalin(nilai, nama) {
+      return '<button type="button" class="vp-salin" data-salin="' + escapeHtml(nilai) + '" title="Salin ' + escapeHtml(nama) + '">' +
+        '<i class="fa fa-clipboard"></i></button>';
+    }
+
     function judulRekaman(v, i, total) {
       return total > 1 ? 'Bagian ' + (v.bagian || (i + 1)) + ' dari ' + total : '';
     }
@@ -297,9 +333,22 @@
           ? '<div class="panel-heading"><strong>' + escapeHtml(judul) + '</strong>' + labelStatus(v.status) + '</div>'
           : '') +
         '<div class="panel-body" style="padding: 10px;">' +
-          '<video src="' + escapeHtml(v.url) + '" controls playsinline ' +
-            'preload="' + (i === 0 ? 'metadata' : 'none') + '" ' +
-            'class="vp-video"></video>' +
+          '<div class="vp-pemutar">' +
+            '<div class="vp-panggung"><video src="' + escapeHtml(v.url) + '" playsinline ' +
+              'preload="' + (i === 0 ? 'metadata' : 'none') + '" class="vp-video"></video></div>' +
+            '<div class="vp-bar">' +
+              '<button type="button" class="vp-putar" title="Putar / jeda"><i class="fa fa-play"></i></button>' +
+              '<input type="range" class="vp-seek" min="0" max="1000" value="0" step="1" title="Geser untuk loncat waktu">' +
+              '<span class="vp-waktu">0:00 / 0:00</span>' +
+              '<button type="button" class="vp-laju" title="Kecepatan putar">1x</button>' +
+              '<span class="vp-pisah"></span>' +
+              '<button type="button" class="vp-zoom-kecil" title="Perkecil (Ctrl + roda mouse ke bawah)"><i class="fa fa-search-minus"></i></button>' +
+              '<span class="vp-skala">100%</span>' +
+              '<button type="button" class="vp-zoom-besar" title="Perbesar (Ctrl + roda mouse ke atas)"><i class="fa fa-search-plus"></i></button>' +
+              '<button type="button" class="vp-zoom-reset" title="Ukuran semula (klik dua kali pada video)"><i class="fa fa-compress"></i></button>' +
+              '<button type="button" class="vp-layar" title="Layar penuh"><i class="fa fa-expand"></i></button>' +
+            '</div>' +
+          '</div>' +
           '<div class="vp-galat text-danger" style="display: none; margin-top: 6px;"></div>' +
           '<div style="margin-top: 8px;">' +
             '<a href="' + escapeHtml(v.url) + '?unduh=1" class="btn btn-default btn-sm">' +
@@ -332,6 +381,143 @@
               escapeHtml(v.nama_file || '-') + ' &middot; ' + formatUkuran(v.ukuran_byte) +
             '</div>' +
       '</div></div>';
+    }
+
+    function formatWaktu(d) {
+      d = isFinite(d) && d > 0 ? Math.floor(d) : 0;
+      var m = Math.floor(d / 60), s = d % 60;
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // Pemutar sendiri (bukan kontrol bawaan browser) karena kontrol bawaan ikut
+    // membesar dan terpotong saat video di-zoom. Zoom: tombol, Ctrl + roda,
+    // klik dua kali; saat diperbesar video bisa digeser dengan menyeret.
+    function pasangPemutar($pm, v, durasiCatatan) {
+      var $pg = $pm.find('.vp-panggung'), pg = $pg[0];
+      var LANGKAH = [1, 1.5, 2, 3, 4, 6];
+      var LAJU = [1, 1.5, 2, 0.5];
+      var skala = 1, tx = 0, ty = 0, iLaju = 0, seretMulai = null, bergeser = false;
+      var $putar = $pm.find('.vp-putar'), $seek = $pm.find('.vp-seek'), $waktu = $pm.find('.vp-waktu');
+
+      function terapkan() {
+        var w = pg.clientWidth, h = pg.clientHeight;
+        tx = Math.min(0, Math.max(w * (1 - skala), tx));
+        ty = Math.min(0, Math.max(h * (1 - skala), ty));
+        if (skala === 1) { tx = 0; ty = 0; }
+        v.style.transform = skala === 1 ? '' : 'translate(' + tx + 'px,' + ty + 'px) scale(' + skala + ')';
+        $pg.toggleClass('vp-zoomed', skala > 1);
+        $pm.find('.vp-skala').text(Math.round(skala * 100) + '%');
+        $pm.find('.vp-zoom-kecil').prop('disabled', skala <= LANGKAH[0]);
+        $pm.find('.vp-zoom-besar').prop('disabled', skala >= LANGKAH[LANGKAH.length - 1]);
+        $pm.find('.vp-zoom-reset').prop('disabled', skala === 1);
+      }
+      // Zoom ke skala baru, titik (px, py) pada panggung tetap diam.
+      function zoomKe(baru, px, py) {
+        baru = Math.max(LANGKAH[0], Math.min(LANGKAH[LANGKAH.length - 1], baru));
+        if (px == null) { px = pg.clientWidth / 2; py = pg.clientHeight / 2; }
+        var cx = (px - tx) / skala, cy = (py - ty) / skala;
+        skala = baru; tx = px - cx * skala; ty = py - cy * skala;
+        terapkan();
+      }
+      function langkah(arah) {
+        var i = 0;
+        LANGKAH.forEach(function (n, k) { if (n <= skala + 0.001) { i = k; } });
+        return LANGKAH[Math.max(0, Math.min(LANGKAH.length - 1, i + arah))];
+      }
+      // Rekaman WebM dari browser sering tanpa durasi di berkas (duration = Infinity),
+      // jadi pakai durasi catatan database sebagai cadangan.
+      function durasi() {
+        return isFinite(v.duration) && v.duration > 0 ? v.duration : (parseFloat(durasiCatatan) || 0);
+      }
+      function segarkanWaktu() {
+        var d = durasi();
+        $waktu.text(formatWaktu(v.currentTime) + ' / ' + formatWaktu(d));
+        if (d > 0 && !$seek.data('menggeser')) { $seek.val(Math.min(1000, Math.round(v.currentTime / d * 1000))); }
+      }
+      function putarJeda() {
+        if (v.paused) { var pr = v.play(); if (pr && pr.catch) { pr.catch(function () {}); } } else { v.pause(); }
+      }
+
+      $putar.on('click', putarJeda);
+      v.addEventListener('play', function () { $putar.html('<i class="fa fa-pause"></i>'); });
+      v.addEventListener('pause', function () { $putar.html('<i class="fa fa-play"></i>'); });
+      v.addEventListener('timeupdate', segarkanWaktu);
+      v.addEventListener('loadedmetadata', segarkanWaktu);
+      $seek.on('input', function () {
+        $seek.data('menggeser', true);
+        if (durasi() > 0) { v.currentTime = this.value / 1000 * durasi(); }
+        segarkanWaktu();
+      }).on('change', function () { $seek.data('menggeser', false); });
+      $pm.find('.vp-laju').on('click', function () {
+        iLaju = (iLaju + 1) % LAJU.length;
+        v.playbackRate = LAJU[iLaju];
+        $(this).text(LAJU[iLaju] + 'x');
+      });
+      $pm.find('.vp-zoom-kecil').on('click', function () { zoomKe(langkah(-1)); });
+      $pm.find('.vp-zoom-besar').on('click', function () { zoomKe(langkah(1)); });
+      $pm.find('.vp-zoom-reset').on('click', function () { zoomKe(1); });
+      $pm.find('.vp-layar').on('click', function () {
+        if (document.fullscreenElement) { document.exitFullscreen(); } else if ($pm[0].requestFullscreen) { $pm[0].requestFullscreen(); }
+      });
+      document.addEventListener('fullscreenchange', function () { if (document.body.contains(pg)) { terapkan(); } });
+
+      // Ctrl + roda mouse = zoom ke titik kursor (tanpa Ctrl roda tetap menggulir halaman).
+      pg.addEventListener('wheel', function (e) {
+        if (!e.ctrlKey) { return; }
+        e.preventDefault();
+        var r = pg.getBoundingClientRect();
+        zoomKe(langkah(e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
+      }, { passive: false });
+      $pg.on('dblclick', function (e) {
+        var r = pg.getBoundingClientRect();
+        if (skala > 1) { zoomKe(1); } else { zoomKe(2, e.clientX - r.left, e.clientY - r.top); }
+      });
+      // Seret untuk menggeser saat diperbesar; klik biasa = putar/jeda.
+      $pg.on('mousedown', function (e) {
+        if (e.which !== 1) { return; }
+        bergeser = false;
+        seretMulai = { x: e.clientX, y: e.clientY, tx: tx, ty: ty };
+        e.preventDefault();
+      });
+      $(document).on('mousemove.vpgeser', function (e) {
+        if (!seretMulai || !document.body.contains(pg)) { return; }
+        var dx = e.clientX - seretMulai.x, dy = e.clientY - seretMulai.y;
+        if (!bergeser && Math.abs(dx) + Math.abs(dy) < 4) { return; }
+        bergeser = true;
+        if (skala > 1) {
+          tx = seretMulai.tx + dx; ty = seretMulai.ty + dy;
+          $pg.addClass('vp-geser');
+          terapkan();
+        }
+      }).on('mouseup.vpgeser', function () {
+        if (!seretMulai) { return; }
+        var klikBiasa = !bergeser;
+        seretMulai = null;
+        $pg.removeClass('vp-geser');
+        if (klikBiasa) { putarJeda(); }
+      });
+      terapkan();
+    }
+
+    // Salin ke papan klip. API clipboard butuh HTTPS; akses LAN lewat http
+    // memakai cadangan execCommand.
+    function salinTeks(teks) {
+      var cadangan = function () { return new Promise(function (ok, gagal) {
+        var ta = document.createElement('textarea');
+        ta.value = teks;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position: fixed; top: 0; left: 0; opacity: 0;';
+        document.body.appendChild(ta);
+        ta.select();
+        var berhasil = false;
+        try { berhasil = document.execCommand('copy'); } catch (err) {}
+        document.body.removeChild(ta);
+        if (berhasil) { ok(); } else { gagal(); }
+      }); };
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(teks).catch(cadangan);
+      }
+      return cadangan();
     }
 
     function gambarHasil(noresi, list, resi) {
@@ -377,7 +563,8 @@
 
       $('#vp-hasil video').each(function (i) {
         var el = this;
-        var galat = $(el).siblings('.vp-galat');
+        var galat = $(el).closest('.panel-body').find('.vp-galat');
+        pasangPemutar($(el).closest('.vp-pemutar'), el, list[i].durasi_detik);
         el.addEventListener('error', function () {
           galat.text('Video gagal dimuat. Coba cari ulang, atau pakai tombol Unduh WebM.').show();
         });
@@ -503,6 +690,18 @@
         if (e.which === 27) { e.preventDefault(); tutupFoto(); }
       });
     }
+
+    $('#vp-hasil').on('click', '.vp-salin', function (e) {
+      e.preventDefault();
+      var $b = $(this), asli = $b.html();
+      salinTeks($b.attr('data-salin')).then(function () {
+        $b.addClass('vp-sudah').html('<i class="fa fa-check"></i>');
+      }, function () {
+        $b.html('<i class="fa fa-times"></i>');
+      }).then(function () {
+        setTimeout(function () { $b.removeClass('vp-sudah').html(asli); }, 1500);
+      });
+    });
 
     $('#vp-hasil').on('click', '.vp-foto-wrap', function (e) {
       e.preventDefault();
