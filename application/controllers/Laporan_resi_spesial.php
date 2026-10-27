@@ -10,6 +10,9 @@ class Laporan_resi_spesial extends MY_Controller
 {
     const URI = 'laporan-resi-spesial';
 
+    /** Batas rentang (hari) per permintaan get_data. */
+    const MAKS_HARI = 92;
+
     public function __construct()
     {
         parent::__construct();
@@ -47,7 +50,7 @@ class Laporan_resi_spesial extends MY_Controller
         set_time_limit(0);
 
         list($start, $end) = $this->_rentang();
-        $rows = $this->laporan_resi_spesial_fcd->daftar($start, $end, 0, 0);
+        $rows = $this->laporan_resi_spesial_fcd->rekap($start, $end);
 
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
@@ -78,27 +81,26 @@ class Laporan_resi_spesial extends MY_Controller
         exit;
     }
 
-    /** Satu halaman baris (JSON). POST: start_date, end_date, size (10/20/50), page. */
+    /**
+     * Seluruh baris per tanggal pada rentang (JSON). POST: start_date, end_date.
+     * Halaman layar memecah rentang panjang per bulan dan menggabungkannya di browser
+     * (untuk progress bar), jadi rentang per permintaan dibatasi.
+     */
     public function get_data()
     {
         if (!$this->_boleh()) {
             $this->make_ajax_response(403, 'Anda tidak punya akses ke menu ini.');
         }
+        ini_set('memory_limit', '256M');
+        set_time_limit(0);
 
         list($start, $end) = $this->_rentang();
-
-        $size = (int) $this->input->post('size');
-        if (!in_array($size, array(10, 20, 50), true)) $size = 10;
-
-        $total   = $this->laporan_resi_spesial_fcd->hitung_tanggal($start, $end);
-        $maks    = max(1, (int) ceil($total / $size));
-        $halaman = min($maks, max(1, (int) $this->input->post('page')));
+        if ((strtotime($end) - strtotime($start)) / 86400 > self::MAKS_HARI) {
+            $this->make_ajax_response(400, 'Rentang terlalu panjang (maksimal ' . self::MAKS_HARI . ' hari per permintaan).');
+        }
 
         $this->make_ajax_response(200, 'OK', array(
-            'rows'  => $this->laporan_resi_spesial_fcd->daftar($start, $end, ($halaman - 1) * $size, $size),
-            'total' => $total,
-            'page'  => $halaman,
-            'size'  => $size,
+            'rows' => $this->laporan_resi_spesial_fcd->rekap($start, $end),
         ));
     }
 
