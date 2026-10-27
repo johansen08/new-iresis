@@ -16,8 +16,14 @@
   .vp-root { --vp-teks: #111827; --vp-sedang: #374151; --vp-label: #6b7280;
     --vp-kode: Consolas, "Courier New", ui-monospace, monospace; font-size: 13px; color: var(--vp-teks); }
   .vp-root .text-muted { color: var(--vp-label); }
-  #vp-noresi { font-family: var(--vp-kode); font-size: 17px; font-weight: 600; height: 42px; color: var(--vp-teks); letter-spacing: .02em; }
-  #vp-status-cari, #vp-info-tombol { font-size: 15px; }
+  #vp-noresi { font-family: var(--vp-kode); font-size: 17px; font-weight: 600; height: 46px; color: var(--vp-teks); letter-spacing: .02em; padding: 6px 54px 6px 48px; border-radius: 6px; }
+  /* Ikon cari di dalam kolom (kiri), tombol info bulat di dalam kolom (kanan): sejajar tengah dan seukuran. */
+  .vp-cari { position: relative; }
+  #vp-status-cari, #vp-info-tombol { position: absolute; top: 50%; display: flex; align-items: center; justify-content: center; color: var(--vp-label); }
+  #vp-status-cari { left: 0; width: 48px; height: 46px; margin-top: -23px; font-size: 18px; pointer-events: none; }
+  #vp-noresi:focus ~ #vp-status-cari { color: #e91e63; }
+  #vp-info-tombol { right: 8px; width: 34px; height: 34px; margin-top: -17px; border-radius: 50%; font-size: 20px; text-decoration: none; }
+  #vp-info-tombol:hover, #vp-info-tombol:focus { background: #eef0f3; color: var(--vp-teks); }
   #vp-info { font-size: 13px; color: var(--vp-sedang); line-height: 1.5; }
   #vp-riwayat .label { font-size: 12px; font-weight: 600; padding: .3em .7em; }
   #vp-riwayat small { font-size: 12px; }
@@ -104,7 +110,7 @@
              (plugins.js) dan hasilnya diperlakukan sebagai ganti halaman. -->
         <div class="row">
           <div class="col-md-12">
-            <div class="input-group">
+            <div class="vp-cari">
               <input
                 type="text"
                 class="form-control"
@@ -112,8 +118,8 @@
                 placeholder="Scan atau ketik nomor resi"
                 autocomplete="off"
               />
-              <span class="input-group-addon" id="vp-status-cari"><i class="fa fa-search"></i></span>
-              <a href="#" class="input-group-addon" id="vp-info-tombol" title="Cara pakai">
+              <span id="vp-status-cari"><i class="fa fa-search"></i></span>
+              <a href="#" id="vp-info-tombol" title="Cara pakai">
                 <i class="fa fa-info-circle"></i>
               </a>
             </div>
