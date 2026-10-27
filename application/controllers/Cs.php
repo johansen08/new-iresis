@@ -2146,18 +2146,26 @@ class Cs extends MY_Controller
     {
         header('Content-Type: application/json');
 
-        $noresi = trim((string) $this->input->post('noresi'));
-        if ($noresi === '') {
-            $noresi = trim((string) $this->input->get('noresi'));
+        // Resi tidak pernah memuat spasi: buang semua whitespace, termasuk NBSP,
+        // CR/LF sisa scanner, dan karakter zero-width dari hasil tempel.
+        $mentah = (string) $this->input->post('noresi');
+        if ($mentah === '') {
+            $mentah = (string) $this->input->get('noresi');
         }
+        $noresi = (string) preg_replace('/[\s\x{00A0}\x{200B}-\x{200D}\x{FEFF}]+/u', '', $mentah);
 
         if ($noresi === '') {
             echo json_encode(['code' => 400, 'message' => 'Nomor resi tidak boleh kosong.', 'data' => []]);
             exit;
         }
-        pastikan_resi_live($noresi); // rekaman resi lama yang sudah diarsipkan ditarik dulu ke prod
-
+        // Jalur umum: resi masih live, rekamannya langsung ketemu tanpa menyentuh
+        // arsip. Hanya kalau kosong, resi lama yang sudah diarsipkan ditarik ke
+        // prod dulu (dua query ke tblprintresi dihemat di setiap pencarian biasa).
         $rows = $this->video_packing_fcd->get_by_resi($noresi);
+        if (empty($rows)) {
+            pastikan_resi_live($noresi);
+            $rows = $this->video_packing_fcd->get_by_resi($noresi);
+        }
 
         $list = [];
         foreach ($rows as $row) {
@@ -2169,7 +2177,22 @@ class Cs extends MY_Controller
                 continue;
             }
 
+            $packer = $this->pecah_nama_packer($row->nama_packer);
+
+            // Rekaman yang statusnya masih MEREKAM tapi berkasnya sudah >10 menit
+            // tidak bertambah sebenarnya sudah mati (tab packer tertutup, PC mati)
+            // dan tidak pernah ditutup. Ditampilkan sebagai terputus, bukan
+            // "sedang merekam" yang menyesatkan CS.
+            $status_tampil = $row->status;
+            if ($status_tampil === 'MEREKAM' && (time() - (int) filemtime($path)) > 600) {
+                $status_tampil = 'TERPUTUS';
+            }
+
             $list[] = [
+                'packer'        => $packer,
+                'tanggal'       => $row->mulai_at ? date('Y-m-d', strtotime($row->mulai_at)) : '',
+                'jam_mulai'     => $row->mulai_at ? date('H:i:s', strtotime($row->mulai_at)) : '',
+                'jam_selesai'   => $row->selesai_at ? date('H:i:s', strtotime($row->selesai_at)) : '',
                 'id'            => (int) $row->id_videopacking,
                 'noresi'        => $row->noresi,
                 'bagian'        => isset($row->bagian) ? (int) $row->bagian : 1,
@@ -2181,7 +2204,7 @@ class Cs extends MY_Controller
                 'selesai_at'    => $row->selesai_at,
                 'durasi_detik'  => (int) $row->durasi_detik,
                 'ukuran_byte'   => (int) $row->ukuran_byte,
-                'status'        => $row->status,
+                'status'        => $status_tampil,
                 'finalisasi'    => isset($row->finalisasi) ? $row->finalisasi : 'BELUM',
                 'mp4'           => $this->info_mp4($row),
             ];
@@ -2199,9 +2222,34 @@ class Cs extends MY_Controller
         echo json_encode([
             'code'    => 200,
             'message' => count($list) . ' video ditemukan.',
-            'data'    => $list
+            'data'    => $list,
+            'resi'    => $this->video_packing_fcd->info_resi($noresi),
         ]);
         exit;
+    }
+
+    /**
+     * Pecah "NAMA - JABATAN - NOABSEN" (konvensi tbluser.name) jadi bagian-bagiannya.
+     * No absen = angka di ujung nama, bukan id_user/kode_pegawai. Nama yang tidak
+     * mengikuti konvensi dikembalikan utuh sebagai nama, tanpa jabatan/absen.
+     */
+    private function pecah_nama_packer($nama_penuh)
+    {
+        $nama_penuh = trim((string) $nama_penuh);
+
+        if ($nama_penuh === '') {
+            return ['nama' => '-', 'jabatan' => '', 'absen' => ''];
+        }
+
+        if (preg_match('/^(.*?)\s*-\s*(.*?)\s*-\s*(\d+)$/u', $nama_penuh, $m)) {
+            return ['nama' => $m[1], 'jabatan' => $m[2], 'absen' => $m[3]];
+        }
+
+        if (preg_match('/^(.*?)\s*-\s*(\d+)$/u', $nama_penuh, $m)) {
+            return ['nama' => $m[1], 'jabatan' => '', 'absen' => $m[2]];
+        }
+
+        return ['nama' => $nama_penuh, 'jabatan' => '', 'absen' => ''];
     }
 
     /**
@@ -2429,10 +2477,37 @@ class Cs extends MY_Controller
         $mulai  = 0;
         $akhir  = $ukuran - 1;
 
+        // Lepas kunci session SEBELUM mengalirkan. Driver session 'files' menahan
+        // kunci berkas selama request hidup; tanpa ini, memutar atau mengunduh
+        // rekaman besar membuat setiap request lain milik user yang sama (pindah
+        // menu, scan, polling MP4) antre sampai alirannya selesai. Session tidak
+        // dibutuhkan lagi di bawah ini.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         // Output buffer CI dan apa pun yang tercetak sebelum ini dibuang: satu
         // byte nyasar di depan data biner membuat videonya tidak bisa diputar.
         while (ob_get_level() > 0) {
             ob_end_clean();
+        }
+
+        // Kompresi output tidak berguna untuk video (sudah terkompresi) dan
+        // merusak Content-Length/Range.
+        @ini_set('zlib.output_compression', '0');
+
+        // Validator cache: membuka ulang video yang sama cukup dijawab 304.
+        $mtime = filemtime($path);
+        $etag  = '"' . dechex($mtime) . '-' . dechex($ukuran) . '"';
+        header('ETag: ' . $etag);
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+
+        if (empty($_SERVER['HTTP_RANGE'])
+            && isset($_SERVER['HTTP_IF_NONE_MATCH'])
+            && trim($_SERVER['HTTP_IF_NONE_MATCH']) === $etag) {
+            header('HTTP/1.1 304 Not Modified');
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            exit;
         }
 
         // Batas waktu dan memori: berkasnya dibaca per 8 KB, bukan sekaligus,
@@ -2482,8 +2557,10 @@ class Cs extends MY_Controller
         fseek($fp, $mulai);
         $sisa = $akhir - $mulai + 1;
 
+        // 512 KB per putaran (dulu 8 KB): rekaman 100-an MB tidak lagi butuh belasan
+        // ribu fread+flush, yang di Windows membuat unduhan jauh di bawah kecepatan LAN.
         while ($sisa > 0 && !feof($fp) && !connection_aborted()) {
-            $baca = fread($fp, min(8192, $sisa));
+            $baca = fread($fp, min(524288, $sisa));
             if ($baca === FALSE) {
                 break;
             }
