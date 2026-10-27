@@ -99,6 +99,8 @@ $route['picker/get-kurangan-picker-data/(:any)'] = 'picker/get_kurangan_picker_d
 $route['picker/upload-resi-spesial'] = 'picker/upload_resi_spesial';
 $route['picker/validasi-upload-resi-spesial'] = 'picker/validasi_upload_resi_spesial';
 $route['picker/simpan-upload-resi-spesial'] = 'picker/simpan_upload_resi_spesial';
+$route['laporan-resi-spesial'] = 'laporan_resi_spesial/index';
+$route['laporan-resi-spesial/get-data'] = 'laporan_resi_spesial/get_data';
 
 $route['packer/scan-packer'] = 'packer/scan_packer';
 $route['packer/scan-packer-webcam'] = 'packer/scan_packer_webcam';

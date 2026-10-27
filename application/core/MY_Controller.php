@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-26.1';
+    const BOOTSTRAP_VERSI = '2026-10-27.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -170,6 +170,7 @@ class MY_Controller extends CI_Controller
         $this->run_paket_cancel_migration();
         $this->run_pemenuhan_kirim_harian_migration();
         $this->run_upload_resi_spesial_migration();
+        $this->run_laporan_resi_spesial_migration();
         $this->run_bonus_picker_migration();
         $this->run_daftar_retur_penjualan_migration();
         $this->run_tanggal_pencairan_mp_migration();
@@ -1645,6 +1646,46 @@ class MY_Controller extends CI_Controller
 
         $role_boleh = [1, 2, 6];
         foreach ($role_boleh as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM RESI -> "Laporan Resi Spesial" (uri `laporan-resi-spesial`): per tanggal
+     * scan picker, jumlah resi 1 SKU 1 QTY vs yang discan 1_SKU_PICKER, plus persen.
+     * Baca-saja, tanpa tabel baru. Hak akses disamakan dengan "Upload Resi Spesial":
+     * webmaster (1), admin (2), tim retur (6).
+     */
+    protected function run_laporan_resi_spesial_migration()
+    {
+        $uri = 'laporan-resi-spesial';
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Laporan Resi Spesial',
+                'parentid'  => 6, // TIM RESI
+                'uri'       => $uri,
+                'icon'      => 'fa fa-bar-chart-o',
+                'sortorder' => 12, // setelah "Upload Resi Spesial" (11)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 2, 6] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
