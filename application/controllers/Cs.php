@@ -2179,6 +2179,15 @@ class Cs extends MY_Controller
 
             $packer = $this->pecah_nama_packer($row->nama_packer);
 
+            // Rekaman yang statusnya masih MEREKAM tapi berkasnya sudah >10 menit
+            // tidak bertambah sebenarnya sudah mati (tab packer tertutup, PC mati)
+            // dan tidak pernah ditutup. Ditampilkan sebagai terputus, bukan
+            // "sedang merekam" yang menyesatkan CS.
+            $status_tampil = $row->status;
+            if ($status_tampil === 'MEREKAM' && (time() - (int) filemtime($path)) > 600) {
+                $status_tampil = 'TERPUTUS';
+            }
+
             $list[] = [
                 'packer'        => $packer,
                 'tanggal'       => $row->mulai_at ? date('Y-m-d', strtotime($row->mulai_at)) : '',
@@ -2195,7 +2204,7 @@ class Cs extends MY_Controller
                 'selesai_at'    => $row->selesai_at,
                 'durasi_detik'  => (int) $row->durasi_detik,
                 'ukuran_byte'   => (int) $row->ukuran_byte,
-                'status'        => $row->status,
+                'status'        => $status_tampil,
                 'finalisasi'    => isset($row->finalisasi) ? $row->finalisasi : 'BELUM',
                 'mp4'           => $this->info_mp4($row),
             ];
