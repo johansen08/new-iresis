@@ -440,7 +440,33 @@
     // Klik / fokus ke kolom memilih seluruh isi: ketikan berikutnya menggantikannya.
     $('#vp-noresi').on('focus click', function () { this.select(); });
 
+    // Kursor harus selalu siap di kolom resi. Fokus dicoba beberapa kali saat
+    // halaman baru dimuat (menu SPA kadang merebut fokus sesudah isinya terpasang),
+    // tapi tidak mencuri fokus kalau user sudah mengetik di kolom isian lain.
+    function fokusKolom() {
+      var el = document.getElementById('vp-noresi');
+      if (!el || document.activeElement === el) { return; }
+      var a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { return; }
+      el.focus();
+    }
+    [0, 100, 300, 700, 1500].forEach(function (t) { setTimeout(fokusKolom, t); });
+
+    // Scanner mengetik ke elemen yang sedang fokus. Setelah CS mengklik video atau
+    // tombol, fokus lepas dari kolom dan scan berikutnya hilang -- jadi ketikan
+    // huruf/angka di luar kolom isian diarahkan kembali ke kolom (dan menggantikan
+    // resi lama). Spasi dan tombol panah tidak diambil: dipakai kontrol video.
+    $(document).off('keydown.vp').on('keydown.vp', function (e) {
+      var el = document.getElementById('vp-noresi');
+      if (!el) { $(document).off('keydown.vp'); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1 || !/[A-Za-z0-9]/.test(e.key)) { return; }
+      var a = document.activeElement;
+      if (a === el || (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable))) { return; }
+      if (siapGanti) { el.value = ''; siapGanti = false; }
+      el.focus();
+    });
+
     gambarRiwayat();
-    $('#vp-noresi').focus();
+    fokusKolom();
   })();
 </script>
