@@ -248,13 +248,6 @@
       } else if (resi) {
         html += '<div class="vp-nomor"><div class="vp-lbl">No pesanan</div><span class="text-muted">-</span></div>';
       }
-      if (resi && resi.picker && resi.picker.nama && resi.picker.nama !== '-') {
-        var pk = resi.picker;
-        html += '<div class="vp-nomor"><div class="vp-lbl">Picker</div><div class="vp-val"><strong>' + escapeHtml(pk.nama) + '</strong>' +
-          (pk.absen ? ' &middot; absen <strong>' + escapeHtml(pk.absen) + '</strong>' : '') + '</div></div>';
-      } else if (resi) {
-        html += '<div class="vp-nomor"><div class="vp-lbl">Picker</div><span class="text-muted">belum tercatat</span></div>';
-      }
       if (resi) {
         html += '<div class="vp-toko">' + escapeHtml(resi.toko || '-') +
           (resi.status_pesanan ? ' &middot; <span class="label label-default">' + escapeHtml(resi.status_pesanan) + '</span>' : '') +
@@ -274,8 +267,21 @@
       html += '</div></div>';
       var ringkasan = html;
 
+      // Info picking: format sama dengan Info packing (label kecil di atas, nilai tebal).
+      var infoPicker = '';
+      if (resi) {
+        var pk = resi.picker || {};
+        var ada = pk.nama && pk.nama !== '-';
+        infoPicker = '<div class="panel panel-default"><div class="panel-body" style="padding: 10px 15px;">' +
+          judulBagian('Info picking') +
+          '<div class="vp-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">' +
+            selInfo('Picker', ada ? '<strong>' + escapeHtml(pk.nama) + '</strong>' : '<span class="text-muted">belum tercatat</span>') +
+            selInfo('No absen', ada && pk.absen ? '<strong>' + escapeHtml(pk.absen) + '</strong>' : '<span class="text-muted">-</span>') +
+          '</div></div></div>';
+      }
+
       if (!resi || !resi.items || !resi.items.length) {
-        return { ringkasan: ringkasan, sku: '<div class="panel panel-default"><div class="panel-body text-muted">Daftar SKU untuk resi ini tidak ditemukan.</div></div>' };
+        return { ringkasan: ringkasan, sku: infoPicker + '<div class="panel panel-default"><div class="panel-body text-muted">Daftar SKU untuk resi ini tidak ditemukan.</div></div>' };
       }
 
       // Panel kedua: daftar SKU, terpisah dari ringkasan supaya di ponsel bisa
@@ -318,7 +324,7 @@
       });
 
       html += '</tbody></table></div></div></div>';
-      return { ringkasan: ringkasan, sku: html };
+      return { ringkasan: ringkasan, sku: infoPicker + html };
     }
 
     // Tombol salin satu klik di samping nomor.
