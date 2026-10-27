@@ -262,6 +262,16 @@ class Video_packing_fcd extends CI_Model
             return null;
         }
 
+        // Picker yang mengambil barang resi ini (satu baris per resi, kolom id_resi UNIQUE).
+        $picker = $this->db
+            ->select('u.name')
+            ->from('tblresiambilbarang rab')
+            ->join('tbluser u', 'u.id_user = rab.yangambil_pegawai', 'left')
+            ->where('rab.id_resi', (int) $resi->id_printresi)
+            ->limit(1)
+            ->get()
+            ->row();
+
         $rows = $this->db
             ->select('d.sku, d.jumlah, d.no_rak, d.no_pesanan, d.status_kurangan, d.qty_kurang, s.nama_sku, s.variasi, s.link_foto, s.foto_lokal')
             ->from('tbldetailprintresi d')
@@ -298,6 +308,7 @@ class Video_packing_fcd extends CI_Model
             'toko'           => $resi->toko ? $resi->toko : '',
             'status_pesanan' => $resi->status_pesanan ? $resi->status_pesanan : '',
             'no_pesanan'     => $pesanan,
+            'nama_picker'    => ($picker && $picker->name) ? $picker->name : '',
             'items'          => $items,
             'total_sku'      => count($items),
             'total_qty'      => $total_qty,
