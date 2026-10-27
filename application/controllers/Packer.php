@@ -814,6 +814,89 @@ class Packer extends MY_Controller
      * Potongan WebM dari MediaRecorder valid kalau digabung berurutan apa
      * adanya (potongan pertama membawa header), jadi cukup di-append.
      */
+    /**
+     * Izin unggah satu potongan video (antrean lintas-PC).
+     *
+     * Semua PC packer mengirim potongan tiap 2 detik ke satu server, jadi
+     * beberapa PC yang merekam bersamaan membuat kartu jaringan server penuh --
+     * dan scan ikut tersendat. Sebelum mengirim, browser minta izin di sini.
+     * Hanya SLOT_UNGGAH_BAWAAN unggahan (bisa diubah lewat `unggah_slot_maks`
+     * di secrets.php) yang boleh berjalan sekaligus; yang lain disuruh menunggu
+     * sebentar lalu bertanya lagi. Izin berupa sewa bertenggat, jadi PC yang
+     * mati di tengah unggahan tidak menahan slot selamanya.
+     *
+     * Gagal-buka: kalau berkas slot tidak bisa dipakai, izin selalu diberikan.
+     * Antrean ini pengatur lalu lintas, bukan syarat merekam.
+     */
+    const SLOT_UNGGAH_BAWAAN = 3;
+    const SEWA_SLOT_DETIK    = 8;
+
+    public function izin_unggah_video()
+    {
+        $this->lepas_kunci_session();
+
+        $maks = max(1, (int) iresis_secret('unggah_slot_maks', self::SLOT_UNGGAH_BAWAAN));
+
+        $diberi = $this->ubah_slot_unggah(function (array $slot) use ($maks, &$token) {
+            if (count($slot) >= $maks) {
+                return $slot;
+            }
+
+            $token        = bin2hex(random_bytes(6));
+            $slot[$token] = time() + self::SEWA_SLOT_DETIK;
+
+            return $slot;
+        });
+
+        if ($diberi === FALSE || !empty($token)) {
+            $this->make_ajax_response(200, 'ok', ['izin' => TRUE, 'token' => (string) $token]);
+        }
+
+        // Jeda acak supaya PC yang ditolak bersamaan tidak bertanya serempak lagi.
+        $this->make_ajax_response(200, 'antre', ['izin' => FALSE, 'tunggu_ms' => mt_rand(250, 700)]);
+    }
+
+    /**
+     * Baca-ubah-tulis daftar slot unggah di bawah kunci berkas.
+     *
+     * @param callable $ubah Menerima [token => tenggat] yang sudah dibersihkan
+     *                       dari sewa kedaluwarsa, mengembalikan daftar baru.
+     * @return bool FALSE kalau berkasnya tidak bisa dipakai.
+     */
+    private function ubah_slot_unggah(callable $ubah)
+    {
+        $fp = @fopen(APPPATH . 'cache/slot_unggah_video.json', 'c+');
+        if (!$fp) {
+            return FALSE;
+        }
+
+        if (!flock($fp, LOCK_EX)) {
+            fclose($fp);
+            return FALSE;
+        }
+
+        $slot = json_decode((string) stream_get_contents($fp), TRUE);
+        $slot = is_array($slot) ? $slot : [];
+        $kini = time();
+
+        foreach ($slot as $token => $tenggat) {
+            if ($tenggat < $kini) {
+                unset($slot[$token]);
+            }
+        }
+
+        $baru = $ubah($slot);
+
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, json_encode($baru));
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        return TRUE;
+    }
+
     public function upload_video_packing()
     {
         // Hanya membaca session (user sudah di $this->data); kunci dilepas supaya
@@ -907,7 +990,19 @@ class Packer extends MY_Controller
         $mode = ($seq === 0 || !$sesi) ? 0 : FILE_APPEND;
         $isi  = file_get_contents($_FILES['chunk']['tmp_name']);
 
-        if ($isi === FALSE || file_put_contents($path, $isi, $mode) === FALSE) {
+        $tulis_ok = ($isi !== FALSE && file_put_contents($path, $isi, $mode) !== FALSE);
+
+        // Slot dikembalikan begitu berkas selesai ditulis, tanpa menunggu
+        // sisa pekerjaan basis data; kalau terlewat, sewanya habis sendiri.
+        $slot_token = (string) $this->input->post('slot');
+        if ($slot_token !== '') {
+            $this->ubah_slot_unggah(function (array $slot) use ($slot_token) {
+                unset($slot[$slot_token]);
+                return $slot;
+            });
+        }
+
+        if (!$tulis_ok) {
             $this->make_ajax_response(500, 'Gagal menulis berkas video ke server.');
         }
 

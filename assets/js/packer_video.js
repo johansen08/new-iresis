@@ -159,6 +159,10 @@
     var MAKS_DURASI_DTK  = 5400;    // 90 menit
     var MAKS_PERCOBAAN   = 4;       // percobaan kirim ulang per potongan
     var JEDA_ULANG_MS    = 1500;    // jeda dasar antar percobaan (naik tiap gagal)
+    // Menunggu giliran unggah (antrean lintas-PC di server, lihat
+    // Packer::izin_unggah_video). Lewat batas ini potongan dikirim saja:
+    // antrean cuma pengatur lalu lintas, bukan syarat merekam.
+    var BATAS_TUNGGU_IZIN_MS = 10000;
     var MAKS_ANTRIAN     = 60;      // potongan menunggu (~2 menit video, ~30-40 MB)
     var KUNCI_KAMERA     = 'packer_video_device_id';
     // URI menu Scan Resi Packer (Webcam) di tabel menu; dititipkan di hash
@@ -224,6 +228,7 @@
     var codecAktif = null;
     var codecDicari = null;   // Promise deteksi, supaya cuma jalan sekali
     var uploadUrl = null;
+    var izinUrl = null;
     var panel = null;
     var el = {};
 
@@ -716,7 +721,38 @@
      * masalah permintaan, bukan gangguan sementara.
      */
     function kirimPotongan(item, percobaan) {
+        mintaIzinUnggah(function (token) {
+            kirimPotonganLangsung(item, percobaan, token);
+        }, Date.now());
+    }
+
+    /**
+     * Minta giliran unggah ke server. Memanggil cb(token) begitu diizinkan;
+     * token kosong berarti kirim tanpa izin (server lama, jaringan bermasalah,
+     * atau sudah menunggu terlalu lama) -- tidak pernah menahan rekaman.
+     */
+    function mintaIzinUnggah(cb, mulaiMs) {
+        if (!izinUrl) { cb(''); return; }
+
+        fetch(izinUrl, { method: 'POST', credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                var d = res && res.data;
+
+                if (!d) { cb(''); return; }
+                if (d.izin) { cb(d.token || ''); return; }
+                if (Date.now() - mulaiMs > BATAS_TUNGGU_IZIN_MS) { cb(''); return; }
+
+                window.setTimeout(function () {
+                    mintaIzinUnggah(cb, mulaiMs);
+                }, d.tunggu_ms || 400);
+            })
+            .catch(function () { cb(''); });
+    }
+
+    function kirimPotonganLangsung(item, percobaan, token) {
         var fd = new FormData();
+        fd.append('slot', token || '');
         fd.append('kode_sesi', item.kode);
         fd.append('noresi', item.noresi);
         fd.append('seq', item.seq);
@@ -1134,6 +1170,7 @@
          */
         sinkron: function (opsi) {
             uploadUrl = opsi.uploadUrl || uploadUrl;
+            izinUrl = opsi.izinUrl || izinUrl;
 
             if (typeof opsi.pemberitahu === 'function') {
                 pemberitahu = opsi.pemberitahu;
