@@ -240,6 +240,64 @@ class Video_packing_fcd extends CI_Model
         return $this->db->get()->result();
     }
 
+    /**
+     * Isi resi yang direkam: toko, status pesanan, dan SKU beserta qty-nya.
+     *
+     * Dipakai CS untuk mencocokkan apa yang dimasukkan packer di video dengan
+     * apa yang seharusnya ada di resi. Dua query kecil (resi lalu detailnya,
+     * keduanya lewat index) -- tidak ada JOIN ke tabel besar lain.
+     *
+     * @return array|null null kalau resinya tidak ada di tblprintresi.
+     */
+    public function info_resi($noresi)
+    {
+        $resi = $this->db
+            ->select('id_printresi, toko, status_pesanan')
+            ->where('noresi', $noresi)
+            ->limit(1)
+            ->get('tblprintresi')
+            ->row();
+
+        if (!$resi) {
+            return null;
+        }
+
+        $rows = $this->db
+            ->select('d.sku, d.jumlah, d.no_rak, d.status_kurangan, d.qty_kurang, s.nama_sku, s.variasi, s.link_foto, s.foto_lokal')
+            ->from('tbldetailprintresi d')
+            ->join('tblsku s', 's.id_sku = d.sku', 'left')
+            ->where('d.id_resi', (int) $resi->id_printresi)
+            ->order_by('d.id_detail_resi', 'ASC')
+            ->get()
+            ->result();
+
+        $items = [];
+        $total_qty = 0;
+        foreach ($rows as $r) {
+            $qty = (int) $r->jumlah;
+            $total_qty += $qty;
+            $lokal = foto_sku_lokal_url($r->link_foto, $r->foto_lokal);
+            $items[] = [
+                'sku'         => $r->sku,
+                'nama'        => $r->nama_sku ? $r->nama_sku : '',
+                'variasi'     => $r->variasi ? $r->variasi : '',
+                'qty'         => $qty,
+                'rak'         => $r->no_rak ? $r->no_rak : '',
+                'foto'        => $r->link_foto ? $r->link_foto : $lokal,
+                'foto_lokal'  => $r->link_foto ? $lokal : '',
+                'kurang'      => ($r->status_kurangan && $r->status_kurangan !== 'Tidak') ? (int) $r->qty_kurang : 0,
+            ];
+        }
+
+        return [
+            'toko'           => $resi->toko ? $resi->toko : '',
+            'status_pesanan' => $resi->status_pesanan ? $resi->status_pesanan : '',
+            'items'          => $items,
+            'total_sku'      => count($items),
+            'total_qty'      => $total_qty,
+        ];
+    }
+
     // ------------------------------------------------------------ finalisasi
 
     /**

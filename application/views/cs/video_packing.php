@@ -115,13 +115,132 @@
       );
     }
 
-    function gambarHasil(noresi, list) {
-      var html = '<p><strong>No Resi: ' + escapeHtml(noresi) + '</strong> &mdash; ' +
-        list.length + ' video</p>';
+    function tglIndo(s) {
+      var p = String(s || '').split('-');
+      return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : (s || '-');
+    }
+
+    // Judul kecil huruf kapital di atas tiap kelompok informasi: membuat urutan
+    // baca jelas (resi -> isi resi -> rekaman) tanpa menambah garis dan kotak.
+    function judulBagian(teks) {
+      return '<div class="text-muted" style="font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px;">' +
+        escapeHtml(teks) + '</div>';
+    }
+
+    // Satu baris label/nilai pada kartu info packing.
+    function barisInfo(label, nilaiHtml, pertama) {
+      return '<tr>' +
+        '<td class="text-muted" style="width: 38%; white-space: nowrap;' + (pertama ? ' border-top: 0;' : '') + '">' + escapeHtml(label) + '</td>' +
+        '<td style="' + (pertama ? 'border-top: 0;' : '') + '">' + nilaiHtml + '</td>' +
+      '</tr>';
+    }
+
+    // Isi resi: apa yang SEHARUSNYA ada di paket. Dipisah dari info rekaman supaya
+    // CS bisa mencocokkan isi video dengan daftar ini sambil menonton.
+    function gambarIsiResi(noresi, resi) {
+      var html = '<div class="panel panel-default"><div class="panel-body">';
+
+      html += '<div class="row"><div class="col-sm-8">' +
+          judulBagian('No resi') +
+          '<div style="font-size: 22px; font-weight: 600; line-height: 1.2; word-break: break-all;">' + escapeHtml(noresi) + '</div>';
+      if (resi) {
+        html += '<div class="text-muted" style="margin-top: 4px;">' + escapeHtml(resi.toko || '-') +
+          (resi.status_pesanan ? ' &middot; <span class="label label-default">' + escapeHtml(resi.status_pesanan) + '</span>' : '') +
+          '</div>';
+      }
+      html += '</div>';
+
+      if (resi) {
+        html += '<div class="col-sm-4 text-right">' +
+          judulBagian('Total isi paket') +
+          '<div style="font-size: 22px; font-weight: 600; line-height: 1.2;">' + resi.total_qty + ' pcs</div>' +
+          '<div class="text-muted">' + resi.total_sku + ' SKU</div>' +
+        '</div>';
+      }
+      html += '</div>';
+
+      if (!resi || !resi.items || !resi.items.length) {
+        html += '<p class="text-muted" style="margin: 12px 0 0;">Daftar SKU untuk resi ini tidak ditemukan.</p>';
+        return html + '</div></div>';
+      }
+
+      html += '<div style="margin-top: 14px;">' + judulBagian('SKU yang harus ada di resi ini') + '</div>' +
+        '<div class="table-responsive"><table class="table table-condensed" style="margin-bottom: 0;">' +
+        '<thead><tr>' +
+          '<th style="width: 52px;"></th><th>SKU</th><th style="width: 110px;">Rak</th><th class="text-right" style="width: 80px;">Qty</th>' +
+        '</tr></thead><tbody>';
+
+      resi.items.forEach(function (it) {
+        var foto = it.foto
+          ? '<img src="' + escapeHtml(it.foto) + '"' + (it.foto_lokal ? ' data-foto-lokal="' + escapeHtml(it.foto_lokal) + '"' : '') +
+            ' alt="" class="vp-foto" style="width: 44px; height: 44px; object-fit: cover; border-radius: 3px; background: #eee;">'
+          : '<div style="width: 44px; height: 44px; border-radius: 3px; background: #eee;"></div>';
+        var qty = it.qty > 1
+          ? '<span class="label label-warning" style="font-size: 15px;">' + it.qty + '</span>'
+          : '<span style="font-size: 15px; font-weight: 600;">' + it.qty + '</span>';
+        var detail = [it.nama, it.variasi].filter(Boolean).join(' &middot; ');
+
+        html += '<tr>' +
+          '<td style="vertical-align: middle;">' + foto + '</td>' +
+          '<td style="vertical-align: middle;"><strong>' + escapeHtml(it.sku) + '</strong>' +
+            (it.kurang > 0 ? ' <span class="label label-danger">kurang ' + it.kurang + '</span>' : '') +
+            (detail ? '<div style="font-size: 12px; color: #444;">' + (it.nama ? escapeHtml(it.nama) : '') +
+              (it.variasi ? (it.nama ? ' &middot; ' : '') + '<strong>' + escapeHtml(it.variasi) + '</strong>' : '') + '</div>' : '') +
+          '</td>' +
+          '<td style="vertical-align: middle;">' + escapeHtml(it.rak || '-') + '</td>' +
+          '<td class="text-right" style="vertical-align: middle;">' + qty + '</td>' +
+        '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      return html + '</div></div>';
+    }
+
+    // Satu rekaman: video di kiri (bagian yang paling dicari), info packing di kanan.
+    function gambarRekaman(v, i, total) {
+      var p = v.packer || { nama: v.nama_packer || '-', jabatan: '', absen: '' };
+      var judul = total > 1 ? 'Bagian ' + (v.bagian || (i + 1)) + ' dari ' + total : 'Rekaman packing';
+      var selesai = v.jam_selesai
+        ? escapeHtml(v.jam_selesai)
+        : '<span class="text-muted">' + (v.status === 'MEREKAM' ? 'masih merekam' : 'tidak tercatat') + '</span>';
+
+      return '<div class="panel panel-default">' +
+        '<div class="panel-heading">' +
+          '<strong>' + escapeHtml(judul) + '</strong>' + labelStatus(v.status) +
+        '</div>' +
+        '<div class="panel-body"><div class="row">' +
+          '<div class="col-md-7">' +
+            '<video src="' + escapeHtml(v.url) + '" controls playsinline ' +
+              'preload="' + (i === 0 ? 'metadata' : 'none') + '" ' +
+              'style="width: 100%; background: #000;"></video>' +
+            '<div class="vp-galat text-danger" style="display: none; margin-top: 6px;"></div>' +
+            '<div style="margin-top: 8px;">' +
+              '<a href="' + escapeHtml(v.url) + '?unduh=1" class="btn btn-default btn-sm">' +
+                '<i class="fa fa-download"></i> Unduh WebM</a>' +
+            '</div>' +
+          '</div>' +
+          '<div class="col-md-5">' +
+            judulBagian('Info packing') +
+            '<table class="table table-condensed" style="margin-bottom: 0;"><tbody>' +
+              barisInfo('Packer', '<strong>' + escapeHtml(p.nama) + '</strong>' +
+                (p.jabatan ? ' <span class="label label-default">' + escapeHtml(p.jabatan) + '</span>' : ''), true) +
+              barisInfo('No absen', p.absen ? '<strong>' + escapeHtml(p.absen) + '</strong>' : '<span class="text-muted">-</span>') +
+              barisInfo('Komputer', escapeHtml(v.nama_komputer || '-')) +
+              barisInfo('Tanggal', escapeHtml(tglIndo(v.tanggal))) +
+              barisInfo('Jam', '<strong>' + escapeHtml(v.jam_mulai || '-') + '</strong> &ndash; <strong>' + selesai + '</strong>') +
+              barisInfo('Durasi', escapeHtml(formatDurasi(v.durasi_detik))) +
+              barisInfo('Berkas', '<small class="text-muted">' + escapeHtml(v.nama_file || '-') + ' &middot; ' + formatUkuran(v.ukuran_byte) + '</small>') +
+            '</tbody></table>' +
+          '</div>' +
+        '</div></div>' +
+      '</div>';
+    }
+
+    function gambarHasil(noresi, list, resi) {
+      var html = gambarIsiResi(noresi, resi);
 
       // Lebih dari satu bagian berarti rekamannya sempat terputus di tengah
-      // packing -- biasanya tab packer mati. Bagiannya harus ditonton berurutan,
-      // jadi itu dikatakan terus terang alih-alih sekadar menomori panel.
+      // packing -- biasanya tab packer mati. Bagiannya harus ditonton berurutan.
       if (list.length > 1) {
         html +=
           '<p class="text-warning"><strong>Terbagi ' + list.length + ' bagian</strong> ' +
@@ -133,37 +252,19 @@
       }
 
       list.forEach(function (v, i) {
-        var judul = list.length > 1
-          ? 'Bagian ' + (v.bagian || (i + 1)) + ' dari ' + list.length
-          : '';
-
-        html +=
-          '<div class="panel panel-default">' +
-            '<div class="panel-heading">' +
-              '<strong>' + escapeHtml(judul) + '</strong>' + labelStatus(v.status) +
-              '<span class="pull-right text-muted">' + escapeHtml(v.mulai_at) + '</span>' +
-            '</div>' +
-            '<div class="panel-body">' +
-              '<video src="' + escapeHtml(v.url) + '" controls playsinline ' +
-                'preload="' + (i === 0 ? 'metadata' : 'none') + '" ' +
-                'style="width: 100%; max-width: 720px; background: #000;"></video>' +
-              '<div class="vp-galat text-danger" style="display: none; margin-top: 6px;"></div>' +
-              '<table class="table table-condensed" style="margin: 10px 0 0; max-width: 720px;"><tbody>' +
-                '<tr><td class="text-muted" style="width: 120px; border-top: 0;">Packer</td><td style="border-top: 0;"><strong>' +
-                  escapeHtml(v.nama_packer) + '</strong> (' + escapeHtml(v.nama_komputer) + ')</td></tr>' +
-                '<tr><td class="text-muted">Durasi / ukuran</td><td>' + formatDurasi(v.durasi_detik) +
-                  ' &middot; ' + formatUkuran(v.ukuran_byte) + '</td></tr>' +
-                '<tr><td class="text-muted">Berkas</td><td><code>' + escapeHtml(v.nama_file || '-') + '</code></td></tr>' +
-              '</tbody></table>' +
-              '<div style="margin-top: 8px;">' +
-                '<a href="' + escapeHtml(v.url) + '?unduh=1" class="btn btn-default btn-sm">' +
-                  '<i class="fa fa-download"></i> Unduh WebM</a>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
+        html += gambarRekaman(v, i, list.length);
       });
 
       $('#vp-hasil').html(html);
+
+      // Foto produk: URL asli dulu, salinan lokal bila gagal dimuat.
+      $('#vp-hasil img.vp-foto').each(function () {
+        var img = this;
+        img.addEventListener('error', function () {
+          var lokal = img.getAttribute('data-foto-lokal');
+          if (lokal && img.src.indexOf(lokal) === -1) { img.src = lokal; }
+        });
+      });
 
       $('#vp-hasil video').each(function (i) {
         var el = this;
@@ -225,7 +326,7 @@
           }
           noresiAktif = noresi;
           simpanRiwayat(noresi);
-          gambarHasil(noresi, res.data);
+          gambarHasil(noresi, res.data, res.resi);
         },
         error: function (xhr, status) {
           if (status === 'abort') return;

@@ -2177,7 +2177,13 @@ class Cs extends MY_Controller
                 continue;
             }
 
+            $packer = $this->pecah_nama_packer($row->nama_packer);
+
             $list[] = [
+                'packer'        => $packer,
+                'tanggal'       => $row->mulai_at ? date('Y-m-d', strtotime($row->mulai_at)) : '',
+                'jam_mulai'     => $row->mulai_at ? date('H:i:s', strtotime($row->mulai_at)) : '',
+                'jam_selesai'   => $row->selesai_at ? date('H:i:s', strtotime($row->selesai_at)) : '',
                 'id'            => (int) $row->id_videopacking,
                 'noresi'        => $row->noresi,
                 'bagian'        => isset($row->bagian) ? (int) $row->bagian : 1,
@@ -2207,9 +2213,34 @@ class Cs extends MY_Controller
         echo json_encode([
             'code'    => 200,
             'message' => count($list) . ' video ditemukan.',
-            'data'    => $list
+            'data'    => $list,
+            'resi'    => $this->video_packing_fcd->info_resi($noresi),
         ]);
         exit;
+    }
+
+    /**
+     * Pecah "NAMA - JABATAN - NOABSEN" (konvensi tbluser.name) jadi bagian-bagiannya.
+     * No absen = angka di ujung nama, bukan id_user/kode_pegawai. Nama yang tidak
+     * mengikuti konvensi dikembalikan utuh sebagai nama, tanpa jabatan/absen.
+     */
+    private function pecah_nama_packer($nama_penuh)
+    {
+        $nama_penuh = trim((string) $nama_penuh);
+
+        if ($nama_penuh === '') {
+            return ['nama' => '-', 'jabatan' => '', 'absen' => ''];
+        }
+
+        if (preg_match('/^(.*?)\s*-\s*(.*?)\s*-\s*(\d+)$/u', $nama_penuh, $m)) {
+            return ['nama' => $m[1], 'jabatan' => $m[2], 'absen' => $m[3]];
+        }
+
+        if (preg_match('/^(.*?)\s*-\s*(\d+)$/u', $nama_penuh, $m)) {
+            return ['nama' => $m[1], 'jabatan' => '', 'absen' => $m[2]];
+        }
+
+        return ['nama' => $nama_penuh, 'jabatan' => '', 'absen' => ''];
     }
 
     /**
