@@ -2,8 +2,7 @@
 <style>
 #lrs_wrap { max-width:960px; margin:0 auto; padding:16px 20px 40px; color:#1c2a33; }
 #lrs_wrap h1 { margin:0 0 4px; font-size:24px; font-weight:700; }
-#lrs_wrap .lrs-judul { display:flex; align-items:center; gap:4px; margin-bottom:16px; }
-#lrs_wrap .lrs-judul h1 { margin:0; }
+#lrs_wrap .lrs-judul { display:flex; align-items:center; margin-bottom:8px; }
 #lrs_wrap .lrs-tip { position:relative; display:inline-flex; }
 #lrs_wrap .lrs-tip-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border-radius:16px; background:transparent; color:#6b7c87; cursor:help; }
 #lrs_wrap .lrs-tip-btn:hover, #lrs_wrap .lrs-tip-btn:focus { background:#e9eef1; color:#0b6b5e; outline:none; }
@@ -28,7 +27,6 @@
 </style>
 <div id="lrs_wrap">
     <div class="lrs-judul">
-        <h1>Laporan Resi Spesial</h1>
         <span class="lrs-tip">
             <button type="button" class="lrs-tip-btn" aria-label="Penjelasan laporan">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="8" r="0.6"></circle></svg>
