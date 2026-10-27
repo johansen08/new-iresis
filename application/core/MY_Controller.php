@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-27.1';
+    const BOOTSTRAP_VERSI = '2026-10-27.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1659,7 +1659,7 @@ class MY_Controller extends CI_Controller
     }
 
     /**
-     * Menu TIM RESI -> "Laporan Resi Spesial" (uri `laporan-resi-spesial`): per tanggal
+     * Menu Laporan -> "Laporan Resi Spesial" (uri `laporan-resi-spesial`): per tanggal
      * scan picker, jumlah resi 1 SKU 1 QTY vs yang discan 1_SKU_PICKER, plus persen.
      * Baca-saja, tanpa tabel baru. Hak akses disamakan dengan "Upload Resi Spesial":
      * webmaster (1), admin (2), tim retur (6).
@@ -1672,10 +1672,10 @@ class MY_Controller extends CI_Controller
         if (!$menu) {
             $this->db->insert('menu', [
                 'name'      => 'Laporan Resi Spesial',
-                'parentid'  => 6, // TIM RESI
+                'parentid'  => 15, // Laporan
                 'uri'       => $uri,
                 'icon'      => 'fa fa-bar-chart-o',
-                'sortorder' => 12, // setelah "Upload Resi Spesial" (11)
+                'sortorder' => 105, // setelah Laporan Resi Cancel (100)
                 'isactive'  => 1,
                 'createdby' => 1,
                 'created'   => date('Y-m-d H:i:s')

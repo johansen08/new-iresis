@@ -2,7 +2,7 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Menu TIM RESI -> "Laporan Resi Spesial": per tanggal scan picker, jumlah resi
+ * Menu Laporan -> "Laporan Resi Spesial": per tanggal scan picker, jumlah resi
  * 1 SKU 1 QTY, jumlah yang discan sebagai 1_SKU_PICKER, dan persentasenya.
  * Target optimasi sejak 23 Okt 2026: minimal 50%. Baca-saja.
  */
