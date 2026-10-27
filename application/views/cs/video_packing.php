@@ -39,6 +39,24 @@
   .vp-berkas { font-size: 12px; color: var(--vp-label); margin-top: 8px; word-break: break-all; }
   #vp-hasil .panel-heading { font-size: 14px; color: var(--vp-teks); }
   #vp-hasil th { font-size: 11px; font-weight: 600; color: var(--vp-label); text-transform: uppercase; letter-spacing: .06em; }
+  .vp-foto-wrap { position: relative; display: block; width: 52px; height: 52px; border-radius: 4px; overflow: hidden; cursor: zoom-in; background: #eee; }
+  .vp-foto, .vp-foto-kosong { width: 52px; height: 52px; object-fit: cover; background: #eee; display: block; border-radius: 4px; }
+  .vp-foto-mata { position: absolute; right: 2px; bottom: 2px; width: 20px; height: 20px; line-height: 20px; text-align: center;
+    font-size: 11px; color: #fff; background: rgba(17, 24, 39, .72); border-radius: 50%; transition: transform .12s, background .12s; }
+  .vp-foto-wrap:hover .vp-foto-mata { background: #e91e63; transform: scale(1.15); }
+  /* Pop up berada di luar .vp-root, jadi ukurannya mengikuti layar, bukan zoom menu. */
+  #vp-foto-popup { position: fixed; inset: 0; z-index: 99999; background: rgba(0, 0, 0, .82); display: flex;
+    align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+  #vp-foto-popup .vp-foto-isi { max-width: 100%; text-align: center; cursor: default; }
+  #vp-foto-popup img { min-width: min(440px, 92vw); max-width: 92vw; max-height: 80vh; object-fit: contain; background: #fff; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
+  #vp-foto-popup .vp-foto-muat { color: #fff; font-size: 28px; padding: 40px; }
+  #vp-foto-popup .vp-foto-judul { margin-top: 12px; color: #fff; font-size: 16px; }
+  #vp-foto-popup .vp-foto-judul strong { font-family: Consolas, "Courier New", monospace; font-size: 18px; margin-right: 10px; }
+  #vp-foto-popup .vp-foto-judul span { color: #d1d5db; }
+  #vp-foto-popup .vp-foto-tutup { position: absolute; top: 14px; right: 18px; width: 44px; height: 44px; border: 0; border-radius: 50%;
+    background: rgba(255,255,255,.18); color: #fff; font-size: 22px; cursor: pointer; }
+  #vp-foto-popup .vp-foto-tutup:hover { background: rgba(255,255,255,.34); }
+  @media (min-width: 2200px) { #vp-foto-popup img { max-height: 84vh; } #vp-foto-popup .vp-foto-judul { font-size: 22px; } }
   .vp-video { width: 100%; max-height: calc(70vh / var(--vp-zoom, 1)); background: #000; display: block; }
 
   /* Monitor besar (Full HD ke atas, QHD, 4K, TV): seluruh isi menu diperbesar
@@ -228,14 +246,22 @@
         judulBagian('SKU yang harus ada di resi ini') +
         '<div class="table-responsive"><table class="table table-condensed" style="margin-bottom: 0;">' +
         '<thead><tr>' +
-          '<th style="width: 52px;"></th><th>SKU</th><th class="text-right" style="width: 64px;">Qty</th>' +
+          '<th style="width: 64px;"></th><th>SKU</th><th class="text-right" style="width: 64px;">Qty</th>' +
         '</tr></thead><tbody>';
 
       resi.items.forEach(function (it) {
+        // Klik thumbnail (ikon mata) membuka gambar besar di pop up.
         var foto = it.foto
-          ? '<img src="' + escapeHtml(it.foto) + '"' + (it.foto_lokal ? ' data-foto-lokal="' + escapeHtml(it.foto_lokal) + '"' : '') +
-            ' alt="" class="vp-foto" style="width: 44px; height: 44px; object-fit: cover; border-radius: 3px; background: #eee;">'
-          : '<div style="width: 44px; height: 44px; border-radius: 3px; background: #eee;"></div>';
+          ? '<a href="#" class="vp-foto-wrap" title="Lihat gambar lebih besar"' +
+              ' data-foto="' + escapeHtml(it.foto) + '"' +
+              ' data-lokal="' + escapeHtml(it.foto_lokal || '') + '"' +
+              ' data-judul="' + escapeHtml(it.sku) + '"' +
+              ' data-sub="' + escapeHtml([it.nama, it.variasi].filter(Boolean).join(' · ')) + '">' +
+              '<img src="' + escapeHtml(it.foto) + '"' + (it.foto_lokal ? ' data-foto-lokal="' + escapeHtml(it.foto_lokal) + '"' : '') +
+                ' alt="" class="vp-foto">' +
+              '<span class="vp-foto-mata"><i class="fa fa-eye"></i></span>' +
+            '</a>'
+          : '<div class="vp-foto vp-foto-kosong"></div>';
         var qty = it.qty > 1
           ? '<span class="label label-warning vp-qty">' + it.qty + '</span>'
           : '<span class="vp-qty">' + it.qty + '</span>';
@@ -424,6 +450,64 @@
       $('#vp-noresi').focus().select();
     }
 
+
+    // ---- Pop up gambar SKU -------------------------------------------------
+    // Tanpa library (aturan proyek: tidak ada CDN). Versi besar dicoba dulu
+    // (nama berkas tanpa "_thumb"), lalu gambar yang sama dengan thumbnail,
+    // lalu salinan lokal -- yang pertama berhasil dimuat yang dipakai.
+    function tutupFoto() {
+      $('#vp-foto-popup').remove();
+      $(document).off('keydown.vpfoto');
+    }
+
+    function bukaFoto(a) {
+      var asli  = String(a.data('foto') || '');
+      var lokal = String(a.data('lokal') || '');
+      var besar = asli.replace(/_thumb(\.[A-Za-z0-9]+)(\?.*)?$/, '$1$2');
+      var urutan = [];
+      [besar, asli, lokal].forEach(function (u) { if (u && urutan.indexOf(u) === -1) { urutan.push(u); } });
+
+      tutupFoto();
+      var sub = String(a.data('sub') || '');
+      var $p = $(
+        '<div id="vp-foto-popup" role="dialog" aria-modal="true">' +
+          '<button type="button" class="vp-foto-tutup" title="Tutup (Esc)"><i class="fa fa-times"></i></button>' +
+          '<div class="vp-foto-isi">' +
+            '<div class="vp-foto-muat"><i class="fa fa-spinner fa-spin"></i></div>' +
+            '<img alt="" style="display: none;">' +
+            '<div class="vp-foto-judul"><strong></strong><span></span></div>' +
+          '</div>' +
+        '</div>'
+      );
+      $p.find('.vp-foto-judul strong').text(String(a.data('judul') || ''));
+      $p.find('.vp-foto-judul span').text(sub);
+      $('body').append($p);
+
+      var img = $p.find('img')[0];
+      var i = 0;
+      function coba() {
+        if (i >= urutan.length) {
+          $p.find('.vp-foto-muat').text('Gambar tidak bisa dimuat.');
+          return;
+        }
+        img.src = urutan[i++];
+      }
+      img.onload  = function () { $p.find('.vp-foto-muat').hide(); $(img).show(); };
+      img.onerror = coba;
+      coba();
+
+      $p.on('click', function (e) {
+        if (e.target === this || $(e.target).closest('.vp-foto-tutup').length) { tutupFoto(); }
+      });
+      $(document).on('keydown.vpfoto', function (e) {
+        if (e.which === 27) { e.preventDefault(); tutupFoto(); }
+      });
+    }
+
+    $('#vp-hasil').on('click', '.vp-foto-wrap', function (e) {
+      e.preventDefault();
+      bukaFoto($(this));
+    });
 
     $('#vp-info-tombol').on('click', function (e) {
       e.preventDefault();
