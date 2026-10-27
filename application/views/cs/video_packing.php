@@ -9,11 +9,41 @@
       grid-template-areas: "kiri ring" "kiri sku"; grid-template-rows: auto 1fr; align-items: start; }
     #vp-hasil .vp-menempel { position: sticky; top: 10px; }
   }
+  /* Tipografi menu ini. Font tetap Open Sans (sama dengan aplikasi); kode (resi,
+     SKU) memakai monospace supaya 0/O dan 1/I mudah dibedakan saat dicocokkan.
+     Warna: teks utama #111827, sekunder #374151, label #6b7280 (kontras >= 4.5:1;
+     .text-muted bawaan tema #ccd0d9 terlalu pucat di atas putih). */
+  .vp-root { --vp-teks: #111827; --vp-sedang: #374151; --vp-label: #6b7280;
+    --vp-kode: Consolas, "Courier New", ui-monospace, monospace; font-size: 13px; color: var(--vp-teks); }
+  .vp-root .text-muted { color: var(--vp-label); }
+  #vp-noresi { font-family: var(--vp-kode); font-size: 17px; font-weight: 600; height: 42px; color: var(--vp-teks); letter-spacing: .02em; }
+  #vp-status-cari, #vp-info-tombol { font-size: 15px; }
+  #vp-info { font-size: 13px; color: var(--vp-sedang); line-height: 1.5; }
+  #vp-riwayat .label { font-size: 12px; font-weight: 600; padding: .3em .7em; }
+  #vp-riwayat small { font-size: 12px; }
+  .vp-root .label { font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+  .vp-root .btn-sm { font-size: 13px; }
+  .vp-cap { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--vp-label); margin-bottom: 6px; }
+  .vp-lbl { font-size: 11px; font-weight: 600; color: var(--vp-label); }
+  .vp-val { font-size: 14px; font-weight: 600; color: var(--vp-teks); }
+  .vp-val strong { font-weight: 700; }
+  .vp-resi { font-family: var(--vp-kode); font-size: 24px; font-weight: 700; line-height: 1.2; word-break: break-all; color: var(--vp-teks); }
+  .vp-toko { font-size: 13px; color: var(--vp-sedang); margin-top: 4px; }
+  .vp-total { font-size: 24px; font-weight: 700; line-height: 1.2; color: var(--vp-teks); }
+  .vp-total-sub { font-size: 13px; color: var(--vp-sedang); }
+  .vp-sku { font-family: var(--vp-kode); font-size: 14px; font-weight: 700; color: var(--vp-teks); }
+  .vp-nama { font-size: 13px; color: var(--vp-sedang); line-height: 1.35; }
+  .vp-nama strong { color: var(--vp-teks); }
+  .vp-rak { font-size: 12px; color: var(--vp-label); }
+  .vp-qty { font-size: 17px; font-weight: 700; }
+  .vp-berkas { font-size: 12px; color: var(--vp-label); margin-top: 8px; word-break: break-all; }
+  #vp-hasil .panel-heading { font-size: 14px; color: var(--vp-teks); }
+  #vp-hasil th { font-size: 11px; font-weight: 600; color: var(--vp-label); text-transform: uppercase; letter-spacing: .06em; }
   #vp-riwayat { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
   #vp-hasil .vp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
   @media (max-width: 575px) { #vp-hasil .vp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
-<div class="row">
+<div class="row vp-root">
   <div class="col-md-12">
     <div class="panel panel-default">
 
@@ -118,7 +148,7 @@
       var html = '<small class="text-muted">Terakhir dicari:</small> ';
       a.forEach(function (r) {
         html += '<a href="#" class="label label-default vp-riwayat-item" data-resi="' + escapeHtml(r) +
-          '" style="margin-right: 4px; font-size: 90%;">' + escapeHtml(r) + '</a>';
+          '">' + escapeHtml(r) + '</a>';
       });
       html += ' <a href="#" id="vp-riwayat-hapus" class="text-muted"><small>hapus</small></a>';
       box.html(html).show();
@@ -138,15 +168,15 @@
     // Judul kecil huruf kapital di atas tiap kelompok informasi: membuat urutan
     // baca jelas (resi -> isi resi -> rekaman) tanpa menambah garis dan kotak.
     function judulBagian(teks) {
-      return '<div class="text-muted" style="font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px;">' +
+      return '<div class="vp-cap">' +
         escapeHtml(teks) + '</div>';
     }
 
     // Satu sel pada grid info packing: label kecil di atas, nilai di bawahnya.
     function selInfo(label, nilaiHtml) {
       return '<div>' +
-        '<div class="text-muted" style="font-size: 11px;">' + escapeHtml(label) + '</div>' +
-        '<div>' + nilaiHtml + '</div>' +
+        '<div class="vp-lbl">' + escapeHtml(label) + '</div>' +
+        '<div class="vp-val">' + nilaiHtml + '</div>' +
       '</div>';
     }
 
@@ -157,9 +187,9 @@
 
       html += '<div class="row"><div class="col-sm-8">' +
           judulBagian('No resi') +
-          '<div style="font-size: 22px; font-weight: 600; line-height: 1.2; word-break: break-all;">' + escapeHtml(noresi) + '</div>';
+          '<div class="vp-resi">' + escapeHtml(noresi) + '</div>';
       if (resi) {
-        html += '<div class="text-muted" style="margin-top: 4px;">' + escapeHtml(resi.toko || '-') +
+        html += '<div class="vp-toko">' + escapeHtml(resi.toko || '-') +
           (resi.status_pesanan ? ' &middot; <span class="label label-default">' + escapeHtml(resi.status_pesanan) + '</span>' : '') +
           '</div>';
       }
@@ -168,8 +198,8 @@
       if (resi) {
         html += '<div class="col-sm-4 text-right">' +
           judulBagian('Total isi paket') +
-          '<div style="font-size: 22px; font-weight: 600; line-height: 1.2;">' + resi.total_qty + ' pcs</div>' +
-          '<div class="text-muted">' + resi.total_sku + ' SKU</div>' +
+          '<div class="vp-total">' + resi.total_qty + ' pcs</div>' +
+          '<div class="vp-total-sub">' + resi.total_sku + ' SKU</div>' +
         '</div>';
       }
       html += '</div>';
@@ -196,17 +226,17 @@
             ' alt="" class="vp-foto" style="width: 44px; height: 44px; object-fit: cover; border-radius: 3px; background: #eee;">'
           : '<div style="width: 44px; height: 44px; border-radius: 3px; background: #eee;"></div>';
         var qty = it.qty > 1
-          ? '<span class="label label-warning" style="font-size: 15px;">' + it.qty + '</span>'
-          : '<span style="font-size: 15px; font-weight: 600;">' + it.qty + '</span>';
+          ? '<span class="label label-warning vp-qty">' + it.qty + '</span>'
+          : '<span class="vp-qty">' + it.qty + '</span>';
         var detail = [it.nama, it.variasi].filter(Boolean).join(' &middot; ');
 
         html += '<tr>' +
           '<td style="vertical-align: middle;">' + foto + '</td>' +
-          '<td style="vertical-align: middle;"><strong>' + escapeHtml(it.sku) + '</strong>' +
+          '<td style="vertical-align: middle;"><strong class="vp-sku">' + escapeHtml(it.sku) + '</strong>' +
             (it.kurang > 0 ? ' <span class="label label-danger">kurang ' + it.kurang + '</span>' : '') +
-            (detail ? '<div style="font-size: 12px; color: #444;">' + (it.nama ? escapeHtml(it.nama) : '') +
+            (detail ? '<div class="vp-nama">' + (it.nama ? escapeHtml(it.nama) : '') +
               (it.variasi ? (it.nama ? ' &middot; ' : '') + '<strong>' + escapeHtml(it.variasi) + '</strong>' : '') + '</div>' : '') +
-            (it.rak ? '<div class="text-muted" style="font-size: 11px;"><i class="fa fa-map-marker"></i> Rak ' + escapeHtml(it.rak) + '</div>' : '') +
+            (it.rak ? '<div class="vp-rak"><i class="fa fa-map-marker"></i> Rak ' + escapeHtml(it.rak) + '</div>' : '') +
           '</td>' +
           '<td class="text-right" style="vertical-align: middle;">' + qty + '</td>' +
         '</tr>';
@@ -261,7 +291,7 @@
               selInfo('Jam mulai - selesai', '<strong>' + escapeHtml(v.jam_mulai || '-') + '</strong> &ndash; <strong>' + selesai + '</strong>') +
               selInfo('Durasi', '<strong>' + escapeHtml(formatDurasi(v.durasi_detik)) + '</strong>') +
             '</div>' +
-            '<div class="text-muted" style="font-size: 11px; margin-top: 8px;">' +
+            '<div class="vp-berkas">' +
               escapeHtml(v.nama_file || '-') + ' &middot; ' + formatUkuran(v.ukuran_byte) +
             '</div>' +
       '</div></div>';
