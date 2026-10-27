@@ -394,7 +394,7 @@
     // klik dua kali; saat diperbesar video bisa digeser dengan menyeret.
     function pasangPemutar($pm, v, durasiCatatan) {
       var $pg = $pm.find('.vp-panggung'), pg = $pg[0];
-      var LANGKAH = [1, 1.5, 2, 3, 4, 6];
+      var ZOOM_MIN = 1, ZOOM_MAKS = 4, ZOOM_LANGKAH = 0.25;
       var LAJU = [1, 1.5, 2, 0.5];
       var skala = 1, tx = 0, ty = 0, iLaju = 0, seretMulai = null, bergeser = false;
       var $putar = $pm.find('.vp-putar'), $seek = $pm.find('.vp-seek'), $waktu = $pm.find('.vp-waktu');
@@ -407,22 +407,20 @@
         v.style.transform = skala === 1 ? '' : 'translate(' + tx + 'px,' + ty + 'px) scale(' + skala + ')';
         $pg.toggleClass('vp-zoomed', skala > 1);
         $pm.find('.vp-skala').text(Math.round(skala * 100) + '%');
-        $pm.find('.vp-zoom-kecil').prop('disabled', skala <= LANGKAH[0]);
-        $pm.find('.vp-zoom-besar').prop('disabled', skala >= LANGKAH[LANGKAH.length - 1]);
+        $pm.find('.vp-zoom-kecil').prop('disabled', skala <= ZOOM_MIN);
+        $pm.find('.vp-zoom-besar').prop('disabled', skala >= ZOOM_MAKS);
         $pm.find('.vp-zoom-reset').prop('disabled', skala === 1);
       }
       // Zoom ke skala baru, titik (px, py) pada panggung tetap diam.
       function zoomKe(baru, px, py) {
-        baru = Math.max(LANGKAH[0], Math.min(LANGKAH[LANGKAH.length - 1], baru));
+        baru = Math.max(ZOOM_MIN, Math.min(ZOOM_MAKS, baru));
         if (px == null) { px = pg.clientWidth / 2; py = pg.clientHeight / 2; }
         var cx = (px - tx) / skala, cy = (py - ty) / skala;
         skala = baru; tx = px - cx * skala; ty = py - cy * skala;
         terapkan();
       }
       function langkah(arah) {
-        var i = 0;
-        LANGKAH.forEach(function (n, k) { if (n <= skala + 0.001) { i = k; } });
-        return LANGKAH[Math.max(0, Math.min(LANGKAH.length - 1, i + arah))];
+        return Math.round((skala + arah * ZOOM_LANGKAH) * 100) / 100;
       }
       // Rekaman WebM dari browser sering tanpa durasi di berkas (duration = Infinity),
       // jadi pakai durasi catatan database sebagai cadangan.
