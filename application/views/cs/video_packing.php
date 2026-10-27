@@ -68,6 +68,7 @@
   .vp-bar button:disabled { opacity: .35; cursor: default; }
   .vp-bar .vp-seek { flex: 1 1 140px; min-width: 100px; margin: 0; }
   .vp-bar .vp-waktu { font-family: var(--vp-kode); min-width: 92px; text-align: center; }
+  .vp-bar .vp-laju { font-family: var(--vp-kode); min-width: 44px; text-align: center; }
   .vp-bar .vp-skala { font-family: var(--vp-kode); min-width: 44px; text-align: center; }
   .vp-bar .vp-pisah { width: 1px; height: 20px; background: rgba(255,255,255,.25); margin: 0 2px; }
   .vp-pemutar:fullscreen { display: flex; flex-direction: column; border-radius: 0; }
@@ -247,6 +248,13 @@
       } else if (resi) {
         html += '<div class="vp-nomor"><div class="vp-lbl">No pesanan</div><span class="text-muted">-</span></div>';
       }
+      if (resi && resi.picker && resi.picker.nama && resi.picker.nama !== '-') {
+        var pk = resi.picker;
+        html += '<div class="vp-nomor"><div class="vp-lbl">Picker</div><div class="vp-val"><strong>' + escapeHtml(pk.nama) + '</strong>' +
+          (pk.absen ? ' &middot; absen <strong>' + escapeHtml(pk.absen) + '</strong>' : '') + '</div></div>';
+      } else if (resi) {
+        html += '<div class="vp-nomor"><div class="vp-lbl">Picker</div><span class="text-muted">belum tercatat</span></div>';
+      }
       if (resi) {
         html += '<div class="vp-toko">' + escapeHtml(resi.toko || '-') +
           (resi.status_pesanan ? ' &middot; <span class="label label-default">' + escapeHtml(resi.status_pesanan) + '</span>' : '') +
@@ -340,7 +348,9 @@
               '<button type="button" class="vp-putar" title="Putar / jeda"><i class="fa fa-play"></i></button>' +
               '<input type="range" class="vp-seek" min="0" max="1000" value="0" step="1" title="Geser untuk loncat waktu">' +
               '<span class="vp-waktu">0:00 / 0:00</span>' +
-              '<button type="button" class="vp-laju" title="Kecepatan putar">1x</button>' +
+              '<button type="button" class="vp-laju-kecil" title="Perlambat 0,25x"><i class="fa fa-backward"></i></button>' +
+              '<span class="vp-laju" title="Kecepatan putar">1x</span>' +
+              '<button type="button" class="vp-laju-besar" title="Percepat 0,25x"><i class="fa fa-forward"></i></button>' +
               '<span class="vp-pisah"></span>' +
               '<button type="button" class="vp-zoom-kecil" title="Perkecil (Ctrl + roda mouse ke bawah)"><i class="fa fa-search-minus"></i></button>' +
               '<span class="vp-skala">100%</span>' +
@@ -395,8 +405,8 @@
     function pasangPemutar($pm, v, durasiCatatan) {
       var $pg = $pm.find('.vp-panggung'), pg = $pg[0];
       var ZOOM_MIN = 1, ZOOM_MAKS = 4, ZOOM_LANGKAH = 0.25;
-      var LAJU = [1, 1.5, 2, 0.5];
-      var skala = 1, tx = 0, ty = 0, iLaju = 0, seretMulai = null, bergeser = false;
+      var LAJU_MIN = 0.25, LAJU_MAKS = 4, LAJU_LANGKAH = 0.25;
+      var skala = 1, tx = 0, ty = 0, seretMulai = null, bergeser = false;
       var $putar = $pm.find('.vp-putar'), $seek = $pm.find('.vp-seek'), $waktu = $pm.find('.vp-waktu');
 
       function terapkan() {
@@ -446,11 +456,16 @@
         if (durasi() > 0) { v.currentTime = this.value / 1000 * durasi(); }
         segarkanWaktu();
       }).on('change', function () { $seek.data('menggeser', false); });
-      $pm.find('.vp-laju').on('click', function () {
-        iLaju = (iLaju + 1) % LAJU.length;
-        v.playbackRate = LAJU[iLaju];
-        $(this).text(LAJU[iLaju] + 'x');
-      });
+      function aturLaju(arah) {
+        var baru = Math.round((v.playbackRate + arah * LAJU_LANGKAH) * 100) / 100;
+        v.playbackRate = Math.max(LAJU_MIN, Math.min(LAJU_MAKS, baru));
+        $pm.find('.vp-laju').text(String(v.playbackRate).replace('.', ',') + 'x');
+        $pm.find('.vp-laju-kecil').prop('disabled', v.playbackRate <= LAJU_MIN);
+        $pm.find('.vp-laju-besar').prop('disabled', v.playbackRate >= LAJU_MAKS);
+      }
+      $pm.find('.vp-laju-kecil').on('click', function () { aturLaju(-1); });
+      $pm.find('.vp-laju-besar').on('click', function () { aturLaju(1); });
+      aturLaju(0);
       $pm.find('.vp-zoom-kecil').on('click', function () { zoomKe(langkah(-1)); });
       $pm.find('.vp-zoom-besar').on('click', function () { zoomKe(langkah(1)); });
       $pm.find('.vp-zoom-reset').on('click', function () { zoomKe(1); });

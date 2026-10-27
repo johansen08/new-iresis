@@ -2219,11 +2219,17 @@ class Cs extends MY_Controller
             exit;
         }
 
+        $resi = $this->video_packing_fcd->info_resi($noresi);
+        if ($resi) {
+            $resi['picker'] = $this->pecah_nama_packer($resi['nama_picker']);
+            unset($resi['nama_picker']);
+        }
+
         echo json_encode([
             'code'    => 200,
             'message' => count($list) . ' video ditemukan.',
             'data'    => $list,
-            'resi'    => $this->video_packing_fcd->info_resi($noresi),
+            'resi'    => $resi,
         ]);
         exit;
     }
