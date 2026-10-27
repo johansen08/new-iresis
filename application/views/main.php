@@ -1048,6 +1048,9 @@
     .nav-tabs-ptr > li.active:nth-child(2) > a, .nav-tabs-ptr > li.active:nth-child(2) > a:hover { background: #fbc02d !important; color: #3a2b00 !important; }
     .nav-tabs-ptr > li.active:nth-child(3) > a, .nav-tabs-ptr > li.active:nth-child(3) > a:hover { background: #e91e63 !important; }
     </style>
+    <!-- Lapisan responsif tablet/handphone: dimuat terakhir agar menimpa gaya di atas; desktop (>1024px) tidak berubah -->
+    <link rel="stylesheet" type="text/css" href="assets/css/responsif.css?v=<?= @filemtime(FCPATH . 'assets/css/responsif.css') ?: '1.0.0' ?>" />
+    <script type="text/javascript" src="assets/js/responsif.js?v=<?= @filemtime(FCPATH . 'assets/js/responsif.js') ?: '1.0.0' ?>"></script>
 </body>
 
 </html>
