@@ -77,14 +77,17 @@
     // banyak dan dipasangi kamera 4K (28 Okt 2026), jadi merekam 2560x1440
     // 30 fps. Bitrate dikali 1,78 (rasio piksel 2560x1440 : 1920x1080) supaya
     // jatah bit per frame sama:
-    //   VP9 28 Mbps = ~210 MB per menit rekaman
-    //   VP8/H.264 36 Mbps = ~270 MB per menit rekaman
+    // Diturunkan (28 Okt 2026) ke VP9 18 / VP8-H.264 24 Mbps karena lima PC
+    // merekam bersamaan hampir memenuhi jaringan LAN ke server (sebelumnya
+    // VP9 28 / VP8-H.264 36 Mbps, rasio piksel penuh 1,78x):
+    //   VP9 18 Mbps = ~135 MB per menit rekaman
+    //   VP8/H.264 24 Mbps = ~180 MB per menit rekaman
     // Beban encode CPU ikut naik; panel kamera menandai oranye kalau fps
     // terukur di bawah ±27.
     var PROFIL_KOMPUTER = {
         'F19-16': {
             lebar: 2560, tinggi: 1440, fps: 30,
-            bitrateVp9: 28000000, bitrateVp8: 36000000, bitrateH264: 36000000
+            bitrateVp9: 18000000, bitrateVp8: 24000000, bitrateH264: 24000000
         }
     };
     var profilPc = PROFIL_KOMPUTER[String(window.PACKER_VIDEO_KOMPUTER || '').toUpperCase()];
