@@ -304,7 +304,7 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 60, 'D' => 10) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
-        $subtotal($rekap, array('A' => 'unik', 'B' => 109, 'C' => 'unik', 'D' => 109), $baris - 1);
+        $subtotal($rekap, array('A' => 'unik', 'B' => 109, 'D' => 109), $baris - 1);
         $rekap->setAutoFilter('A3:D' . max($baris - 1, 3));
         $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
