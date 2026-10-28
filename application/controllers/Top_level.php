@@ -221,27 +221,27 @@ class Top_level extends MY_Controller
         $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
         $data = $this->top_level_fcd->stok_export();
 
-        // Ringkasan untuk baris 1 kedua sheet: SKU unik, total stok, dan rak yang berisi stok.
         $per_sku = array();
-        $rak_pakai = array();
-        $total_stok = 0;
         foreach ($data as $r) {
             $per_sku[$r['sku']][] = array('rak' => (string) $r['no_rak'], 'qty' => (int) $r['qty']);
-            $rak_pakai[$r['no_rak']] = true;
-            $total_stok += (int) $r['qty'];
         }
-        $info = array(
-            'Total SKU: ' . number_format(count($per_sku)),
-            'Total Stok: ' . number_format($total_stok),
-            'Total Rak: ' . number_format(count($rak_pakai)),
-        );
+
+        // Baris 1 kedua sheet: SUBTOTAL per kolom (ikut filter), kuning, comma style bilangan bulat.
+        // $fungsi per kolom: 109 = jumlah (kolom angka), 103 = hitung isi (kolom teks).
+        $subtotal = function ($sheet, array $fungsi, $akhir) {
+            foreach ($fungsi as $kol => $kode) {
+                $sheet->setCellValue($kol . '1', '=SUBTOTAL(' . $kode . ',' . $kol . '4:' . $kol . max($akhir, 4) . ')');
+            }
+            $rentang = 'A1:' . array_key_last($fungsi) . '1';
+            $sheet->getStyle($rentang)->getFont()->setBold(true);
+            $sheet->getStyle($rentang)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
+            $sheet->getStyle($rentang)->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
+        };
 
         $warna_banyak_rak = 'FFE699'; // SKU yang tersebar di lebih dari 1 rak
         // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 hanya tombol filter), satu baris per SKU per rak.
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('DATA BASE');
-        $sheet->fromArray($info, null, 'A1');
-        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
         $sheet->fromArray(array('SKU', 'NO RAK', 'STOCK', 'Rak > 1'), null, 'A2');
         $sheet->getStyle('A2:D2')->getFont()->setBold(true);
         $sheet->getStyle('A2:D2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
@@ -264,14 +264,13 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 10, 'D' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
+        $subtotal($sheet, array('A' => 103, 'B' => 103, 'C' => 109, 'D' => 109), $baris - 1);
         $sheet->setAutoFilter('A3:D' . max($baris - 1, 3)); // filter di baris 3, seperti contoh
         $sheet->freezePane('C4');
 
         // Sheet REKAP: satu baris per SKU, rak ditulis "no rak ( stok ) / no rak ( stok )".
         $rekap = $xls->createSheet();
         $rekap->setTitle('REKAP');
-        $rekap->fromArray($info, null, 'A1');
-        $rekap->getStyle('A1:C1')->getFont()->setBold(true);
         $rekap->fromArray(array('SKU', 'STOCK', 'NO RAK', 'Rak > 1'), null, 'A2');
         $rekap->getStyle('A2:D2')->getFont()->setBold(true);
         $rekap->getStyle('A2:D2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
@@ -301,6 +300,7 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 60, 'D' => 10) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
+        $subtotal($rekap, array('A' => 103, 'B' => 109, 'C' => 103, 'D' => 109), $baris - 1);
         $rekap->setAutoFilter('A3:D' . max($baris - 1, 3));
         $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
