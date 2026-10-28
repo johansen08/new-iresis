@@ -231,9 +231,9 @@ class Top_level extends MY_Controller
         $subtotal = function ($sheet, array $fungsi, $akhir) {
             foreach ($fungsi as $kol => $kode) {
                 $rng = $kol . '4:' . $kol . max($akhir, 4);
-                // 'unik' = jumlah nilai unik yang terlihat (baris tersaring tidak dihitung).
+                // 'unik' = jumlah nilai unik di kolom (tidak ikut filter); data kosong = 0.
                 $sheet->setCellValue($kol . '1', $kode === 'unik'
-                    ? '=SUMPRODUCT(SUBTOTAL(103,OFFSET(' . $kol . '4,ROW(' . $rng . ')-ROW(' . $kol . '4),0))/COUNTIF(' . $rng . ',' . $rng . '&""))'
+                    ? ($akhir >= 4 ? '=SUMPRODUCT(1/COUNTIF(' . $rng . ',' . $rng . '))' : 0)
                     : '=SUBTOTAL(' . $kode . ',' . $rng . ')');
             }
             $rentang = 'A1:' . array_key_last($fungsi) . '1';
