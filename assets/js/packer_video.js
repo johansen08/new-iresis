@@ -72,34 +72,23 @@
     // Angka di bawah sudah dikali 1,25 untuk 30 fps (27 Okt 2026):
     //   VP9 16 Mbps = ~120 MB per menit rekaman
     //   VP8/H.264 20 Mbps = ~150 MB per menit rekaman
-    var BITRATE_VP9      = 16000000;
-    var BITRATE_VP8      = 20000000;
-    // H.264 (dari encoder GPU maupun OpenH264 di CPU) pada bitrate sama kurang
-    // efisien dibanding VP9 -- jadi disamakan dengan VP8.
-    var BITRATE_H264     = 20000000;
+    // Sejak 28 Okt 2026 SEMUA PC memakai 8 Mbps untuk ketiga codec. Diukur di
+    // F19-04 dan F19-11 (1080p 20 fps): ukuran berkas hanya ±0,5-0,65 MB/s
+    // (±1,8-2,3 GB/jam) karena encoder memakai bitrate di bawah batas ini.
+    var BITRATE_VP9      = 8000000;
+    var BITRATE_VP8      = 8000000;
+    var BITRATE_H264     = 8000000;
 
     // Profil khusus per komputer packer (nama_pk = kolom nama_komputer), diisi
     // main.php lewat window.PACKER_VIDEO_KOMPUTER. PC yang tidak terdaftar di
     // sini memakai setelan 1080p 20 fps di atas.
     //
-    // UJI PENYIMPANAN 28 Okt 2026 (jendela 08.00-09.00): empat PC diberi konfigurasi
-    // berbeda untuk mengukur kebutuhan disk per konfigurasi. Hasilnya dibaca
-    // dari berkas (ffprobe) lewat dev_tools, bukan dari fps yang diminta.
-    // Bitrate 720p = bitrate 1080p x 0,44 (rasio piksel 1280x720 : 1920x1080).
-    // Setelah uji selesai, kosongkan peta ini supaya semua PC kembali ke
-    // 1080p 20 fps.
-    var PROFIL_KOMPUTER = {
-        'F19-13': { lebar: 1920, tinggi: 1080, fps: 24,
-                    bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 },
-        'F19-11': { lebar: 1920, tinggi: 1080, fps: 20,
-                    bitrateVp9: 8000000,  bitrateVp8: 8000000,  bitrateH264: 8000000 },
-        'F19-16': { lebar: 1280, tinggi: 720,  fps: 24,
-                    bitrateVp9: 7000000,  bitrateVp8: 9000000,  bitrateH264: 9000000 },
-        'F19-04': { lebar: 1920, tinggi: 1080, fps: 20,
-                    bitrateVp9: 8000000,  bitrateVp8: 8000000,  bitrateH264: 8000000 },
-        'F19-05': { lebar: 1920, tinggi: 1080, fps: 18,
-                    bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 }
-    };
+    // Uji penyimpanan 28 Okt 2026 selesai: peta DIKOSONGKAN, semua PC berwebcam
+    // memakai 1080p 20 fps 8 Mbps (default di atas). Isi hanya kalau satu PC
+    // perlu setelan berbeda; bentuk entri:
+    //   'F19-XX': { lebar: 1920, tinggi: 1080, fps: 20,
+    //                bitrateVp9: 8000000, bitrateVp8: 8000000, bitrateH264: 8000000 }
+    var PROFIL_KOMPUTER = {};
     var profilPc = PROFIL_KOMPUTER[String(window.PACKER_VIDEO_KOMPUTER || '').toUpperCase()];
     if (profilPc) {
         LEBAR_IDEAL  = profilPc.lebar;
