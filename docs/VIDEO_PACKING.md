@@ -117,10 +117,10 @@ Detail logika double-scan: `Packer::handle_double_scan_state_webcam()`
 | Setelan | Nilai | Keterangan |
 |---|---|---|
 | Resolusi | 1920×1080 (1080p), dipaksa lewat constraint `min`+`ideal` | Jatuh ke mode terbaik webcam (ditandai oranye di panel) kalau webcam tidak sanggup 1080p |
-| Profil per PC | Peta `PROFIL_KOMPUTER` di `packer_video.js` (kunci = `nama_pk`, diteruskan `main.php` lewat `window.PACKER_VIDEO_KOMPUTER`). **Uji penyimpanan 28 Okt 2026:** F19-13 1080p 24 fps, F19-11 1080p 20 fps dengan bitrate 8 Mbps untuk semua codec (sebelumnya 16/20 Mbps), F19-16 720p 24 fps, F19-05 1080p 18 fps, F19-04 1080p 20 fps dengan bitrate 8 Mbps untuk semua codec (uji bitrate rendah 28 Okt 2026; sebelumnya 1080p 18 fps 20 Mbps) (bitrate 720p = 1080p x 0,44: VP9 7 / VP8·H.264 9 Mbps). Kosongkan peta setelah uji agar semua PC kembali 1080p 20 fps | Hasil dibaca dari berkas (ffprobe), bukan dari fps yang diminta |
+| Profil per PC | Peta `PROFIL_KOMPUTER` di `packer_video.js` (kunci = `nama_pk`, diteruskan `main.php` lewat `window.PACKER_VIDEO_KOMPUTER`) **kosong sejak 28 Okt 2026**: semua PC berwebcam memakai 1080p 20 fps 8 Mbps. Isi hanya untuk PC yang perlu setelan khusus | Uji penyimpanan 28 Okt 2026 (F19-04/11/13/16/05) selesai; hasil dibaca dari berkas (ffprobe), bukan dari fps yang diminta |
 | Frame rate | 20 fps untuk SEMUA PC termasuk F19-16 (28 Okt 2026; sebelumnya 24 fps `exact`, 27 Okt 30 fps `exact`, sebelum itu 24 fps `ideal`, sebelum 12 Okt 15 fps). Dikunci lewat `frameRate: {ideal, max}` | `max` membatasi walau kamera aslinya 30 fps. Panel menampilkan fps terukur dari frame yang benar-benar tiba |
 | Codec | Dipilih per PC: yang punya encoder GPU dulu (VP9 → H.264 → VP8); tanpa GPU: H.264 → VP8 → VP9 | Lihat §4.1. Tercatat di `tblvideopacking.mime_type` (`video/webm;codecs=…`) |
-| Bitrate | VP9 16 Mbps / H.264 20 Mbps / VP8 20 Mbps (sebelum 27 Okt 2026: 12,8 / 16 / 16; sebelum 12 Okt 2026: 8 / 10 / 10) | Kualitas diprioritaskan di atas ukuran berkas (keputusan 1 Okt 2026). Dikali 1,25 saat fps naik 24 → 30 supaya bit per frame tetap; ±120–150 MB per menit rekaman |
+| Bitrate | VP9 8 Mbps / H.264 8 Mbps / VP8 8 Mbps untuk semua PC (sejak 28 Okt 2026; sebelumnya 16 / 20 / 20, sebelum 27 Okt 12,8 / 16 / 16, sebelum 12 Okt 8 / 10 / 10) | Terukur di 1080p 20 fps: ±0,5 MB/s (F19-04, ±16 fps) sampai ±0,65 MB/s (F19-11, ±20 fps), ±1,8–2,3 GB per jam rekam |
 | Ekor setelah scan kedua | Adaptif (sejak 27 Okt 2026; sebelumnya 3 detik tetap): minimal 5 detik **dan** 60 frame dari kamera, lalu 2 detik kuras encoder, maksimal 15 detik | `recorder.stop()` membuang frame yang masih antre di encoder; di PC ber-fps rendah 3 detik tetap tidak cukup untuk memunculkan scan kedua |
 | Audio | **Tidak ada** | Sejak awal tidak pernah ada track audio — bukti packing cukup gambarnya |
 | Potongan unggah | Tiap 2 detik | Supaya muat batas upload PHP dan bagian yang sudah naik tetap aman kalau tab ditutup mendadak |
@@ -252,6 +252,7 @@ terpasang), ditandai "terlalu lama" ke CS.
 | 19 Sep 2026 | 1920×1080 (`ideal` saja) | VP9 2,0 Mbps / VP8 2,7 Mbps | Rilis 1080p+VP9 pertama |
 | 1 Okt 2026 | 1920×1080 (`min`+`ideal`, dipaksa) | VP9 8,0 Mbps / VP8 10,0 Mbps | Kualitas diutamakan di atas ukuran berkas atas permintaan user |
 | 2 Okt 2026 | 1920×1080 (tetap) | Encoder GPU didahulukan (VP9/H.264/VP8), H.264 10,0 Mbps; ekor 3 detik | Ujung rekaman terpotong karena encoder CPU tidak sanggup 1080p VP9 (§4.1) |
+| 28 Okt 2026 | 1920×1080, 20 fps | VP9 / VP8 / H.264 8 Mbps untuk semua PC | Hasil uji penyimpanan: ±0,5–0,65 MB/s per video (±1,8–2,3 GB/jam); bitrate lama 16–20 Mbps ±2,5× lebih besar |
 
 Detail lengkap tiap rilis (termasuk estimasi kapasitas disk) ada di
 `docs/PANDUAN_PULL_PRODUKSI.md` bagian **B.6**, **E**, dan **N**.
