@@ -237,6 +237,8 @@ class Top_level extends MY_Controller
                     : '=SUBTOTAL(' . $kode . ',' . $rng . ')');
             }
             $rentang = 'A1:' . array_key_last($fungsi) . '1';
+            // Garis tipis horizontal dan vertikal di seluruh tabel (baris 1 sampai data terakhir).
+            $sheet->getStyle('A1:' . array_key_last($fungsi) . max($akhir, 3))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
             $sheet->getStyle($rentang)->getFont()->setBold(true);
             $sheet->getStyle($rentang)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
             $sheet->getStyle($rentang)->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
