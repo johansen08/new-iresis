@@ -80,11 +80,24 @@
 
     // Profil khusus per komputer packer (nama_pk = kolom nama_komputer), diisi
     // main.php lewat window.PACKER_VIDEO_KOMPUTER. PC yang tidak terdaftar di
-    // sini memakai setelan 1080p 20 fps di atas. Saat ini KOSONG: F19-16 sempat
-    // dipasang profil 2K (28 Okt 2026) tapi dikembalikan ke 1080p 20 fps seperti
-    // PC lain. Contoh entri: 'F19-XX': { lebar, tinggi, fps, bitrateVp9,
-    // bitrateVp8, bitrateH264 }.
-    var PROFIL_KOMPUTER = {};
+    // sini memakai setelan 1080p 20 fps di atas.
+    //
+    // UJI PENYIMPANAN 28 Okt 2026 (jendela 08.00-09.00): empat PC diberi konfigurasi
+    // berbeda untuk mengukur kebutuhan disk per konfigurasi. Hasilnya dibaca
+    // dari berkas (ffprobe) lewat dev_tools, bukan dari fps yang diminta.
+    // Bitrate 720p = bitrate 1080p x 0,44 (rasio piksel 1280x720 : 1920x1080).
+    // Setelah uji selesai, kosongkan peta ini supaya semua PC kembali ke
+    // 1080p 20 fps.
+    var PROFIL_KOMPUTER = {
+        'F19-13': { lebar: 1920, tinggi: 1080, fps: 24,
+                    bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 },
+        'F19-11': { lebar: 1920, tinggi: 1080, fps: 20,
+                    bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 },
+        'F19-16': { lebar: 1280, tinggi: 720,  fps: 24,
+                    bitrateVp9: 7000000,  bitrateVp8: 9000000,  bitrateH264: 9000000 },
+        'F19-04': { lebar: 1280, tinggi: 720,  fps: 20,
+                    bitrateVp9: 7000000,  bitrateVp8: 9000000,  bitrateH264: 9000000 }
+    };
     var profilPc = PROFIL_KOMPUTER[String(window.PACKER_VIDEO_KOMPUTER || '').toUpperCase()];
     if (profilPc) {
         LEBAR_IDEAL  = profilPc.lebar;
