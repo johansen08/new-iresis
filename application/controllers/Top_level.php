@@ -221,14 +221,22 @@ class Top_level extends MY_Controller
         $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
         $data = $this->top_level_fcd->stok_export();
 
+        // DATA BASE urut NO RAK (natural: A2 sebelum A10), lalu SKU; REKAP urut SKU.
+        usort($data, function ($a, $b) {
+            $c = strnatcasecmp((string) $a['no_rak'], (string) $b['no_rak']);
+            return $c !== 0 ? $c : strnatcasecmp((string) $a['sku'], (string) $b['sku']);
+        });
         $per_sku = array();
         foreach ($data as $r) {
             $per_sku[$r['sku']][] = array('rak' => (string) $r['no_rak'], 'qty' => (int) $r['qty']);
         }
+        uksort($per_sku, function ($a, $b) {
+            return strnatcasecmp((string) $a, (string) $b);
+        });
 
         // Baris 1 kedua sheet: SUBTOTAL per kolom (ikut filter), kuning, comma style bilangan bulat.
         // $fungsi per kolom: 109 = jumlah (kolom angka), unik = hitung nilai unik (kolom teks).
-        $subtotal = function ($sheet, array $fungsi, $akhir) {
+        $subtotal = function ($sheet, array $fungsi, $akhir, $kolom_akhir) {
             foreach ($fungsi as $kol => $kode) {
                 $rng = $kol . '4:' . $kol . max($akhir, 4);
                 // 'unik' = jumlah nilai unik di kolom (tidak ikut filter); data kosong = 0.
@@ -236,22 +244,43 @@ class Top_level extends MY_Controller
                     ? ($akhir >= 4 ? '=SUMPRODUCT(1/COUNTIF(' . $rng . ',' . $rng . '))' : 0)
                     : '=SUBTOTAL(' . $kode . ',' . $rng . ')');
             }
-            $rentang = 'A1:' . array_key_last($fungsi) . '1';
             // Garis tipis horizontal dan vertikal di seluruh tabel (baris 1 sampai data terakhir).
-            $sheet->getStyle('A1:' . array_key_last($fungsi) . max($akhir, 3))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $sheet->getStyle($rentang)->getFont()->setBold(true);
-            $sheet->getStyle($rentang)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
-            $sheet->getStyle($rentang)->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
+            $sheet->getStyle('A1:' . $kolom_akhir . max($akhir, 3))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            // Kuning, tebal, dan comma style hanya di kolom yang berisi rumus.
+            foreach (array_keys($fungsi) as $kol) {
+                $st = $sheet->getStyle($kol . '1');
+                $st->getFont()->setBold(true);
+                $st->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
+                $st->getNumberFormat()->setFormatCode('_(* #,##0_);_(* \(#,##0\);_(* "-"??_);_(@_)');
+            }
+        };
+
+        // Kolom Cek: kotak kosong untuk dicentang tangan setelah dicetak.
+        $kotak = function ($sheet, $kol, $akhir) {
+            $sheet->setCellValue($kol . '2', 'Cek');
+            for ($i = 4; $i <= $akhir; $i++) {
+                $sheet->setCellValueExplicit($kol . $i, "\u{2610}", \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            }
+            if ($akhir >= 4) {
+                $st = $sheet->getStyle($kol . '4:' . $kol . $akhir);
+                $st->getFont()->setSize(14);
+                $st->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            }
+            $sheet->getColumnDimension($kol)->setWidth(8);
+            // Cetak: judul kolom diulang tiap halaman, lebar muat satu halaman.
+            $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
+            $sheet->getPageSetup()->setFitToWidth(1)->setFitToHeight(0);
+            $sheet->getPageSetup()->setFitToPage(true);
         };
 
         $warna_banyak_rak = 'FFE699'; // SKU yang tersebar di lebih dari 1 rak
         // Sheet DATA BASE: judul di baris 2, data mulai baris 4 (baris 1 ringkasan, baris 3 hanya tombol filter), satu baris per SKU per rak.
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('DATA BASE');
-        $sheet->fromArray(array('SKU', 'NO RAK', 'STOCK', 'Rak > 1'), null, 'A2');
-        $sheet->getStyle('A2:D2')->getFont()->setBold(true);
-        $sheet->getStyle('A2:D2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-        $sheet->getStyle('A2:D2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->fromArray(array('SKU', 'NO RAK', 'STOCK', 'Rak > 1', 'Cek'), null, 'A2');
+        $sheet->getStyle('A2:E2')->getFont()->setBold(true);
+        $sheet->getStyle('A2:E2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        $sheet->getStyle('A2:E2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $baris = 4;
         foreach ($data as $r) {
             $sheet->setCellValueExplicit('A' . $baris, (string) $r['sku'], $teks);
@@ -270,17 +299,18 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 10, 'D' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
-        $subtotal($sheet, array('A' => 'unik', 'B' => 'unik', 'C' => 109, 'D' => 109), $baris - 1);
-        $sheet->setAutoFilter('A3:D' . max($baris - 1, 3)); // filter di baris 3, seperti contoh
+        $subtotal($sheet, array('A' => 'unik', 'B' => 'unik', 'C' => 109, 'D' => 109), $baris - 1, 'E');
+        $kotak($sheet, 'E', $baris - 1);
+        $sheet->setAutoFilter('A3:E' . max($baris - 1, 3)); // filter di baris 3, seperti contoh
         $sheet->freezePane('C4');
 
         // Sheet REKAP: satu baris per SKU, rak ditulis "no rak ( stok ) / no rak ( stok )".
         $rekap = $xls->createSheet();
         $rekap->setTitle('REKAP');
-        $rekap->fromArray(array('SKU', 'STOCK', 'NO RAK', 'Rak > 1', 'JLH LOKASI'), null, 'A2');
-        $rekap->getStyle('A2:E2')->getFont()->setBold(true);
-        $rekap->getStyle('A2:E2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-        $rekap->getStyle('A2:E2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $rekap->fromArray(array('SKU', 'STOCK', 'NO RAK', 'Rak > 1', 'JLH LOKASI', 'Cek'), null, 'A2');
+        $rekap->getStyle('A2:F2')->getFont()->setBold(true);
+        $rekap->getStyle('A2:F2')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        $rekap->getStyle('A2:F2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $baris = 4;
         foreach ($per_sku as $sku => $raks) {
             $total = 0;
@@ -308,8 +338,9 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 60, 'D' => 10, 'E' => 14) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
-        $subtotal($rekap, array('A' => 'unik', 'B' => 109, 'D' => 109, 'E' => 109), $baris - 1);
-        $rekap->setAutoFilter('A3:E' . max($baris - 1, 3));
+        $subtotal($rekap, array('A' => 'unik', 'B' => 109, 'D' => 109), $baris - 1, 'F');
+        $kotak($rekap, 'F', $baris - 1);
+        $rekap->setAutoFilter('A3:F' . max($baris - 1, 3));
         $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
         while (ob_get_level()) { ob_end_clean(); }
