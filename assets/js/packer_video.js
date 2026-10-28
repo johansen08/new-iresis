@@ -92,7 +92,7 @@
         'F19-13': { lebar: 1920, tinggi: 1080, fps: 24,
                     bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 },
         'F19-11': { lebar: 1920, tinggi: 1080, fps: 20,
-                    bitrateVp9: 16000000, bitrateVp8: 20000000, bitrateH264: 20000000 },
+                    bitrateVp9: 8000000,  bitrateVp8: 8000000,  bitrateH264: 8000000 },
         'F19-16': { lebar: 1280, tinggi: 720,  fps: 24,
                     bitrateVp9: 7000000,  bitrateVp8: 9000000,  bitrateH264: 9000000 },
         'F19-04': { lebar: 1920, tinggi: 1080, fps: 20,
