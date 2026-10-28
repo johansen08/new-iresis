@@ -227,10 +227,14 @@ class Top_level extends MY_Controller
         }
 
         // Baris 1 kedua sheet: SUBTOTAL per kolom (ikut filter), kuning, comma style bilangan bulat.
-        // $fungsi per kolom: 109 = jumlah (kolom angka), 103 = hitung isi (kolom teks).
+        // $fungsi per kolom: 109 = jumlah (kolom angka), unik = hitung nilai unik (kolom teks).
         $subtotal = function ($sheet, array $fungsi, $akhir) {
             foreach ($fungsi as $kol => $kode) {
-                $sheet->setCellValue($kol . '1', '=SUBTOTAL(' . $kode . ',' . $kol . '4:' . $kol . max($akhir, 4) . ')');
+                $rng = $kol . '4:' . $kol . max($akhir, 4);
+                // 'unik' = jumlah nilai unik yang terlihat (baris tersaring tidak dihitung).
+                $sheet->setCellValue($kol . '1', $kode === 'unik'
+                    ? '=SUMPRODUCT(SUBTOTAL(103,OFFSET(' . $kol . '4,ROW(' . $rng . ')-ROW(' . $kol . '4),0))/COUNTIF(' . $rng . ',' . $rng . '&""))'
+                    : '=SUBTOTAL(' . $kode . ',' . $rng . ')');
             }
             $rentang = 'A1:' . array_key_last($fungsi) . '1';
             $sheet->getStyle($rentang)->getFont()->setBold(true);
@@ -264,7 +268,7 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 10, 'D' => 10) as $kol => $lebar) {
             $sheet->getColumnDimension($kol)->setWidth($lebar);
         }
-        $subtotal($sheet, array('A' => 103, 'B' => 103, 'C' => 109, 'D' => 109), $baris - 1);
+        $subtotal($sheet, array('A' => 'unik', 'B' => 'unik', 'C' => 109, 'D' => 109), $baris - 1);
         $sheet->setAutoFilter('A3:D' . max($baris - 1, 3)); // filter di baris 3, seperti contoh
         $sheet->freezePane('C4');
 
@@ -300,7 +304,7 @@ class Top_level extends MY_Controller
         foreach (array('A' => 22, 'B' => 20, 'C' => 60, 'D' => 10) as $kol => $lebar) {
             $rekap->getColumnDimension($kol)->setWidth($lebar);
         }
-        $subtotal($rekap, array('A' => 103, 'B' => 109, 'C' => 103, 'D' => 109), $baris - 1);
+        $subtotal($rekap, array('A' => 'unik', 'B' => 109, 'C' => 'unik', 'D' => 109), $baris - 1);
         $rekap->setAutoFilter('A3:D' . max($baris - 1, 3));
         $rekap->freezePane('C4');
         $xls->setActiveSheetIndex(0);
