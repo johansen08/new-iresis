@@ -889,8 +889,12 @@ class Top_level_fcd extends CI_Model
             $peta[$r['sku']] = $i;
         }
         foreach (array_chunk(array_keys($peta), 500) as $chunk) {
-            foreach ($this->db->select('sku, no_rak, qty')->where('qty >', 0)->where_in('sku', $chunk)->order_by('no_rak', 'ASC')->get('tbltoplevel')->result() as $x) {
-                $rows[$peta[$x->sku]]['rak'][] = array('rak' => $x->no_rak, 'stok' => (int) $x->qty);
+            // SKU yang stoknya kosong tetap menampilkan rak yang pernah terisi (stok 0); SKU yang ada stok hanya rak berstok.
+            foreach ($this->db->select('sku, no_rak, qty')->where_in('sku', $chunk)->order_by('no_rak', 'ASC')->get('tbltoplevel')->result() as $x) {
+                $i = $peta[$x->sku];
+                if ((int) $x->qty > 0 || $rows[$i]['total'] <= 0) {
+                    $rows[$i]['rak'][] = array('rak' => $x->no_rak, 'stok' => (int) $x->qty);
+                }
             }
         }
         return $rows;
@@ -909,6 +913,28 @@ class Top_level_fcd extends CI_Model
              ORDER BY id DESC",
             array($sku)
         )->result_array();
+
+        // Petugas list/input dan nomor transfer: lewat ref (nomor TTL) bila ada, kalau tidak dicocokkan dari baris transfer
+        // (rak + qty sebelum/sesudah sama, waktu paling dekat dalam 5 menit; INPUT/KELUAR lama tidak menyimpan ref).
+        $kolom = 't.nomor, t.nama_tim, t.nama_input, t.tgl_list, t.tgl_input, t.diinput_at, t.dibuat_at, t.sumber';
+        $cand = $this->db->query(
+            "SELECT b.no_rak, b.qty_sebelum, b.qty_sesudah, $kolom FROM tbltoplevel_transfer_baris b
+             JOIN tbltoplevel_transfer t ON t.id = b.id_transfer WHERE b.sku = ? AND b.dibatalkan = 0",
+            array($sku)
+        )->result_array();
+        $nomor_ref = array();
+        foreach ($rows as $r) {
+            if (strpos((string) $r['ref'], 'TTL-') === 0) {
+                $nomor_ref[$r['ref']] = 1;
+            }
+        }
+        $kepala = array();
+        if ($nomor_ref) {
+            foreach ($this->db->query("SELECT $kolom FROM tbltoplevel_transfer t WHERE t.nomor IN ?", array(array_keys($nomor_ref)))->result_array() as $h) {
+                $kepala[$h['nomor']] = $h;
+            }
+        }
+        $dipakai = array();
         $saldo = $total;
         foreach ($rows as &$r) {
             $s = (int) $r['qty_sesudah'] - (int) $r['qty_sebelum'];
@@ -916,6 +942,34 @@ class Top_level_fcd extends CI_Model
             $r['keluar'] = $s < 0 ? -$s : 0;
             $r['saldo'] = $saldo;
             $saldo -= $s;
+
+            $t = null;
+            if (isset($kepala[$r['ref']])) {
+                $t = $kepala[$r['ref']];
+            } else {
+                $tw = strtotime($r['waktu']);
+                $min = 301;
+                foreach ($cand as $k => $c) {
+                    if (isset($dipakai[$k]) || (string) $c['no_rak'] !== (string) $r['no_rak']
+                        || (int) $c['qty_sebelum'] !== (int) $r['qty_sebelum'] || (int) $c['qty_sesudah'] !== (int) $r['qty_sesudah']) {
+                        continue;
+                    }
+                    $selisih = abs(strtotime(!empty($c['diinput_at']) ? $c['diinput_at'] : $c['dibuat_at']) - $tw);
+                    if ($selisih < $min) {
+                        $min = $selisih;
+                        $t = $c;
+                        $pilih = $k;
+                    }
+                }
+                if ($t !== null) {
+                    $dipakai[$pilih] = 1;
+                }
+            }
+            $r['nomor'] = $t ? $t['nomor'] : null;
+            $r['list_nama'] = $t ? $t['nama_tim'] : null;
+            $r['list_tgl'] = $t ? $t['tgl_list'] : null;
+            $r['input_nama'] = $t ? $t['nama_input'] : null;
+            $r['input_waktu'] = $t ? (!empty($t['diinput_at']) ? $t['diinput_at'] : $t['tgl_input']) : null;
         }
         unset($r);
         return array('rows' => array_slice($rows, 0, 300), 'total' => $total, 'lebih' => count($rows) > 300);
