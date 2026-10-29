@@ -142,14 +142,14 @@ class Qc_return_fcd extends CI_Model
         return $this->db->get();
     }
 
-    // Rekap serah terima QC ke Restok: per rak + SKU, tanpa REJECT
+    // Rekap serah terima QC ke Restok: per rak + SKU, hanya kondisi SALAH AMBIL / LEBIH AMBIL
     function get_serah_terima($start_date, $end_date)
     {
         $this->db->select('no_rak, sku, SUM(qty) AS qty', FALSE);
         $this->db->from('tblpengembalian_qc');
         $this->db->where('tanggal >=', $start_date);
         $this->db->where('tanggal <=', $end_date);
-        $this->db->where('kondisi <>', 'REJECT');
+        $this->db->where_in('kondisi', array('SALAH AMBIL', 'LEBIH AMBIL'));
         $this->db->group_by(array('no_rak', 'sku'));
         $this->db->order_by('no_rak', 'ASC');
         $this->db->order_by('sku', 'ASC');
@@ -164,10 +164,68 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tbluser u', 'u.id_user = t.submit_by', 'left');
         $this->db->where('t.tanggal >=', $start_date);
         $this->db->where('t.tanggal <=', $end_date);
-        $this->db->where('t.kondisi <>', 'REJECT');
+        $this->db->where_in('t.kondisi', array('SALAH AMBIL', 'LEBIH AMBIL'));
         $this->db->group_by('t.submit_by');
         $this->db->order_by('COUNT(*)', 'DESC', FALSE);
         return array_column($this->db->get()->result_array(), 'name');
+    }
+
+    // Catat satu kali cetak serah terima (snapshot isi yang dicetak)
+    function simpan_riwayat_cetak($data)
+    {
+        return $this->db->insert('tblpengembalian_qc_cetak', $data);
+    }
+
+    function get_riwayat_cetak($limit = 100)
+    {
+        $this->db->select('c.id_cetak, c.tanggal_awal, c.tanggal_akhir, c.jumlah_sku, c.total_qty, c.penyerah, c.dicetak_at, u.name AS pencetak');
+        $this->db->from('tblpengembalian_qc_cetak c');
+        $this->db->join('tbluser u', 'u.id_user = c.dicetak_oleh', 'left');
+        $this->db->order_by('c.id_cetak', 'DESC');
+        $this->db->limit((int) $limit);
+        return $this->db->get()->result_array();
+    }
+
+    // Pengerjaan harian: satu baris per tanggal data (30 hari terakhir) + status ambil/selesai + riwayat cetak
+    function get_pengerjaan_harian($hari = 30)
+    {
+        $sql = "SELECT q.tanggal, COUNT(DISTINCT q.no_rak, q.sku) AS jumlah_sku, SUM(q.qty) AS total_qty,
+                    s.diambil_at, ua.name AS diambil_nama, s.selesai_at, us.name AS selesai_nama,
+                    c.jumlah_cetak, c.cetak_pertama, c.cetak_terakhir
+                FROM tblpengembalian_qc q
+                LEFT JOIN tblpengembalian_qc_serah s ON s.tanggal = q.tanggal
+                LEFT JOIN tbluser ua ON ua.id_user = s.diambil_oleh
+                LEFT JOIN tbluser us ON us.id_user = s.selesai_oleh
+                LEFT JOIN (
+                    SELECT tanggal_awal, COUNT(*) AS jumlah_cetak, MIN(dicetak_at) AS cetak_pertama, MAX(dicetak_at) AS cetak_terakhir
+                    FROM tblpengembalian_qc_cetak
+                    WHERE tanggal_awal = tanggal_akhir
+                    GROUP BY tanggal_awal
+                ) c ON c.tanggal_awal = q.tanggal
+                WHERE q.kondisi IN ('SALAH AMBIL', 'LEBIH AMBIL') AND q.tanggal >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                GROUP BY q.tanggal
+                ORDER BY q.tanggal DESC";
+        return $this->db->query($sql, array((int) $hari))->result_array();
+    }
+
+    function get_status_serah($tanggal)
+    {
+        return $this->db->get_where('tblpengembalian_qc_serah', array('tanggal' => $tanggal))->row_array();
+    }
+
+    // Tandai barang diambil Restok. Hanya sekali per tanggal: FALSE bila sudah pernah.
+    function tandai_diambil($tanggal, $id_user)
+    {
+        $this->db->query("INSERT IGNORE INTO tblpengembalian_qc_serah (tanggal) VALUES (?)", array($tanggal));
+        $this->db->query("UPDATE tblpengembalian_qc_serah SET diambil_at = NOW(), diambil_oleh = ? WHERE tanggal = ? AND diambil_at IS NULL", array((int) $id_user, $tanggal));
+        return $this->db->affected_rows() > 0;
+    }
+
+    // Tandai selesai. Hanya setelah diambil dan hanya sekali: FALSE bila tidak memenuhi.
+    function tandai_selesai($tanggal, $id_user)
+    {
+        $this->db->query("UPDATE tblpengembalian_qc_serah SET selesai_at = NOW(), selesai_oleh = ? WHERE tanggal = ? AND diambil_at IS NOT NULL AND selesai_at IS NULL", array((int) $id_user, $tanggal));
+        return $this->db->affected_rows() > 0;
     }
 
     function delete_data($id)

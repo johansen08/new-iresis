@@ -3,6 +3,17 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Qc_return extends MY_Controller
 {
+    // Hak klik serah terima: Barang Diambil = tim packer (4); Cetak Serah Terima + Selesai = tim restok (6).
+    // Admin (1, 2) boleh semuanya. Dicek di server; tombol di layar hanya cermin dari ini.
+    const ROLE_DIAMBIL = array(1, 2, 4);
+    const ROLE_RESTOK = array(1, 2, 6);
+
+    private function punya_peran($daftar)
+    {
+        $peran = isset($this->data['user']['hakakses']) ? (int) $this->data['user']['hakakses'] : 0;
+        return in_array($peran, $daftar, TRUE);
+    }
+
     function __construct()
     {
         parent::__construct();
@@ -13,6 +24,8 @@ class Qc_return extends MY_Controller
     public function index()
     {
         $data['message'] = $this->session->flashdata('message');
+        $data['bisa_diambil'] = $this->punya_peran(self::ROLE_DIAMBIL);
+        $data['bisa_restok'] = $this->punya_peran(self::ROLE_RESTOK);
         $this->show($data);
     }
 
@@ -196,6 +209,9 @@ class Qc_return extends MY_Controller
     // Halaman cetak A4 serah terima QC -> Restok (tanpa REJECT), dibuka di tab baru
     public function serah_terima()
     {
+        if (!$this->punya_peran(self::ROLE_RESTOK)) {
+            exit('Cetak serah terima hanya untuk tim Restok.');
+        }
         $start_date = $this->input->get('start_date');
         $end_date = $this->input->get('end_date');
         $re = '/^\d{4}-\d{2}-\d{2}$/';
@@ -209,12 +225,72 @@ class Qc_return extends MY_Controller
             $penyerah[] = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : (string) $nama;
         }
 
-        $data['rows'] = $this->qc_return_fcd->get_serah_terima($start_date, $end_date);
+        $rows = $this->qc_return_fcd->get_serah_terima($start_date, $end_date);
+        $waktu_cetak = date('Y-m-d H:i:s');
+
+        // Riwayat: setiap halaman cetak dibuka dicatat, lengkap dengan snapshot isinya
+        $this->qc_return_fcd->simpan_riwayat_cetak(array(
+            'tanggal_awal' => $start_date,
+            'tanggal_akhir' => $end_date,
+            'jumlah_sku' => count($rows),
+            'total_qty' => (int) array_sum(array_column($rows, 'qty')),
+            'penyerah' => implode(', ', $penyerah),
+            'detail' => json_encode($rows),
+            'dicetak_oleh' => $this->data['user']['id_user'],
+            'dicetak_at' => $waktu_cetak
+        ));
+
+        $data['rows'] = $rows;
         $data['start_date'] = $start_date;
         $data['end_date'] = $end_date;
         $data['penyerah'] = $penyerah;
+        $data['waktu_cetak'] = $waktu_cetak;
 
         $this->load->view('qc_return/serah_terima', $data);
+    }
+
+    // Daftar riwayat cetak serah terima (untuk modal di halaman laporan)
+    public function riwayat_cetak()
+    {
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_riwayat_cetak());
+    }
+
+    // Daftar pengerjaan harian (tanggal data, status ambil/selesai, riwayat cetak)
+    public function pengerjaan_harian()
+    {
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_pengerjaan_harian(30));
+    }
+
+    // QC klik saat keranjang tanggal tsb diambil tim Restok
+    public function barang_diambil()
+    {
+        if (!$this->punya_peran(self::ROLE_DIAMBIL)) {
+            $this->make_ajax_response(403, 'Barang Diambil hanya bisa dilakukan tim Packer');
+        }
+        $tanggal = $this->input->post('tanggal');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
+            $this->make_ajax_response(400, 'Tanggal tidak valid');
+        }
+        if (!$this->qc_return_fcd->tandai_diambil($tanggal, $this->data['user']['id_user'])) {
+            $this->make_ajax_response(409, 'Barang tanggal ini sudah pernah ditandai diambil');
+        }
+        $this->make_ajax_response(200, 'Barang ditandai diambil');
+    }
+
+    // Restok selesai mengerjakan keranjang tanggal tsb (hanya setelah diambil)
+    public function pengerjaan_selesai()
+    {
+        if (!$this->punya_peran(self::ROLE_RESTOK)) {
+            $this->make_ajax_response(403, 'Selesai hanya bisa dilakukan tim Restok');
+        }
+        $tanggal = $this->input->post('tanggal');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
+            $this->make_ajax_response(400, 'Tanggal tidak valid');
+        }
+        if (!$this->qc_return_fcd->tandai_selesai($tanggal, $this->data['user']['id_user'])) {
+            $this->make_ajax_response(409, 'Belum diambil atau sudah pernah diselesaikan');
+        }
+        $this->make_ajax_response(200, 'Pengerjaan ditandai selesai');
     }
 
     public function delete()

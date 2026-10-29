@@ -9,20 +9,22 @@ $judul_tgl = $tgl_indo($start_date) . ($end_date !== $start_date ? ' - ' . $tgl_
 
 // Tinggi baris & huruf menyesuaikan jumlah baris supaya muat satu halaman
 $n = max(count($rows), 1);
-$rowH = max(4.6, min(10, (297 - 24 - 14 - 6 - 46) / ($n + 1)));
+$rowH = max(4.6, min(10, (297 - 24 - 18 - 6 - 46) / ($n + 1)));
 $fs = max(7.5, min(11.5, $rowH * 1.45));
 ?>
 <!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>Serah Terima Barang QC <?= html_escape($judul_tgl) ?></title>
+<title>Pengembalian Barang QC ke Restok <?= html_escape($judul_tgl) ?></title>
 <style>
 @page{size:A4;margin:12mm}
 *{box-sizing:border-box}
 body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#111;margin:0}
 .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #111;padding-bottom:8px}
-.head h1{font-size:16pt;margin:0;letter-spacing:.5px}
+.head h1{font-size:13.5pt;margin:0;letter-spacing:.3px;max-width:68%}
+.head .kanan{text-align:right;line-height:1.35}
+.head small{display:block;font-size:8.5pt;color:#333}
 .head b{font-size:12pt}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th{background:#fff;color:#111;font-size:9pt;font-weight:bold;padding:5px;border:1px solid #888;border-bottom:2px solid #111;text-transform:uppercase}
@@ -39,11 +41,14 @@ td{border:1px solid #888;padding:0 6px;font-size:<?= round($fs, 1) ?>pt;height:<
 </head>
 <body>
 <div class="head">
-    <h1>SERAH TERIMA BARANG QC</h1>
-    <b><?= html_escape($judul_tgl) ?></b>
+    <h1>PENGEMBALIAN BARANG (KESALAHAN PICKER DARI QC KE RESTOK)</h1>
+    <div class="kanan">
+        <b><?= html_escape($judul_tgl) ?></b>
+        <small>Dicetak <?= date('d-m-Y H:i', strtotime($waktu_cetak)) ?></small>
+    </div>
 </div>
 <?php if (empty($rows)): ?>
-    <div class="kosong">Tidak ada data pengembalian (selain REJECT) pada tanggal ini.</div>
+    <div class="kosong">Tidak ada data pengembalian (kondisi SALAH AMBIL / LEBIH AMBIL) pada tanggal ini.</div>
 <?php else: ?>
 <table>
     <thead>
