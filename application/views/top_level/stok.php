@@ -126,6 +126,8 @@ $this->load->view('top_level/_dasar'); ?>
 
   function gambar() {
     tabs();
+    if (tab === 'kosong' && v !== 'sku') { v = 'sku'; $('#tls-seg button').removeClass('on').first().addClass('on'); }
+    $('#tls-seg').toggle(tab !== 'kosong');
     kpi();
     var h, semua, L;
     if (v === 'sku') {
@@ -134,6 +136,13 @@ $this->load->view('top_level/_dasar'); ?>
       h = '<div class="tls-gt"><div class="tls-gr tls-gp hd">' + th('sku', 'Produk (SKU)') + th('rk', 'Rak', 'n') + th('tot', 'Total stok', 'n') + th('', 'Status', 'n') + '</div>';
       $.each(L, function (i, d) {
         var o = bukaSku === d.sku;
+        if (tab === 'kosong') {
+          // Tab Stok kosong: tanpa rincian rak, cukup satu tombol Histori di bawah status.
+          h += '<div class="tls-grp"><div class="tls-gr tls-gp prow"><div class="pn"><span class="pic">' + SV.box + '</span><div><b class="mono">' + T.esc(d.sku) + '</b>' + salinIkon(d.sku, 'Salin SKU') + '</div></div>' +
+            '<div class="c n">' + d.rak.length + '</div><div class="c n"><b>' + d.total + '</b></div><div class="c n">' + T.pill('Kosong', 'bad') +
+            '<div style="margin-top:6px"><button type="button" class="tls-ab" data-b="' + T.esc(d.sku) + '">' + SV.clk + ' Histori</button></div></div></div></div>';
+          return;
+        }
         h += '<div class="tls-grp"><div class="tls-gr tls-gp prow" data-o="' + T.esc(d.sku) + '"><div class="pn"><span class="pic">' + SV.box + '</span><div><b class="mono">' + T.esc(d.sku) + '</b>' + salinIkon(d.sku, 'Salin SKU') + '</div></div>' +
           '<div class="c n">' + d.rak.length + '</div><div class="c n"><b>' + d.total + '</b></div><div class="c n">' + (d.total <= 0 ? T.pill('Kosong', 'bad') : d.total <= TIPIS ? T.pill('Tipis', 'warn') : T.pill('Aman', 'ok')) + '</div></div>' +
           strip('data-o', d.sku, d.rak.length + ' rak', o);
