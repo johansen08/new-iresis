@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-29.5';
+    const BOOTSTRAP_VERSI = '2026-10-29.6';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -179,6 +179,7 @@ class MY_Controller extends CI_Controller
         $this->run_pencairan_dana_menu_migration();
         $this->run_indeks_pencairan_dana_migration();
         $this->run_top_level_migration();
+        $this->run_serah_terima_qc_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2205,6 +2206,34 @@ class MY_Controller extends CI_Controller
                 'createdby' => 1
             ]);
         }
+    }
+
+    /**
+     * Serah terima QC -> Restok (menu Laporan Pengembalian Barang QC).
+     * 1) Enum kondisi diperluas dengan SALAH AMBIL: form input sudah menawarkannya, tapi enum lama
+     *    hanya LEBIH AMBIL/REJECT sehingga SALAH AMBIL tersimpan sebagai string kosong.
+     * 2) Tabel riwayat cetak (hanya ditambah, tidak ada yang dihapus/diubah).
+     */
+    protected function run_serah_terima_qc_migration()
+    {
+        $tipe = $this->db->query("SHOW COLUMNS FROM tblpengembalian_qc LIKE 'kondisi'")->row_array();
+        if ($tipe && stripos($tipe['Type'], 'SALAH AMBIL') === false) {
+            $this->db->query("ALTER TABLE tblpengembalian_qc MODIFY kondisi enum('LEBIH AMBIL','SALAH AMBIL','REJECT') NOT NULL");
+        }
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblpengembalian_qc_cetak` (
+          `id_cetak` int(11) NOT NULL AUTO_INCREMENT,
+          `tanggal_awal` date NOT NULL,
+          `tanggal_akhir` date NOT NULL,
+          `jumlah_sku` int(11) NOT NULL DEFAULT 0,
+          `total_qty` int(11) NOT NULL DEFAULT 0,
+          `penyerah` varchar(255) DEFAULT NULL,
+          `detail` mediumtext DEFAULT NULL,
+          `dicetak_oleh` int(11) NOT NULL,
+          `dicetak_at` datetime NOT NULL,
+          PRIMARY KEY (`id_cetak`),
+          KEY `idx_dicetak_at` (`dicetak_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
     }
 
     /**

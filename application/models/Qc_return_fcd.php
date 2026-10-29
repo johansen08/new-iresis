@@ -142,14 +142,14 @@ class Qc_return_fcd extends CI_Model
         return $this->db->get();
     }
 
-    // Rekap serah terima QC ke Restok: per rak + SKU, tanpa REJECT
+    // Rekap serah terima QC ke Restok: per rak + SKU, hanya kondisi SALAH AMBIL / LEBIH AMBIL
     function get_serah_terima($start_date, $end_date)
     {
         $this->db->select('no_rak, sku, SUM(qty) AS qty', FALSE);
         $this->db->from('tblpengembalian_qc');
         $this->db->where('tanggal >=', $start_date);
         $this->db->where('tanggal <=', $end_date);
-        $this->db->where('kondisi <>', 'REJECT');
+        $this->db->where_in('kondisi', array('SALAH AMBIL', 'LEBIH AMBIL'));
         $this->db->group_by(array('no_rak', 'sku'));
         $this->db->order_by('no_rak', 'ASC');
         $this->db->order_by('sku', 'ASC');
@@ -164,10 +164,26 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tbluser u', 'u.id_user = t.submit_by', 'left');
         $this->db->where('t.tanggal >=', $start_date);
         $this->db->where('t.tanggal <=', $end_date);
-        $this->db->where('t.kondisi <>', 'REJECT');
+        $this->db->where_in('t.kondisi', array('SALAH AMBIL', 'LEBIH AMBIL'));
         $this->db->group_by('t.submit_by');
         $this->db->order_by('COUNT(*)', 'DESC', FALSE);
         return array_column($this->db->get()->result_array(), 'name');
+    }
+
+    // Catat satu kali cetak serah terima (snapshot isi yang dicetak)
+    function simpan_riwayat_cetak($data)
+    {
+        return $this->db->insert('tblpengembalian_qc_cetak', $data);
+    }
+
+    function get_riwayat_cetak($limit = 100)
+    {
+        $this->db->select('c.id_cetak, c.tanggal_awal, c.tanggal_akhir, c.jumlah_sku, c.total_qty, c.penyerah, c.dicetak_at, u.name AS pencetak');
+        $this->db->from('tblpengembalian_qc_cetak c');
+        $this->db->join('tbluser u', 'u.id_user = c.dicetak_oleh', 'left');
+        $this->db->order_by('c.id_cetak', 'DESC');
+        $this->db->limit((int) $limit);
+        return $this->db->get()->result_array();
     }
 
     function delete_data($id)

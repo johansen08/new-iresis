@@ -209,12 +209,34 @@ class Qc_return extends MY_Controller
             $penyerah[] = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : (string) $nama;
         }
 
-        $data['rows'] = $this->qc_return_fcd->get_serah_terima($start_date, $end_date);
+        $rows = $this->qc_return_fcd->get_serah_terima($start_date, $end_date);
+        $waktu_cetak = date('Y-m-d H:i:s');
+
+        // Riwayat: setiap halaman cetak dibuka dicatat, lengkap dengan snapshot isinya
+        $this->qc_return_fcd->simpan_riwayat_cetak(array(
+            'tanggal_awal' => $start_date,
+            'tanggal_akhir' => $end_date,
+            'jumlah_sku' => count($rows),
+            'total_qty' => (int) array_sum(array_column($rows, 'qty')),
+            'penyerah' => implode(', ', $penyerah),
+            'detail' => json_encode($rows),
+            'dicetak_oleh' => $this->data['user']['id_user'],
+            'dicetak_at' => $waktu_cetak
+        ));
+
+        $data['rows'] = $rows;
         $data['start_date'] = $start_date;
         $data['end_date'] = $end_date;
         $data['penyerah'] = $penyerah;
+        $data['waktu_cetak'] = $waktu_cetak;
 
         $this->load->view('qc_return/serah_terima', $data);
+    }
+
+    // Daftar riwayat cetak serah terima (untuk modal di halaman laporan)
+    public function riwayat_cetak()
+    {
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_riwayat_cetak());
     }
 
     public function delete()

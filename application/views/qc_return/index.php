@@ -26,13 +26,15 @@
                         <select id="filter_kondisi" class="form-control select">
                             <option value="">- Semua Kondisi -</option>
                             <option value="LEBIH AMBIL">LEBIH AMBIL</option>
+                            <option value="SALAH AMBIL">SALAH AMBIL</option>
                             <option value="REJECT">REJECT</option>
                         </select>
                     </div>
-                    <div class="col-md-3" style="white-space:nowrap">
+                    <div class="col-md-3">
                         <button class="btn btn-primary" onclick="refreshTable()"><i class="fa fa-search"></i> Filter</button>
                         <button class="btn btn-info" onclick="exportToExcel()"><i class="fa fa-file-excel-o"></i> Export</button>
                         <button class="btn btn-warning" onclick="serahTerima()"><i class="fa fa-print"></i> Serah Terima</button>
+                        <button class="btn btn-default" onclick="riwayatCetak()"><i class="fa fa-history"></i> Riwayat Cetak</button>
                     </div>
                     <div class="col-md-2 text-right">
                         <a href="qc_return/add" class="btn btn-success link"><i class="fa fa-plus"></i> Submit Pengembalian</a>
@@ -56,6 +58,27 @@
                             </tr>
                         </thead>
                         <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="modal_riwayat_cetak" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Riwayat Cetak Serah Terima (100 terakhir)</h4>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-condensed">
+                        <thead>
+                            <tr><th>#</th><th>Waktu Cetak</th><th>Tanggal Data</th><th>SKU</th><th>Qty</th><th>Penyerah QC</th><th>Dicetak Oleh</th></tr>
+                        </thead>
+                        <tbody id="tbody_riwayat_cetak"></tbody>
                     </table>
                 </div>
             </div>
@@ -144,6 +167,35 @@
     function serahTerima() {
         var range = $('#reportrange').val().split(' - ');
         window.open('qc_return/serah_terima?start_date=' + range[0] + '&end_date=' + range[1], '_blank');
+    }
+
+    // Riwayat setiap kali halaman cetak serah terima dibuka
+    function riwayatCetak() {
+        $('#modal_riwayat_cetak').modal('show');
+        var $tb = $('#tbody_riwayat_cetak').html('<tr><td colspan="7" class="text-center">Memuat...</td></tr>');
+        $.ajax({
+            url: 'qc_return/riwayat_cetak',
+            type: 'POST',
+            dataType: 'JSON',
+            success: function(res) {
+                var list = (res && res.data) ? res.data : [];
+                if (!list.length) {
+                    $tb.html('<tr><td colspan="7" class="text-center">Belum ada riwayat cetak</td></tr>');
+                    return;
+                }
+                var html = '';
+                $.each(list, function(i, r) {
+                    var tgl = r.tanggal_awal == r.tanggal_akhir ? r.tanggal_awal : r.tanggal_awal + ' s/d ' + r.tanggal_akhir;
+                    html += '<tr><td>' + (i + 1) + '</td><td>' + $('<div>').text(r.dicetak_at).html() + '</td><td>' + tgl +
+                        '</td><td>' + r.jumlah_sku + '</td><td>' + r.total_qty + '</td><td>' +
+                        $('<div>').text(r.penyerah || '-').html() + '</td><td>' + $('<div>').text(r.pencetak || '-').html() + '</td></tr>';
+                });
+                $tb.html(html);
+            },
+            error: function() {
+                $tb.html('<tr><td colspan="7" class="text-center text-danger">Gagal memuat riwayat</td></tr>');
+            }
+        });
     }
 
     function deleteData(id) {
