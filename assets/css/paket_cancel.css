@@ -214,3 +214,6 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .dsp .stp2 .mxb:hover{background:#2d4fd61a}
 .pc .dsp .stp2 .mxb.on{background:var(--pri);color:#fff}
 .pc .dsp .stp2 .mxb:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.pc .btn-tanpa{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:44px;margin-top:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+.pc .btn-tanpa:hover{border-color:var(--pri);color:var(--pri);background:#2d4fd60d}
+.pc .btn-tanpa:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
