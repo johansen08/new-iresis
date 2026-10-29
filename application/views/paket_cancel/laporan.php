@@ -121,7 +121,7 @@
                 return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi)) +
                     (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
             }).join('');
-            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(nr(p)) + '</b>' +
+            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
                 '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
