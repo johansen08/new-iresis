@@ -13,7 +13,7 @@ $this->load->view('top_level/_dasar'); ?>
   var T = window.TL, $r = $('#tl-stok');
   var TIPIS = 20;                                   // stok total <= angka ini ditandai Tipis
   var ALASAN = ['Opname', 'Salah catat', 'Barang rusak', 'Pindah rak'];
-  var data = [], v = 'sku', q = '', filt = '', sortK = 'sku', sortD = 1, page = 0, ps = 10, bukaSku = null, bukaRak = null, timer = null;
+  var data = [], v = 'sku', q = '', filt = '', tab = 'semua', sortK = 'sku', sortD = 1, page = 0, ps = 10, bukaSku = null, bukaRak = null, timer = null;
 
   var SV = {
     box: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg>',
@@ -26,7 +26,7 @@ $this->load->view('top_level/_dasar'); ?>
   $r.html(
     '<div class="tl-ph"><div class="t"><h1>Stok Top Level</h1>' +
     T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian, lalu Edit untuk koreksi qty, ganti no rak, atau ganti SKU.\nSKU baru wajib ada di master (Jubelio).\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
-    '</div></div><div class="tls-kpi" id="tls-kpi"></div>' +
+    '</div></div><div class="tls-seg" id="tls-tab" style="margin-bottom:10px"></div><div class="tls-kpi" id="tls-kpi"></div>' +
     '<section class="tl-panel tls-panel"><div class="tls-tb">' +
     '<label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
     '<div class="tls-seg" id="tls-seg"><button type="button" class="on" data-v="sku">Per SKU</button><button type="button" data-v="rak">Per Rak</button></div>' +
@@ -51,11 +51,21 @@ $this->load->view('top_level/_dasar'); ?>
   }
 
   // ---------- kartu ringkasan ----------
+  function lolosTab(d) { return tab === 'ada' ? d.total > 0 : tab === 'kosong' ? d.total <= 0 : true; }
+
+  function tabs() {
+    var n = { semua: data.length, ada: 0, kosong: 0 };
+    $.each(data, function (i, d) { if (d.total > 0) n.ada++; else n.kosong++; });
+    var def = [['semua', 'Semua'], ['ada', 'Ada stok'], ['kosong', 'Stok kosong']], h = '';
+    $.each(def, function (i, t) { h += '<button type="button" data-t="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + ' (' + n[t[0]].toLocaleString('id-ID') + ')</button>'; });
+    $('#tls-tab').html(h);
+  }
+
   function kpi() {
     var unit = 0, rk = {}, tipis = 0;
-    $.each(data, function (i, d) { unit += d.total; if (d.total <= TIPIS) tipis++; $.each(d.rak, function (j, z) { rk[z.rak] = 1; }); });
+    $.each($.grep(data, lolosTab), function (i, d) { unit += d.total; if (d.total <= TIPIS) tipis++; $.each(d.rak, function (j, z) { rk[z.rak] = 1; }); });
     $('#tls-kpi').html(
-      '<div class="tls-k act' + (filt === '' ? ' on' : '') + '" data-k=""><small>Total SKU</small><b>' + data.length + '</b></div>' +
+      '<div class="tls-k act' + (filt === '' ? ' on' : '') + '" data-k=""><small>Total SKU</small><b>' + $.grep(data, lolosTab).length + '</b></div>' +
       '<div class="tls-k"><small>Total stok</small><b>' + unit.toLocaleString('id-ID') + '</b></div>' +
       '<div class="tls-k"><small>Rak terpakai</small><b>' + Object.keys(rk).length + '</b></div>' +
       '<div class="tls-k act w' + (filt === 'low' ? ' on' : '') + '" data-k="low"><small>Stok tipis (&le;' + TIPIS + ')</small><b>' + tipis + '</b></div>');
@@ -64,6 +74,7 @@ $this->load->view('top_level/_dasar'); ?>
   function rowsSku() {
     var k = q.toLowerCase();
     var L = $.grep(data, function (d) {
+      if (!lolosTab(d)) return false;
       if (filt === 'low' && d.total > TIPIS) return false;
       if (!k) return true;
       if (d.sku.toLowerCase().indexOf(k) > -1) return true;
@@ -80,6 +91,7 @@ $this->load->view('top_level/_dasar'); ?>
   function rowsRak() {
     var m = {}, k = q.toLowerCase(), out = [];
     $.each(data, function (i, d) {
+      if (!lolosTab(d)) return;
       if (filt === 'low' && d.total > TIPIS) return;
       $.each(d.rak, function (j, z) {
         if (!m[z.rak]) m[z.rak] = { rak: z.rak, sku: [], unit: 0 };
@@ -112,6 +124,7 @@ $this->load->view('top_level/_dasar'); ?>
   }
 
   function gambar() {
+    tabs();
     kpi();
     var h, semua, L;
     if (v === 'sku') {
@@ -121,7 +134,7 @@ $this->load->view('top_level/_dasar'); ?>
       $.each(L, function (i, d) {
         var o = bukaSku === d.sku;
         h += '<div class="tls-grp"><div class="tls-gr tls-gp prow" data-o="' + T.esc(d.sku) + '"><div class="pn"><span class="pic">' + SV.box + '</span><div><b class="mono">' + T.esc(d.sku) + '</b>' + salinIkon(d.sku, 'Salin SKU') + '</div></div>' +
-          '<div class="c n">' + d.rak.length + '</div><div class="c n"><b>' + d.total + '</b></div><div class="c n">' + (d.total <= TIPIS ? T.pill('Tipis', 'warn') : T.pill('Aman', 'ok')) + '</div></div>' +
+          '<div class="c n">' + d.rak.length + '</div><div class="c n"><b>' + d.total + '</b></div><div class="c n">' + (d.total <= 0 ? T.pill('Kosong', 'bad') : d.total <= TIPIS ? T.pill('Tipis', 'warn') : T.pill('Aman', 'ok')) + '</div></div>' +
           strip('data-o', d.sku, d.rak.length + ' rak', o);
         if (o) {
           h += '<div class="tls-nest"><div class="tls-gr tls-gn hd"><div class="tls-gh">Rak</div><div class="tls-gh n">Stok</div><div class="tls-gh"></div><div class="tls-gh n">Aksi</div></div>';
@@ -286,6 +299,7 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '[data-o]', function () { var s = $(this).attr('data-o'); bukaSku = bukaSku === s ? null : s; gambar(); });
   $r.on('click', '[data-or]', function () { var s = $(this).attr('data-or'); bukaRak = bukaRak === s ? null : s; gambar(); });
   $r.on('click', '[data-s]', function () { var k = $(this).data('s'); if (sortK === k) sortD *= -1; else { sortK = k; sortD = 1; } page = 0; gambar(); });
+  $r.on('click', '#tls-tab button', function () { tab = $(this).data('t'); page = 0; gambar(); });
   $r.on('click', '[data-k]', function () { filt = $(this).data('k'); page = 0; gambar(); });
   $r.on('click', '#tls-seg button', function () { v = $(this).data('v'); page = 0; $('#tls-seg button').removeClass('on'); $(this).addClass('on'); gambar(); });
   $r.on('click', '#tls-xls', function () {
