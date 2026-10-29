@@ -133,7 +133,7 @@ class Laporan_resi_spesial_fcd extends CI_Model
                 'satu_sku_satu_qty' => $v[0],
                 'satu_sku_picker'   => $v[1],
                 'resi_spesial'      => $v[2],
-                'persen'            => round(100 * $v[1] / $v[0], 1),
+                'persen'            => $v[2] > 0 ? round(100 * $v[1] / $v[2], 1) : 0,   // dari Resi Spesial (potensi), bukan 1 SKU 1 QTY
             );
         }
         return $rows;
