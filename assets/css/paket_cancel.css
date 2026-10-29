@@ -210,4 +210,7 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .dsp textarea{width:100%;margin-top:10px}
 .pc .dsp .full td{color:var(--mut)}
 @media(max-width:560px){.pc .dsp .asl-g,.pc .dsp .chips{grid-template-columns:1fr}}
-.pc .dsp .stp2 .a{font-size:12px;height:32px;padding:0 10px;margin-left:4px}
+.pc .dsp .stp2 .mxb{width:auto;min-width:68px;height:32px;padding:0 14px;white-space:nowrap;margin-left:10px;border:1px solid var(--pri);border-radius:8px;background:transparent;color:var(--pri);font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.pc .dsp .stp2 .mxb:hover{background:#2d4fd61a}
+.pc .dsp .stp2 .mxb.on{background:var(--pri);color:#fff}
+.pc .dsp .stp2 .mxb:focus-visible{outline:2px solid var(--pri);outline-offset:2px}

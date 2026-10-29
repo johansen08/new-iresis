@@ -364,7 +364,12 @@
     function dspHit() {
         var o = document.querySelector('.dsp'), t = 0;
         if (!o) return 0;
-        o.querySelectorAll('tbody input.q').forEach(function (i) { t += Math.max(0, +i.value || 0); });
+        o.querySelectorAll('tbody tr').forEach(function (tr) {
+            var i = tr.querySelector('input.q'), b = tr.querySelector('.mxb');
+            if (!i) return;
+            t += Math.max(0, +i.value || 0);
+            b.classList.toggle('on', (+i.value || 0) === +tr.dataset.m);
+        });
         o.querySelector('.go b').textContent = t + ' pcs';
         return t;
     }
@@ -384,7 +389,7 @@
             ada += i.qty_ditemukan; sdh += (i.qty_display || 0);
             return '<tr data-s="' + esc(i.sku) + '" data-m="' + sisa + '"' + (sisa > 0 ? '' : ' class="full"') + '><td class="sk">' + esc(i.sku) + '</td><td>' + U.foto(i) + '</td><td class="c">' + i.qty_ditemukan + '</td><td class="c">' + (i.qty_display || 0) + '</td><td class="c">' +
                 (sisa > 0 ? '<span class="stp2"><button type="button" data-act="dsp-step" data-d="-1" aria-label="Kurangi">&minus;</button><input class="q" type="number" min="0" max="' + sisa + '" value="0"><button type="button" data-act="dsp-step" data-d="1" aria-label="Tambah">+</button>' +
-                    '<button type="button" class="a x s" data-act="dsp-max" title="Isi semua sisa">Semua</button></span><small class="mx">maks ' + sisa + ' pcs</small>' : '<small class="note">sudah semua di display</small>') + '</td></tr>';
+                    '<button type="button" class="mxb" data-act="dsp-max" title="Isi semua sisa barang ini">Semua</button></span><small class="mx">maks ' + sisa + ' pcs</small>' : '<small class="note">sudah semua di display</small>') + '</td></tr>';
         }).join('');
         if (!baris) { pesan('warn', 'Paket ini tidak punya barang untuk dikembalikan ke display.'); return; }
         var o = U.konfirm('Barang kembali ke display',
