@@ -388,6 +388,13 @@ class Top_level extends MY_Controller
         $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_sku($this->input->post('q'))));
     }
 
+    /** Buku stok satu SKU (semua rak): kolom masuk, keluar, saldo. */
+    public function stok_buku()
+    {
+        $this->_wajib(self::URI_STOK);
+        $this->make_ajax_response(200, 'OK', $this->top_level_fcd->stok_buku(trim((string) $this->input->post('sku'))));
+    }
+
     public function stok_riwayat()
     {
         $this->_wajib(self::URI_STOK);
