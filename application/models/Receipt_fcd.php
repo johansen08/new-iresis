@@ -3668,6 +3668,10 @@ class Receipt_fcd extends CI_Model
         if (empty($r->paket_status)) {
             return '';
         }
+        // Baris dari menu Terima Paket Cancel yang sudah dihapus (belum pernah ditolak scan): tidak ada jejak.
+        if ((int) $r->paket_jumlah_tolak === 0 && $r->paket_status === 'DITEMUKAN') {
+            return '';
+        }
 
         $label_meja = [
             'PICKER'    => 'picker',
@@ -3675,9 +3679,11 @@ class Receipt_fcd extends CI_Model
             'PACKER'    => 'packer',
             'HO'        => 'HO',
             'LOST_SCAN' => 'lost scan',
+            'KURIR'     => 'kurir',
         ];
         $meja  = $label_meja[$r->paket_ditemukan_di] ?? strtolower((string) $r->paket_ditemukan_di);
-        $teks  = 'Ditolak di ' . $meja;
+        // jumlah_tolak 0 = baris dibuat oleh menu Terima Paket Cancel, bukan oleh scan yang ditolak.
+        $teks  = ((int) $r->paket_jumlah_tolak === 0 ? 'Diterima tim retur dari ' : 'Ditolak di ') . $meja;
         if (!empty($r->paket_ditemukan_at)) {
             $teks .= ' ' . date('d/m H:i', strtotime($r->paket_ditemukan_at));
         }
