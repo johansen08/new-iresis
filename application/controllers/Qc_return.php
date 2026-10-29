@@ -193,6 +193,30 @@ class Qc_return extends MY_Controller
         $this->load->view('template_report/qc_return_report', $data);
     }
 
+    // Halaman cetak A4 serah terima QC -> Restok (tanpa REJECT), dibuka di tab baru
+    public function serah_terima()
+    {
+        $start_date = $this->input->get('start_date');
+        $end_date = $this->input->get('end_date');
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        if (!preg_match($re, (string) $start_date)) $start_date = date('Y-m-d');
+        if (!preg_match($re, (string) $end_date)) $end_date = $start_date;
+
+        // "NAMA - ROLE - NOABSEN" -> "NOABSEN - NAMA - ROLE"
+        $penyerah = array();
+        foreach ($this->qc_return_fcd->get_penyerah_serah_terima($start_date, $end_date) as $nama) {
+            $p = array_map('trim', explode(' - ', (string) $nama));
+            $penyerah[] = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : (string) $nama;
+        }
+
+        $data['rows'] = $this->qc_return_fcd->get_serah_terima($start_date, $end_date);
+        $data['start_date'] = $start_date;
+        $data['end_date'] = $end_date;
+        $data['penyerah'] = $penyerah;
+
+        $this->load->view('qc_return/serah_terima', $data);
+    }
+
     public function delete()
     {
         $id = $this->input->post('id');

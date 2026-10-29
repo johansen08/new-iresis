@@ -142,6 +142,34 @@ class Qc_return_fcd extends CI_Model
         return $this->db->get();
     }
 
+    // Rekap serah terima QC ke Restok: per rak + SKU, tanpa REJECT
+    function get_serah_terima($start_date, $end_date)
+    {
+        $this->db->select('no_rak, sku, SUM(qty) AS qty', FALSE);
+        $this->db->from('tblpengembalian_qc');
+        $this->db->where('tanggal >=', $start_date);
+        $this->db->where('tanggal <=', $end_date);
+        $this->db->where('kondisi <>', 'REJECT');
+        $this->db->group_by(array('no_rak', 'sku'));
+        $this->db->order_by('no_rak', 'ASC');
+        $this->db->order_by('sku', 'ASC');
+        return $this->db->get()->result_array();
+    }
+
+    // Nama penyerah (submitter) pada rentang tanggal, urut dari yang paling banyak input
+    function get_penyerah_serah_terima($start_date, $end_date)
+    {
+        $this->db->select('u.name');
+        $this->db->from('tblpengembalian_qc t');
+        $this->db->join('tbluser u', 'u.id_user = t.submit_by', 'left');
+        $this->db->where('t.tanggal >=', $start_date);
+        $this->db->where('t.tanggal <=', $end_date);
+        $this->db->where('t.kondisi <>', 'REJECT');
+        $this->db->group_by('t.submit_by');
+        $this->db->order_by('COUNT(*)', 'DESC', FALSE);
+        return array_column($this->db->get()->result_array(), 'name');
+    }
+
     function delete_data($id)
     {
         $this->db->where('id_pengembalian', $id);
