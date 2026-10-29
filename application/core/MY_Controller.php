@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-29.3';
+    const BOOTSTRAP_VERSI = '2026-10-29.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1912,7 +1912,26 @@ class MY_Controller extends CI_Controller
             $this->db->query("ALTER TABLE tblcancel_paket_log MODIFY aksi enum('TERIMA','EDIT','HAPUS','DISPLAY','BATAL_DISPLAY') NOT NULL");
         }
 
-        $induk =$this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
+        // Catatan barang kembali ke display per SKU & qty (dari paket diterima, atau tanpa resi).
+        // Insert-saja; batal = batal_at terisi.
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_display` (
+          `id_display` int(11) NOT NULL AUTO_INCREMENT,
+          `id_cancel_paket` int(11) DEFAULT NULL,
+          `noresi` varchar(100) DEFAULT NULL,
+          `sku` varchar(100) NOT NULL,
+          `qty` int(11) NOT NULL,
+          `sumber` enum('QC','RESTOK') DEFAULT NULL,
+          `catatan` varchar(255) DEFAULT NULL,
+          `dibuat_oleh` int(11) DEFAULT NULL,
+          `dibuat_at` datetime NOT NULL,
+          `batal_at` datetime DEFAULT NULL,
+          `batal_oleh` int(11) DEFAULT NULL,
+          PRIMARY KEY (`id_display`),
+          KEY `idx_cancel_display_paket` (`id_cancel_paket`, `batal_at`),
+          KEY `idx_cancel_display_waktu` (`dibuat_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
         if (!$induk) {
             return;
         }

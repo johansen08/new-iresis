@@ -441,6 +441,7 @@ $route['paket-cancel/edit-simpan'] = 'paket_cancel/edit_simpan';
 $route['paket-cancel/hapus'] = 'paket_cancel/hapus';
 $route['paket-cancel/tandai-display'] = 'paket_cancel/tandai_display';
 $route['paket-cancel/batal-display'] = 'paket_cancel/batal_display';
+$route['paket-cancel/catat-display'] = 'paket_cancel/catat_display';
 $route['paket-cancel/serah-data'] = 'paket_cancel/serah_data';
 $route['paket-cancel/serah-cetak'] = 'paket_cancel/serah_cetak';
 $route['report/proses-barang-qc'] = 'Report/proses_barang_qc';
