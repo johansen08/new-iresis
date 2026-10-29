@@ -55,8 +55,8 @@ class Laporan_resi_spesial extends MY_Controller
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sh = $ss->getActiveSheet();
         $sh->setTitle('Laporan Resi Spesial');
-        $sh->fromArray(array('Tanggal Scan Picker', '1 SKU 1 QTY', 'Maks. Resi Spesial', '1 SKU PICKER', 'Persen', 'Batas'), null, 'A1');
-        $sh->getStyle('A1:F1')->getFont()->setBold(true);
+        $sh->fromArray(array('Tanggal Scan Picker', '1 SKU 1 QTY', 'Maks. Resi Spesial', '1 SKU PICKER', 'Persen'), null, 'A1');
+        $sh->getStyle('A1:E1')->getFont()->setBold(true);
 
         $baris = 2;
         foreach ($rows as $r) {
@@ -65,13 +65,12 @@ class Laporan_resi_spesial extends MY_Controller
             $sh->setCellValue('C' . $baris, $r['resi_spesial']);
             $sh->setCellValue('D' . $baris, $r['satu_sku_picker']);
             $sh->setCellValue('E' . $baris, $r['persen'] / 100);
-            $sh->setCellValue('F' . $baris, $r['batas'] / 100);
             $baris++;
         }
         if ($baris > 2) {
-            $sh->getStyle('E2:F' . ($baris - 1))->getNumberFormat()->setFormatCode('0.0%');
+            $sh->getStyle('E2:E' . ($baris - 1))->getNumberFormat()->setFormatCode('0.0%');
         }
-        foreach (array('A' => 22, 'B' => 14, 'C' => 20, 'D' => 14, 'E' => 10, 'F' => 10) as $kol => $lebar) {
+        foreach (array('A' => 22, 'B' => 14, 'C' => 20, 'D' => 14, 'E' => 10) as $kol => $lebar) {
             $sh->getColumnDimension($kol)->setWidth($lebar);
         }
 
