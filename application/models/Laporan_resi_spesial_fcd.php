@@ -89,6 +89,21 @@ class Laporan_resi_spesial_fcd extends CI_Model
         return $hasil;
     }
 
+    /** Batas persen (target) untuk satu hari, dari config/batas_resi_spesial.php. */
+    private function _batas($satu, $potensi)
+    {
+        static $cfg = null;
+        if ($cfg === null) {
+            $this->config->load('batas_resi_spesial', true);
+            $cfg = (array) $this->config->item('batas_resi_spesial', 'batas_resi_spesial');
+        }
+        $angka = (isset($cfg['basis']) && $cfg['basis'] === 'satu_sku_satu_qty') ? $satu : $potensi;
+        foreach ((isset($cfg['tingkat']) ? $cfg['tingkat'] : array()) as $t) {
+            if ($angka >= $t[0] && $angka <= $t[1]) return (float) $t[2];
+        }
+        return (float) (isset($cfg['default']) ? $cfg['default'] : 50);
+    }
+
     /**
      * Seluruh tanggal yang punya scan picker 1 SKU 1 QTY pada rentang ('Y-m-d'),
      * tanggal terbaru dulu.
@@ -134,6 +149,7 @@ class Laporan_resi_spesial_fcd extends CI_Model
                 'satu_sku_picker'   => $v[1],
                 'resi_spesial'      => $v[2],
                 'persen'            => $v[2] > 0 ? round(100 * $v[1] / $v[2], 1) : 0,   // dari Resi Spesial (potensi), bukan 1 SKU 1 QTY
+                'batas'             => $this->_batas($v[0], $v[2]),
             );
         }
         return $rows;
