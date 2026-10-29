@@ -141,6 +141,8 @@ $this->load->view('top_level/_dasar'); ?>
           $.each(d.rak, function (j, z) {
             h += '<div class="tls-gr tls-gn"><div class="c"><b class="mono">' + T.esc(z.rak) + '</b>' + salinIkon(z.rak, 'Salin no rak') + '</div><div class="c n">' + z.stok + '</div><div class="c"></div>' + aksi(d.sku, z.rak) + '</div>';
           });
+          if (!d.rak.length) h += '<div class="tls-gr tls-gn"><div class="c muted">Tidak ada stok di rak mana pun</div><div class="c n"></div><div class="c"></div><div class="c n"></div></div>';
+          h += '<div class="tls-gr tls-gn"><div class="c"></div><div class="c n"></div><div class="c"></div><div class="c n"><button type="button" class="tls-ab" data-b="' + T.esc(d.sku) + '">' + SV.clk + ' Histori SKU</button></div></div>';
           h += '</div>';
         }
         h += '</div>';
@@ -191,6 +193,23 @@ $this->load->view('top_level/_dasar'); ?>
         b += '</tbody></table></div>';
       }
       var $m = T.modal({ judul: 'Histori stok', wide: true, body: b + '</div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button></div>' });
+    }, T.galat);
+  }
+
+  // ---------- histori SKU: masuk, keluar, saldo (semua rak) ----------
+  function buku(sku) {
+    T.post('cs/stok-top-level/buku', { sku: sku }, function (d) {
+      var b = '<div class="tl-db"><div class="mono" style="font-size:16px;font-weight:600">' + T.esc(sku) + ' &middot; saldo sekarang ' + d.total + '</div>';
+      if (!d.rows.length) b += T.empty('db', 'Belum ada pencatatan masuk atau keluar');
+      else {
+        b += '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>Waktu</th><th>Keterangan</th><th class="n">Masuk</th><th class="n">Keluar</th><th class="n">Saldo</th></tr></thead><tbody>';
+        $.each(d.rows, function (i, x) {
+          b += '<tr><td class="mono">' + T.esc(T.tgl(x.waktu)) + '</td><td>' + T.esc(x.keterangan || x.jenis) + '<div class="muted" style="font-size:12px">' + (x.no_rak ? 'Rak ' + T.esc(x.no_rak) + ' &middot; ' : '') + T.esc(x.oleh || '') + '</div></td>' +
+            '<td class="n">' + (x.masuk ? '<b style="color:var(--tl-ok)">+' + x.masuk + '</b>' : '') + '</td><td class="n">' + (x.keluar ? '<b style="color:var(--tl-bad)">-' + x.keluar + '</b>' : '') + '</td><td class="n"><b>' + x.saldo + '</b></td></tr>';
+        });
+        b += '</tbody></table></div>' + (d.lebih ? '<div class="muted" style="font-size:12px">Menampilkan 300 catatan terbaru.</div>' : '');
+      }
+      T.modal({ judul: 'Histori SKU', wide: true, body: b + '</div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button></div>' });
     }, T.galat);
   }
 
@@ -296,6 +315,7 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '[data-cp]', function (e) { e.stopPropagation(); salin($(this).data('cp')); });
   $r.on('click', '[data-e]', function (e) { e.stopPropagation(); edit($(this).data('e')); });
   $r.on('click', '[data-h]', function (e) { e.stopPropagation(); histori($(this).data('h'), $(this).data('rak')); });
+  $r.on('click', '[data-b]', function (e) { e.stopPropagation(); buku($(this).data('b')); });
   $r.on('click', '[data-o]', function () { var s = $(this).attr('data-o'); bukaSku = bukaSku === s ? null : s; gambar(); });
   $r.on('click', '[data-or]', function () { var s = $(this).attr('data-or'); bukaRak = bukaRak === s ? null : s; gambar(); });
   $r.on('click', '[data-s]', function () { var k = $(this).data('s'); if (sortK === k) sortD *= -1; else { sortK = k; sortD = 1; } page = 0; gambar(); });

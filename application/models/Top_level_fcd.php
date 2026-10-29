@@ -896,6 +896,31 @@ class Top_level_fcd extends CI_Model
         return $rows;
     }
 
+    /**
+     * Buku stok satu SKU lintas rak (terbaru dulu): masuk, keluar, saldo. Hanya baris log yang mengubah qty.
+     * Saldo dihitung mundur dari stok saat ini, jadi baris terbaru selalu berakhir di total stok sekarang.
+     */
+    public function stok_buku($sku)
+    {
+        $total = (int) $this->db->query('SELECT COALESCE(SUM(qty), 0) AS t FROM tbltoplevel WHERE sku = ?', array($sku))->row()->t;
+        $rows = $this->db->query(
+            "SELECT waktu, jenis, no_rak, qty_sebelum, qty_sesudah, oleh, ref, keterangan FROM tbltoplevel_log
+             WHERE sku = ? AND qty_sebelum IS NOT NULL AND qty_sesudah IS NOT NULL AND qty_sesudah <> qty_sebelum
+             ORDER BY id DESC",
+            array($sku)
+        )->result_array();
+        $saldo = $total;
+        foreach ($rows as &$r) {
+            $s = (int) $r['qty_sesudah'] - (int) $r['qty_sebelum'];
+            $r['masuk'] = $s > 0 ? $s : 0;
+            $r['keluar'] = $s < 0 ? -$s : 0;
+            $r['saldo'] = $saldo;
+            $saldo -= $s;
+        }
+        unset($r);
+        return array('rows' => array_slice($rows, 0, 300), 'total' => $total, 'lebih' => count($rows) > 300);
+    }
+
     /** Riwayat perubahan stok satu SKU di satu rak (terbaru dulu), dari jejak audit tbltoplevel_log. */
     public function stok_riwayat($sku, $rak)
     {
