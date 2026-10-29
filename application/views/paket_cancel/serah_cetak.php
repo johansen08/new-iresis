@@ -25,6 +25,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#111;margin:0
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th{background:#fff;color:#111;font-size:9pt;font-weight:bold;padding:5px;border:1px solid #888;border-bottom:2px solid #111;text-transform:uppercase;text-align:center}
 td{border:1px solid #888;padding:0 6px;font-size:<?= round($fs, 1) ?>pt;height:<?= round($rowH, 2) ?>mm;line-height:1.1}
+thead{display:table-header-group}tr{page-break-inside:avoid}
 .c{text-align:center}
 .fit{width:1%;white-space:nowrap;padding-left:9px;padding-right:9px}
 .real{min-width:17mm}
