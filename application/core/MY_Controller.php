@@ -1700,7 +1700,7 @@ class MY_Controller extends CI_Controller
 
     /**
      * Menu TIM PICKER -> "Bonus Picker" (laporan hasil hitung, baca-saja; tidak
-     * ada tabel baru). Hak akses: webmaster (1), admin (2), tim retur (6) --
+     * ada tabel baru). Hak akses: hanya webmaster (1) --
      * harus sejalan dengan Bonus_picker::ROLE_BOLEH.
      */
     protected function run_bonus_picker_migration()
@@ -1725,7 +1725,7 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        foreach ([1, 2, 6] as $roleid) {
+        foreach ([1] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
