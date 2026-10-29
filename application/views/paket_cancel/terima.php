@@ -9,7 +9,7 @@
    <label class="asl-o"><input type="radio" name="dari" value="KURIR"><span class="asl-c"><span class="asl-i">&#128666;</span><span><b>Kurir</b></span></span></label></div></div>
   <div class="stp" style="margin-top:16px"><span class="stn">2</span><b>Scan no. resi</b></div>
   <input id="pc_resi" class="scan" placeholder="Scan atau ketik no. resi, lalu Enter" autocomplete="off">
-  <div class="tanpa" style="margin-top:10px"><button type="button" class="a x s" data-act="tanpa">Zip / paket tanpa kertas resi</button> <small class="note">barang ada, kertas resi tidak ada</small></div>
+  <button type="button" class="btn-tanpa" data-act="tanpa">&#128196; Tidak Ada Resi</button>
   <div id="pc_msg"></div>
  </div>
 
