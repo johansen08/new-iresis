@@ -28,7 +28,7 @@ $this->load->view('top_level/_dasar'); ?>
     T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian, lalu Edit untuk koreksi qty, ganti no rak, atau ganti SKU.\nSKU baru wajib ada di master (Jubelio).\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
     '</div></div><div class="tls-seg" id="tls-tab" style="margin-bottom:10px"></div><div class="tls-kpi" id="tls-kpi"></div>' +
     '<section class="tl-panel tls-panel"><div class="tls-tb">' +
-    '<label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
+    '<label class="tl-search tls-cari">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
     '<div class="tls-seg" id="tls-seg"><button type="button" class="on" data-v="sku">Per SKU</button><button type="button" data-v="rak">Per Rak</button></div>' +
     '<span class="tls-sp"></span><span class="tls-cnt" id="tls-cnt"></span>' +
     '<label class="tls-cnt">Per halaman <select id="tls-ps"><option>10</option><option>50</option><option>100</option></select></label>' +
@@ -312,5 +312,6 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('change', '#tls-ps', function () { ps = +this.value; page = 0; gambar(); });
   $r.on('input', '#tl-q', function () { var s = this.value; clearTimeout(timer); timer = setTimeout(function () { q = $.trim(s); page = 0; gambar(); }, 200); });
   muat();
+  $('#tl-q').trigger('focus');                       // kursor langsung aktif di kolom cari
 })();
 </script>
