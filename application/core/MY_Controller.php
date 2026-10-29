@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-27.2';
+    const BOOTSTRAP_VERSI = '2026-10-29.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -168,6 +168,7 @@ class MY_Controller extends CI_Controller
         $this->run_foto_sku_lokal_migration();
         $this->run_mode_arsip_migration();
         $this->run_paket_cancel_migration();
+        $this->run_paket_cancel_terima_migration();
         $this->run_pemenuhan_kirim_harian_migration();
         $this->run_upload_resi_spesial_migration();
         $this->run_laporan_resi_spesial_migration();
@@ -1825,6 +1826,96 @@ class MY_Controller extends CI_Controller
           KEY `idx_cancel_tolak_resi` (`id_resi`, `waktu`),
           KEY `idx_cancel_tolak_waktu` (`waktu`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    }
+
+    /**
+     * Terima Paket Cancel & Laporan Paket Cancel (docs/PAKET_CANCEL.md §12): tim retur
+     * menerima paket cancel dari packer / HO / kurir, mencatat isi (termasuk selisih
+     * SKU & qty), lalu mencetak serah terima harian ke restock. Hanya menambah:
+     * kolom baru di tblcancel_paket & tblcancel_paket_item (hapus = penanda, bukan
+     * DELETE), tabel riwayat tblcancel_paket_log (insert-saja). Tabel
+     * tblcancel_serah / tblcancel_serah_detail dari rancangan awal tidak dipakai
+     * lagi tetapi dibiarkan. Dua menu di TIM RETUR; akses awal hanya role 1 --
+     * buka untuk role tim retur lewat halaman Access.
+     */
+    protected function run_paket_cancel_terima_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_paket_item` (
+          `id_item` int(11) NOT NULL AUTO_INCREMENT,
+          `id_cancel_paket` int(11) NOT NULL,
+          `id_resi` bigint(20) NOT NULL,
+          `sku` varchar(100) NOT NULL,
+          `no_rak` varchar(100) DEFAULT NULL,
+          `qty_resi` int(11) NOT NULL DEFAULT 0,
+          `qty_ditemukan` int(11) NOT NULL DEFAULT 0,
+          `aktif` tinyint(1) NOT NULL DEFAULT 1,
+          `created_at` datetime NOT NULL,
+          PRIMARY KEY (`id_item`),
+          KEY `idx_cancel_item_paket` (`id_cancel_paket`, `aktif`),
+          KEY `idx_cancel_item_resi` (`id_resi`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_paket_log` (
+          `id_log` int(11) NOT NULL AUTO_INCREMENT,
+          `id_cancel_paket` int(11) NOT NULL,
+          `aksi` enum('TERIMA','EDIT','HAPUS') NOT NULL,
+          `id_user` int(11) DEFAULT NULL,
+          `waktu` datetime NOT NULL,
+          `alasan` varchar(255) DEFAULT NULL,
+          `detail` text DEFAULT NULL,
+          PRIMARY KEY (`id_log`),
+          KEY `idx_cancel_log_paket` (`id_cancel_paket`, `waktu`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket_item LIKE 'aktif'")->num_rows()) {
+            $this->db->query("ALTER TABLE tblcancel_paket_item ADD COLUMN aktif tinyint(1) NOT NULL DEFAULT 1 AFTER qty_ditemukan");
+        }
+
+        $kolom = [
+            'diterima_dari' => "ADD COLUMN diterima_dari enum('PACKER','HO','KURIR') DEFAULT NULL AFTER id_batch",
+            'diedit_at'     => "ADD COLUMN diedit_at datetime DEFAULT NULL AFTER dicek_at",
+            'diedit_oleh'   => "ADD COLUMN diedit_oleh int(11) DEFAULT NULL AFTER diedit_at",
+            'dihapus_at'    => "ADD COLUMN dihapus_at datetime DEFAULT NULL AFTER diedit_oleh",
+            'dihapus_oleh'  => "ADD COLUMN dihapus_oleh int(11) DEFAULT NULL AFTER dihapus_at",
+            'alasan_hapus'  => "ADD COLUMN alasan_hapus varchar(255) DEFAULT NULL AFTER dihapus_oleh",
+        ];
+        foreach ($kolom as $nama => $ddl) {
+            if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE '$nama'")->num_rows()) {
+                $this->db->query("ALTER TABLE tblcancel_paket $ddl");
+            }
+        }
+        // Kurir ikut jadi asal paket (enum hanya diperluas).
+        $tipe = $this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE 'diterima_dari'")->row_array();
+        if ($tipe && stripos($tipe['Type'], 'KURIR') === false) {
+            $this->db->query("ALTER TABLE tblcancel_paket MODIFY diterima_dari enum('PACKER','HO','KURIR') DEFAULT NULL");
+        }
+        $tipe = $this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE 'ditemukan_di'")->row_array();
+        if ($tipe && stripos($tipe['Type'], 'KURIR') === false) {
+            $this->db->query("ALTER TABLE tblcancel_paket MODIFY ditemukan_di enum('PICKER','INBOUND','PACKER','HO','KURIR') NOT NULL");
+        }
+
+        $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
+        if (!$induk) {
+            return;
+        }
+        $daftar = [
+            ['Terima Paket Cancel',  'paket-cancel/terima',  'fa fa-inbox',     12, 'Tim retur menerima paket cancel dari packer / HO / kurir: scan resi, cocokkan SKU & qty.'],
+            ['Laporan Paket Cancel', 'paket-cancel/laporan', 'fa fa-file-text', 62, 'Laporan paket cancel diterima, edit / hapus, dan cetak serah terima harian ke restock.'],
+        ];
+        foreach ($daftar as $m) {
+            if ($this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $m[1]])->row()) {
+                continue;
+            }
+            $this->db->insert('menu', [
+                'name' => $m[0], 'parentid' => $induk->id, 'uri' => $m[1], 'icon' => $m[2],
+                'sortorder' => $m[3], 'description' => $m[4], 'isactive' => 1,
+                'createdby' => 1, 'created' => date('Y-m-d H:i:s')
+            ]);
+            $this->db->insert('roleaccess', [
+                'roleid' => 1, 'menuid' => $this->db->insert_id(),
+                'created' => date('Y-m-d H:i:s'), 'createdby' => 1
+            ]);
+        }
     }
 
     /**

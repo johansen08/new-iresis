@@ -430,6 +430,17 @@ $route['restock/laporan-reject-display'] = 'restock/laporan_reject_display';
 $route['restock/get-laporan-reject-display-data'] = 'restock/get_laporan_reject_display_data';
 $route['restock/export-laporan-reject-display'] = 'restock/export_laporan_reject_display';
 $route['report/qc-return-report'] = 'qc_return/index';
+$route['paket-cancel/terima'] = 'paket_cancel/terima';
+$route['paket-cancel/cek-resi'] = 'paket_cancel/cek_resi';
+$route['paket-cancel/sku-saran'] = 'paket_cancel/sku_saran';
+$route['paket-cancel/sku-detail'] = 'paket_cancel/sku_detail';
+$route['paket-cancel/simpan'] = 'paket_cancel/simpan';
+$route['paket-cancel/laporan'] = 'paket_cancel/laporan';
+$route['paket-cancel/laporan-data'] = 'paket_cancel/laporan_data';
+$route['paket-cancel/edit-simpan'] = 'paket_cancel/edit_simpan';
+$route['paket-cancel/hapus'] = 'paket_cancel/hapus';
+$route['paket-cancel/serah-data'] = 'paket_cancel/serah_data';
+$route['paket-cancel/serah-cetak'] = 'paket_cancel/serah_cetak';
 $route['report/proses-barang-qc'] = 'Report/proses_barang_qc';
 $route['report/get_proses_barang_qc_data'] = 'Report/get_proses_barang_qc_data';
 

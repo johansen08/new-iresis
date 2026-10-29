@@ -210,3 +210,39 @@ Skema kolom tahap 1: `DATABASE_STRUCTURE.md` §23–24. Tabel dibuat
    dicatat ke log aplikasi.
 6. **Selisih isi = masalah picker biasa** (`tblmasalahpicker`), bukan tabel
    baru — supaya slip CS dan KPI picker tidak perlu diubah.
+
+## 12. Terima Paket Cancel & Laporan Paket Cancel (tim retur, 29 Okt 2026)
+
+Menggantikan "batch ke display" di §5 tahap 3: serah terima ke restock memakai
+kertas harian, tanpa status. Dua menu di TIM RETUR (akses awal hanya role 1;
+buka untuk tim retur lewat halaman Access): **Terima Paket Cancel**
+(`paket-cancel/terima`) dan **Laporan Paket Cancel** (`paket-cancel/laporan`).
+Kode: `Paket_cancel` (controller), `Cancel_terima_fcd` (model),
+`views/paket_cancel/` (`_umum.php` = JS bersama `window.PCU`),
+`assets/css/paket_cancel.css` (semua aturan di bawah `.pc`).
+
+```
+Packer / HO / Kurir menyerahkan paket cancel (dipisah dari balikan retur & kesalahan picker)
+  → Terima Paket Cancel: pilih asal (wajib, tiap input), scan resi
+      bukan CANCEL → ditolak (balikan retur biasa); sudah diterima → ditolak
+  → isi resi tampil; petugas isi "qty ada" per SKU + barang di luar resi
+      KURANG / LEBIH / DI LUAR RESI dihitung langsung; catatan wajib bila selisih
+  → popup pratinjau → "Ya, simpan" → tblcancel_paket (dicek_at terisi) + item + log
+  → Laporan: filter tanggal / asal, cari, pagination; edit & hapus (popup konfirmasi)
+  → Serah Terima (satu tanggal = satu kertas, boleh dicetak hari berikutnya):
+      semua paket diterima tanggal itu, per SKU, qty = yang lebih kecil antara
+      qty resi & qty ada (selisih TIDAK dihitung); RETUR = petugas penerima hari itu
+```
+
+Data: `tblcancel_paket` (kolom `diterima_dari` PACKER/HO/KURIR, `diedit_at/oleh`,
+`dihapus_at/oleh`, `alasan_hapus`; "diterima" = `dicek_at` terisi & `dihapus_at`
+kosong), `tblcancel_paket_item` (`aktif`: isi lama dinonaktifkan saat edit / terima
+ulang), `tblcancel_paket_log` (TERIMA / EDIT / HAPUS, insert-saja).
+**Hapus = soft delete** (aturan proyek: tanpa DELETE); resi bisa diterima ulang.
+`tblcancel_serah` / `tblcancel_serah_detail` dari rancangan awal tidak dipakai
+(dibiarkan). Migrasi: `run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI`
+2026-10-29.2). Laporan Resi Cancel menulis "Diterima tim retur dari …" untuk baris
+yang dibuat menu ini (`jumlah_tolak` = 0) dan tidak menulis apa pun bila sudah dihapus.
+
+Belum ada: baris `tblmasalahpicker` untuk selisih (§5), konfirmasi restock di
+sistem (kertas ditandatangani manual).
