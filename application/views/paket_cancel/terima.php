@@ -217,7 +217,7 @@
         if (e.target.matches('#pc_isi input, #pc_ex input')) hit();
     });
     R.addEventListener('change', function (e) {
-        if (e.target.name === 'dari') asalPilih();
+        if (e.target.name === 'dari') { asalPilih(); g('resi').focus(); }
     });
     g('resi').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); scan(); } });
     U.autoBersih(g('resi'));
