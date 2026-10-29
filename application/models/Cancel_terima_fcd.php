@@ -332,11 +332,9 @@ class Cancel_terima_fcd extends CI_Model
     {
         $rows = $this->db
             ->select("p.id_cancel_paket AS id, p.noresi, p.diterima_dari AS dari, p.catatan, p.dicek_at, p.diedit_at,
-                p.display_at, p.display_sumber, p.display_catatan, ud.name AS display_petugas,
                 u.name AS petugas, r.toko", false)
             ->from('tblcancel_paket p')
             ->join('tbluser u', 'u.id_user = p.dicek_oleh', 'left')
-            ->join('tbluser ud', 'ud.id_user = p.display_oleh', 'left')
             ->join('tblprintresi r', 'r.id_printresi = p.id_resi', 'left')
             ->where('p.dicek_at IS NOT NULL', null, false)
             ->where('p.dihapus_at IS NULL', null, false)
@@ -358,11 +356,17 @@ class Cancel_terima_fcd extends CI_Model
             ->where('i.aktif', 1)
             ->order_by('i.id_item', 'ASC')
             ->get()->result_array();
+        $disp = [];
+        foreach ($this->db->select('id_cancel_paket, sku, SUM(qty) AS q', false)->where_in('id_cancel_paket', $ids)
+            ->where('batal_at IS NULL', null, false)->group_by(['id_cancel_paket', 'sku'])->get('tblcancel_display')->result_array() as $d) {
+            $disp[$d['id_cancel_paket'] . '|' . strtoupper($d['sku'])] = (int) $d['q'];
+        }
         foreach ($items as $it) {
             $key = $it['id_cancel_paket'];
             unset($it['id_cancel_paket']);
             $it['qty_resi'] = (int) $it['qty_resi'];
             $it['qty_ditemukan'] = (int) $it['qty_ditemukan'];
+            $it['qty_display'] = $disp[$key . '|' . strtoupper($it['sku'])] ?? 0;
             $per[$key][] = $this->tambah_foto($it);
         }
         foreach ($rows as &$r) {
@@ -370,8 +374,6 @@ class Cancel_terima_fcd extends CI_Model
             $r['tgl'] = substr($r['dicek_at'], 0, 10);
             $r['jam'] = substr($r['dicek_at'], 11, 8);
             $r['diedit'] = $r['diedit_at'] ? substr($r['diedit_at'], 11, 8) : null;
-            $r['display'] = $r['display_at'] ? substr($r['display_at'], 0, 10) . ' ' . substr($r['display_at'], 11, 8) : null;
-            unset($r['display_at']);
             $r['items'] = $per[$r['id']] ?? [];
             $r['selisih'] = false;
             foreach ($r['items'] as $it) {
@@ -534,19 +536,72 @@ class Cancel_terima_fcd extends CI_Model
                    : ['ok' => false, 'message' => 'Gagal menghapus'];
     }
 
+    // ---------------------------------------------------------------
+    //  Barang kembali ke display (tblcancel_display)
+    // ---------------------------------------------------------------
+
+    /** Qty yang masih bisa dikembalikan ke display per SKU untuk satu paket (ada - sudah di display). */
+    private function sisa_display($id_paket)
+    {
+        $ada = [];
+        $items = $this->db->where('id_cancel_paket', (int) $id_paket)->where('aktif', 1)->get('tblcancel_paket_item')->result_array();
+        foreach ($items as $i) {
+            $ada[strtoupper($i['sku'])] = ['sku' => $i['sku'], 'sisa' => (int) $i['qty_ditemukan']];
+        }
+        $sudah = $this->db->select('sku, SUM(qty) AS q', false)->where('id_cancel_paket', (int) $id_paket)->where('batal_at IS NULL', null, false)->group_by('sku')->get('tblcancel_display')->result_array();
+        foreach ($sudah as $s) {
+            $k = strtoupper($s['sku']);
+            if (isset($ada[$k])) {
+                $ada[$k]['sisa'] -= (int) $s['q'];
+            }
+        }
+        return $ada;
+    }
+
+    private function bersihkan_sumber($sumber)
+    {
+        $sumber = strtoupper(trim((string) $sumber));
+        return in_array($sumber, ['QC', 'RESTOK'], true) ? $sumber : ($sumber === '' ? null : false);
+    }
+
+    /** Gabung kiriman klien [['sku','qty'],...] per SKU, buang qty <= 0. NULL bila ada qty tidak wajar. */
+    private function gabung_qty(array $items)
+    {
+        $h = [];
+        foreach ($items as $it) {
+            $sku = trim((string) ($it['sku'] ?? ''));
+            $qty = (int) ($it['qty'] ?? 0);
+            if ($sku === '' || $qty <= 0) {
+                continue;
+            }
+            if ($qty > 100000) {
+                return null;
+            }
+            $k = strtoupper($sku);
+            $h[$k] = ['sku' => $sku, 'qty' => ($h[$k]['qty'] ?? 0) + $qty];
+        }
+        return $h;
+    }
+
     /**
-     * Tandai: barang paket ini sudah diambil lebih dulu (butuh cepat untuk packing) dan
-     * dikembalikan ke display. Paket tidak ikut kertas serah terima ke restock.
-     * $sumber (opsional): QC / RESTOK = barang pengganti dibutuhkan dari mana.
+     * Catat barang paket diterima yang sudah dikembalikan ke display (per SKU & qty).
+     * Qty tidak boleh melebihi qty ada dikurangi yang sudah dikembalikan.
      */
-    public function tandai_display($id_paket, $sumber, $catatan, $id_user)
+    public function tandai_display($id_paket, array $items, $sumber, $catatan, $id_user)
     {
         if ($this->mode_arsip()) {
             return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa diubah'];
         }
-        $sumber = strtoupper(trim((string) $sumber));
-        if ($sumber !== '' && !in_array($sumber, ['QC', 'RESTOK'], true)) {
+        $sumber = $this->bersihkan_sumber($sumber);
+        if ($sumber === false) {
             return ['ok' => false, 'message' => 'Sumber barang harus QC atau Restok'];
+        }
+        $pilih = $this->gabung_qty($items);
+        if ($pilih === null) {
+            return ['ok' => false, 'message' => 'Qty tidak valid'];
+        }
+        if (!$pilih) {
+            return ['ok' => false, 'message' => 'Isi qty barang yang kembali ke display (minimal 1 SKU)'];
         }
         $catatan = trim((string) $catatan);
 
@@ -556,10 +611,21 @@ class Cancel_terima_fcd extends CI_Model
 
         $paket = $this->paket_untuk_ubah($id_paket);
         $pesan = null;
+        $sisa = [];
         if (!$paket) {
             $pesan = 'Paket tidak ditemukan atau sudah dihapus';
-        } elseif ($paket->display_at !== null) {
-            $pesan = 'Paket ini sudah ditandai dikembalikan ke display';
+        } else {
+            $sisa = $this->sisa_display($paket->id_cancel_paket);
+            foreach ($pilih as $k => $p) {
+                if (!isset($sisa[$k]) || $sisa[$k]['sisa'] <= 0) {
+                    $pesan = 'SKU ' . $p['sku'] . ' tidak ada lagi di paket ini untuk dikembalikan';
+                    break;
+                }
+                if ($p['qty'] > $sisa[$k]['sisa']) {
+                    $pesan = 'Qty ' . $p['sku'] . ' melebihi sisa di paket (' . $sisa[$k]['sisa'] . ' pcs)';
+                    break;
+                }
+            }
         }
         if ($pesan !== null) {
             $this->db->trans_complete();
@@ -568,62 +634,125 @@ class Cancel_terima_fcd extends CI_Model
         }
 
         $now = date('Y-m-d H:i:s');
-        $this->db->where('id_cancel_paket', $paket->id_cancel_paket)->update('tblcancel_paket', [
-            'display_at'      => $now,
-            'display_oleh'    => $id_user,
-            'display_sumber'  => $sumber === '' ? null : $sumber,
-            'display_catatan' => $catatan === '' ? null : substr($catatan, 0, 255),
-            'updated_at'      => $now,
-        ]);
-        $this->tulis_log($paket->id_cancel_paket, 'DISPLAY', $id_user, $catatan, ['sumber' => $sumber ?: null]);
+        $ringkas = [];
+        foreach ($pilih as $k => $p) {
+            $this->db->insert('tblcancel_display', [
+                'id_cancel_paket' => $paket->id_cancel_paket,
+                'noresi'          => $paket->noresi,
+                'sku'             => $sisa[$k]['sku'],
+                'qty'             => $p['qty'],
+                'sumber'          => $sumber,
+                'catatan'         => $catatan === '' ? null : substr($catatan, 0, 255),
+                'dibuat_oleh'     => $id_user,
+                'dibuat_at'       => $now,
+            ]);
+            $ringkas[] = $sisa[$k]['sku'] . ' x' . $p['qty'];
+        }
+        $this->tulis_log($paket->id_cancel_paket, 'DISPLAY', $id_user, $catatan, ['item' => $ringkas, 'sumber' => $sumber]);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
 
-        return $ok ? ['ok' => true, 'message' => 'Paket ' . $paket->noresi . ' ditandai sudah dikembalikan ke display']
-                   : ['ok' => false, 'message' => 'Gagal menyimpan tanda'];
+        return $ok ? ['ok' => true, 'message' => 'Tercatat kembali ke display: ' . implode(', ', $ringkas)]
+                   : ['ok' => false, 'message' => 'Gagal menyimpan catatan'];
     }
 
-    /** Batalkan tanda display (salah tandai): paket kembali ikut serah terima. */
-    public function batal_display($id_paket, $id_user)
+    /**
+     * Catat barang kembali ke display yang resinya tidak ada / belum diterima
+     * (mis. barang dari keranjang cancel tanpa resi). No. resi opsional.
+     */
+    public function catat_display_bebas($noresi, array $items, $sumber, $catatan, $id_user)
+    {
+        if ($this->mode_arsip()) {
+            return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa disimpan'];
+        }
+        $sumber = $this->bersihkan_sumber($sumber);
+        if ($sumber === false) {
+            return ['ok' => false, 'message' => 'Sumber barang harus QC atau Restok'];
+        }
+        $pilih = $this->gabung_qty($items);
+        if ($pilih === null) {
+            return ['ok' => false, 'message' => 'Qty tidak valid'];
+        }
+        if (!$pilih) {
+            return ['ok' => false, 'message' => 'Tambahkan minimal 1 SKU dengan qty'];
+        }
+        $noresi = trim((string) $noresi);
+        $catatan = trim((string) $catatan);
+        if ($noresi === '' && $catatan === '') {
+            return ['ok' => false, 'message' => 'Isi no. resi, atau catatan bila resinya tidak ada'];
+        }
+        if ($noresi !== '') {
+            $resi = $this->resi_by_noresi($noresi);
+            if ($resi && $this->paket_aktif($resi->id_printresi)) {
+                return ['ok' => false, 'message' => 'Resi ini sudah diterima tim retur: catat lewat tombol display di barisnya'];
+            }
+        }
+        $baris = [];
+        foreach ($pilih as $p) {
+            $sku = $this->db->select('id_sku')->get_where('tblsku', ['id_sku' => $p['sku']])->row();
+            if (!$sku) {
+                return ['ok' => false, 'message' => 'SKU "' . $p['sku'] . '" tidak dikenal di master SKU'];
+            }
+            $baris[] = ['sku' => $sku->id_sku, 'qty' => $p['qty']];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->db->trans_start();
+        foreach ($baris as $b) {
+            $this->db->insert('tblcancel_display', [
+                'id_cancel_paket' => null,
+                'noresi'          => $noresi === '' ? null : substr($noresi, 0, 100),
+                'sku'             => $b['sku'],
+                'qty'             => $b['qty'],
+                'sumber'          => $sumber,
+                'catatan'         => $catatan === '' ? null : substr($catatan, 0, 255),
+                'dibuat_oleh'     => $id_user,
+                'dibuat_at'       => $now,
+            ]);
+        }
+        $this->db->trans_complete();
+
+        return $this->db->trans_status() ? ['ok' => true, 'message' => 'Tercatat kembali ke display (' . count($baris) . ' SKU)']
+                                         : ['ok' => false, 'message' => 'Gagal menyimpan catatan'];
+    }
+
+    /** Batalkan satu catatan display (salah catat). Barang paket kembali dihitung di serah terima. */
+    public function batal_display($id_display, $id_user)
     {
         if ($this->mode_arsip()) {
             return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa diubah'];
         }
-        $db_debug_asli = $this->db->db_debug;
-        $this->db->db_debug = false;
-        $this->db->trans_start();
-
-        $paket = $this->paket_untuk_ubah($id_paket);
-        $pesan = null;
-        if (!$paket) {
-            $pesan = 'Paket tidak ditemukan atau sudah dihapus';
-        } elseif ($paket->display_at === null) {
-            $pesan = 'Paket ini belum ditandai dikembalikan ke display';
-        }
-        if ($pesan !== null) {
-            $this->db->trans_complete();
-            $this->db->db_debug = $db_debug_asli;
-            return ['ok' => false, 'message' => $pesan];
-        }
-
-        $now = date('Y-m-d H:i:s');
-        $this->db->where('id_cancel_paket', $paket->id_cancel_paket)->update('tblcancel_paket', [
-            'display_at'      => null,
-            'display_oleh'    => null,
-            'display_sumber'  => null,
-            'display_catatan' => null,
-            'updated_at'      => $now,
+        $this->db->where('id_display', (int) $id_display)->where('batal_at IS NULL', null, false)->update('tblcancel_display', [
+            'batal_at'   => date('Y-m-d H:i:s'),
+            'batal_oleh' => $id_user,
         ]);
-        $this->tulis_log($paket->id_cancel_paket, 'BATAL_DISPLAY', $id_user, null, [
-            'display_at' => $paket->display_at, 'sumber' => $paket->display_sumber, 'catatan' => $paket->display_catatan,
-        ]);
-        $this->db->trans_complete();
-        $ok = $this->db->trans_status();
-        $this->db->db_debug = $db_debug_asli;
+        return $this->db->affected_rows() > 0 ? ['ok' => true, 'message' => 'Catatan display dibatalkan']
+                                              : ['ok' => false, 'message' => 'Catatan tidak ditemukan atau sudah dibatalkan'];
+    }
 
-        return $ok ? ['ok' => true, 'message' => 'Tanda display paket ' . $paket->noresi . ' dibatalkan']
-                   : ['ok' => false, 'message' => 'Gagal membatalkan tanda'];
+    /** Catatan display aktif pada rentang tanggal (dibuat), dengan nama petugas. */
+    public function display_baris($start, $end)
+    {
+        $rows = $this->db
+            ->select('d.id_display AS id, d.id_cancel_paket AS id_paket, d.noresi, d.sku, d.qty, d.sumber, d.catatan, d.dibuat_at, u.name AS petugas', false)
+            ->from('tblcancel_display d')
+            ->join('tbluser u', 'u.id_user = d.dibuat_oleh', 'left')
+            ->where('d.batal_at IS NULL', null, false)
+            ->where('d.dibuat_at >=', $start . ' 00:00:00')
+            ->where('d.dibuat_at <=', $end . ' 23:59:59')
+            ->order_by('d.dibuat_at', 'DESC')
+            ->order_by('d.id_display', 'DESC')
+            ->get()->result_array();
+        foreach ($rows as &$r) {
+            $r['id'] = (int) $r['id'];
+            $r['id_paket'] = $r['id_paket'] === null ? null : (int) $r['id_paket'];
+            $r['qty'] = (int) $r['qty'];
+            $r['tgl'] = substr($r['dibuat_at'], 0, 10);
+            $r['jam'] = substr($r['dibuat_at'], 11, 8);
+            unset($r['dibuat_at']);
+        }
+        return $rows;
     }
 
     // ─────────────────────────────────────────────
@@ -648,30 +777,44 @@ class Cancel_terima_fcd extends CI_Model
         if (!$paket) {
             return ['det' => [], 'jumlah_paket' => 0, 'petugas' => []];
         }
-        // Paket yang barangnya sudah dikembalikan ke display tidak diserahkan ke restock.
-        $ke_restock = array_column(
-            $this->db->select('id_cancel_paket')->where_in('id_cancel_paket', array_column($paket, 'id_cancel_paket'))
-                ->where('display_at IS NULL', null, false)->get('tblcancel_paket')->result_array(),
-            'id_cancel_paket'
-        );
-        if (!$ke_restock) {
-            return ['det' => [], 'jumlah_paket' => count($paket), 'petugas' => []];
-        }
-        $ids = $ke_restock;
+        $ids = array_column($paket, 'id_cancel_paket');
 
-        $det = $this->db
-            ->select('sku, MAX(no_rak) AS rak, SUM(LEAST(qty_ditemukan, qty_resi)) AS qty', false)
-            ->from('tblcancel_paket_item')
+        // Per paket & SKU: yang sesuai resi dikurangi barang yang sudah kembali ke display.
+        $tampung = [];
+        $items = $this->db
+            ->select('id_cancel_paket, sku, no_rak, qty_resi, qty_ditemukan')
             ->where_in('id_cancel_paket', $ids)
             ->where('aktif', 1)
-            ->group_by('sku')
-            ->having('SUM(LEAST(qty_ditemukan, qty_resi)) >', 0, false)
-            ->order_by('MAX(no_rak)', 'ASC', false)
-            ->order_by('sku', 'ASC')
-            ->get()->result_array();
-        foreach ($det as &$d) {
-            $d['qty'] = (int) $d['qty'];
+            ->get('tblcancel_paket_item')->result_array();
+        $disp = [];
+        $sudah = $this->db
+            ->select('id_cancel_paket, sku, SUM(qty) AS q', false)
+            ->where_in('id_cancel_paket', $ids)
+            ->where('batal_at IS NULL', null, false)
+            ->group_by(['id_cancel_paket', 'sku'])
+            ->get('tblcancel_display')->result_array();
+        foreach ($sudah as $d) {
+            $disp[$d['id_cancel_paket'] . '|' . strtoupper($d['sku'])] = (int) $d['q'];
         }
+        foreach ($items as $i) {
+            $ada = (int) $i['qty_ditemukan'] - ($disp[$i['id_cancel_paket'] . '|' . strtoupper($i['sku'])] ?? 0);
+            $qty = max(0, min($ada, (int) $i['qty_resi']));
+            if ($qty <= 0) {
+                continue;
+            }
+            $k = strtoupper($i['sku']);
+            if (!isset($tampung[$k])) {
+                $tampung[$k] = ['sku' => $i['sku'], 'rak' => (string) $i['no_rak'], 'qty' => 0];
+            }
+            $tampung[$k]['qty'] += $qty;
+            if ((string) $i['no_rak'] > $tampung[$k]['rak']) {
+                $tampung[$k]['rak'] = (string) $i['no_rak'];
+            }
+        }
+        $det = array_values($tampung);
+        usort($det, function ($x, $y) {
+            return strcmp($x['rak'], $y['rak']) ?: strcmp($x['sku'], $y['sku']);
+        });
 
         // Petugas penerima hari itu (terbanyak dulu): "NAMA - ROLE - NOABSEN" -> "NOABSEN - NAMA - ROLE"
         $hitung = array_count_values(array_column($paket, 'dicek_oleh'));

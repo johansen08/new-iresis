@@ -81,7 +81,7 @@ class Paket_cancel extends MY_Controller
         if (strtotime($end) - strtotime($start) > 92 * 86400) {
             $this->make_ajax_response(400, 'Rentang tanggal maksimal 93 hari', ['ok' => false]);
         }
-        $this->make_ajax_response(200, 'ok', ['rows' => $this->cancel_terima_fcd->laporan_baris($start, $end), 'ok' => true]);
+        $this->make_ajax_response(200, 'ok', ['rows' => $this->cancel_terima_fcd->laporan_baris($start, $end), 'display' => $this->cancel_terima_fcd->display_baris($start, $end), 'ok' => true]);
     }
 
     public function edit_simpan()
@@ -103,11 +103,27 @@ class Paket_cancel extends MY_Controller
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
-    // Barang paket diambil lebih dulu & sudah dikembalikan ke display (+ sumber pengganti QC / Restok)
+    // Barang paket diterima yang kembali ke display (per SKU & qty) + sumber pengganti QC / Restok
     public function tandai_display()
     {
+        $items = json_decode((string) $this->input->post('items'), true);
         $hasil = $this->cancel_terima_fcd->tandai_display(
             (int) $this->input->post('id'),
+            is_array($items) ? $items : [],
+            $this->input->post('sumber'),
+            $this->input->post('catatan'),
+            $this->id_user()
+        );
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
+    // Barang kembali ke display yang resinya tidak ada / belum diterima (resi opsional)
+    public function catat_display()
+    {
+        $items = json_decode((string) $this->input->post('items'), true);
+        $hasil = $this->cancel_terima_fcd->catat_display_bebas(
+            $this->input->post('noresi'),
+            is_array($items) ? $items : [],
             $this->input->post('sumber'),
             $this->input->post('catatan'),
             $this->id_user()
