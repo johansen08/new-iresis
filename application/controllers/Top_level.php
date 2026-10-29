@@ -392,7 +392,18 @@ class Top_level extends MY_Controller
     public function stok_buku()
     {
         $this->_wajib(self::URI_STOK);
-        $this->make_ajax_response(200, 'OK', $this->top_level_fcd->stok_buku(trim((string) $this->input->post('sku'))));
+        $d = $this->top_level_fcd->stok_buku(trim((string) $this->input->post('sku')));
+        foreach ($d['rows'] as &$r) {
+            // Tanpa transfer yang cocok: petugas input = akun yang mencatat di log, waktunya waktu log.
+            if (empty($r['input_nama'])) {
+                $r['input_nama'] = $r['oleh'];
+                $r['input_waktu'] = $r['waktu'];
+            }
+            $r['list_nama'] = self::akun_tampil($r['list_nama']);
+            $r['input_nama'] = self::akun_tampil($r['input_nama']);
+        }
+        unset($r);
+        $this->make_ajax_response(200, 'OK', $d);
     }
 
     public function stok_riwayat()

@@ -63,7 +63,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   function kpi() {
     var unit = 0, rk = {}, tipis = 0;
-    $.each($.grep(data, lolosTab), function (i, d) { unit += d.total; if (d.total <= TIPIS) tipis++; $.each(d.rak, function (j, z) { rk[z.rak] = 1; }); });
+    $.each($.grep(data, lolosTab), function (i, d) { unit += d.total; if (d.total <= TIPIS) tipis++; $.each(d.rak, function (j, z) { if (z.stok > 0) rk[z.rak] = 1; }); });
     $('#tls-kpi').html(
       '<div class="tls-k act' + (filt === '' ? ' on' : '') + '" data-k=""><small>Total SKU</small><b>' + $.grep(data, lolosTab).length + '</b></div>' +
       '<div class="tls-k"><small>Total stok</small><b>' + unit.toLocaleString('id-ID') + '</b></div>' +
@@ -94,6 +94,7 @@ $this->load->view('top_level/_dasar'); ?>
       if (!lolosTab(d)) return;
       if (filt === 'low' && d.total > TIPIS) return;
       $.each(d.rak, function (j, z) {
+        if (z.stok <= 0 && tab !== 'kosong') return;
         if (!m[z.rak]) m[z.rak] = { rak: z.rak, sku: [], unit: 0 };
         m[z.rak].sku.push({ sku: d.sku, stok: z.stok, total: d.total });
         m[z.rak].unit += z.stok;
@@ -202,9 +203,11 @@ $this->load->view('top_level/_dasar'); ?>
       var b = '<div class="tl-db"><div class="mono" style="font-size:16px;font-weight:600">' + T.esc(sku) + ' &middot; saldo sekarang ' + d.total + '</div>';
       if (!d.rows.length) b += T.empty('db', 'Belum ada pencatatan masuk atau keluar');
       else {
-        b += '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>Waktu</th><th>Keterangan</th><th class="n">Masuk</th><th class="n">Keluar</th><th class="n">Saldo</th></tr></thead><tbody>';
+        b += '<div class="tl-tw"><table class="tl-tbl"><thead><tr><th>No. Transfer</th><th>Keterangan</th><th>List</th><th>Input</th><th class="n">Masuk</th><th class="n">Keluar</th><th class="n">Saldo</th></tr></thead><tbody>';
+        var dua = function (nama, waktu) { return nama ? '<div class="tl-cell2"><span>' + T.esc(nama) + '</span><small>' + (waktu ? T.esc(T.tgl(waktu)) : '') + '</small></div>' : '<span class="muted">&mdash;</span>'; };
         $.each(d.rows, function (i, x) {
-          b += '<tr><td class="mono">' + T.esc(T.tgl(x.waktu)) + '</td><td>' + T.esc(x.keterangan || x.jenis) + '<div class="muted" style="font-size:12px">' + (x.no_rak ? 'Rak ' + T.esc(x.no_rak) + ' &middot; ' : '') + T.esc(x.oleh || '') + '</div></td>' +
+          b += '<tr><td class="mono">' + (x.nomor ? T.esc(x.nomor) : '<span class="muted">&mdash;</span>') + '</td><td>' + T.esc(x.keterangan || x.jenis) + '<div class="muted" style="font-size:12px">' + (x.no_rak ? 'Rak ' + T.esc(x.no_rak) : '') + '</div></td>' +
+            '<td>' + dua(x.list_nama, x.list_tgl) + '</td><td>' + dua(x.input_nama, x.input_waktu) + '</td>' +
             '<td class="n">' + (x.masuk ? '<b style="color:var(--tl-ok)">+' + x.masuk + '</b>' : '') + '</td><td class="n">' + (x.keluar ? '<b style="color:var(--tl-bad)">-' + x.keluar + '</b>' : '') + '</td><td class="n"><b>' + x.saldo + '</b></td></tr>';
         });
         b += '</tbody></table></div>' + (d.lebih ? '<div class="muted" style="font-size:12px">Menampilkan 300 catatan terbaru.</div>' : '');
