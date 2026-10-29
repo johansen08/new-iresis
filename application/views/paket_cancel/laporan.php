@@ -123,7 +123,7 @@
             }).join('');
             return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(nr(p)) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
-                '</td><td class="c">' + jmlResi(p) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
+                '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
                 '</td><td class="c aksi"><button type="button" class="eye" title="Catat barang kembali ke display" aria-label="Catat barang kembali ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>' +
                 '<button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
