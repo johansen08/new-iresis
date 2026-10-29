@@ -102,8 +102,8 @@
         <div class="lrs-prog-bar"><div class="lrs-prog-isi" id="lrs_prog_isi"></div></div>
     </div>
     <table>
-        <thead><tr><th>Tanggal Scan Picker</th><th>1 SKU 1 QTY</th><th>Maks. Resi Spesial</th><th>1 SKU PICKER</th><th>Persen</th><th>Batas</th></tr></thead>
-        <tbody id="lrs_body"><tr><td colspan="6" class="lrs-kosong">Memuat...</td></tr></tbody>
+        <thead><tr><th>Tanggal Scan Picker</th><th>1 SKU 1 QTY</th><th>Maks. Resi Spesial</th><th>1 SKU PICKER</th><th>Persen</th></tr></thead>
+        <tbody id="lrs_body"><tr><td colspan="5" class="lrs-kosong">Memuat...</td></tr></tbody>
     </table>
     <div class="lrs-bawah">
         <span id="lrs_info"></span>
@@ -164,7 +164,7 @@ $(document).ready(function () {
     function galat(m) {
         progSelesai();
         $('#lrs_err').text(m).show();
-        $('#lrs_body').html('<tr><td colspan="6" class="lrs-kosong">Gagal memuat data.</td></tr>');
+        $('#lrs_body').html('<tr><td colspan="5" class="lrs-kosong">Gagal memuat data.</td></tr>');
         $('#lrs_info, #lrs_hal').text('');
     }
 
@@ -184,7 +184,7 @@ $(document).ready(function () {
         var id = ++S.req, bagian = potongan(S.from, S.to), i = 0;
         S.rows = [];
         $('#lrs_err').hide();
-        $('#lrs_body').html('<tr><td colspan="6" class="lrs-kosong">Memuat...</td></tr>');
+        $('#lrs_body').html('<tr><td colspan="5" class="lrs-kosong">Memuat...</td></tr>');
         $('#lrs_prev, #lrs_next').prop('disabled', true);
         $('#lrs_info, #lrs_hal').text('');
         progMulai('Memuat data 0 dari ' + bagian.length + ' bagian...', false);
@@ -213,11 +213,11 @@ $(document).ready(function () {
         var maks = Math.max(1, Math.ceil(total / size));
         S.page = Math.min(maks, Math.max(1, page));
         var h = '', awal = (S.page - 1) * size;
-        if (!total) h = '<tr><td colspan="6" class="lrs-kosong">Tidak ada scan picker 1 SKU 1 QTY pada rentang ini.</td></tr>';
+        if (!total) h = '<tr><td colspan="5" class="lrs-kosong">Tidak ada scan picker 1 SKU 1 QTY pada rentang ini.</td></tr>';
         $.each(S.rows.slice(awal, awal + size), function (i, x) {
             var kls = x.persen >= x.batas ? 'lrs-ok' : 'lrs-kurang';
             h += '<tr><td>' + esc(fmt(x.tanggal)) + '</td><td>' + angka(x.satu_sku_satu_qty) + '</td><td>' + angka(x.resi_spesial) + '</td><td>' + angka(x.satu_sku_picker)
-               + '</td><td class="' + kls + '">' + Number(x.persen).toFixed(1).replace('.', ',') + '%</td><td>' + Number(x.batas).toString().replace('.', ',') + '%</td></tr>';
+               + '</td><td class="' + kls + '">' + Number(x.persen).toFixed(1).replace('.', ',') + '%</td></tr>';
         });
         $('#lrs_body').html(h);
         var dari = total ? awal + 1 : 0, sampai = Math.min(total, awal + size);
