@@ -103,6 +103,24 @@ class Paket_cancel extends MY_Controller
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
+    // Barang paket diambil lebih dulu & sudah dikembalikan ke display (+ sumber pengganti QC / Restok)
+    public function tandai_display()
+    {
+        $hasil = $this->cancel_terima_fcd->tandai_display(
+            (int) $this->input->post('id'),
+            $this->input->post('sumber'),
+            $this->input->post('catatan'),
+            $this->id_user()
+        );
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
+    public function batal_display()
+    {
+        $hasil = $this->cancel_terima_fcd->batal_display((int) $this->input->post('id'), $this->id_user());
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
     // Isi kertas serah terima satu tanggal (pratinjau di halaman laporan)
     public function serah_data()
     {
