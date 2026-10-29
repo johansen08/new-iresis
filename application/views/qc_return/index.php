@@ -33,7 +33,9 @@
                     <div class="col-md-3">
                         <button class="btn btn-primary" onclick="refreshTable()"><i class="fa fa-search"></i> Filter</button>
                         <button class="btn btn-info" onclick="exportToExcel()"><i class="fa fa-file-excel-o"></i> Export</button>
+                        <?php if (!empty($bisa_restok)): ?>
                         <button class="btn btn-warning" onclick="serahTerima()"><i class="fa fa-print"></i> Serah Terima</button>
+                        <?php endif; ?>
                         <button class="btn btn-default" onclick="riwayatCetak()"><i class="fa fa-history"></i> Riwayat Cetak</button>
                     </div>
                     <div class="col-md-2 text-right">
@@ -109,6 +111,8 @@
 
 <script type="text/javascript">
     var table;
+    var BISA_DIAMBIL = <?= !empty($bisa_diambil) ? 'true' : 'false' ?>;
+    var BISA_RESTOK = <?= !empty($bisa_restok) ? 'true' : 'false' ?>;
     $(document).ready(function() {
         muatPengerjaan();
         $('#reportrange').daterangepicker({
@@ -216,11 +220,11 @@
                     var cetak = r.jumlah_cetak > 0 ?
                         r.jumlah_cetak + 'x<br><small class="text-muted">pertama ' + esc(r.cetak_pertama) + '<br>terakhir ' + esc(r.cetak_terakhir) + '</small>' :
                         '<span class="text-muted">Belum dicetak</span>';
-                    var aksi = '<button class="btn btn-warning btn-xs" onclick="cetakTanggal(\'' + r.tanggal + '\')"><i class="fa fa-print"></i> Cetak</button> ';
+                    var aksi = BISA_RESTOK ? '<button class="btn btn-warning btn-xs" onclick="cetakTanggal(\'' + r.tanggal + '\')"><i class="fa fa-print"></i> Cetak</button> ' : '';
                     if (!r.diambil_at) {
-                        aksi += '<button class="btn btn-primary btn-xs" onclick="aksiPengerjaan(\'barang_diambil\',\'' + r.tanggal + '\')"><i class="fa fa-shopping-basket"></i> Barang Diambil</button>';
+                        if (BISA_DIAMBIL) aksi += '<button class="btn btn-primary btn-xs" onclick="aksiPengerjaan(\'barang_diambil\',\'' + r.tanggal + '\')"><i class="fa fa-shopping-basket"></i> Barang Diambil</button>';
                     } else if (!r.selesai_at) {
-                        aksi += '<button class="btn btn-success btn-xs" onclick="aksiPengerjaan(\'pengerjaan_selesai\',\'' + r.tanggal + '\')"><i class="fa fa-check"></i> Selesai</button>';
+                        if (BISA_RESTOK) aksi += '<button class="btn btn-success btn-xs" onclick="aksiPengerjaan(\'pengerjaan_selesai\',\'' + r.tanggal + '\')"><i class="fa fa-check"></i> Selesai</button>';
                     } else {
                         aksi += '<span class="label label-success">SELESAI</span>';
                     }

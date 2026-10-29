@@ -3,6 +3,17 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Qc_return extends MY_Controller
 {
+    // Hak klik serah terima: Barang Diambil = tim packer (4); Cetak Serah Terima + Selesai = tim restok (6).
+    // Admin (1, 2) boleh semuanya. Dicek di server; tombol di layar hanya cermin dari ini.
+    const ROLE_DIAMBIL = array(1, 2, 4);
+    const ROLE_RESTOK = array(1, 2, 6);
+
+    private function punya_peran($daftar)
+    {
+        $peran = isset($this->data['user']['hakakses']) ? (int) $this->data['user']['hakakses'] : 0;
+        return in_array($peran, $daftar, TRUE);
+    }
+
     function __construct()
     {
         parent::__construct();
@@ -13,6 +24,8 @@ class Qc_return extends MY_Controller
     public function index()
     {
         $data['message'] = $this->session->flashdata('message');
+        $data['bisa_diambil'] = $this->punya_peran(self::ROLE_DIAMBIL);
+        $data['bisa_restok'] = $this->punya_peran(self::ROLE_RESTOK);
         $this->show($data);
     }
 
@@ -196,6 +209,9 @@ class Qc_return extends MY_Controller
     // Halaman cetak A4 serah terima QC -> Restok (tanpa REJECT), dibuka di tab baru
     public function serah_terima()
     {
+        if (!$this->punya_peran(self::ROLE_RESTOK)) {
+            exit('Cetak serah terima hanya untuk tim Restok.');
+        }
         $start_date = $this->input->get('start_date');
         $end_date = $this->input->get('end_date');
         $re = '/^\d{4}-\d{2}-\d{2}$/';
@@ -248,6 +264,9 @@ class Qc_return extends MY_Controller
     // QC klik saat keranjang tanggal tsb diambil tim Restok
     public function barang_diambil()
     {
+        if (!$this->punya_peran(self::ROLE_DIAMBIL)) {
+            $this->make_ajax_response(403, 'Barang Diambil hanya bisa dilakukan tim Packer');
+        }
         $tanggal = $this->input->post('tanggal');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
             $this->make_ajax_response(400, 'Tanggal tidak valid');
@@ -261,6 +280,9 @@ class Qc_return extends MY_Controller
     // Restok selesai mengerjakan keranjang tanggal tsb (hanya setelah diambil)
     public function pengerjaan_selesai()
     {
+        if (!$this->punya_peran(self::ROLE_RESTOK)) {
+            $this->make_ajax_response(403, 'Selesai hanya bisa dilakukan tim Restok');
+        }
         $tanggal = $this->input->post('tanggal');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
             $this->make_ajax_response(400, 'Tanggal tidak valid');
