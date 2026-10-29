@@ -875,13 +875,13 @@ class Top_level_fcd extends CI_Model
 
     public function stok_list($cari)
     {
-        // SKU yang total stoknya 0 (semua rak kosong) tidak ditampilkan.
-        $this->db->select('sku, SUM(qty) AS total', false)->from('tbltoplevel')->group_by('sku')->having('SUM(qty) <> 0', null, false);
+        // SKU yang total stoknya 0 ikut dikirim (tab Stok Kosong); yang ada stok diurutkan lebih dulu agar tidak terpotong limit.
+        $this->db->select('sku, SUM(qty) AS total', false)->from('tbltoplevel')->group_by('sku');
         $cari = trim((string) $cari);
         if ($cari !== '') {
             $this->db->like('sku', $cari);
         }
-        $rows = $this->db->order_by('sku', 'ASC')->limit(5000)->get()->result_array();
+        $rows = $this->db->order_by('(SUM(qty) <= 0)', 'ASC', false)->order_by('sku', 'ASC')->limit(5000)->get()->result_array();
         $peta = array();
         foreach ($rows as $i => $r) {
             $rows[$i]['total'] = (int) $r['total'];
