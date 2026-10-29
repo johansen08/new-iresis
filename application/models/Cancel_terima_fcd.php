@@ -331,7 +331,7 @@ class Cancel_terima_fcd extends CI_Model
     public function laporan_baris($start, $end)
     {
         $rows = $this->db
-            ->select("p.id_cancel_paket AS id, p.noresi, p.diterima_dari AS dari, p.catatan, p.dicek_at, p.diedit_at,
+            ->select("p.id_cancel_paket AS id, p.id_resi, p.noresi, p.diterima_dari AS dari, p.catatan, p.dicek_at, p.diedit_at,
                 u.name AS petugas, r.toko", false)
             ->from('tblcancel_paket p')
             ->join('tbluser u', 'u.id_user = p.dicek_oleh', 'left')
@@ -375,8 +375,10 @@ class Cancel_terima_fcd extends CI_Model
             $r['jam'] = substr($r['dicek_at'], 11, 8);
             $r['diedit'] = $r['diedit_at'] ? substr($r['diedit_at'], 11, 8) : null;
             $r['items'] = $per[$r['id']] ?? [];
+            $r['tanpa_resi'] = (int) $r['id_resi'] < 0;
+            unset($r['id_resi']);
             $r['selisih'] = false;
-            foreach ($r['items'] as $it) {
+            foreach ($r['tanpa_resi'] ? [] : $r['items'] as $it) {
                 if (self::jenis_item($it['qty_resi'], $it['qty_ditemukan']) !== 'SESUAI') {
                     $r['selisih'] = true;
                     break;
@@ -494,7 +496,7 @@ class Cancel_terima_fcd extends CI_Model
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
 
-        return $ok ? ['ok' => true, 'message' => 'Paket ' . $paket->noresi . ' berhasil diperbarui']
+        return $ok ? ['ok' => true, 'message' => 'Paket ' . ($paket->noresi !== '' ? $paket->noresi : 'tanpa resi #' . $paket->id_cancel_paket) . ' berhasil diperbarui']
                    : ['ok' => false, 'message' => 'Gagal menyimpan perubahan'];
     }
 
@@ -532,8 +534,78 @@ class Cancel_terima_fcd extends CI_Model
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
 
-        return $ok ? ['ok' => true, 'message' => 'Paket ' . $paket->noresi . ' dihapus']
+        return $ok ? ['ok' => true, 'message' => 'Paket ' . ($paket->noresi !== '' ? $paket->noresi : 'tanpa resi #' . $paket->id_cancel_paket) . ' dihapus']
                    : ['ok' => false, 'message' => 'Gagal menghapus'];
+    }
+
+    /**
+     * Terima paket tanpa kertas resi (mis. zip / plastik cancel berisi beberapa barang tetapi
+     * resinya hilang). Dicatat seperti penerimaan biasa tanpa no. resi: baris tblcancel_paket
+     * dengan id_resi NEGATIF (unik, tidak bentrok dengan tblprintresi) dan noresi kosong;
+     * semua SKU dihitung sebagai barang ikut serah terima ke restock.
+     */
+    public function simpan_tanpa_resi($dari, array $items, $catatan, $id_user, $nama_komputer)
+    {
+        if ($this->mode_arsip()) {
+            return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa disimpan'];
+        }
+        $dari = strtoupper((string) $dari);
+        if (!in_array($dari, self::SUMBER, true)) {
+            return ['ok' => false, 'message' => 'Asal paket harus Packer, HO, atau Kurir'];
+        }
+        $catatan = trim((string) $catatan);
+        if ($catatan === '') {
+            return ['ok' => false, 'message' => 'Isi catatan untuk paket tanpa resi (mis. ciri zip / keranjang asal)'];
+        }
+        $s = $this->susun_item([], $items);
+        if (isset($s['error'])) {
+            return ['ok' => false, 'message' => $s['error']];
+        }
+        if (!$s['baris']) {
+            return ['ok' => false, 'message' => 'Tambahkan minimal 1 SKU dengan qty'];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $db_debug_asli = $this->db->db_debug;
+        $this->db->db_debug = false;
+        $this->db->trans_start();
+
+        $id_resi = -((int) (microtime(true) * 1000));
+        while ($this->db->query('SELECT 1 FROM tblcancel_paket WHERE id_resi = ? FOR UPDATE', [$id_resi])->num_rows()) {
+            $id_resi--;
+        }
+        $this->db->insert('tblcancel_paket', [
+            'id_resi'            => $id_resi,
+            'noresi'             => '',
+            'status'             => 'DICEK',
+            'diterima_dari'      => $dari,
+            'ditemukan_di'       => $dari,
+            'ditemukan_oleh'     => $id_user,
+            'ditemukan_komputer' => $nama_komputer,
+            'ditemukan_at'       => $now,
+            'jumlah_tolak'       => 0,
+            'dicek_oleh'         => $id_user,
+            'dicek_at'           => $now,
+            'catatan'            => substr($catatan, 0, 255),
+            'created_at'         => $now,
+            'updated_at'         => $now,
+        ]);
+        $id_paket = (int) $this->db->insert_id();
+        foreach ($s['baris'] as $b) {
+            $this->db->insert('tblcancel_paket_item', $b + [
+                'id_cancel_paket' => $id_paket,
+                'id_resi'         => $id_resi,
+                'aktif'           => 1,
+                'created_at'      => $now,
+            ]);
+        }
+        $this->tulis_log($id_paket, 'TERIMA', $id_user, null, ['dari' => $dari, 'tanpa_resi' => true, 'catatan' => $catatan, 'item' => $s['baris']]);
+        $this->db->trans_complete();
+        $ok = $this->db->trans_status();
+        $this->db->db_debug = $db_debug_asli;
+
+        return $ok ? ['ok' => true, 'id' => $id_paket, 'message' => 'Paket tanpa resi tersimpan (' . count($s['baris']) . ' SKU)']
+                   : ['ok' => false, 'message' => 'Gagal menyimpan, coba lagi'];
     }
 
     // ---------------------------------------------------------------
@@ -767,7 +839,7 @@ class Cancel_terima_fcd extends CI_Model
     public function serah_harian($tanggal)
     {
         $paket = $this->db
-            ->select('p.id_cancel_paket, p.dicek_oleh')
+            ->select('p.id_cancel_paket, p.id_resi, p.dicek_oleh')
             ->from('tblcancel_paket p')
             ->where('p.dicek_at IS NOT NULL', null, false)
             ->where('p.dihapus_at IS NULL', null, false)
@@ -778,6 +850,12 @@ class Cancel_terima_fcd extends CI_Model
             return ['det' => [], 'jumlah_paket' => 0, 'petugas' => []];
         }
         $ids = array_column($paket, 'id_cancel_paket');
+        $tanpa_resi = [];
+        foreach ($paket as $pk) {
+            if ((int) $pk['id_resi'] < 0) {
+                $tanpa_resi[(int) $pk['id_cancel_paket']] = true;
+            }
+        }
 
         // Per paket & SKU: yang sesuai resi dikurangi barang yang sudah kembali ke display.
         $tampung = [];
@@ -798,7 +876,8 @@ class Cancel_terima_fcd extends CI_Model
         }
         foreach ($items as $i) {
             $ada = (int) $i['qty_ditemukan'] - ($disp[$i['id_cancel_paket'] . '|' . strtoupper($i['sku'])] ?? 0);
-            $qty = max(0, min($ada, (int) $i['qty_resi']));
+            // paket tanpa resi: semua barang yang ada ikut serah terima (tidak ada qty resi pembanding)
+            $qty = isset($tanpa_resi[(int) $i['id_cancel_paket']]) ? max(0, $ada) : max(0, min($ada, (int) $i['qty_resi']));
             if ($qty <= 0) {
                 continue;
             }

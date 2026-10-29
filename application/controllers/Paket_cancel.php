@@ -103,6 +103,20 @@ class Paket_cancel extends MY_Controller
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
+    // Terima paket tanpa kertas resi (zip berisi beberapa barang): input biasa, no. resi kosong
+    public function simpan_tanpa_resi()
+    {
+        $items = json_decode((string) $this->input->post('items'), true);
+        $hasil = $this->cancel_terima_fcd->simpan_tanpa_resi(
+            $this->input->post('dari'),
+            is_array($items) ? $items : [],
+            $this->input->post('catatan'),
+            $this->id_user(),
+            isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : null
+        );
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
     // Barang paket diterima yang kembali ke display (per SKU & qty) + sumber pengganti QC / Restok
     public function tandai_display()
     {

@@ -11,7 +11,6 @@
   <div class="tbr">
    <button type="button" id="pc_cardtg" class="eye ic" data-act="card-tog"></button>
    <span class="inf" title="Info" data-act="info">&#9432;</span>
-   <button type="button" class="a x" data-act="bebas" title="Catat barang kembali ke display yang resinya tidak ada">&#127978; Catat tanpa resi</button>
    <button type="button" class="a w" id="pc_bsr" data-act="serah">&#128424; Serah Terima</button>
   </div>
   <div id="pc_infolap" class="infotxt hide"><b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Kertas dibuat langsung dari paket yang diterima pada tanggal itu; hanya barang yang sesuai resi yang dihitung, selisih tidak.</div>
@@ -94,11 +93,12 @@
         return rows.filter(function (p) {
             if (MS.fd.length && MS.fd.indexOf(p.dari) < 0) return false;
             if (!q) return true;
-            var h = (p.noresi + ' ' + p.dari + ' ' + (NM[p.dari] || '') + ' ' + (p.catatan || '') + ' ' + (p.toko || '') + ' ' + p.items.map(function (i) { return i.sku; }).join(' ')).toLowerCase();
+            var h = (nr(p) + ' ' + p.dari + ' ' + (NM[p.dari] || '') + ' ' + (p.catatan || '') + ' ' + (p.toko || '') + ' ' + p.items.map(function (i) { return i.sku; }).join(' ')).toLowerCase();
             return h.indexOf(q) >= 0;
         });
     }
     function jml(p) { return p.items.reduce(function (a, i) { return a + i.qty_ditemukan; }, 0); }
+    function nr(p) { return p.tanpa_resi ? 'TANPA RESI #' + p.id : p.noresi; }
     function jmlDisp(p) { return p.items.reduce(function (a, i) { return a + (i.qty_display || 0); }, 0); }
     function jmlResi(p) { return p.items.reduce(function (a, i) { return a + i.qty_resi; }, 0); }
 
@@ -121,9 +121,9 @@
                 return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi)) +
                     (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
             }).join('');
-            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
+            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(nr(p)) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
-                '</td><td class="c">' + jmlResi(p) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
+                '</td><td class="c">' + jmlResi(p) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
                 '</td><td class="c aksi"><button type="button" class="eye" title="Catat barang kembali ke display" aria-label="Catat barang kembali ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>' +
                 '<button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
@@ -260,7 +260,7 @@
         var as = ['PACKER', 'HO', 'KURIR'].map(function (a) {
             return '<label class="asl-o"><input type="radio" name="edari" value="' + a + '"' + (p.dari === a ? ' checked' : '') + '><span class="asl-c"><span class="asl-i">' + U.IKON[a] + '</span><span><b>' + NM[a] + '</b></span></span></label>';
         }).join('');
-        edO = U.mdBuka('<h3 style="margin:0 0 2px">Edit paket cancel</h3><div class="note" style="margin-bottom:12px">' + esc(p.noresi) + ' &middot; diterima ' + esc(p.tgl) + ' ' + esc(p.jam) + '</div>' +
+        edO = U.mdBuka('<h3 style="margin:0 0 2px">Edit paket cancel</h3><div class="note" style="margin-bottom:12px">' + esc(nr(p)) + ' &middot; diterima ' + esc(p.tgl) + ' ' + esc(p.jam) + '</div>' +
             '<div class="stp"><b>Asal paket</b></div><div class="asl"><div class="asl-g">' + as + '</div></div>' +
             '<div class="stp" style="margin-top:16px"><b>Isi paket</b></div><div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="pc_edb">' + p.items.map(edRow).join('') + '</tbody></table></div>' +
             '<div class="addx"><div class="ac"><input id="pc_edsku" placeholder="Tambah SKU di luar resi" autocomplete="off"><div id="pc_eddd" class="dd hide"></div></div><input id="pc_edq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="ed-tambah">+ Tambah</button></div><div id="pc_edmsg"></div>' +
@@ -324,11 +324,11 @@
         p.items.forEach(function (o) { if (!baru[o.sku.toUpperCase()]) ch.push('- <b>' + esc(o.sku) + '</b> dihapus dari paket'); });
         if (cat !== (p.catatan || '')) ch.push('Catatan diubah');
         if (!ch.length) { U.al('edmsg', 'warn', 'Tidak ada perubahan untuk disimpan.'); return; }
-        U.konfirm('Simpan perubahan?', 'Perubahan pada paket <b>' + esc(p.noresi) + '</b>:<ul style="margin:8px 0 0;padding-left:20px">' + ch.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>', 'Ya, simpan', 'g', function () {
+        U.konfirm('Simpan perubahan?', 'Perubahan pada paket <b>' + esc(nr(p)) + '</b>:<ul style="margin:8px 0 0;padding-left:20px">' + ch.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>', 'Ya, simpan', 'g', function () {
             return U.post(URL.edit, { id: p.id, dari: dari, catatan: cat, items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; })) }).then(function (res) {
                 if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal menyimpan perubahan');
                 U.mdTutup(edO);
-                pesan('ok', 'Paket <b>' + esc(p.noresi) + '</b> berhasil diperbarui.');
+                pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b> berhasil diperbarui.');
                 load();
                 return null;
             }).catch(function (x) { return esc(U.pesanGagal(x)); });
@@ -339,13 +339,13 @@
     function hapusBuka(id) {
         var p = cariPaket(id);
         if (!p) return;
-        U.konfirm('Hapus paket cancel?', 'Paket <b>' + esc(p.noresi) + '</b> (' + esc(NM[p.dari]) + ', ' + esc(p.tgl) + ' ' + esc(p.jam) + ', ' + jml(p) + ' pcs) akan dihapus dari laporan dan tidak ikut kertas serah terima. Resi ini bisa diterima ulang.' +
+        U.konfirm('Hapus paket cancel?', 'Paket <b>' + esc(nr(p)) + '</b> (' + esc(NM[p.dari]) + ', ' + esc(p.tgl) + ' ' + esc(p.jam) + ', ' + jml(p) + ' pcs) akan dihapus dari laporan dan tidak ikut kertas serah terima. Resi ini bisa diterima ulang.' +
             '<textarea id="pc_hpalasan" rows="2" maxlength="255" placeholder="Alasan penghapusan (wajib)" style="margin-top:10px"></textarea>', 'Ya, hapus', 'r', function (o) {
             var a = o.querySelector('#pc_hpalasan').value.trim();
             if (!a) return 'Isi alasan penghapusan.';
             return U.post(URL.hapus, { id: p.id, alasan: a }).then(function (res) {
                 if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal menghapus');
-                pesan('ok', 'Paket <b>' + esc(p.noresi) + '</b> dihapus.');
+                pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b> dihapus.');
                 load();
                 return null;
             }).catch(function (x) { return esc(U.pesanGagal(x)); });
@@ -374,7 +374,7 @@
         }).join('');
         if (!baris) { pesan('warn', 'Paket ini tidak punya barang untuk dikembalikan ke display.'); return; }
         U.konfirm('Barang kembali ke display',
-            'Paket <b>' + esc(p.noresi) + '</b>: isi qty barang yang sudah dikembalikan ke display (0 untuk yang tidak). Qty ini tidak ikut kertas serah terima ke restock.' +
+            'Paket <b>' + esc(nr(p)) + '</b>: isi qty barang yang sudah dikembalikan ke display (0 untuk yang tidak). Qty ini tidak ikut kertas serah terima ke restock.' +
             '<div class="txw" style="margin-top:10px"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Qty ada</th><th class="c">Di display</th><th>Kembali</th></tr></thead><tbody>' + baris + '</tbody></table></div>' + sumberCat(),
             'Simpan', 'g', function (o) {
                 var it = [], lebih = null;
@@ -394,50 +394,6 @@
             });
     }
 
-    // Barang kembali ke display yang resinya tidak ada / belum diterima
-    var bbO = null;
-    function bebasRow(sku, q) {
-        return '<tr data-s="' + esc(sku) + '"><td><b>' + esc(sku) + '</b></td><td><input class="q" type="number" min="1" value="' + q + '"></td><td><button type="button" class="a x s" data-act="bb-hapus">&times;</button></td></tr>';
-    }
-    function bebasBuka() {
-        bbO = U.mdBuka('<h3 style="margin:0 0 2px">Catat barang kembali ke display</h3><div class="note" style="margin-bottom:12px">Untuk barang dari keranjang cancel yang resinya tidak ada.</div>' +
-            '<div class="sect"><b>No. resi</b><small class="note">opsional</small></div><input id="pc_bbresi" autocomplete="off" maxlength="100" style="width:100%">' +
-            '<div class="sect" style="margin-top:12px"><b>Barang</b></div><div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Qty</th><th style="width:44px"></th></tr></thead><tbody id="pc_bbb"></tbody></table></div>' +
-            '<div class="addx"><div class="ac"><input id="pc_bbsku" placeholder="Ketik SKU, rekomendasi muncul..." autocomplete="off"><div id="pc_bbdd" class="dd hide"></div></div><input id="pc_bbq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="bb-tambah">+ Tambah</button></div><div id="pc_bbmsg"></div>' +
-            sumberCat() +
-            '<div id="pc_bberr"></div><div class="pr" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-act="bb-batal">Batal</button><button type="button" class="a g" data-act="bb-simpan">&#10003; Simpan</button></div>', 60, 560);
-        U.skuPasang({ input: g('bbsku'), dd: g('bbdd'), qty: g('bbq'), tambah: bebasTambah });
-        g('bbresi').focus();
-    }
-    function bebasTambah() {
-        var teks = g('bbsku').value.trim(), q = +g('bbq').value;
-        g('bbmsg').innerHTML = '';
-        if (!teks) { U.al('bbmsg', 'bad', 'Isi SKU dulu.'); return; }
-        if (!(q >= 1)) { U.al('bbmsg', 'bad', 'Qty minimal 1.'); return; }
-        U.cariSku(teks).then(function (d) {
-            if (d.status === 'ambigu') { U.al('bbmsg', 'warn', 'Beberapa SKU cocok: ' + d.kandidat.map(function (k) { return esc(k.id_sku); }).join(', ') + '. Ketik lebih lengkap.'); return; }
-            if (d.status !== 'ok') { U.al('bbmsg', 'bad', 'SKU <b>' + esc(teks) + '</b> tidak ditemukan.'); return; }
-            var kode = d.sku.id_sku, ada = null;
-            g('bbb').querySelectorAll('tr').forEach(function (tr) { if (tr.dataset.s.toUpperCase() === kode.toUpperCase()) ada = tr; });
-            if (ada) { var i = ada.querySelector('input'); i.value = (+i.value || 0) + q; }
-            else g('bbb').insertAdjacentHTML('beforeend', bebasRow(kode, q));
-            g('bbsku').value = ''; g('bbq').value = 1; g('bbsku').focus();
-        }).catch(function (x) { U.al('bbmsg', 'bad', esc(U.pesanGagal(x))); });
-    }
-    function bebasSimpan() {
-        var it = [];
-        g('bbb').querySelectorAll('tr').forEach(function (tr) { it.push({ sku: tr.dataset.s, qty: +tr.querySelector('input').value || 0 }); });
-        g('bberr').innerHTML = '';
-        if (!it.length) { U.al('bberr', 'bad', 'Tambahkan minimal satu SKU.'); return; }
-        var resi = g('bbresi').value.trim(), cat = g('dcat').value.trim();
-        if (!resi && !cat) { U.al('bberr', 'bad', 'Isi no. resi, atau catatan bila resinya tidak ada.'); return; }
-        U.post(URL.catat, { noresi: resi, items: JSON.stringify(it), sumber: sumberNilai(bbO), catatan: cat }).then(function (res) {
-            if (!(res && res.data && res.data.ok)) { U.al('bberr', 'bad', esc(res && res.message ? res.message : 'Gagal menyimpan')); return; }
-            U.mdTutup(bbO);
-            pesan('ok', esc(res.message));
-            load();
-        }).catch(function (x) { U.al('bberr', 'bad', esc(U.pesanGagal(x))); });
-    }
     function displayBatal(id) {
         var d = disp.filter(function (x) { return x.id === +id; })[0];
         if (!d) return;
@@ -465,11 +421,6 @@
             case 'hapus': hapusBuka(t.dataset.id); break;
             case 'display': displayBuka(t.dataset.id); break;
             case 'display-batal': displayBatal(t.dataset.id); break;
-            case 'bebas': bebasBuka(); break;
-            case 'bb-tambah': bebasTambah(); break;
-            case 'bb-hapus': t.closest('tr').remove(); break;
-            case 'bb-batal': U.mdTutup(bbO); break;
-            case 'bb-simpan': bebasSimpan(); break;
             case 'serah': serah(); break;
             case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); break;
             case 'cetak-tutup': g('cetak').className = 'pcd hide'; break;

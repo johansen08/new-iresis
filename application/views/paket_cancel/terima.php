@@ -9,22 +9,23 @@
    <label class="asl-o"><input type="radio" name="dari" value="KURIR"><span class="asl-c"><span class="asl-i">&#128666;</span><span><b>Kurir</b></span></span></label></div></div>
   <div class="stp" style="margin-top:16px"><span class="stn">2</span><b>Scan no. resi</b></div>
   <input id="pc_resi" class="scan" placeholder="Scan atau ketik no. resi, lalu Enter" autocomplete="off">
+  <div class="tanpa" style="margin-top:10px"><button type="button" class="a x s" data-act="tanpa">Zip / paket tanpa kertas resi</button> <small class="note">barang ada, kertas resi tidak ada</small></div>
   <div id="pc_msg"></div>
  </div>
 
  <div id="pc_form" class="pcd hide">
   <div class="fh">
-   <div><div class="fk">No. Resi</div><h3 id="pc_fres"></h3></div>
+   <div><div class="fk" id="pc_fk">No. Resi</div><h3 id="pc_fres"></h3></div>
    <span class="b gray" id="pc_ftoko"></span>
   </div>
 
-  <div class="sec">
+  <div class="sec" id="pc_secisi">
    <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada. Salah ambil: nolkan SKU resi yang tidak ada, lalu tambahkan SKU yang ada di bagian bawah.</div></div>
    <div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody id="pc_isi"></tbody></table></div>
   </div>
 
   <div class="sec">
-   <div class="sect"><b>Barang di luar resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">SKU / qty yang ada di paket tetapi tidak tertulis di resi.</div></div>
+   <div class="sect"><b id="pc_xjudul">Barang di luar resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">SKU / qty yang ada di paket tetapi tidak tertulis di resi.</div></div>
    <div id="pc_xt" class="txw hide"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty ada</th><th style="width:50px"></th></tr></thead><tbody id="pc_ex"></tbody></table></div>
    <div class="addx"><div class="ac"><input id="pc_xsku" placeholder="Ketik SKU, rekomendasi muncul..." autocomplete="off"><div id="pc_dd" class="dd hide"></div></div><input id="pc_xq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="tambah-x">+ Tambah</button></div>
    <div id="pc_xmsg"></div>
@@ -32,7 +33,7 @@
 
   <div class="sec">
    <div id="pc_ban"></div>
-   <div class="sect"><b>Catatan</b><small class="note">wajib bila ada selisih</small></div>
+   <div class="sect"><b>Catatan</b><small class="note" id="pc_catn">wajib bila ada selisih</small></div>
    <textarea id="pc_cat" rows="2" maxlength="255" placeholder="mis. picker salah ambil ZU-2, qty kurang 1"></textarea>
   </div>
 
@@ -48,7 +49,8 @@
     var U = window.PCU, R = U.root(), g = U.g, esc = U.esc;
     var URL = {
         cek: '<?= base_url('paket-cancel/cek-resi') ?>',
-        simpan: '<?= base_url('paket-cancel/simpan') ?>'
+        simpan: '<?= base_url('paket-cancel/simpan') ?>',
+        simpanTanpa: '<?= base_url('paket-cancel/simpan-tanpa-resi') ?>'
     };
     var cur = null;      // resi yang sedang diisi: {noresi, toko}
     var sibuk = false;   // ada request scan yang belum selesai
@@ -72,6 +74,32 @@
         g('resi').value = '';
         g('form').className = 'pcd hide';
         cur = null;
+        modeTanpa(false);
+    }
+    function modeTanpa(on) {
+        g('secisi').classList.toggle('hide', on);
+        g('fk').textContent = on ? 'Paket' : 'No. Resi';
+        g('xjudul').textContent = on ? 'Barang di paket' : 'Barang di luar resi';
+        g('catn').textContent = on ? 'wajib: ciri zip / keranjang asal' : 'wajib bila ada selisih';
+    }
+
+    // ───── paket tanpa kertas resi ─────
+    function tanpaResi() {
+        if (!asalWajib()) return;
+        g('msg').innerHTML = '';
+        clr();
+        modeTanpa(true);
+        cur = { tanpa: true, noresi: '', toko: '' };
+        g('fres').textContent = 'TANPA RESI';
+        g('ftoko').textContent = '-';
+        g('isi').innerHTML = '';
+        g('ex').innerHTML = '';
+        g('xt').className = 'txw hide';
+        g('xmsg').innerHTML = '';
+        g('cat').value = '';
+        g('form').className = 'pcd';
+        hit();
+        g('xsku').focus();
     }
 
     // ───── scan resi ─────
@@ -95,6 +123,7 @@
     }
 
     function tampilForm(d) {
+        modeTanpa(false);
         cur = { noresi: d.noresi, toko: d.toko || '' };
         g('fres').textContent = d.noresi;
         g('ftoko').textContent = d.toko || '-';
@@ -123,6 +152,10 @@
         });
         g('ex').querySelectorAll('input').forEach(function (i) { x += +i.value || 0; });
         var s = k || l || x;
+        if (cur && cur.tanpa) {
+            g('ban').innerHTML = '<div class="al ok"><b>PAKET TANPA RESI:</b> ' + x + ' pcs, ikut serah terima ke restock</div>';
+            return false;
+        }
         g('ban').innerHTML = s
             ? '<div class="al warn"><b>ADA SELISIH:</b> ' + [k && 'kurang ' + k, l && 'lebih ' + l, x && 'di luar resi ' + x].filter(Boolean).join(', ') + ' pcs</div>'
             : '<div class="al ok"><b>ISI SESUAI RESI</b></div>';
@@ -169,6 +202,7 @@
         if (!cur) return;
         if (!asalWajib()) return;
         var s = hit();
+        if (cur.tanpa) { simpanTanpa(); return; }
         if (s && !g('cat').value.trim()) {
             U.al('msg', 'bad', 'Ada selisih: isi catatan penyebabnya.');
             g('cat').focus();
@@ -201,6 +235,28 @@
         }, 520);
     }
 
+    function simpanTanpa() {
+        var it = [], tot = 0, cat = g('cat').value.trim(), dari = asalDipilih();
+        g('ex').querySelectorAll('tr').forEach(function (tr) { var q = +tr.querySelector('input').value || 0; if (q > 0) { it.push({ s: tr.dataset.s, a: q }); tot += q; } });
+        if (!it.length) { U.al('msg', 'bad', 'Tambahkan minimal satu SKU dengan qty.'); g('xsku').focus(); return; }
+        if (!cat) { U.al('msg', 'bad', 'Isi catatan: ciri zip / keranjang asal paket tanpa resi.'); g('cat').focus(); return; }
+        g('msg').innerHTML = '';
+        var rows = it.map(function (i) { return '<tr><td><b>' + esc(i.s) + '</b></td><td class="c">' + i.a + '</td></tr>'; }).join('');
+        var isi = '<div class="pv"><div><span>No. Resi</span><b>TANPA RESI</b></div><div><span>Asal</span><b>' + U.NM[dari] + '</b></div><div><span>Total ada</span><b>' + tot + ' pcs</b></div></div>' +
+            '<div class="txw"><table class="tx"><thead><tr><th>SKU</th><th class="c">Qty ada</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="pvc"><b>Catatan:</b> ' + esc(cat) + '</div>';
+        U.konfirm('Simpan paket tanpa resi?', isi, 'Ya, simpan', 'g', function () {
+            return U.post(URL.simpanTanpa, { dari: dari, catatan: cat, items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; })) }).then(function (res) {
+                var d = (res && res.data) || {};
+                if (!d.ok) return esc(res && res.message ? res.message : 'Gagal menyimpan');
+                clr();
+                asalReset();
+                U.al('msg', 'ok', 'Paket tanpa resi tersimpan (' + tot + ' pcs).');
+                g('resi').focus();
+                return null;
+            }).catch(function (x) { return esc(U.pesanGagal(x)); });
+        }, 520);
+    }
+
     // ───── event ─────
     R.addEventListener('click', function (e) {
         var t = e.target.closest('[data-act]');
@@ -211,6 +267,7 @@
         else if (a === 'tambah-x') tambahX();
         else if (a === 'hapus-x') { t.closest('tr').remove(); if (!g('ex').children.length) g('xt').className = 'txw hide'; hit(); }
         else if (a === 'simpan') simpan();
+        else if (a === 'tanpa') tanpaResi();
         else if (a === 'batal') { g('msg').innerHTML = ''; clr(); }
     });
     R.addEventListener('input', function (e) {
