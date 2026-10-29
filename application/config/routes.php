@@ -439,6 +439,7 @@ $route['paket-cancel/laporan'] = 'paket_cancel/laporan';
 $route['paket-cancel/laporan-data'] = 'paket_cancel/laporan_data';
 $route['paket-cancel/edit-simpan'] = 'paket_cancel/edit_simpan';
 $route['paket-cancel/hapus'] = 'paket_cancel/hapus';
+$route['paket-cancel/simpan-tanpa-resi'] = 'paket_cancel/simpan_tanpa_resi';
 $route['paket-cancel/tandai-display'] = 'paket_cancel/tandai_display';
 $route['paket-cancel/batal-display'] = 'paket_cancel/batal_display';
 $route['paket-cancel/catat-display'] = 'paket_cancel/catat_display';
