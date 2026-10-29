@@ -353,29 +353,47 @@
     }
 
     // ───── barang kembali ke display ─────
-    function sumberRadio() {
-        return [['', 'Tidak ada'], ['QC', 'Dari QC'], ['RESTOK', 'Dari Restok']].map(function (o, k) {
-            return '<label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;cursor:pointer"><input type="radio" name="pc_dsumber" value="' + o[0] + '"' + (k === 0 ? ' checked' : '') + '>' + o[1] + '</label>';
-        }).join('');
-    }
-    function sumberCat() {
-        return '<div style="margin-top:12px"><b>Barang pengganti dibutuhkan dari</b><div style="margin-top:6px">' + sumberRadio() + '</div></div>' +
-            '<textarea id="pc_dcat" rows="2" maxlength="255" placeholder="Catatan (opsional), mis. dipakai packing, tunggu barang dari QC" style="margin-top:10px"></textarea>';
+    var SUMBER = [['', '&#10004;', 'Tidak ada', 'Barang sudah cukup'], ['QC', '&#128269;', 'Dari QC', 'Butuh pengganti dari QC'], ['RESTOK', '&#128230;', 'Dari Restok', 'Butuh pengganti dari restok']];
+    function sumberKartu() {
+        return '<div class="asl"><div class="asl-g">' + SUMBER.map(function (o, k) {
+            return '<label class="asl-o"><input type="radio" name="pc_dsumber" value="' + o[0] + '"' + (k === 0 ? ' checked' : '') + '><span class="asl-c"><span class="asl-i">' + o[1] + '</span><span><b>' + o[2] + '</b><small>' + o[3] + '</small></span></span></label>';
+        }).join('') + '</div></div>';
     }
     function sumberNilai(o) { var rd = o.querySelector('[name=pc_dsumber]:checked'); return rd ? rd.value : ''; }
+
+    function dspHit() {
+        var o = document.querySelector('.dsp'), t = 0;
+        if (!o) return 0;
+        o.querySelectorAll('tbody input.q').forEach(function (i) { t += Math.max(0, +i.value || 0); });
+        o.querySelector('.go b').textContent = t + ' pcs';
+        return t;
+    }
+    function dspStep(t) {
+        var inp = t.closest('tr').querySelector('input.q'), m = +t.closest('tr').dataset.m, v = (+inp.value || 0) + (+t.dataset.d);
+        inp.value = Math.max(0, Math.min(m, v));
+        dspHit();
+    }
+    function dspMax(t) { var tr = t.closest('tr'); tr.querySelector('input.q').value = tr.dataset.m; dspHit(); }
 
     function displayBuka(id) {
         var p = cariPaket(id);
         if (!p) return;
+        var ada = 0, sdh = 0;
         var baris = p.items.filter(function (i) { return i.qty_ditemukan > 0; }).map(function (i) {
             var sisa = i.qty_ditemukan - (i.qty_display || 0);
-            return '<tr data-s="' + esc(i.sku) + '" data-m="' + sisa + '"><td><b>' + esc(i.sku) + '</b></td><td>' + U.foto(i) + '</td><td class="c">' + i.qty_ditemukan + '</td><td class="c">' + (i.qty_display || 0) + '</td><td>' +
-                (sisa > 0 ? '<input class="q" type="number" min="0" max="' + sisa + '" value="0"> <small class="note">maks ' + sisa + '</small>' : '<small class="note">sudah semua</small>') + '</td></tr>';
+            ada += i.qty_ditemukan; sdh += (i.qty_display || 0);
+            return '<tr data-s="' + esc(i.sku) + '" data-m="' + sisa + '"' + (sisa > 0 ? '' : ' class="full"') + '><td class="sk">' + esc(i.sku) + '</td><td>' + U.foto(i) + '</td><td class="c">' + i.qty_ditemukan + '</td><td class="c">' + (i.qty_display || 0) + '</td><td class="c">' +
+                (sisa > 0 ? '<span class="stp2"><button type="button" data-act="dsp-step" data-d="-1" aria-label="Kurangi">&minus;</button><input class="q" type="number" min="0" max="' + sisa + '" value="0"><button type="button" data-act="dsp-step" data-d="1" aria-label="Tambah">+</button>' +
+                    '<button type="button" class="a x s" data-act="dsp-max" title="Isi semua sisa">Semua</button></span><small class="mx">maks ' + sisa + ' pcs</small>' : '<small class="note">sudah semua di display</small>') + '</td></tr>';
         }).join('');
         if (!baris) { pesan('warn', 'Paket ini tidak punya barang untuk dikembalikan ke display.'); return; }
-        U.konfirm('Barang kembali ke display',
-            'Paket <b>' + esc(nr(p)) + '</b>: isi qty barang yang sudah dikembalikan ke display (0 untuk yang tidak). Qty ini tidak ikut kertas serah terima ke restock.' +
-            '<div class="txw" style="margin-top:10px"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Qty ada</th><th class="c">Di display</th><th>Kembali</th></tr></thead><tbody>' + baris + '</tbody></table></div>' + sumberCat(),
+        var o = U.konfirm('Barang kembali ke display',
+            '<div class="dsp"><div class="dh"><div><small>Paket <b>' + esc(nr(p)) + '</b> &middot; ' + esc(NM[p.dari] || p.dari) + ' &middot; ' + esc(p.tgl) + ' ' + esc(p.jam) + '</small></div></div>' +
+            '<div class="chips"><div><span>Barang ada</span><b>' + ada + ' pcs</b></div><div><span>Sudah di display</span><b>' + sdh + ' pcs</b></div><div class="go"><span>Kembali sekarang</span><b>0 pcs</b></div></div>' +
+            '<div class="bag">Pilih barang <small>isi qty yang sudah kembali ke display; qty ini tidak ikut serah terima ke restock</small></div>' +
+            '<div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Ada</th><th class="c">Di display</th><th class="c">Kembali ke display</th></tr></thead><tbody>' + baris + '</tbody></table></div>' +
+            '<div class="bag">Barang pengganti dibutuhkan dari <small>opsional</small></div>' + sumberKartu() +
+            '<div class="bag">Catatan <small>opsional</small></div><textarea id="pc_dcat" rows="2" maxlength="255" placeholder="mis. dipakai packing, tunggu pengganti dari QC"></textarea></div>',
             'Simpan', 'g', function (o) {
                 var it = [], lebih = null;
                 o.querySelectorAll('tbody tr').forEach(function (tr) {
@@ -391,7 +409,8 @@
                     load();
                     return null;
                 }).catch(function (x) { return esc(U.pesanGagal(x)); });
-            });
+            }, 780);
+        return o;
     }
 
     function displayBatal(id) {
@@ -420,6 +439,8 @@
             case 'edit': edBuka(t.dataset.id); break;
             case 'hapus': hapusBuka(t.dataset.id); break;
             case 'display': displayBuka(t.dataset.id); break;
+            case 'dsp-step': dspStep(t); break;
+            case 'dsp-max': dspMax(t); break;
             case 'display-batal': displayBatal(t.dataset.id); break;
             case 'serah': serah(); break;
             case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); break;
@@ -463,6 +484,7 @@
     R.addEventListener('input', function (e) {
         if (e.target.id === 'pc_qs') r2(1);
         else if (e.target.matches('#pc_edb input')) edHit();
+        else if (e.target.matches('.dsp input.q')) dspHit();
     });
     // klik di luar popover filter -> tutup (satu listener, dilepas bila halaman sudah diganti)
     if (window.__pcLapDoc) document.removeEventListener('click', window.__pcLapDoc);
