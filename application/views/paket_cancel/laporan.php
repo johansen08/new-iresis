@@ -395,5 +395,6 @@
     msInit();
     cardSet(true);
     setRange(U.hari(0), U.hari(0));
+    g('qs').focus();
 })();
 </script>
