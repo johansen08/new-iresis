@@ -19,7 +19,7 @@
  <div id="pc_msg2"></div>
  <div id="pc_cetak" class="pcd hide"></div>
  <div class="pcd tc">
-  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:96px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
   <div class="tf">
    <span id="pc_pgi" class="note"></span>
    <div class="pr"><label class="note">Tampilkan <select id="pc_ps"><option>10</option><option>20</option><option>50</option><option>100</option></select> baris</label><span id="pc_pgn" class="pr" style="gap:4px"></span></div>
@@ -36,6 +36,8 @@
         data: '<?= base_url('paket-cancel/laporan-data') ?>',
         edit: '<?= base_url('paket-cancel/edit-simpan') ?>',
         hapus: '<?= base_url('paket-cancel/hapus') ?>',
+        tandai: '<?= base_url('paket-cancel/tandai-display') ?>',
+        batalTandai: '<?= base_url('paket-cancel/batal-display') ?>',
         serah: '<?= base_url('paket-cancel/serah-data') ?>',
         cetak: '<?= base_url('paket-cancel/serah-cetak') ?>'
     };
@@ -84,7 +86,7 @@
         return rows.filter(function (p) {
             if (MS.fd.length && MS.fd.indexOf(p.dari) < 0) return false;
             if (!q) return true;
-            var h = (p.noresi + ' ' + p.dari + ' ' + (NM[p.dari] || '') + ' ' + (p.catatan || '') + ' ' + (p.toko || '') + ' ' + p.items.map(function (i) { return i.sku; }).join(' ')).toLowerCase();
+            var h = (p.noresi + ' ' + p.dari + ' ' + (NM[p.dari] || '') + ' ' + (p.catatan || '') + ' ' + (p.toko || '') + ' ' + (p.display ? 'display ' + (p.display_sumber || '') + ' ' + (p.display_catatan || '') : '') + ' ' + p.items.map(function (i) { return i.sku; }).join(' ')).toLowerCase();
             return h.indexOf(q) >= 0;
         });
     }
@@ -96,7 +98,7 @@
         var all = rows, tampil = filt(), per = +g('ps').value, tot = tampil.length, pages = Math.max(1, Math.ceil(tot / per));
         if (pg > pages) pg = pages;
         var c = function (f) { return all.filter(f).length; };
-        g('cards').innerHTML = [['Diterima', all.length], ['Ada selisih', c(function (p) { return p.selisih; })], ['Dari Packer', c(function (p) { return p.dari === 'PACKER'; })],
+        g('cards').innerHTML = [['Diterima', all.length], ['Ada selisih', c(function (p) { return p.selisih; })], ['Di display', c(function (p) { return !!p.display; })], ['Dari Packer', c(function (p) { return p.dari === 'PACKER'; })],
             ['Dari HO', c(function (p) { return p.dari === 'HO'; })], ['Dari Kurir', c(function (p) { return p.dari === 'KURIR'; })]]
             .map(function (x) { return '<div><b>' + x[1] + '</b><small>' + x[0] + '</small></div>'; }).join('');
         var bs = g('bsr');
@@ -112,9 +114,16 @@
             return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
                 '</td><td class="c">' + jmlResi(p) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
-                '</td><td class="c aksi"><button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
+                (p.display ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DI DISPLAY</span>' + (p.display_sumber ? ' <span class="b warn">BUTUH ' + esc(p.display_sumber) + '</span>' : '') : '') +
+                '</td><td class="c aksi">' + (p.display
+                    ? '<button type="button" class="eye" title="Batalkan tanda di display" aria-label="Batalkan tanda di display" data-act="display-batal" data-id="' + p.id + '">&#8617;</button>'
+                    : '<button type="button" class="eye" title="Tandai sudah dikembalikan ke display" aria-label="Tandai sudah dikembalikan ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>') +
+                '<button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
                 '<button type="button" class="eye del" title="Hapus" aria-label="Hapus" data-act="hapus" data-id="' + p.id + '">&#128465;</button></td></tr>' +
                 '<tr id="pc_d' + i + '" class="hide"><td></td><td colspan="8">' + det + (p.catatan ? '<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> ' + esc(p.catatan) + '</div>' : '') +
+                (p.display ? '<div style="margin-top:4px"><b>Dikembalikan ke display</b> ' + esc(p.display) + (p.display_petugas ? ' oleh ' + esc(p.display_petugas) : '') +
+                    (p.display_sumber ? ' &middot; butuh barang dari <b>' + (p.display_sumber === 'QC' ? 'QC' : 'Restok') + '</b>' : '') +
+                    (p.display_catatan ? '<br><b>Catatan:</b> ' + esc(p.display_catatan) : '') + '<br><small class="note">Tidak ikut kertas serah terima ke restock.</small></div>' : '') +
                 (p.petugas ? '<div class="note" style="margin:4px 0 0">Diterima oleh ' + esc(p.petugas) + (p.toko ? ' &middot; ' + esc(p.toko) : '') + '</div>' : '') + '</td></tr>';
         }).join('') || '<tr><td colspan="9" class="c" style="color:var(--mut)">Tidak ada data.</td></tr>';
         g('pgi').textContent = tot ? 'Menampilkan ' + (st + 1) + '-' + Math.min(st + per, tot) + ' dari ' + tot : 'Menampilkan 0 dari 0';
@@ -326,6 +335,40 @@
         });
     }
 
+    // ───── tandai sudah dikembalikan ke display ─────
+    function displayBuka(id) {
+        var p = cariPaket(id);
+        if (!p) return;
+        var opsi = [['', 'Tidak ada'], ['QC', 'Dari QC'], ['RESTOK', 'Dari Restok']].map(function (o, k) {
+            return '<label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;cursor:pointer"><input type="radio" name="pc_dsumber" value="' + o[0] + '"' + (k === 0 ? ' checked' : '') + '>' + o[1] + '</label>';
+        }).join('');
+        U.konfirm('Barang sudah dikembalikan ke display?',
+            'Barang paket <b>' + esc(p.noresi) + '</b> (' + jml(p) + ' pcs) diambil lebih dulu dan sudah ada di display. Paket ini <b>tidak ikut</b> kertas serah terima ke restock.' +
+            '<div style="margin-top:12px"><b>Barang pengganti dibutuhkan dari</b><div style="margin-top:6px">' + opsi + '</div></div>' +
+            '<textarea id="pc_dcat" rows="2" maxlength="255" placeholder="Catatan (opsional), mis. SKU X dipakai packing, tunggu barang dari QC" style="margin-top:10px"></textarea>',
+            'Ya, tandai', 'g', function (o) {
+                var rd = o.querySelector('[name=pc_dsumber]:checked');
+                return U.post(URL.tandai, { id: p.id, sumber: rd ? rd.value : '', catatan: o.querySelector('#pc_dcat').value.trim() }).then(function (res) {
+                    if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal menandai');
+                    pesan('ok', 'Paket <b>' + esc(p.noresi) + '</b> ditandai sudah dikembalikan ke display.');
+                    load();
+                    return null;
+                }).catch(function (x) { return esc(U.pesanGagal(x)); });
+            });
+    }
+    function displayBatal(id) {
+        var p = cariPaket(id);
+        if (!p) return;
+        U.konfirm('Batalkan tanda display?', 'Paket <b>' + esc(p.noresi) + '</b> kembali dihitung di kertas serah terima ke restock.', 'Ya, batalkan', 'r', function () {
+            return U.post(URL.batalTandai, { id: p.id }).then(function (res) {
+                if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal membatalkan');
+                pesan('ok', 'Tanda display paket <b>' + esc(p.noresi) + '</b> dibatalkan.');
+                load();
+                return null;
+            }).catch(function (x) { return esc(U.pesanGagal(x)); });
+        });
+    }
+
     // ───── event ─────
     R.addEventListener('click', function (e) {
         var t = e.target.closest('[data-act]');
@@ -338,6 +381,8 @@
             case 'hal': pg = +t.dataset.p; r2(0); break;
             case 'edit': edBuka(t.dataset.id); break;
             case 'hapus': hapusBuka(t.dataset.id); break;
+            case 'display': displayBuka(t.dataset.id); break;
+            case 'display-batal': displayBatal(t.dataset.id); break;
             case 'serah': serah(); break;
             case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); break;
             case 'cetak-tutup': g('cetak').className = 'pcd hide'; break;

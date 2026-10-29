@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-29.2';
+    const BOOTSTRAP_VERSI = '2026-10-29.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1894,7 +1894,25 @@ class MY_Controller extends CI_Controller
             $this->db->query("ALTER TABLE tblcancel_paket MODIFY ditemukan_di enum('PICKER','INBOUND','PACKER','HO','KURIR') NOT NULL");
         }
 
-        $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
+        // Barang diambil lebih dulu dari keranjang paket cancel lalu dikembalikan ke display
+        // (tanda per paket; sumber pengganti QC / Restok bersifat opsional).
+        $kolom_display = [
+            'display_at'      => "ADD COLUMN display_at datetime DEFAULT NULL AFTER alasan_hapus",
+            'display_oleh'    => "ADD COLUMN display_oleh int(11) DEFAULT NULL AFTER display_at",
+            'display_sumber'  => "ADD COLUMN display_sumber enum('QC','RESTOK') DEFAULT NULL AFTER display_oleh",
+            'display_catatan' => "ADD COLUMN display_catatan varchar(255) DEFAULT NULL AFTER display_sumber",
+        ];
+        foreach ($kolom_display as $nama => $ddl) {
+            if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE '$nama'")->num_rows()) {
+                $this->db->query("ALTER TABLE tblcancel_paket $ddl");
+            }
+        }
+        $tipe = $this->db->query("SHOW COLUMNS FROM tblcancel_paket_log LIKE 'aksi'")->row_array();
+        if ($tipe && stripos($tipe['Type'], 'DISPLAY') === false) {
+            $this->db->query("ALTER TABLE tblcancel_paket_log MODIFY aksi enum('TERIMA','EDIT','HAPUS','DISPLAY','BATAL_DISPLAY') NOT NULL");
+        }
+
+        $induk =$this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
         if (!$induk) {
             return;
         }
