@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prototype Paket Cancel</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1d2330;--mut:#6b7385;--bd:#d9dde5;--ok:#1f9d55;--bad:#d64545;--warn:#d98e04;--info:#2a7fd4;--pri:#2d4fd6}
+@media(prefers-color-scheme:dark){:root{--bg:#14171f;--card:#1d212c;--tx:#e8eaf0;--mut:#98a0b3;--bd:#323848}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:0 0 4px}.note{color:var(--mut);font-size:12px;margin-bottom:12px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{padding:8px 14px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:6px;cursor:pointer;font-weight:600}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.grid{display:block;max-width:900px}@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 10px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+input.q{width:70px;text-align:center}
+table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}th{font-size:12px;color:var(--mut);text-transform:uppercase}
+.c{text-align:center}
+.b{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:#fff}
+.b.ok{background:var(--ok)}.b.bad{background:var(--bad)}.b.warn{background:var(--warn)}.b.info{background:var(--info)}.b.gray{background:#8890a3}
+button.a{padding:8px 14px;border:0;border-radius:6px;color:#fff;background:var(--pri);cursor:pointer;font-weight:600}
+button.a.g{background:var(--ok)}button.a.w{background:var(--warn)}button.a.x{background:#8890a3}button.s{padding:3px 8px;font-size:12px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.al{padding:10px;border-radius:6px;margin:8px 0;border:1px solid}.al.ok{background:#1f9d5522;border-color:var(--ok)}.al.bad{background:#d6454522;border-color:var(--bad)}.al.warn{background:#d98e0422;border-color:var(--warn)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:0 0 auto}.row .grow{flex:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}.cards div{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;text-align:center}.cards b{font-size:22px;display:block}
+.hint button{margin:2px;padding:3px 8px;font-size:12px;border:1px dashed var(--bd);background:transparent;color:var(--tx);border-radius:4px;cursor:pointer}
+.pv{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.pv div{background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0}.pv span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}.pv b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pvc{margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:8px;font-size:13px}@media(max-width:560px){.pv{grid-template-columns:repeat(2,1fr)}}
+.hide{display:none}
+.mdo{position:fixed;inset:0;background:#000a;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;outline:0}
+.mdb{background:var(--card);color:var(--tx);border-radius:14px;max-width:640px;width:100%;max-height:92vh;overflow:auto;padding:20px;box-shadow:0 20px 50px #0007}
+.a.r{background:var(--bad)}.eye.del:hover{background:var(--bad);color:#fff;border-color:var(--bad)}.aksi{white-space:nowrap}.aksi .eye{margin:0 2px;padding:5px 8px}
+
+.grid .card{padding:18px}
+.stp{display:flex;align-items:center;gap:8px;margin-bottom:10px}.stp b{font-size:15px}.stp small{color:var(--bad);font-weight:600}
+.stn{width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 auto}
+.asl{margin-bottom:0}.scan{height:48px;font-size:16px;border-width:2px}.scan:focus{outline:0;border-color:var(--pri);box-shadow:0 0 0 3px #2d4fd622}
+.hint{margin-top:8px;font-size:12px;color:var(--mut)}
+.fh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--bd);margin-bottom:16px}
+.fk{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}.fh h3{margin:2px 0 0;font-size:20px}.fh .b{font-size:12px;padding:4px 10px}
+.sec{margin-bottom:18px}.sect{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}.sect b{font-size:14px}.sect .infotxt{flex:1 0 100%;margin:0}
+.txw{border:1px solid var(--bd);border-radius:10px;overflow:hidden}.tx{margin:0;width:100%;border-collapse:collapse}
+.tx th{background:var(--bg);border:0;border-bottom:1px solid var(--bd);padding:8px 10px;font-size:11px;letter-spacing:.4px;white-space:nowrap}
+.tx td{border:0;border-bottom:1px solid var(--bd);padding:8px 10px;vertical-align:middle}.tx tr:last-child td{border-bottom:0}
+.addx{display:flex;gap:8px;margin-top:10px;align-items:center}.addx .q{width:80px}.addx .ac{flex:1}.sect small{margin-left:2px}
+.fa{display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--card);padding:12px 0 0;border-top:1px solid var(--bd);margin-top:4px}.fa .a{padding:10px 22px}
+
+.asl{margin-bottom:12px}.asl-t{font-weight:700;margin-bottom:6px}.req{color:var(--bad)}.asl-t small{color:var(--bad);font-weight:600;margin-left:6px}
+.asl-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}@media(max-width:640px){.asl-g{grid-template-columns:1fr}}
+.asl-o{position:relative;cursor:pointer;display:block}.asl-o input{position:absolute;opacity:0;pointer-events:none}
+.asl-c{display:flex;align-items:center;gap:10px;padding:12px;height:100%;border:2px solid var(--bd);border-radius:12px;background:var(--bg);transition:.15s}
+.asl-c b{display:block}.asl-c small{display:block;color:var(--mut);font-size:12px;font-weight:400}
+.asl-i{font-size:24px;width:44px;height:44px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.asl-o:hover .asl-c{border-color:var(--pri)}.asl-o input:focus-visible+.asl-c{outline:2px solid var(--pri);outline-offset:2px}
+.asl-o input:checked+.asl-c{border-color:var(--pri);background:#2d4fd61a;box-shadow:0 0 0 3px #2d4fd622}.asl-o input:checked+.asl-c:after{content:"\2713";margin-left:auto;width:22px;height:22px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.asl.err .asl-c{border-color:var(--bad);animation:gt .3s}@keyframes gt{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+.tb{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:space-between;padding:12px 14px}
+.tbl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1 1 520px}.tbl #qs{flex:1 1 220px;width:auto;min-width:200px}
+.tbr{display:flex;gap:8px;align-items:center}.tb .infotxt{flex:1 0 100%;margin:0}
+.tb .drb,.tb #qs,.tb .a.w,.tb .ic{height:38px}.tb .ic{width:38px;padding:0;margin:0;font-size:16px}.tb .a.w{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.cards{margin-bottom:12px}.cards div{padding:10px}
+.tc{padding:0;overflow:hidden}.tw{overflow-x:auto}.tc table{margin:0;min-width:640px}
+.tc th{background:var(--bg);border:0;border-bottom:1px solid var(--bd);padding:10px 12px;font-size:11px;letter-spacing:.4px;white-space:nowrap}
+.tc td{border:0;border-bottom:1px solid var(--bd);padding:10px 12px;vertical-align:middle}
+.tc tbody tr:not([id]):hover{background:var(--bg)}.tc tr[id] td{background:var(--bg);padding:8px 12px 10px 48px;border-bottom:1px solid var(--bd)}
+.tc td a{color:var(--pri);text-decoration:none;font-weight:700}
+.tf{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 14px;border-top:1px solid var(--bd)}.tf select{width:auto;display:inline-block;padding:4px 6px;margin:0 4px}
+
+.msw{position:relative}.msb{min-width:150px}.msb.msact{border-color:var(--pri);background:#2d4fd614}.msi{color:var(--mut)}
+.mspop{min-width:230px;flex-direction:column;padding:6px}.msl{display:flex;flex-direction:column}.mso{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;user-select:none}.mso:hover{background:var(--bg)}
+.mso input{position:absolute;opacity:0;pointer-events:none}.msck{width:18px;height:18px;border:2px solid var(--bd);border-radius:5px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--bg)}
+.mso input:checked+.msck{background:var(--pri);border-color:var(--pri)}.mso input:checked+.msck:after{content:"\2713";color:#fff;font-size:12px;line-height:1;font-weight:700}.mso input:focus-visible+.msck{outline:2px solid var(--pri);outline-offset:2px}
+.msf{display:flex;justify-content:space-between;gap:8px;padding:8px 6px 2px;border-top:1px solid var(--bd);margin-top:4px}
+
+.drp{position:relative}.drb{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:8px;cursor:pointer;font:inherit;min-width:250px}.drb:hover{border-color:var(--pri)}.drb b{flex:1;text-align:left;font-weight:600}.car{color:var(--mut)}
+.drpop{position:absolute;top:calc(100% + 6px);left:0;z-index:40;background:var(--card);border:1px solid var(--bd);border-radius:12px;box-shadow:0 12px 32px #0005;display:flex;overflow:hidden}.drpop.hide{display:none}
+.drpre{display:flex;flex-direction:column;gap:2px;padding:10px;border-right:1px solid var(--bd);min-width:150px}.drpre button{text-align:left;border:0;background:transparent;color:var(--tx);padding:7px 10px;border-radius:6px;cursor:pointer;font:inherit}.drpre button:hover{background:var(--bg);color:var(--pri)}
+.drcal{padding:12px;width:290px}.drnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.drnav button{border:0;background:var(--bg);color:var(--tx);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px}.drnav button:hover{background:var(--pri);color:#fff}
+.drg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px 0;text-align:center}.dw{font-size:11px;color:var(--mut);padding:4px 0}.dd1{border:0;background:transparent;color:var(--tx);height:34px;cursor:pointer;font:inherit;border-radius:0}.dd1:hover{background:var(--bg);border-radius:50%}
+.dd1.td{font-weight:800;color:var(--pri)}.dd1.in{background:#2d4fd622;border-radius:0}.dd1.st,.dd1.en{background:var(--pri);color:#fff;border-radius:50%}
+.drft{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px}.drft small{color:var(--mut)}
+@media(max-width:640px){.drpop{flex-direction:column;max-width:calc(100vw - 32px)}.drpre{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--bd)}.drcal{width:100%}}
+
+@media print{body *{visibility:hidden}.paper,.paper *{visibility:visible}.paper{position:absolute;left:0;top:0;width:100%;max-width:none;border:0}}
+.inf{display:inline-block;cursor:pointer;color:var(--info);font-size:18px;line-height:1;vertical-align:middle;user-select:none}
+.infotxt{background:#2a7fd41f;border:1px solid var(--info);border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px;color:var(--tx)}
+.th{width:40px;height:40px;border-radius:6px;vertical-align:middle;border:1px solid var(--bd)}
+.eye{border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:6px;cursor:pointer;padding:6px 8px;margin-left:6px;font-size:14px}
+.ac{position:relative}.dd{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--card);border:1px solid var(--bd);border-radius:6px;max-height:220px;overflow:auto;box-shadow:0 6px 18px #0004}
+.dd div{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer}.dd div:hover,.dd div.on{background:var(--bg)}.dd img{width:28px;height:28px;border-radius:4px}.dd small{margin-left:auto;color:var(--mut)}
+#lb{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:90;flex-direction:column;gap:10px;color:#fff}#lb img{width:min(80vw,420px);height:min(80vw,420px);border-radius:10px;background:#fff}
+.paper{background:#fff;color:#111;border:1px solid #888;padding:16px;font-family:Arial;max-width:620px}
+.paper table{width:100%}.paper table td,.paper table th{border-color:#888}.paper td{height:9mm}.paper .f{width:1%;white-space:nowrap;padding-left:10px;padding-right:10px}.paper td.f:nth-child(5){min-width:16mm}.paper th,.paper td.c{text-align:center}
+.paper .ttd{display:flex;justify-content:space-around;margin-top:24px;text-align:center}.paper .sp{height:50px;border-bottom:1px solid #111;margin:4px 0}
+</style></head><body><div class="wrap">
+<h1>Prototype Paket Cancel — Tim Retur</h1>
+<div class="note">Data contoh saja (tidak terhubung database). Muat ulang halaman untuk mengulang dari awal.</div>
+<div class="tabs"><button id="t1" class="on" onclick="tab(1)">1. Terima Paket Cancel</button><button id="t2" onclick="tab(2)">2. Laporan Paket Cancel</button></div>
+
+<div id="p1" class="grid">
+ <div class="card">
+  <div class="stp"><span class="stn">1</span><b>Asal paket</b><span class="req">*</span><small id="asl-e" class="hide">pilih salah satu</small></div>
+  <div id="asal" class="asl"><div class="asl-g">
+   <label class="asl-o"><input type="radio" name="dari" value="PACKER" onchange="asalPilih()"><span class="asl-c"><span class="asl-i">&#128230;</span><span><b>Packer</b></span></span></label>
+   <label class="asl-o"><input type="radio" name="dari" value="HO" onchange="asalPilih()"><span class="asl-c"><span class="asl-i">&#127970;</span><span><b>HO</b></span></span></label>
+   <label class="asl-o"><input type="radio" name="dari" value="KURIR" onchange="asalPilih()"><span class="asl-c"><span class="asl-i">&#128666;</span><span><b>Kurir</b></span></span></label></div></div>
+  <div class="stp" style="margin-top:16px"><span class="stn">2</span><b>Scan no. resi</b></div>
+  <input id="resi" class="scan" placeholder="Scan atau ketik no. resi, lalu Enter" autocomplete="off">
+  <div class="hint">Resi contoh:
+   <button onclick="pakai('CN-001')">CN-001 (2 SKU)</button><button onclick="pakai('CN-002')">CN-002 (qty 3)</button><button onclick="pakai('CN-003')">CN-003</button><button onclick="pakai('OK-100')">OK-100 (bukan cancel)</button><button onclick="pakai('XX-999')">XX-999 (tidak ada)</button></div>
+  <div id="msg"></div>
+ </div>
+
+ <div id="form" class="card hide">
+  <div class="fh">
+   <div><div class="fk">No. Resi</div><h3 id="fres"></h3></div>
+   <span class="b gray" id="ftoko"></span>
+  </div>
+
+  <div class="sec">
+   <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" onclick="tg(this)">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada. Salah ambil: nolkan SKU resi yang tidak ada, lalu tambahkan SKU yang ada di bagian bawah.</div></div>
+   <div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody id="isi"></tbody></table></div>
+  </div>
+
+  <div class="sec">
+   <div class="sect"><b>Barang di luar resi</b><span class="inf" title="Petunjuk" onclick="tg(this)">&#9432;</span><div class="infotxt hide">SKU / qty yang ada di paket tetapi tidak tertulis di resi.</div></div>
+   <div id="xt" class="txw hide"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty ada</th><th style="width:50px"></th></tr></thead><tbody id="ex"></tbody></table></div>
+   <div class="addx"><div class="ac grow"><input id="xsku" placeholder="Ketik SKU, rekomendasi muncul..." autocomplete="off"><div id="dd" class="dd hide"></div></div><input id="xq" class="q" type="number" min="1" value="1"><button class="a" onclick="tambahX()">+ Tambah</button></div>
+   <div id="xmsg"></div>
+  </div>
+
+  <div class="sec">
+   <div id="ban"></div>
+   <div class="sect"><b>Catatan</b><small class="note">wajib bila ada selisih</small></div>
+   <textarea id="cat" rows="2" placeholder="mis. picker salah ambil ZU-2, qty kurang 1"></textarea>
+  </div>
+
+  <div class="fa"><button class="a x" onclick="batal()">Batal</button><button class="a g" onclick="simpan()">&#10003; Simpan Penerimaan</button></div>
+ </div>
+</div>
+
+<div id="p2" class="hide">
+ <div class="card tb">
+  <div class="tbl">
+   <div class="drp"><button type="button" class="drb" onclick="drTog()"><span>&#128197;</span><b id="drl"></b><span class="car">&#9662;</span></button><input id="d1" type="hidden"><input id="d2" type="hidden">
+    <div id="drp" class="drpop hide"><div class="drpre" id="drpre"></div><div class="drcal"><div class="drnav"><button type="button" onclick="drNav(-1)">&lsaquo;</button><b id="drm"></b><button type="button" onclick="drNav(1)">&rsaquo;</button></div><div class="drg" id="drg"></div>
+    <div class="drft"><small id="drh"></small><span><button type="button" class="a x s" onclick="drClose()">Tutup</button> <button type="button" class="a s" onclick="drApply()">Terapkan</button></span></div></div></div></div>
+   <div class="msw" id="ms_fd"></div>
+   <input id="qs" placeholder="Cari resi, SKU, asal, catatan..." oninput="r2(1)">
+  </div>
+  <div class="tbr">
+   <button type="button" id="cardtg" class="eye ic" onclick="cardTog()"></button>
+   <span class="inf" title="Info" onclick="$('infolap').classList.toggle('hide')">&#9432;</span>
+   <button class="a w" id="bsr" onclick="serahRange()">&#128424; Serah Terima</button>
+  </div>
+  <div id="infolap" class="infotxt hide">Default filter hari ini (masih kosong). Data contoh ada di 2 hari sebelumnya: pilih tanggal kemarin atau 2 hari lalu. <b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Tidak ada status; kertas dibuat langsung dari paket yang diterima pada tanggal itu.</div>
+ </div>
+ <div id="cards" class="cards"></div>
+ <div id="msg2"></div>
+ <div id="cetak" class="card hide"></div>
+ <div class="card tc">
+  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:96px">Aksi</th></tr></thead><tbody id="pk"></tbody></table></div>
+  <div class="tf">
+   <span id="pgi" class="note"></span>
+   <div class="row"><label class="note">Tampilkan <select id="ps" onchange="r2(1)"><option>10</option><option>20</option><option>50</option><option>100</option></select> baris</label><span id="pgn" class="row" style="gap:4px"></span></div>
+  </div>
+ </div>
+</div>
+</div>
+<script>
+function $(i){return document.getElementById(i)}
+function tg(e){e.parentNode.querySelector(".infotxt").classList.toggle("hide")}
+var SKU={'ZU-1':['A-01','Kaos Polos Putih'],'ZU-2':['A-02','Kaos Polos Hitam'],'BSBI-5':['B-07','Topi Baseball'],'BM-AKS28-2':['C-03','Anting Set'],'MSK-9':['D-11','Masker Kain']};
+var RESI={'CN-001':{toko:'Shopee A',c:1,isi:[['ZU-1',1],['ZU-2',2]]},'CN-002':{toko:'Tokopedia B',c:1,isi:[['ZU-1',3]]},'CN-003':{toko:'TikTok C',c:1,isi:[['BM-AKS28-2',1],['MSK-9',2]]},'OK-100':{toko:'Shopee A',c:0,st:'READY_TO_SHIP',isi:[['ZU-1',1]]}};
+var paket=[],serah=[],cur=null,jam=function(){var d=new Date();return d.toTimeString().slice(0,8)};
+var WARNA={'ZU-1':'#e8d9b5','ZU-2':'#3b3f4a','BSBI-5':'#4a7bd0','BM-AKS28-2':'#d0a64a','MSK-9':'#7fb88a'};
+function img(s){var sv='<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="'+(WARNA[s]||'#999')+'"/><text x="100" y="108" font-size="22" font-family="Arial" font-weight="700" text-anchor="middle" fill="#fff" stroke="#0006" stroke-width=".6">'+s+'</text></svg>';return 'data:image/svg+xml;utf8,'+encodeURIComponent(sv)}
+function foto(s){return '<img class="th" src="'+img(s)+'"><button type="button" class="eye" title="Lihat foto" data-s="'+s+'" onclick="lihat(this.dataset.s)">&#128065;</button>'}
+function lihat(s){var d=document.createElement('div');d.id='lb';d.onclick=function(){d.remove()};d.innerHTML='<img src="'+img(s)+'"><b>'+s+'</b><small>klik di mana saja untuk menutup</small>';document.body.appendChild(d)}
+var sel=-1;
+function cari(){var q=$('xsku').value.trim().toUpperCase(),r=q?Object.keys(SKU).filter(function(k){return k.indexOf(q)>=0}):[];sel=-1;
+ $('dd').className=r.length?'dd':'dd hide';$('dd').innerHTML=r.map(function(k){return '<div data-s="'+k+'"><img src="'+img(k)+'"><b>'+k+'</b><small>Rak '+SKU[k][0]+'</small></div>'}).join('')}
+$('xsku').addEventListener('input',cari);
+$('xsku').addEventListener('keydown',function(e){var it=$('dd').children;
+ if(e.key=='ArrowDown'||e.key=='ArrowUp'){e.preventDefault();if(!it.length)return;sel=(sel+(e.key=='ArrowDown'?1:-1)+it.length)%it.length;for(var i=0;i<it.length;i++)it[i].className=i==sel?'on':''}
+ else if(e.key=='Enter'){e.preventDefault();if(sel>=0&&it[sel]){$('xsku').value=it[sel].dataset.s;$('dd').className='dd hide';$('xq').focus();$('xq').select()}else tambahX()}
+ else if(e.key=='Escape')$('dd').className='dd hide'});
+$('dd').addEventListener('mousedown',function(e){var d=e.target.closest('[data-s]');if(d){e.preventDefault();$('xsku').value=d.dataset.s;$('dd').className='dd hide';$('xq').focus();$('xq').select()}});
+$('xsku').addEventListener('blur',function(){setTimeout(function(){$('dd').className='dd hide'},100)});
+$('xq').addEventListener('keydown',function(e){if(e.key=='Enter'){e.preventDefault();tambahX();$('xsku').focus()}});
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function al(id,t,h){$(id).innerHTML='<div class="al '+t+'">'+h+'</div>'}
+function tab(n){$('p1').className=n==1?'grid':'hide';$('p2').className=n==2?'':'hide';$('t1').className=n==1?'on':'';$('t2').className=n==2?'on':'';if(n==2)render2()}
+function pakai(r){$('resi').value=r;scan()}
+$('resi').addEventListener('keydown',function(e){if(e.key=='Enter')scan()});
+function autoBersih(el){var siap=false;
+ el.addEventListener('keydown',function(e){if(e.key=='Enter')siap=true});
+ el.addEventListener('beforeinput',function(e){if(siap&&e.inputType&&e.inputType.indexOf('insert')==0){el.value='';siap=false}});
+ el.addEventListener('focus',function(){if(el.value)el.select()});
+ el.addEventListener('input',function(){if(!el.value)siap=false})}
+autoBersih($('resi'));autoBersih($('qs'));
+function asalDipilih(){var c=document.querySelector('[name=dari]:checked');return c?c.value:null}
+function asalPilih(){$('asal').classList.remove('err');$('asl-e').classList.add('hide');if($('msg').innerText.indexOf('Pilih asal paket')>=0)$('msg').innerHTML=''}
+function asalWajib(){if(asalDipilih())return true;$('asal').classList.add('err');$('asl-e').classList.remove('hide');al('msg','bad','Pilih <b>asal paket</b> (Packer atau HO) dulu. Wajib dipilih untuk setiap input.');return false}
+function asalReset(){document.querySelectorAll('[name=dari]').forEach(function(r){r.checked=false})}
+function scan(){var no=$('resi').value.trim().toUpperCase(),r=RESI[no];if(!no)return;if(!asalWajib())return;$('msg').innerHTML='';
+ if(!r){al('msg','bad','Resi <b>'+esc(no)+'</b> tidak ditemukan.');return clr()}
+ if(!r.c){al('msg','bad','Resi <b>'+esc(no)+'</b> bukan pesanan CANCEL (status: '+r.st+'). Ini barang balikan retur biasa — proses lewat Scan Retur, jangan dicampur.');return clr()}
+ var p=paket.filter(function(x){return x.no==no})[0]; if(p){al('msg','warn','Resi <b>'+no+'</b> sudah diterima ('+p.tgl+' '+p.jam+', dari '+p.dari+').');return clr()}
+ cur=no;$('fres').textContent=no;$('ftoko').textContent=r.toko;
+ $('isi').innerHTML=r.isi.map(function(x){return '<tr data-s="'+x[0]+'" data-q="'+x[1]+'"><td><b>'+x[0]+'</b></td><td>'+foto(x[0])+'</td><td>'+SKU[x[0]][0]+'</td><td class="c">'+x[1]+'</td><td><input class="q" type="number" min="0" value="'+x[1]+'" oninput="hit()"></td><td class="st"></td></tr>'}).join('');
+ $('ex').innerHTML='';$('xt').className='txw hide';$('cat').value='';$('form').className='card';hit()}
+function clr(){$('resi').value='';$('form').className='card hide';cur=null}
+function bd(sel,j,n){return j=='SESUAI'?'<span class="b ok">SESUAI</span>':j=='KURANG'?'<span class="b bad">KURANG '+n+'</span>':j=='LEBIH'?'<span class="b warn">LEBIH '+n+'</span>':'<span class="b info">DI LUAR RESI</span>'}
+function hit(){var k=0,l=0,x=0;document.querySelectorAll('#isi tr').forEach(function(tr){var q=+tr.dataset.q,v=+tr.querySelector('input').value||0,d=v-q;tr.querySelector('.st').innerHTML=bd(0,d==0?'SESUAI':d<0?'KURANG':'LEBIH',Math.abs(d));if(d<0)k-=d;else l+=d});
+ document.querySelectorAll('#ex input').forEach(function(i){x+=+i.value||0});var s=k||l||x;
+ $('ban').innerHTML=s?'<div class="al warn"><b>ADA SELISIH:</b> '+[k&&'kurang '+k,l&&'lebih '+l,x&&'di luar resi '+x].filter(Boolean).join(', ')+' pcs</div>':'<div class="al ok"><b>ISI SESUAI RESI</b></div>';return !!s}
+function tambahX(){var s=$('xsku').value.trim().toUpperCase(),q=+$('xq').value;$('xmsg').innerHTML='';
+ if(!SKU[s]){al('xmsg','bad','SKU "'+esc(s)+'" tidak dikenal (coba: '+Object.keys(SKU).join(', ')+')');return}
+ if(q<1){al('xmsg','bad','Qty minimal 1');return}
+ if(document.querySelector('#isi tr[data-s="'+s+'"]')){al('xmsg','warn','SKU '+s+' ada di resi: ubah Qty ada di tabel atas.');return}
+ var ex=document.querySelector('#ex tr[data-s="'+s+'"]');if(ex)ex.querySelector('input').value=(+ex.querySelector('input').value)+q;
+ else $('ex').insertAdjacentHTML('beforeend','<tr data-s="'+s+'"><td><b>'+s+'</b></td><td>'+foto(s)+'</td><td>'+SKU[s][0]+'</td><td class="c"><input class="q" type="number" min="1" value="'+q+'" oninput="hit()"></td><td><button class="a x s" onclick="this.closest(\'tr\').remove();if(!$(\'ex\').children.length)$(\'xt\').className=\'hide\';hit()">×</button></td></tr>');
+ $('xt').className='txw';$('xsku').value='';$('xq').value=1;hit()}
+function batal(){$('msg').innerHTML='';clr()}
+function simpan(){if(!asalWajib())return;var s=hit();if(s&&!$('cat').value.trim()){al('msg','bad','Ada selisih: isi catatan penyebabnya.');$('cat').focus();return}
+ var it=[];document.querySelectorAll('#isi tr').forEach(function(tr){it.push({s:tr.dataset.s,r:+tr.dataset.q,a:+tr.querySelector('input').value||0})});
+ document.querySelectorAll('#ex tr').forEach(function(tr){it.push({s:tr.dataset.s,r:0,a:+tr.querySelector('input').value||0})});
+ var dari=asalDipilih(),cat=$('cat').value.trim(),no=cur,tot=0;
+ var rows=it.map(function(i){tot+=i.a;var j=i.r==0?'EXTRA':i.a==i.r?'SESUAI':i.a<i.r?'KURANG':'LEBIH';return '<tr><td><b>'+i.s+'</b></td><td class="c">'+i.r+'</td><td class="c">'+i.a+'</td><td>'+bd(0,j,Math.abs(i.a-i.r))+'</td></tr>'}).join('');
+ var isi='<div class="pv"><div><span>No. Resi</span><b>'+esc(no)+'</b></div><div><span>Toko</span><b>'+esc(RESI[no].toko)+'</b></div><div><span>Asal</span><b>'+NM[dari]+'</b></div><div><span>Total ada</span><b>'+tot+' pcs</b></div></div>'+
+  '<div class="txw"><table class="tx"><thead><tr><th>SKU</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '<div style="margin-top:10px">'+$('ban').innerHTML+'</div>'+(cat?'<div class="pvc"><b>Catatan:</b> '+esc(cat)+'</div>':'');
+ konfirm('Simpan penerimaan?',isi,'Ya, simpan','g',function(){
+  paket.push({no:no,tgl:hari(0),dari:dari,jam:jam(),st:'DICEK',items:it,sel:s,cat:cat,nomor:null});
+  clr();asalReset();al('msg',s?'warn':'ok','Resi <b>'+no+'</b> tersimpan'+(s?', ADA SELISIH tercatat.':', isi sesuai resi.'));ant();$('resi').focus()},520)}
+function jml(p){return p.items.reduce(function(a,i){return a+i.a},0)}
+function agg(ps){var m={};ps.forEach(function(p){p.items.forEach(function(i){var q=Math.min(i.a,i.r);if(q>0)m[i.s]=(m[i.s]||0)+q})});return Object.keys(m).sort(function(a,b){return SKU[a][0]<SKU[b][0]?-1:1}).map(function(s){return{s:s,rak:SKU[s][0],q:m[s],real:null,ket:''}})}
+function hari(n){var d=new Date();d.setDate(d.getDate()+n);var m=d.getMonth()+1,t=d.getDate();return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(t<10?'0':'')+t}
+function tglIndo(y){var b=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'],p=y.split('-');return +p[2]+' '+b[+p[1]-1]+' '+p[0]}
+var NAMA={DICEK:'Menunggu serah terima',DIKIRIM:'Menunggu restock',SELESAI:'Selesai'},pg=1;
+function tutup(e){$(e.dataset.t).className='hide'}
+var BLN=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],BLNF=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var drA=null,drB=null,drM=null;
+function ymd(d){var m=d.getMonth()+1,t=d.getDate();return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(t<10?'0':'')+t}
+function pd(y){var p=y.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+function fsd(y){var p=y.split('-');return +p[2]+' '+BLN[+p[1]-1]+' '+p[0]}
+function drLabel(a,b){var h=hari(0);if(a==b)return a==h?'Hari ini ('+fsd(a)+')':a==hari(-1)?'Kemarin ('+fsd(a)+')':fsd(a);return fsd(a)+' – '+fsd(b)}
+function setRange(a,b){$('d1').value=a;$('d2').value=b;$('drl').textContent=drLabel(a,b);r2(1)}
+function drPresets(){var t=new Date(),y=t.getFullYear(),m=t.getMonth();
+ return[['Hari ini',hari(0),hari(0)],['Kemarin',hari(-1),hari(-1)],['7 hari terakhir',hari(-6),hari(0)],['30 hari terakhir',hari(-29),hari(0)],['Bulan ini',ymd(new Date(y,m,1)),hari(0)],['Bulan lalu',ymd(new Date(y,m-1,1)),ymd(new Date(y,m,0))]]}
+function drInit(){$('drpre').innerHTML=drPresets().map(function(p,i){return '<button type="button" data-i="'+i+'" onclick="drPre(this)">'+p[0]+'</button>'}).join('')}
+function drPre(e){var p=drPresets()[+e.dataset.i];setRange(p[1],p[2]);drClose()}
+function drClose(){$('drp').classList.add('hide')}
+function drTog(){msClose();var o=$('drp');if(!o.classList.contains('hide')){drClose();return}
+ drA=$('d1').value||null;drB=$('d2').value||drA;var b=drA?pd(drA):new Date();drM=new Date(b.getFullYear(),b.getMonth(),1);drPhase=2;o.classList.remove('hide');drRender()}
+function drNav(n){drM=new Date(drM.getFullYear(),drM.getMonth()+n,1);drRender()}
+function drPick(e){var d=e.dataset.d;if(!drA||drPhase==2){drA=d;drB=null;drPhase=1}else{if(d<drA){drB=drA;drA=d}else drB=d;drPhase=2}drRender()}
+var drPhase=2;
+function drApply(){if(!drA)return;setRange(drA,drB||drA);drClose()}
+function drRender(){var y=drM.getFullYear(),m=drM.getMonth(),h=hari(0),first=new Date(y,m,1),off=(first.getDay()+6)%7,n=new Date(y,m+1,0).getDate(),g='',i;
+ $('drm').textContent=BLNF[m]+' '+y;
+ ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].forEach(function(x){g+='<span class="dw">'+x+'</span>'});
+ for(i=0;i<off;i++)g+='<span></span>';
+ for(i=1;i<=n;i++){var d=ymd(new Date(y,m,i)),c='dd1';var b=drB||drA;
+  if(drA&&d==drA)c+=' st';if(b&&d==b)c+=' en';if(drA&&b&&d>drA&&d<b)c+=' in';if(d==h)c+=' td';
+  g+='<button type="button" class="'+c+'" data-d="'+d+'" onclick="drPick(this)">'+i+'</button>'}
+ $('drg').innerHTML=g;
+ $('drh').textContent=drA?(drB&&drB!=drA?fsd(drA)+' – '+fsd(drB):fsd(drA)+(drPhase==1?' — pilih tanggal akhir':'')):'Pilih tanggal'}
+document.addEventListener('click',function(e){if(!e.target.isConnected||e.target.closest('.drp'))return;drClose()});
+var MS={fd:[],fs:[]},MSO={};
+function msInit(id,judul,opts){MSO[id]={judul:judul,opts:opts};var h='<button type="button" class="drb msb" data-id="'+id+'" onclick="msTog(this)"><span class="msi">&#9776;</span><b></b><span class="msn hide"></span><span class="car">&#9662;</span></button><div class="drpop mspop hide"><div class="msl">';
+ opts.forEach(function(o){h+='<label class="mso"><input type="checkbox" value="'+o[0]+'" data-id="'+id+'" onchange="msChg(this)"><span class="msck"></span><span class="mst">'+o[1]+'</span></label>'});
+ h+='</div><div class="msf"><button type="button" class="a x s" data-id="'+id+'" onclick="msReset(this)">Reset</button><button type="button" class="a s" onclick="msClose()">Selesai</button></div></div>';
+ $('ms_'+id).innerHTML=h;msLabel(id)}
+function msLabel(id){var o=MSO[id],v=MS[id],w=$('ms_'+id),t=v.length==0?'Semua '+o.judul.toLowerCase():v.length==1?o.opts.filter(function(x){return x[0]==v[0]})[0][1]:o.judul+': '+v.length+' dipilih';
+ w.querySelector('.msb b').textContent=t;w.querySelector('.msb').classList.toggle('msact',v.length>0)}
+function msTog(b){var pop=b.parentNode.querySelector('.mspop'),was=pop.classList.contains('hide');msClose();drClose();if(was)pop.classList.remove('hide')}
+function msClose(){document.querySelectorAll('.mspop').forEach(function(p){p.classList.add('hide')})}
+function msChg(c){var id=c.dataset.id,v=[];c.closest('.msl').querySelectorAll('input:checked').forEach(function(i){v.push(i.value)});MS[id]=v;msLabel(id);r2(1)}
+function msReset(b){var id=b.dataset.id;MS[id]=[];b.closest('.mspop').querySelectorAll('input').forEach(function(i){i.checked=false});msLabel(id);r2(1)}
+document.addEventListener('click',function(e){if(!e.target.isConnected||e.target.closest('.msw'))return;msClose()});
+function cardSet(sembunyi){$('cards').classList.toggle('hide',sembunyi);var b=$('cardtg');b.innerHTML='&#128202;';b.title=sembunyi?'Tampilkan ringkasan':'Sembunyikan ringkasan';b.setAttribute('aria-label',b.title);b.style.background=sembunyi?'':'var(--pri)';b.style.color=sembunyi?'':'#fff'}
+function cardTog(){var h=!$('cards').classList.contains('hide');cardSet(h);}
+function cardInit(){cardSet(true)}
+var NM={PACKER:'Packer',HO:'HO',KURIR:'Kurir'},IKON={PACKER:'&#128230;',HO:'&#127970;',KURIR:'&#128666;'},dihapus=[],edO=null;
+function cariPaket(no){return paket.filter(function(p){return p.no==no})[0]}
+function mdBuka(html,z,w){var o=document.createElement('div');o.className='mdo';if(z)o.style.zIndex=z;o.setAttribute('tabindex','-1');o.innerHTML='<div class="mdb"'+(w?' style="max-width:'+w+'px"':'')+'>'+html+'</div>';document.body.appendChild(o);o.focus();return o}
+function mdTutup(o){if(o&&o.parentNode)o.remove()}
+function konfirm(judul,isi,label,kelas,ok,w){
+ var o=mdBuka('<h3 style="margin:0 0 10px">'+judul+'</h3><div>'+isi+'</div><div id="kferr"></div><div class="row" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-k="x">Batal</button><button type="button" class="a '+kelas+'" data-k="ok">'+label+'</button></div>',80,w||440);
+ o.addEventListener('click',function(e){var k=e.target.dataset&&e.target.dataset.k;
+  if(k=='x'||e.target==o)mdTutup(o);
+  else if(k=='ok'){var er=ok(o);if(er)o.querySelector('#kferr').innerHTML='<div class="al bad" style="margin-bottom:0">'+er+'</div>';else mdTutup(o)}});
+ o.addEventListener('keydown',function(e){if(e.key=='Escape'){e.stopPropagation();mdTutup(o)}else if(e.key=='Enter'&&kelas=='g'&&e.target.tagName!='TEXTAREA'&&e.target.tagName!='BUTTON'){e.preventDefault();o.querySelector('[data-k=ok]').click()}});return o}
+function edRow(i){var ex=i.r==0;return '<tr data-s="'+i.s+'" data-r="'+i.r+'"><td><b>'+i.s+'</b></td><td>'+foto(i.s)+'</td><td class="c">'+SKU[i.s][0]+'</td><td class="c">'+i.r+'</td><td><input class="q" type="number" min="0" value="'+i.a+'" oninput="edHit()"></td><td class="st"></td><td>'+(ex?'<button type="button" class="a x s" onclick="this.closest(&quot;tr&quot;).remove();edHit()">&times;</button>':'')+'</td></tr>'}
+function edBuka(no){var p=cariPaket(no);if(!p)return;
+ var as=['PACKER','HO','KURIR'].map(function(a){return '<label class="asl-o"><input type="radio" name="edari" value="'+a+'"'+(p.dari==a?' checked':'')+'><span class="asl-c"><span class="asl-i">'+IKON[a]+'</span><span><b>'+NM[a]+'</b></span></span></label>'}).join('');
+ var dl=Object.keys(SKU).map(function(k){return '<option value="'+k+'">'}).join('');
+ edO=mdBuka('<h3 style="margin:0 0 2px">Edit paket cancel</h3><div class="note" style="margin-bottom:12px">'+p.no+' &middot; diterima '+p.tgl+' '+p.jam+'</div>'+
+  '<div class="stp"><b>Asal paket</b></div><div class="asl"><div class="asl-g">'+as+'</div></div>'+
+  '<div class="stp" style="margin-top:16px"><b>Isi paket</b></div><div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="edb">'+p.items.map(edRow).join('')+'</tbody></table></div>'+
+  '<div class="addx"><input id="edsku" list="edl" placeholder="Tambah SKU di luar resi" autocomplete="off" style="flex:1"><datalist id="edl">'+dl+'</datalist><input id="edq" class="q" type="number" min="1" value="1"><button type="button" class="a" onclick="edTambah()">+ Tambah</button></div><div id="edmsg"></div>'+
+  '<div id="edban" style="margin-top:12px"></div><div class="sect" style="margin-top:8px"><b>Catatan</b><small class="note">wajib bila ada selisih</small></div><textarea id="edcat" rows="2">'+esc(p.cat||'')+'</textarea>'+
+  '<div class="row" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" onclick="mdTutup(edO)">Batal</button><button type="button" class="a g" onclick="edSimpan(\''+p.no+'\')">&#10003; Simpan perubahan</button></div>',60,640);
+ edHit()}
+function edHit(){var k=0,l=0,x=0;document.querySelectorAll('#edb tr').forEach(function(tr){var r=+tr.dataset.r,v=+tr.querySelector('input').value||0,d=v-r;
+  tr.querySelector('.st').innerHTML=r==0?bd(0,'EXTRA'):bd(0,d==0?'SESUAI':d<0?'KURANG':'LEBIH',Math.abs(d));if(r==0)x+=v;else if(d<0)k-=d;else l+=d});
+ var s=k||l||x;$('edban').innerHTML=s?'<div class="al warn" style="margin:0"><b>ADA SELISIH:</b> '+[k&&'kurang '+k,l&&'lebih '+l,x&&'di luar resi '+x].filter(Boolean).join(', ')+' pcs</div>':'<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b></div>';return !!s}
+function edTambah(){var s=$('edsku').value.trim().toUpperCase(),q=+$('edq').value;$('edmsg').innerHTML='';
+ if(!SKU[s]){al('edmsg','bad','SKU "'+esc(s)+'" tidak dikenal.');return}
+ if(q<1){al('edmsg','bad','Qty minimal 1.');return}
+ var ada=document.querySelector('#edb tr[data-s="'+s+'"]');
+ if(ada){if(+ada.dataset.r>0){al('edmsg','warn','SKU '+s+' ada di resi: ubah Qty ada di tabel.');return}ada.querySelector('input').value=(+ada.querySelector('input').value)+q}
+ else $('edb').insertAdjacentHTML('beforeend',edRow({s:s,r:0,a:q}));
+ $('edsku').value='';$('edq').value=1;edHit()}
+function edSimpan(no){var p=cariPaket(no),m=edO,dari=(m.querySelector('[name=edari]:checked')||{}).value;$('edmsg').innerHTML='';
+ if(!dari){al('edmsg','bad','Pilih asal paket.');return}
+ var it=[];m.querySelectorAll('#edb tr').forEach(function(tr){it.push({s:tr.dataset.s,r:+tr.dataset.r,a:+tr.querySelector('input').value||0})});
+ var sel=edHit(),cat=$('edcat').value.trim();
+ if(sel&&!cat){al('edmsg','bad','Ada selisih: isi catatan penyebabnya.');$('edcat').focus();return}
+ var ch=[];if(dari!=p.dari)ch.push('Asal: <b>'+NM[p.dari]+'</b> &rarr; <b>'+NM[dari]+'</b>');
+ var lama={};p.items.forEach(function(i){lama[i.s]=i});var baru={};
+ it.forEach(function(i){baru[i.s]=i;var o=lama[i.s];if(!o)ch.push('+ <b>'+i.s+'</b>: '+i.a+' pcs (di luar resi)');else if(o.a!=i.a)ch.push('<b>'+i.s+'</b>: '+o.a+' &rarr; '+i.a+' pcs')});
+ p.items.forEach(function(o){if(!baru[o.s])ch.push('- <b>'+o.s+'</b> dihapus dari paket')});
+ if(cat!=(p.cat||''))ch.push('Catatan diubah');
+ if(!ch.length){al('edmsg','warn','Tidak ada perubahan untuk disimpan.');return}
+ konfirm('Simpan perubahan?','Perubahan pada paket <b>'+no+'</b>:<ul style="margin:8px 0 0;padding-left:20px">'+ch.map(function(c){return '<li>'+c+'</li>'}).join('')+'</ul>','Ya, simpan','g',function(){
+  p.dari=dari;p.items=it;p.sel=sel;p.cat=cat;p.diedit=jam();mdTutup(edO);al('msg2','ok','Paket <b>'+no+'</b> berhasil diperbarui.');r2(0)})}
+function hapusBuka(no){var p=cariPaket(no);if(!p)return;
+ konfirm('Hapus paket cancel?','Paket <b>'+no+'</b> ('+NM[p.dari]+', '+p.tgl+' '+p.jam+', '+jml(p)+' pcs) akan dihapus dari laporan dan tidak ikut kertas serah terima. Resi ini bisa diterima ulang.<textarea id="hpalasan" rows="2" placeholder="Alasan penghapusan (wajib)" style="margin-top:10px"></textarea>','Ya, hapus','r',function(o){
+  var a=o.querySelector('#hpalasan').value.trim();if(!a)return 'Isi alasan penghapusan.';
+  paket.splice(paket.indexOf(p),1);dihapus.push({paket:p,alasan:a,waktu:jam()});al('msg2','ok','Paket <b>'+no+'</b> dihapus.');r2(0)})}
+function inRange(t){var a=$('d1').value,b=$('d2').value;return(!a||t>=a)&&(!b||t<=b)}
+function seed(){var sk=Object.keys(SKU),i,k,r,p;
+ for(i=0;i<34;i++){var lama=i<16;r=1+i%3;k=sk[i%5];
+  var it=[{s:k,r:r,a:i%7==0?r-1:r}];if(i%4==0){var k2=sk[(i+2)%5];if(k2!=k)it.push({s:k2,r:1,a:1})}
+  if(i%11==0)it.push({s:sk[(i+3)%5]==k?sk[(i+4)%5]:sk[(i+3)%5],r:0,a:1});
+  var sel=it.some(function(x){return x.a!=x.r});
+  paket.push({no:'CN-'+(200+i),dari:['PACKER','HO','KURIR'][i%3],tgl:hari(lama?-2:-1),jam:('0'+(8+i%9)).slice(-2)+':'+(i%2?'05':'40')+':'+('0'+(i*17%60)).slice(-2),items:it,sel:sel,cat:sel?'Selisih contoh dari picker':''})}}
+function filt(){var q=$('qs').value.trim().toLowerCase();return paket.filter(function(p){
+ if(!inRange(p.tgl))return false;if(MS.fd.length&&MS.fd.indexOf(p.dari)<0)return false;if(!q)return true;
+ var h=(p.no+' '+p.dari+' '+(p.cat||'')+' '+p.items.map(function(i){return i.s}).join(' ')).toLowerCase();return h.indexOf(q)>=0})}
+function satuHari(){return $('d1').value&&$('d1').value==$('d2').value}
+function serahRange(){if(!satuHari()){al('msg2','warn','Serah terima dibuat <b>satu per hari</b>. Pilih satu tanggal di filter tanggal, mis. tanggal paket diterima.');return}
+ var t=$('d1').value,ps=paket.filter(function(p){return p.tgl==t});
+ if(!ps.length){al('msg2','warn','Tidak ada paket cancel diterima pada '+tglIndo(t)+'.');return}
+ $('msg2').innerHTML='';cetak(t)}
+function r2(reset){if(reset)pg=1;var all=paket.filter(function(p){return inRange(p.tgl)}),rows=filt(),per=+$('ps').value,tot=rows.length,pages=Math.max(1,Math.ceil(tot/per));if(pg>pages)pg=pages;
+ var c=function(f){return all.filter(f).length};
+ $('cards').innerHTML=[['Diterima',all.length],['Ada selisih',c(function(p){return p.sel})],['Dari Packer',c(function(p){return p.dari=='PACKER'})],['Dari HO',c(function(p){return p.dari=='HO'})],['Dari Kurir',c(function(p){return p.dari=='KURIR'})]].map(function(x){return '<div><b>'+x[1]+'</b><small>'+x[0]+'</small></div>'}).join('');
+ var bs=$('bsr');bs.disabled=!satuHari();bs.title=satuHari()?'Cetak serah terima '+tglIndo($('d1').value):'Pilih satu tanggal untuk mencetak serah terima (satu hari satu serah terima)';
+ var st=(pg-1)*per,ps=rows.slice(st,st+per);
+ $('pk').innerHTML=ps.map(function(p,i){
+  var det=p.items.map(function(i){var j=i.r==0?'EXTRA':i.a==i.r?'SESUAI':i.a<i.r?'KURANG':'LEBIH';return '<div><b>'+i.s+'</b> '+i.a+'/'+i.r+' '+bd(0,j,Math.abs(i.a-i.r))+'</div>'}).join('');
+  return '<tr'+(p.sel?' style="background:#d98e0418"':'')+'><td><a href="#" data-i="'+i+'" onclick="document.getElementById(\'d\'+this.dataset.i).classList.toggle(\'hide\');return false">&#65291;</a></td><td><b>'+p.no+'</b>'+(p.diedit?'<br><small class="note">diedit '+p.diedit+'</small>':'')+'</td><td>'+p.tgl+'</td><td>'+p.dari+'</td><td>'+p.jam+'</td><td class="c">'+p.items.reduce(function(a,x){return a+x.r},0)+'</td><td class="c">'+jml(p)+'</td><td>'+(p.sel?'<span class="b bad">SELISIH</span>':'<span class="b ok">SESUAI</span>')+'</td><td class="c aksi"><button type="button" class="eye" title="Edit" aria-label="Edit" data-no="'+p.no+'" onclick="edBuka(this.dataset.no)">&#9998;</button><button type="button" class="eye del" title="Hapus" aria-label="Hapus" data-no="'+p.no+'" onclick="hapusBuka(this.dataset.no)">&#128465;</button></td></tr><tr id="d'+i+'" class="hide"><td></td><td colspan="8">'+det+(p.cat?'<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> '+esc(p.cat)+'</div>':'')+'</td></tr>'}).join('')||'<tr><td colspan="9" style="color:var(--mut);text-align:center">Tidak ada data.</td></tr>';
+ $('pgi').textContent=tot?'Menampilkan '+(st+1)+'-'+Math.min(st+per,tot)+' dari '+tot:'Menampilkan 0 dari 0';
+ var b=[],a=Math.max(1,pg-2),z=Math.min(pages,pg+2),k;
+ b.push('<button class="a x s"'+(pg<=1?' disabled':'')+' data-p="'+(pg-1)+'" onclick="gp(this)">&laquo;</button>');
+ for(k=a;k<=z;k++)b.push('<button class="a'+(k==pg?'':' x')+' s" data-p="'+k+'" onclick="gp(this)">'+k+'</button>');
+ b.push('<button class="a x s"'+(pg>=pages?' disabled':'')+' data-p="'+(pg+1)+'" onclick="gp(this)">&raquo;</button>');
+ $('pgn').innerHTML=b.join('')}
+function gp(e){pg=+e.dataset.p;r2(0)}
+function render2(){r2(0)}
+function cetak(t){var np=paket.filter(function(p){return p.tgl==t}),det=agg(np),tot=det.reduce(function(a,d){return a+d.q},0),pk=np.filter(function(p){return p.dari=='PACKER'}).length,sl=np.filter(function(p){return p.sel}).length;
+ $('cetak').className='card';$('cetak').innerHTML='<div class="row"><h2 class="grow">Pratinjau kertas serah terima</h2><button class="a w s" onclick="window.print()">&#128424; Cetak</button><button class="a x s" data-t="cetak" onclick="tutup(this)">Tutup</button></div><div class="paper"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:6px"><b style="font-size:16px">SERAH TERIMA PAKET CANCEL</b><b>'+tglIndo(t)+'</b></div><table><thead><tr><th class="f">No</th><th class="f">No. Rak</th><th class="f">SKU</th><th class="f">Qty</th><th class="f">Qty Real</th><th>Ket</th></tr></thead><tbody>'+(det.length?'':'<tr><td colspan="6" style="text-align:center;color:#555">Tidak ada barang sesuai resi pada tanggal ini.</td></tr>')+det.map(function(d,k){return '<tr><td class="f c">'+(k+1)+'</td><td class="f c">'+d.rak+'</td><td class="f">'+d.s+'</td><td class="f c">'+d.q+'</td><td class="f"></td><td></td></tr>'}).join('')+'</tbody></table><div class="ttd"><div>RETUR<div class="sp"></div><b>Alfiana</b></div><div>RESTOK<div class="sp"></div>&nbsp;</div></div></div>';$('cetak').scrollIntoView()}
+function ant(){if(!$('an'))return;var q=paket.filter(function(p){return p.tgl==hari(0)}),t=q.reduce(function(a,p){return a+jml(p)},0);
+ $('an').innerHTML=q.slice().reverse().map(function(p){return '<tr><td><small>'+p.no+'<br>'+p.dari+' · '+p.jam+'</small></td><td style="text-align:right">'+jml(p)+(p.sel?' <span class="b warn">selisih</span>':'')+'</td></tr>'}).join('');
+ $('aninfo').textContent=q.length?q.length+' paket · '+t+' pcs':'Belum ada paket diterima hari ini.'}
+seed();ant();cardInit();drInit();msInit('fd','Asal',[['PACKER','Packer'],['HO','HO'],['KURIR','Kurir']]);setRange(hari(0),hari(0));
+</script></body></html>
