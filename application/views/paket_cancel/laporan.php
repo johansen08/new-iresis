@@ -10,17 +10,21 @@
   </div>
   <div class="tbr">
    <button type="button" id="pc_cardtg" class="eye ic" data-act="card-tog"></button>
-   <span class="inf" title="Info" data-act="info">&#9432;</span>
+   <button type="button" id="pc_dsptg" class="eye ic" data-act="dsp-tog"></button>
    <button type="button" class="a w" id="pc_bsr" data-act="serah">&#128424; Serah Terima</button>
+   <span class="inf" title="Info" data-act="info">&#9432;</span>
   </div>
   <div id="pc_infolap" class="infotxt hide"><b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Kertas dibuat langsung dari paket yang diterima pada tanggal itu; hanya barang yang sesuai resi yang dihitung, selisih tidak.</div>
  </div>
  <div id="pc_cards" class="cards"></div>
  <div id="pc_msg2"></div>
  <div id="pc_cetak" class="pcd hide"></div>
- <div class="pcd tc" id="pc_dspw">
-  <div class="sect" style="padding:10px 14px 0"><b>Barang kembali ke display</b><small class="note" id="pc_dspn"></small></div>
+ <div class="pcd tc hide" id="pc_dspw">
   <div class="tw"><table><thead><tr><th>Waktu</th><th>No. Resi</th><th>SKU</th><th class="c">Qty</th><th>Butuh dari</th><th>Catatan</th><th>Oleh</th><th class="c" style="width:56px">Aksi</th></tr></thead><tbody id="pc_dsp"></tbody></table></div>
+  <div class="tf">
+   <span id="pc_dpgi" class="note"></span>
+   <div class="pr"><label class="note">Tampilkan <select id="pc_dps"><option>10</option><option>20</option><option>50</option><option>100</option></select> baris</label><span id="pc_dpgn" class="pr" style="gap:4px"></span></div>
+  </div>
  </div>
  <div class="pcd tc">
   <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
@@ -48,6 +52,7 @@
     };
     var rows = [];          // semua paket diterima pada rentang tanggal terpilih
     var disp = [];          // catatan barang kembali ke display pada rentang tanggal
+    var dpg = 1;            // halaman tabel display
     var pg = 1, muat = 0;   // halaman aktif; nomor permintaan terakhir (abaikan balasan basi)
     var MS = { fd: [] };    // filter asal (kosong = semua)
     var edO = null;         // popup edit yang terbuka
@@ -137,18 +142,40 @@
         for (k = a; k <= z; k++) b.push('<button type="button" class="a' + (k === pg ? '' : ' x') + ' s" data-act="hal" data-p="' + k + '">' + k + '</button>');
         b.push('<button type="button" class="a x s"' + (pg >= pages ? ' disabled' : '') + ' data-act="hal" data-p="' + (pg + 1) + '">&raquo;</button>');
         g('pgn').innerHTML = b.join('');
-        rDisp();
+        rDisp(reset);
     }
 
-    function rDisp() {
+    function rDisp(reset) {
+        if (reset) dpg = 1;
         var q = g('qs').value.trim().toLowerCase();
         var l = disp.filter(function (d) { return !q || (d.noresi + ' ' + d.sku + ' ' + (d.sumber || '') + ' ' + (d.catatan || '') + ' ' + (d.petugas || '')).toLowerCase().indexOf(q) >= 0; });
-        g('dspn').textContent = l.length ? l.length + ' catatan, ' + l.reduce(function (a, d) { return a + d.qty; }, 0) + ' pcs' : '';
-        g('dsp').innerHTML = l.map(function (d) {
+        var per = +g('dps').value, tot = l.length, pages = Math.max(1, Math.ceil(tot / per));
+        if (dpg > pages) dpg = pages;
+        var st = (dpg - 1) * per;
+        g('dsp').innerHTML = l.slice(st, st + per).map(function (d) {
             return '<tr><td>' + esc(d.tgl) + ' ' + esc(d.jam) + '</td><td>' + (d.noresi ? '<b>' + esc(d.noresi) + '</b>' : '<span class="note">tanpa resi</span>') + (d.id_paket ? '' : ' <span class="b gray">DI LUAR PAKET</span>') +
                 '</td><td><b>' + esc(d.sku) + '</b></td><td class="c">' + d.qty + '</td><td>' + (d.sumber ? '<span class="b warn">' + (d.sumber === 'QC' ? 'QC' : 'Restok') + '</span>' : '') +
                 '</td><td>' + esc(d.catatan || '') + '</td><td>' + esc(d.petugas || '') + '</td><td class="c aksi"><button type="button" class="eye del" title="Batalkan catatan" aria-label="Batalkan catatan" data-act="display-batal" data-id="' + d.id + '">&#8617;</button></td></tr>';
         }).join('') || '<tr><td colspan="8" class="c" style="color:var(--mut)">Belum ada barang kembali ke display pada rentang ini.</td></tr>';
+        g('dpgi').textContent = tot ? 'Menampilkan ' + (st + 1) + '-' + Math.min(st + per, tot) + ' dari ' + tot : 'Menampilkan 0 dari 0';
+        var b = [], a = Math.max(1, dpg - 2), z = Math.min(pages, dpg + 2), k;
+        b.push('<button type="button" class="a x s"' + (dpg <= 1 ? ' disabled' : '') + ' data-act="dhal" data-p="' + (dpg - 1) + '">&laquo;</button>');
+        for (k = a; k <= z; k++) b.push('<button type="button" class="a' + (k === dpg ? '' : ' x') + ' s" data-act="dhal" data-p="' + k + '">' + k + '</button>');
+        b.push('<button type="button" class="a x s"' + (dpg >= pages ? ' disabled' : '') + ' data-act="dhal" data-p="' + (dpg + 1) + '">&raquo;</button>');
+        g('dpgn').innerHTML = b.join('');
+        dspSet(g('dspw').classList.contains('hide'), tot);
+    }
+
+    // tombol kecil tampil/sembunyi tabel barang kembali ke display (jumlah catatan di tooltip)
+    function dspSet(sembunyi, tot) {
+        g('dspw').classList.toggle('hide', sembunyi);
+        var b = g('dsptg');
+        if (tot === undefined) tot = disp.length;
+        b.innerHTML = '&#127978;';
+        b.title = (sembunyi ? 'Tampilkan' : 'Sembunyikan') + ' tabel barang kembali ke display (' + disp.length + ' catatan)';
+        b.setAttribute('aria-label', b.title);
+        b.style.background = sembunyi ? '' : 'var(--pri)';
+        b.style.color = sembunyi ? '' : '#fff';
     }
 
     function cardSet(sembunyi) {
@@ -451,6 +478,8 @@
             case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); break;
             case 'cetak-tutup': g('cetak').className = 'pcd hide'; break;
             case 'info': g('infolap').classList.toggle('hide'); break;
+            case 'dsp-tog': dspSet(!g('dspw').classList.contains('hide')); break;
+            case 'dhal': dpg = +t.dataset.p; rDisp(0); break;
             case 'card-tog': cardSet(!g('cards').classList.contains('hide')); break;
             case 'dr-tog': drTog(); break;
             case 'dr-tutup': drClose(); break;
@@ -484,6 +513,8 @@
             MS.fd = v; msLabel(); r2(1);
         } else if (e.target.id === 'pc_ps') {
             r2(1);
+        } else if (e.target.id === 'pc_dps') {
+            rDisp(1);
         }
     });
     R.addEventListener('input', function (e) {
@@ -504,6 +535,7 @@
     g('drpre').innerHTML = drPresets().map(function (p, i) { return '<button type="button" data-act="dr-pre" data-i="' + i + '">' + p[0] + '</button>'; }).join('');
     msInit();
     cardSet(true);
+    dspSet(true);
     setRange(U.hari(0), U.hari(0));
     g('qs').focus();
 })();
