@@ -239,6 +239,38 @@ class Qc_return extends MY_Controller
         $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_riwayat_cetak());
     }
 
+    // Daftar pengerjaan harian (tanggal data, status ambil/selesai, riwayat cetak)
+    public function pengerjaan_harian()
+    {
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_pengerjaan_harian(30));
+    }
+
+    // QC klik saat keranjang tanggal tsb diambil tim Restok
+    public function barang_diambil()
+    {
+        $tanggal = $this->input->post('tanggal');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
+            $this->make_ajax_response(400, 'Tanggal tidak valid');
+        }
+        if (!$this->qc_return_fcd->tandai_diambil($tanggal, $this->data['user']['id_user'])) {
+            $this->make_ajax_response(409, 'Barang tanggal ini sudah pernah ditandai diambil');
+        }
+        $this->make_ajax_response(200, 'Barang ditandai diambil');
+    }
+
+    // Restok selesai mengerjakan keranjang tanggal tsb (hanya setelah diambil)
+    public function pengerjaan_selesai()
+    {
+        $tanggal = $this->input->post('tanggal');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $tanggal)) {
+            $this->make_ajax_response(400, 'Tanggal tidak valid');
+        }
+        if (!$this->qc_return_fcd->tandai_selesai($tanggal, $this->data['user']['id_user'])) {
+            $this->make_ajax_response(409, 'Belum diambil atau sudah pernah diselesaikan');
+        }
+        $this->make_ajax_response(200, 'Pengerjaan ditandai selesai');
+    }
+
     public function delete()
     {
         $id = $this->input->post('id');

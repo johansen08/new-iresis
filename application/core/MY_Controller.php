@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-29.6';
+    const BOOTSTRAP_VERSI = '2026-10-29.7';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2233,6 +2233,16 @@ class MY_Controller extends CI_Controller
           `dicetak_at` datetime NOT NULL,
           PRIMARY KEY (`id_cetak`),
           KEY `idx_dicetak_at` (`dicetak_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Satu baris per tanggal data = satu pengerjaan: kapan keranjang diambil Restok dan kapan selesai.
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblpengembalian_qc_serah` (
+          `tanggal` date NOT NULL,
+          `diambil_at` datetime DEFAULT NULL,
+          `diambil_oleh` int(11) DEFAULT NULL,
+          `selesai_at` datetime DEFAULT NULL,
+          `selesai_oleh` int(11) DEFAULT NULL,
+          PRIMARY KEY (`tanggal`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
     }
 
