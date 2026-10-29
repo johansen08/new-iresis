@@ -29,11 +29,12 @@
                             <option value="REJECT">REJECT</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3" style="white-space:nowrap">
                         <button class="btn btn-primary" onclick="refreshTable()"><i class="fa fa-search"></i> Filter</button>
                         <button class="btn btn-info" onclick="exportToExcel()"><i class="fa fa-file-excel-o"></i> Export</button>
+                        <button class="btn btn-warning" onclick="serahTerima()"><i class="fa fa-print"></i> Serah Terima</button>
                     </div>
-                    <div class="col-md-3 text-right">
+                    <div class="col-md-2 text-right">
                         <a href="qc_return/add" class="btn btn-success link"><i class="fa fa-plus"></i> Submit Pengembalian</a>
                     </div>
                 </div>
@@ -137,6 +138,12 @@
 
         var url = 'qc_return/export_to_excel?start_date=' + start_date + '&end_date=' + end_date + '&status=' + status + '&kondisi=' + kondisi;
         window.location.href = url;
+    }
+
+    // Buka halaman cetak A4 serah terima (tanpa REJECT) untuk rentang tanggal yang difilter
+    function serahTerima() {
+        var range = $('#reportrange').val().split(' - ');
+        window.open('qc_return/serah_terima?start_date=' + range[0] + '&end_date=' + range[1], '_blank');
     }
 
     function deleteData(id) {
