@@ -8,7 +8,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Bonus_picker extends MY_Controller
 {
     /** Sejalan dengan MY_Controller::run_bonus_picker_migration(). */
-    const ROLE_BOLEH = [1, 2, 6];
+    const ROLE_BOLEH = [1];
 
     public function __construct()
     {
