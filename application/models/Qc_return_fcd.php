@@ -301,12 +301,14 @@ class Qc_return_fcd extends CI_Model
             "SELECT mp.id_masalahpicker, mp.id_typemasalah, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah, DATE(mp.created) AS tgl,
                 COALESCE(NULLIF((SELECT dr.no_rak FROM tbldetailprintresi dr WHERE dr.id_resi = mp.id_printresi AND dr.sku = mp.sku
                                  ORDER BY dr.id_detail_resi ASC LIMIT 1), ''), s.no_rak, '') AS no_rak,
+                s2.id_sku AS sku_salah_master, COALESCE(NULLIF(s2.no_rak, ''), '') AS rak_salah,
                 (SELECT COUNT(*) FROM tblkesalahan_picker_status_log l
                  WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = 'SERAH TERIMA DICETAK') AS sudah_cetak
              FROM tblmasalahpicker mp
              JOIN tblkesalahan_picker_diambil kd ON kd.id_masalahpicker = mp.id_masalahpicker
              LEFT JOIN tblpengembalian_qc_serah sr ON sr.tanggal = DATE(mp.created)
              LEFT JOIN tblsku s ON s.id_sku = mp.sku
+             LEFT JOIN tblsku s2 ON s2.id_sku = mp.sku_salah
              WHERE mp.id_typemasalah IN (2, 4) AND sr.selesai_at IS NULL AND mp.id_masalahpicker IN ($ph)", $ids
         )->result_array();
         if (!$list) {
@@ -325,6 +327,11 @@ class Qc_return_fcd extends CI_Model
                 $pertama[] = $r['id_masalahpicker'];
             }
             $tgl[] = $r['tgl'];
+            // SALAH AMBIL: yang dikembalikan ke rak adalah SKU yang keliru terambil, bukan SKU seharusnya
+            if ((int) $r['id_typemasalah'] === 4 && trim((string) $r['sku_salah']) !== '') {
+                $r['sku'] = $r['sku_salah_master'] !== NULL ? $r['sku_salah_master'] : trim((string) $r['sku_salah']);
+                $r['no_rak'] = $r['rak_salah'];
+            }
             $kunci = $r['no_rak'] . "\0" . $r['sku'];
             if (!isset($gabung[$kunci])) {
                 $gabung[$kunci] = array('no_rak' => $r['no_rak'], 'sku' => $r['sku'], 'qty' => 0);
