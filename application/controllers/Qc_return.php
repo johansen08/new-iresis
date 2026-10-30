@@ -8,8 +8,9 @@ class Qc_return extends MY_Controller
     const ROLE_DIAMBIL = array(1, 4);
     const ROLE_RESTOK = array(1, 2, 6);
     // Tabel Kesalahan Picker (role 6 = tim retur/restok, 1 = webmaster, 4 = packer):
-    //   Barang Diambil = packer + webmaster; Cetak Serah Terima dan Selesai = tim retur/restok + webmaster.
-    const ROLE_CETAK = array(1, 6);
+    //   Barang Diambil = packer (4) + webmaster; Cetak Serah Terima = tim restok (12) + webmaster;
+    //   Selesai = tim retur (6) + webmaster. Role 12 dibuat migrasi (MY_Controller::run_serah_terima_qc_migration).
+    const ROLE_CETAK = array(1, 12);
     const ROLE_SELESAI = array(1, 6);
 
     private function punya_peran($daftar)
@@ -300,7 +301,7 @@ class Qc_return extends MY_Controller
     public function cetak_serah_kesalahan()
     {
         if (!$this->punya_peran(self::ROLE_CETAK)) {
-            exit('Cetak serah terima hanya untuk tim Retur/Restok dan webmaster.');
+            exit('Cetak serah terima hanya untuk tim Restok dan webmaster.');
         }
         $ids = $this->input->post('ids');
         $petugas = $this->petugas();
