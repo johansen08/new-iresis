@@ -295,6 +295,32 @@ class Qc_return_fcd extends CI_Model
         return $this->db->trans_status() ? count($baru) : 0;
     }
 
+    // Tandai kesalahan picker sebagai SELESAI + catat riwayatnya. Hanya baris yang sudah SERAH TERIMA DICETAK
+    // dan belum SELESAI yang diproses. Mengembalikan jumlah baris yang baru ditandai.
+    function tandai_kesalahan_selesai($ids, $u)
+    {
+        $ids = $this->bersihkan_ids($ids);
+        if (!$ids) {
+            return 0;
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $baru = array_column($this->db->query(
+            "SELECT mp.id_masalahpicker FROM tblmasalahpicker mp
+             WHERE mp.id_typemasalah IN (2, 4) AND mp.id_masalahpicker IN ($ph)
+               AND EXISTS (SELECT 1 FROM tblkesalahan_picker_status_log lc WHERE lc.id_masalahpicker = mp.id_masalahpicker AND lc.status = 'SERAH TERIMA DICETAK')
+               AND NOT EXISTS (SELECT 1 FROM tblkesalahan_picker_status_log ls WHERE ls.id_masalahpicker = mp.id_masalahpicker AND ls.status = 'SELESAI')", $ids
+        )->result_array(), 'id_masalahpicker');
+        if (!$baru) {
+            return 0;
+        }
+
+        $this->db->trans_start();
+        $this->catat_status_kesalahan($baru, 'SELESAI', $u, date('Y-m-d H:i:s'));
+        $this->db->trans_complete();
+
+        return $this->db->trans_status() ? count($baru) : 0;
+    }
+
     /**
      * Cetak Serah Terima kesalahan picker. Hanya baris yang SUDAH diambil Restok dan belum SELESAI yang diproses.
      * Pertama kali dicetak -> status SERAH TERIMA DICETAK; cetak ulang dicatat sebagai CETAK ULANG.
@@ -316,10 +342,10 @@ class Qc_return_fcd extends CI_Model
                  WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = 'SERAH TERIMA DICETAK') AS sudah_cetak
              FROM tblmasalahpicker mp
              JOIN tblkesalahan_picker_diambil kd ON kd.id_masalahpicker = mp.id_masalahpicker
-             LEFT JOIN tblpengembalian_qc_serah sr ON sr.tanggal = DATE(mp.created)
              LEFT JOIN tblsku s ON s.id_sku = mp.sku
              LEFT JOIN tblsku s2 ON s2.id_sku = mp.sku_salah
-             WHERE mp.id_typemasalah IN (2, 4) AND sr.selesai_at IS NULL AND mp.id_masalahpicker IN ($ph)", $ids
+             WHERE mp.id_typemasalah IN (2, 4) AND mp.id_masalahpicker IN ($ph)
+               AND NOT EXISTS (SELECT 1 FROM tblkesalahan_picker_status_log ls WHERE ls.id_masalahpicker = mp.id_masalahpicker AND ls.status = 'SELESAI')", $ids
         )->result_array();
         if (!$list) {
             return NULL;
@@ -424,7 +450,9 @@ class Qc_return_fcd extends CI_Model
     {
         $this->db->select('
             mp.id_masalahpicker, mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
-            kd.diambil_at AS diambil_baris_at, sr.selesai_at,
+            kd.diambil_at AS diambil_baris_at,
+            (SELECT MIN(l2.dicatat_at) FROM tblkesalahan_picker_status_log l2
+             WHERE l2.id_masalahpicker = mp.id_masalahpicker AND l2.status = \'SELESAI\') AS selesai_at,
             (SELECT MIN(l.dicatat_at) FROM tblkesalahan_picker_status_log l
              WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = \'SERAH TERIMA DICETAK\') AS dicetak_at,
             lg.no_absen AS log_absen, lg.nama AS log_nama, lg.role AS log_role, lg.dicatat_at AS log_at,
@@ -443,8 +471,6 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
         $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
         $this->db->join('tblkesalahan_picker_diambil kd', 'kd.id_masalahpicker = mp.id_masalahpicker', 'left');
-        // SELESAI masih mengikuti pengerjaan serah terima harian pada tanggal yang sama
-        $this->db->join('tblpengembalian_qc_serah sr', 'sr.tanggal = DATE(mp.created)', 'left');
         // Perubahan status terakhir (siapa & kapan)
         $this->db->join('(SELECT l.id_masalahpicker, l.no_absen, l.nama, l.role, l.dicatat_at FROM tblkesalahan_picker_status_log l
                           JOIN (SELECT MAX(id_log) AS m FROM tblkesalahan_picker_status_log GROUP BY id_masalahpicker) x ON x.m = l.id_log) lg',

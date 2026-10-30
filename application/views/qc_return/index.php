@@ -16,6 +16,9 @@
                     <button type="button" class="btn btn-primary" id="kp_btn_diambil" disabled onclick="kpBarangDiambil()"><i class="fa fa-shopping-basket"></i> Barang Diambil <span id="kp_jml"></span></button>
                     <button type="button" class="btn btn-warning" id="kp_btn_cetak" disabled onclick="kpCetakSerahTerima()"><i class="fa fa-print"></i> Cetak Serah Terima <span id="kp_jml_cetak"></span></button>
                     <?php endif; ?>
+                    <?php if (!empty($bisa_selesai)): ?>
+                    <button type="button" class="btn btn-success" id="kp_btn_selesai" disabled onclick="kpSelesai()"><i class="fa fa-check"></i> Selesai <span id="kp_jml_selesai"></span></button>
+                    <?php endif; ?>
                     <div class="kp-tanggal" id="kp_tanggal">
                         <i class="fa fa-calendar"></i>
                         <span id="kp_label"></span>
@@ -25,7 +28,7 @@
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>
-                            <tr><?php if (!empty($bisa_diambil)): ?><th style="width:30px"><input type="checkbox" id="kp_pilih_semua"></th><?php endif; ?><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
+                            <tr><?php if (!empty($bisa_diambil) || !empty($bisa_selesai)): ?><th style="width:30px"><input type="checkbox" id="kp_pilih_semua"></th><?php endif; ?><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
                         </thead>
                         <tbody id="tbody_kesalahan_picker"></tbody>
                     </table>
@@ -37,7 +40,7 @@
 
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
-    var KP_BISA_DIAMBIL = <?= !empty($bisa_diambil) ? 'true' : 'false' ?>;
+    var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
 
     function kpPreset(nama) {
         switch (nama) {
@@ -163,6 +166,9 @@
         $('#kp_jml').text(nAmbil ? '(' + nAmbil + ')' : '');
         $('#kp_btn_cetak').prop('disabled', nCetak === 0);
         $('#kp_jml_cetak').text(nCetak ? '(' + nCetak + ')' : '');
+        var nSelesai = kpIds(['dicetak']).length;
+        $('#kp_btn_selesai').prop('disabled', nSelesai === 0);
+        $('#kp_jml_selesai').text(nSelesai ? '(' + nSelesai + ')' : '');
         var total = $('.kp-cek:not(:disabled)').length;
         $('#kp_pilih_semua').prop('checked', total > 0 && $('.kp-cek:checked').length === total);
     }
@@ -180,6 +186,28 @@
         $('#kp_btn_diambil').prop('disabled', true);
         $.ajax({
             url: 'qc_return/kesalahan_picker_diambil',
+            type: 'POST',
+            data: { ids: ids },
+            dataType: 'JSON',
+            success: function(res) {
+                noty({ text: res.message, layout: 'topRight', type: res.code == 200 ? 'success' : 'error', timeout: 3000 });
+                muatKesalahanPicker();
+            },
+            error: function() {
+                noty({ text: 'Gagal menyimpan', layout: 'topRight', type: 'error', timeout: 3000 });
+                kpUpdateTombol();
+            }
+        });
+    }
+
+    // Selesai (tim retur & webmaster): hanya baris yang sudah SERAH TERIMA DICETAK
+    function kpSelesai() {
+        var ids = kpIds(['dicetak']);
+        if (!ids.length) return;
+        if (!confirm('Tandai ' + ids.length + ' baris sebagai SELESAI? Nama dan waktu akan tercatat dan tidak bisa diubah.')) return;
+        $('#kp_btn_selesai').prop('disabled', true);
+        $.ajax({
+            url: 'qc_return/kesalahan_picker_selesai',
             type: 'POST',
             data: { ids: ids },
             dataType: 'JSON',

@@ -7,6 +7,8 @@ class Qc_return extends MY_Controller
     // Barang Diambil: packer (4) dan webmaster (1), admin (2) tidak. Dicek di server; tombol di layar hanya cermin dari ini.
     const ROLE_DIAMBIL = array(1, 4);
     const ROLE_RESTOK = array(1, 2, 6);
+    // Tombol Selesai di tabel Kesalahan Picker: hanya tim retur (6) dan webmaster (1).
+    const ROLE_SELESAI = array(1, 6);
 
     private function punya_peran($daftar)
     {
@@ -26,6 +28,7 @@ class Qc_return extends MY_Controller
         $data['message'] = $this->session->flashdata('message');
         $data['bisa_diambil'] = $this->punya_peran(self::ROLE_DIAMBIL);
         $data['bisa_restok'] = $this->punya_peran(self::ROLE_RESTOK);
+        $data['bisa_selesai'] = $this->punya_peran(self::ROLE_SELESAI);
         $this->show($data);
     }
 
@@ -273,6 +276,20 @@ class Qc_return extends MY_Controller
         }
         $jumlah = $this->qc_return_fcd->tandai_kesalahan_diambil($ids, $this->petugas());
         $this->make_ajax_response(200, $jumlah . ' baris ditandai Barang Diambil Restok', array('jumlah' => $jumlah));
+    }
+
+    // Tombol "Selesai" di tabel Kesalahan Picker: baris terpilih (sudah SERAH TERIMA DICETAK) jadi SELESAI
+    public function kesalahan_picker_selesai()
+    {
+        if (!$this->punya_peran(self::ROLE_SELESAI)) {
+            $this->make_ajax_response(403, 'Selesai hanya bisa dilakukan tim Retur');
+        }
+        $ids = $this->input->post('ids');
+        if (!is_array($ids) || !$ids) {
+            $this->make_ajax_response(400, 'Pilih minimal satu baris');
+        }
+        $jumlah = $this->qc_return_fcd->tandai_kesalahan_selesai($ids, $this->petugas());
+        $this->make_ajax_response(200, $jumlah . ' baris ditandai Selesai', array('jumlah' => $jumlah));
     }
 
     // Tombol "Cetak Serah Terima" di tabel Kesalahan Picker: halaman cetak A4 dari baris yang dicentang
