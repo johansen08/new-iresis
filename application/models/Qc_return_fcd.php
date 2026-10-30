@@ -338,6 +338,13 @@ class Qc_return_fcd extends CI_Model
                         "SELECT id_sku, COALESCE(NULLIF(no_rak, ''), '') AS no_rak FROM tblsku WHERE id_sku LIKE ? LIMIT 2",
                         array('%-' . $this->db->escape_like_str(trim((string) $r['sku_salah'])))
                     )->result_array();
+                    if (!$mirip) {
+                        // Tidak ada yang berakhiran sama: coba abaikan tanda hubung ("FIL-7" untuk "GL-FIL7").
+                        $mirip = $this->db->query(
+                            "SELECT id_sku, COALESCE(NULLIF(no_rak, ''), '') AS no_rak FROM tblsku WHERE REPLACE(id_sku, '-', '') LIKE ? LIMIT 2",
+                            array('%' . $this->db->escape_like_str(str_replace('-', '', trim((string) $r['sku_salah']))))
+                        )->result_array();
+                    }
                     if (count($mirip) === 1) {
                         $r['sku'] = $mirip[0]['id_sku'];
                         $r['no_rak'] = $mirip[0]['no_rak'];
