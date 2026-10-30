@@ -63,6 +63,22 @@
     </div>
 </div>
 
+<div class="modal fade kp-modal kp-root" id="kp_popup" tabindex="-1" role="dialog" aria-labelledby="kp_popup_judul">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title"><i class="fa fa-exclamation-triangle"></i> <span id="kp_popup_judul"></span></h4>
+            </div>
+            <div class="modal-body" id="kp_popup_isi"></div>
+            <div class="modal-footer">
+                <button type="button" class="kp-btn kp-btn-sekunder" id="kp_popup_pilih_sesuai" onclick="kpPilihYangSesuai()" style="display:none"><i class="fa fa-check-square-o"></i><span>Hanya pilih baris yang sesuai</span></button>
+                <button type="button" class="kp-btn kp-btn-diambil" data-dismiss="modal"><span>Mengerti</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
     var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
@@ -235,19 +251,29 @@
         }).map(function() { return this.value; }).get();
     }
 
-    // Barang Diambil: baris yang belum diambil. Cetak Serah Terima: sudah diambil (atau cetak ulang). Selesai: sudah dicetak.
-    function kpUpdateTombol() {
-        var nAmbil = kpIds(['belum']).length;
-        var nCetak = kpIds(['diambil', 'dicetak']).length;
-        var nSelesai = kpIds(['dicetak']).length;
-        $('#kp_btn_diambil').prop('disabled', nAmbil === 0);
-        $('#kp_jml').text(nAmbil || '');
-        $('#kp_btn_cetak').prop('disabled', nCetak === 0);
-        $('#kp_jml_cetak').text(nCetak || '');
-        $('#kp_btn_selesai').prop('disabled', nSelesai === 0);
-        $('#kp_jml_selesai').text(nSelesai || '');
+    // Urutan status: BELUM DIAMBIL -> BARANG DIAMBIL RESTOK -> SERAH TERIMA DICETAK -> SELESAI
+    // Barang Diambil: baris belum diambil. Cetak Serah Terima: sudah diambil (atau cetak ulang). Selesai: sudah dicetak.
+    var KP_IZIN = { diambil: ['belum'], cetak: ['diambil', 'dicetak'], selesai: ['dicetak'] };
+    var KP_LANGKAH = ['belum', 'diambil', 'dicetak', 'selesai'];
+    var KP_NAMA_TAHAP = { belum: 'Barang Belum Diambil', diambil: 'Barang Diambil Restok', dicetak: 'Serah Terima Dicetak', selesai: 'Selesai' };
+    var KP_NAMA_AKSI = { diambil: 'Barang Diambil', cetak: 'Cetak Serah Terima', selesai: 'Selesai' };
+    var KP_TAHAP_AKSI = { diambil: 'diambil', cetak: 'dicetak', selesai: 'selesai' }; // status yang dihasilkan tombol
+    var KP_LANGKAH_DULU = {
+        belum: 'Klik <b>Barang Diambil</b> dulu',
+        diambil: 'Klik <b>Cetak Serah Terima</b> dulu',
+        dicetak: 'Baris ini sudah dicetak',
+        selesai: 'Baris ini sudah selesai'
+    };
 
+    // Tombol aktif selama ada baris tercentang; kalau urutan tidak sesuai, klik menampilkan pop up penjelasan
+    function kpUpdateTombol() {
         var n = $('.kp-cek:checked').length;
+        $.each({ diambil: ['#kp_btn_diambil', '#kp_jml'], cetak: ['#kp_btn_cetak', '#kp_jml_cetak'], selesai: ['#kp_btn_selesai', '#kp_jml_selesai'] }, function(aksi, el) {
+            var sesuai = kpIds(KP_IZIN[aksi]).length;
+            $(el[0]).prop('disabled', n === 0).toggleClass('kp-perlu-cek', n > 0 && sesuai === 0);
+            $(el[1]).text(n === 0 ? '' : (sesuai || '!'));
+        });
+
         var total = $('.kp-cek:not(:disabled)').length;
         $('#kp_pilih_semua').prop('checked', total > 0 && n === total).prop('indeterminate', n > 0 && n < total);
         $('#kp_dipilih').text(n ? n + ' dipilih' : '');
@@ -267,6 +293,12 @@
             data: { ids: ids },
             dataType: 'JSON',
             success: function(res) {
+                if (res.code == 409) {
+                    // Penjaga di server: urutan status tidak sesuai (mis. data berubah oleh user lain sejak tabel dimuat)
+                    kpPopupServer(res.message);
+                    muatKesalahanPicker();
+                    return;
+                }
                 noty({ text: res.message, layout: 'topRight', type: res.code == 200 ? 'success' : 'error', timeout: 3000 });
                 muatKesalahanPicker();
             },
@@ -277,7 +309,72 @@
         });
     }
 
+    // ===== Pop up: urutan status belum terpenuhi =====
+    // Mengembalikan true bila semua baris terpilih sesuai untuk aksi; bila tidak, tampilkan pop up dan kembalikan false.
+    function kpPeriksa(aksi) {
+        var hitung = {}, salah = 0, sesuai = 0;
+        $('.kp-cek:checked').each(function() {
+            var t = $(this).data('tahap');
+            if (KP_IZIN[aksi].indexOf(t) >= 0) {
+                sesuai++;
+            } else {
+                salah++;
+                hitung[t] = (hitung[t] || 0) + 1;
+            }
+        });
+        if (!salah) return true;
+        kpPopup(aksi, hitung, sesuai);
+        return false;
+    }
+
+    function kpPopup(aksi, hitung, sesuai) {
+        // Ringkasan: "3 baris berstatus Barang Diambil Restok"
+        var daftar = '';
+        $.each(KP_LANGKAH, function(i, t) {
+            if (hitung[t]) {
+                daftar += '<li><span class="kp-badge ' + KP_STATUS[t][0] + '"><i class="fa ' + KP_STATUS[t][1] + '"></i>' + KP_STATUS[t][2] + '</span> <b>' + hitung[t] + ' baris</b> &mdash; ' + KP_LANGKAH_DULU[t] + '</li>';
+            }
+        });
+        // Urutan langkah: tandai posisi baris yang tidak sesuai dan langkah yang dibutuhkan tombol
+        var perlu = KP_LANGKAH.indexOf(KP_IZIN[aksi][0]); // tahap minimal agar tombol ini boleh
+        var stepper = '';
+        $.each(KP_LANGKAH, function(i, t) {
+            var cls = 'kp-step' + (i === perlu ? ' kp-step-perlu' : '') + (hitung[t] ? ' kp-step-posisi' : '');
+            stepper += '<div class="' + cls + '"><span class="kp-step-no">' + (i + 1) + '</span><span class="kp-step-nama">' + KP_NAMA_TAHAP[t] + '</span>' +
+                (hitung[t] ? '<span class="kp-step-info">' + hitung[t] + ' baris di sini</span>' : (i === perlu ? '<span class="kp-step-info">dibutuhkan</span>' : '')) + '</div>';
+        });
+        var html = '<p>Tombol <b>' + KP_NAMA_AKSI[aksi] + '</b> belum bisa dipakai karena urutan status tidak terpenuhi. Status pengembalian harus berurutan:</p>' +
+            '<div class="kp-stepper">' + stepper + '</div>' +
+            '<p class="kp-popup-sub">Baris yang tidak sesuai:</p><ul class="kp-popup-daftar">' + daftar + '</ul>' +
+            '<p class="kp-popup-catatan"><i class="fa fa-info-circle"></i> Tidak ada status yang diubah.</p>';
+        kpTampilPopup('Urutan status belum terpenuhi', html, sesuai > 0 ? aksi : null);
+    }
+
+    function kpPopupServer(pesan) {
+        kpTampilPopup('Urutan status belum terpenuhi', '<p>' + esc(pesan) + '</p>', null);
+    }
+
+    function kpTampilPopup(judul, html, aksiSesuai) {
+        $('#kp_popup_judul').text(judul);
+        $('#kp_popup_isi').html(html);
+        $('#kp_popup_pilih_sesuai').toggle(!!aksiSesuai).data('aksi', aksiSesuai || '');
+        $('#kp_popup').modal('show');
+    }
+
+    // Opsi di pop up: buang centang baris yang tidak sesuai, sisakan yang sesuai
+    function kpPilihYangSesuai() {
+        var aksi = $('#kp_popup_pilih_sesuai').data('aksi');
+        if (aksi) {
+            $('.kp-cek:checked').each(function() {
+                if (KP_IZIN[aksi].indexOf($(this).data('tahap')) < 0) this.checked = false;
+            });
+            kpUpdateTombol();
+        }
+        $('#kp_popup').modal('hide');
+    }
+
     function kpBarangDiambil() {
+        if (!kpPeriksa('diambil')) return;
         var ids = kpIds(['belum']);
         if (!ids.length) return;
         if (!confirm('Tandai ' + ids.length + ' baris sebagai BARANG DIAMBIL RESTOK? Nama dan waktu akan tercatat dan tidak bisa diubah.')) return;
@@ -287,6 +384,7 @@
 
     // Selesai (tim retur & webmaster): hanya baris yang sudah SERAH TERIMA DICETAK
     function kpSelesai() {
+        if (!kpPeriksa('selesai')) return;
         var ids = kpIds(['dicetak']);
         if (!ids.length) return;
         if (!confirm('Tandai ' + ids.length + ' baris sebagai SELESAI? Nama dan waktu akan tercatat dan tidak bisa diubah.')) return;
@@ -296,6 +394,7 @@
 
     // Buka halaman cetak serah terima (tab baru, form POST) untuk baris yang sudah diambil
     function kpCetakSerahTerima() {
+        if (!kpPeriksa('cetak')) return;
         var ids = kpIds(['diambil', 'dicetak']);
         if (!ids.length) return;
         if (!confirm('Cetak serah terima untuk ' + ids.length + ' baris? Status menjadi SERAH TERIMA DICETAK dan nama + waktu tercatat.')) return;
@@ -787,6 +886,157 @@
             display: block;
         }
     }
+    /* ===== Tombol aktif tapi urutan belum sesuai: penanda "!" kuning, klik menampilkan pop up ===== */
+    .kp-root .kp-perlu-cek .kp-n {
+        background: #fbbf24;
+        color: #78350f;
+    }
+
+    .kp-root .kp-btn-sekunder {
+        background: #fff;
+        color: var(--kp-teks);
+        box-shadow: inset 0 0 0 1px #cbd5e1;
+    }
+
+    .kp-root .kp-btn-sekunder:hover:not(:disabled) {
+        background: #f1f5f9;
+    }
+
+    /* ===== Pop up urutan status ===== */
+    .kp-modal .modal-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--kp-teks);
+    }
+
+    .kp-modal .modal-title .fa {
+        color: #d97706;
+        margin-right: 6px;
+    }
+
+    .kp-modal .modal-body {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--kp-teks);
+    }
+
+    .kp-modal .modal-footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .kp-modal .kp-stepper {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin: 12px 0 16px;
+    }
+
+    .kp-modal .kp-step {
+        position: relative;
+        padding: 10px 8px;
+        border: 1px solid var(--kp-garis);
+        border-radius: 10px;
+        background: #f8fafc;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.3;
+        color: var(--kp-redup);
+    }
+
+    .kp-modal .kp-step-no {
+        display: block;
+        width: 22px;
+        height: 22px;
+        margin: 0 auto 4px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 22px;
+    }
+
+    .kp-modal .kp-step-nama {
+        display: block;
+        font-weight: 600;
+        color: var(--kp-teks);
+    }
+
+    .kp-modal .kp-step-info {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .kp-modal .kp-step-perlu {
+        border-color: var(--kp-hijau);
+        background: #f0fdf4;
+    }
+
+    .kp-modal .kp-step-perlu .kp-step-no {
+        background: var(--kp-hijau);
+        color: #fff;
+    }
+
+    .kp-modal .kp-step-perlu .kp-step-info {
+        color: var(--kp-hijau);
+    }
+
+    .kp-modal .kp-step-posisi {
+        border-color: #d97706;
+        background: #fffbeb;
+    }
+
+    .kp-modal .kp-step-posisi .kp-step-no {
+        background: #d97706;
+        color: #fff;
+    }
+
+    .kp-modal .kp-step-posisi .kp-step-info {
+        color: #b45309;
+    }
+
+    .kp-modal .kp-popup-sub {
+        margin: 0 0 6px;
+        font-weight: 700;
+    }
+
+    .kp-modal .kp-popup-daftar {
+        margin: 0 0 12px;
+        padding: 0;
+        list-style: none;
+    }
+
+    .kp-modal .kp-popup-daftar li {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--kp-garis);
+    }
+
+    .kp-modal .kp-popup-daftar li:last-child {
+        border-bottom: 0;
+    }
+
+    .kp-modal .kp-popup-catatan {
+        margin: 0;
+        font-size: 13px;
+        color: var(--kp-redup);
+    }
+
+    @media (max-width: 520px) {
+        .kp-modal .kp-stepper {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .kp-modal .modal-footer .kp-btn {
+            flex: 1 1 100%;
+            height: 42px;
+        }
+    }
+
     /* ===== Layar sempit (< 1060px lebar konten): toolbar bertumpuk ===== */
     @media (max-width: 991px) {
         .kp-root .kp-bar {
