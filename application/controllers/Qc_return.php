@@ -280,16 +280,14 @@ class Qc_return extends MY_Controller
     public function barang_reject_data()
     {
         list($mulai, $akhir) = $this->rentang_tanggal($this->input->post('start_date'), $this->input->post('end_date'));
-        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array());
+        $this->make_ajax_response(200, 'ok', $this->gabung_per_sku($this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array()));
     }
 
     public function barang_reject_excel()
     {
         ini_set('memory_limit', '-1');
         list($mulai, $akhir) = $this->rentang_tanggal($this->input->get('start_date'), $this->input->get('end_date'));
-        $data['list_data'] = $this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array();
-        $data['start_date'] = $mulai;
-        $data['end_date'] = $akhir;
+        $data['list_data'] = $this->gabung_per_sku($this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array());
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $ss->getActiveSheet();
         $sheet->setTitle('Barang Reject');
@@ -303,7 +301,7 @@ class Qc_return extends MY_Controller
                 $d['sku'],
                 $d['qty'] . ($d['qty_kurang'] > 0 ? ' (Kurang: ' . $d['qty_kurang'] . ')' : ''),
                 $d['no_rak'],
-                $d['kondisi'] . ($d['keterangan_reject'] ? ' (' . $d['keterangan_reject'] . ')' : ''),
+                $d['kondisi'],
                 $d['submitter'],
                 $d['status'],
                 $d['approver'],
@@ -317,36 +315,38 @@ class Qc_return extends MY_Controller
             $sheet->getColumnDimension($kol)->setAutoSize(TRUE);
         }
 
-        // Sheet kedua: SKU yang sama dijumlahkan qty-nya
-        $total = array();
-        foreach ($data['list_data'] as $d) {
-            $k = (string) $d['sku'];
-            $total[$k] = (isset($total[$k]) ? $total[$k] : 0) + (int) $d['qty'];
-        }
-        ksort($total, SORT_STRING);
-        $sheet2 = $ss->createSheet();
-        $sheet2->setTitle('Total per SKU');
-        $sheet2->fromArray(array('SKU', 'Total Qty'), NULL, 'A1');
-        $sheet2->getStyle('A1:B1')->getFont()->setBold(TRUE);
-        $baris = 2;
-        foreach ($total as $sku => $qty) {
-            $sheet2->setCellValueExplicit('A' . $baris, (string) $sku, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet2->setCellValue('B' . $baris, $qty);
-            $baris++;
-        }
-        $sheet2->setCellValue('A' . $baris, 'TOTAL');
-        $sheet2->setCellValue('B' . $baris, array_sum($total));
-        $sheet2->getStyle('A' . $baris . ':B' . $baris)->getFont()->setBold(TRUE);
-        $sheet2->getColumnDimension('A')->setAutoSize(TRUE);
-        $sheet2->getColumnDimension('B')->setAutoSize(TRUE);
-        $ss->setActiveSheetIndex(0);
-
         while (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="Barang_Reject_' . $mulai . '_to_' . $akhir . '.xlsx"');
         header('Cache-Control: max-age=0');
         (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
         exit;
+    }
+
+    // SKU yang sama jadi satu baris: qty dijumlahkan, kolom lain digabung (nilai berbeda dipisah koma)
+    private function gabung_per_sku($rows)
+    {
+        $kolom = array('tanggal', 'no_rak', 'kondisi', 'submitter', 'status', 'approver', 'acc_at');
+        $hasil = array();
+        foreach ($rows as $r) {
+            $k = (string) $r['sku'];
+            if (!isset($hasil[$k])) {
+                $hasil[$k] = array('sku' => $k, 'qty' => 0, 'qty_kurang' => 0, 'keterangan_reject' => '');
+                foreach ($kolom as $c) $hasil[$k][$c] = array();
+            }
+            $hasil[$k]['qty'] += (int) $r['qty'];
+            $hasil[$k]['qty_kurang'] += (int) $r['qty_kurang'];
+            $r['kondisi'] = $r['kondisi'] . ($r['keterangan_reject'] ? ' (' . $r['keterangan_reject'] . ')' : '');
+            foreach ($kolom as $c) {
+                $v = trim((string) $r[$c]);
+                if ($v !== '' && !in_array($v, $hasil[$k][$c], TRUE)) $hasil[$k][$c][] = $v;
+            }
+        }
+        ksort($hasil, SORT_STRING);
+        foreach ($hasil as &$h) {
+            foreach ($kolom as $c) $h[$c] = implode(', ', $h[$c]);
+        }
+        return array_values($hasil);
     }
 
     private function rentang_tanggal($mulai, $akhir)
