@@ -2,8 +2,8 @@
 
 Menu `purchasing/stok-aks27`: buku stok pinset **bonus** AKS27-RDM di lokasi khusus area packer (hanya baca).
 Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRANSFER_STOK.md) ->
-[Penerimaan Transfer](PENERIMAAN_TRANSFER.md) -> buku stok ini. Menu Scan Resi Packer (pemotong) dan
-Penyesuaian/Opname belum dibuat.
+[Penerimaan Transfer](PENERIMAAN_TRANSFER.md) -> buku stok ini. Pemotongan dari scan resi berjalan otomatis
+(lihat "Sinkron scan"); Penyesuaian/Opname dan RETURAN belum dibuat.
 
 ## Aturan
 
@@ -16,8 +16,7 @@ Penyesuaian/Opname belum dibuat.
 - **Tanggal mulai potong** `Stok_aks27_fcd::TANGGAL_MULAI_POTONG` = **2026-10-28** (stok 3080 masuk malam 27 Okt).
   Resi dihitung memotong bila tanggal scan packer (`tblpacking.tanggal_packing`), atau scan HO
   (`tblscan_ho.tanggal_scan`) bila tanpa catatan packer, >= tanggal itu. Resi yang discan sebelumnya tidak
-  dicatat sama sekali, jadi cancel/retur-nya juga tidak menambah stok. Saat menu scan dibuat, resi sejak
-  28 Okt yang sudah discan perlu ditarik sekali (aman diulang).
+  dicatat sama sekali, jadi cancel/retur-nya juga tidak menambah stok.
 - Ref: INPUT (penerimaan transfer), PENJUALAN (keluar 1), CANCEL (+1, sebelum HO), RETURAN (+1, hanya bila
   pinset bonus ikut kembali dan lolos QC retur), PENYESUAIAN (manual/opname). Baris hanya bertambah.
 - Kartu: **Sisa Stok**, **Penjualan** (jumlah baris PENJUALAN), **Dalam perjalanan** (jumlah qty kirim transfer
@@ -51,3 +50,23 @@ Webmaster (role 1) dan tim purchasing (role 7); role lain mendapat 403 JSON (`St
 | Route | `purchasing/stok-aks27`, `/ringkas`, `/data` di `config/routes.php` |
 
 `Penerimaan_transfer_fcd::saldo()` memakai `Stok_aks27_fcd::saldo()` (saldo di popup/pratinjau penerimaan).
+
+## Sinkron scan (PENJUALAN dan CANCEL otomatis)
+
+`Stok_aks27_fcd::sinkron_scan()` membaca data scan yang sudah ada, jadi tidak ada menu scan baru:
+
+- **PENJUALAN** (keluar 1, `kunci` `JUAL:<noresi>`): resi yang berisi >= 1 SKU aktif di `tblsku_bonus` (selain
+  AKS27-RDM) dan tanggal `tblpacking.tanggal_packing` (bila tidak ada catatan packer: `tblscan_ho.tanggal_scan`)
+  >= `TANGGAL_MULAI_POTONG`. Tepat 1 per resi; `qty` = total qty barang selain AKS27-RDM; keterangan mencatat
+  "dipukul rata" (>1 SKU atau qty) dan AKS27-RDM yang dibeli. Resi `CANCELED` / `batal = 1` dilewati.
+- **CANCEL** (masuk 1, `kunci` `CANCEL:<noresi>`): resi yang sudah tercatat PENJUALAN lalu berstatus
+  `CANCELED` dan belum ada scan HO.
+- Idempoten: `INSERT IGNORE` + UNIQUE `kunci`; aman dipanggil berulang atau bersamaan.
+- **Kapan jalan:** (1) segera setelah scan packer menyimpan (`Packer_fcd::save` dan `save_packer_nonsubmit` ->
+  `catat_stok_aks27()`, satu resi, di luar transaksi packing, galat tidak pernah sampai ke packer); (2) tiap
+  menu Stok dibuka / saldo dibaca, paling sering sekali per 30 detik (berkas penanda
+  `application/cache/stok_aks27_sinkron.txt`), untuk menangkap scan HO tanpa catatan packer, status CANCELED baru,
+  dan resi sejak 28 Okt yang discan sebelum fitur ini ada (pembukaan pertama menarik semuanya).
+- Query digerakkan dari SKU pemicu (ribuan resi, bukan jutaan), ~0,15 detik di produksi.
+- Belum: RETURAN (pinset ikut kembali setelah QC retur) dan PENYESUAIAN/opname. CANCEL saat ini hanya untuk
+  resi yang dibatalkan sebelum scan HO.

@@ -166,6 +166,8 @@ class Packer_fcd extends CI_Model
         $this->load->model('packer_monitoring_fcd');
         $perf = $this->packer_monitoring_fcd->log_performance($user['id_user'], $receipt->id_printresi, $packer['noresi_original']);
 
+        $this->catat_stok_aks27($receipt->id_printresi);
+
         // Diambil tepat setelah INSERT. Dulu dibaca di sini, setelah serangkaian
         // query lain berjalan, jadi yang terbaca sebenarnya affected_rows milik
         // query terakhir -- kebetulan bernilai 1 sehingga tidak pernah ketahuan.
@@ -174,6 +176,17 @@ class Packer_fcd extends CI_Model
         $packer['id_resi'] = $receipt->id_printresi;
 
         return $packer;
+    }
+
+    /**
+     * Resi yang baru dipacking dan berisi SKU pemicu bonus memotong 1 pinset AKS27-RDM dari stok bonus
+     * (docs/STOK_AKS27.md). Sengaja di luar transaksi packing dan tidak boleh melempar galat: kegagalan
+     * di sini tidak boleh menghentikan meja packing; sisanya ditangkap sinkron berkala menu Stok.
+     */
+    private function catat_stok_aks27($id_resi)
+    {
+        $this->load->model('stok_aks27_fcd');
+        $this->stok_aks27_fcd->sinkron_aman($id_resi);
     }
 
     function get_data($data)
@@ -487,9 +500,12 @@ class Packer_fcd extends CI_Model
         $this->load->model('packer_monitoring_fcd');
         $perf = $this->packer_monitoring_fcd->log_performance($user['id_user'], $receipt->id_printresi, $packer['noresi_original']);
 
+        // affected_rows dibaca dulu: query sinkron stok di bawah mengubah nilainya.
         $packer['affected_rows'] = $this->db->affected_rows();
         $packer['performance'] = $perf;
         $packer['id_resi'] = $receipt->id_printresi;
+
+        $this->catat_stok_aks27($receipt->id_printresi);
 
         return $packer;
     }
