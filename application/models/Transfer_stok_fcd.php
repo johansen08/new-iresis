@@ -32,8 +32,8 @@ class Transfer_stok_fcd extends CI_Model
         $halaman = min(max(1, (int) (isset($f['halaman']) ? $f['halaman'] : 1)), $jml_hal);
 
         $this->terapkan_filter($f);
-        $rows = $this->db->select('id, tanggal, jam, qty_kirim, qty_terima, keterangan')
-            ->order_by('id', 'DESC')
+        $rows = $this->db->select('t.id, t.tanggal, t.jam, t.qty_kirim, t.qty_terima, t.keterangan, r.tanggal AS tgl_terima, r.jam AS jam_terima')
+            ->order_by('t.id', 'DESC')
             ->limit($per, ($halaman - 1) * $per)
             ->get()->result_array();
 
@@ -59,22 +59,24 @@ class Transfer_stok_fcd extends CI_Model
 
     private function terapkan_filter(array $f)
     {
-        $this->db->from('tbltransfer_stok');
+        // Tgl/jam terima dari tbltransfer_stok_terima (satu baris per transfer, diisi menu Penerimaan Transfer).
+        $this->db->from('tbltransfer_stok t')->join('tbltransfer_stok_terima r', 'r.transfer_id = t.id', 'left');
         if (!empty($f['dari']) && self::tanggal_sah($f['dari'])) {
-            $this->db->where('tanggal >=', $f['dari']);
+            $this->db->where('t.tanggal >=', $f['dari']);
         }
         if (!empty($f['sampai']) && self::tanggal_sah($f['sampai'])) {
-            $this->db->where('tanggal <=', $f['sampai']);
+            $this->db->where('t.tanggal <=', $f['sampai']);
         }
         $q = isset($f['q']) ? trim((string) $f['q']) : '';
         if ($q !== '') {
             // Satu teks pencarian untuk semua yang tampil di tabel: no TR, tanggal, jam,
-            // qty, status, selisih, keterangan.
-            $teks = "CONCAT_WS(' ', CONCAT('TR-', id), tanggal, DATE_FORMAT(tanggal, '%d/%m/%Y'), IFNULL(jam, ''),"
-                . " qty_kirim, qty_terima, keterangan,"
-                . " IF(qty_terima > 0, 'selesai', 'dalam perjalanan'),"
-                . " IF(qty_terima = 0, '', IF(qty_terima < qty_kirim, CONCAT('kurang ', qty_kirim - qty_terima),"
-                . " IF(qty_terima > qty_kirim, CONCAT('lebih ', qty_terima - qty_kirim), 'pas'))))";
+            // qty, status, selisih, tgl/jam terima, keterangan.
+            $teks = "CONCAT_WS(' ', CONCAT('TR-', t.id), t.tanggal, DATE_FORMAT(t.tanggal, '%d/%m/%Y'), IFNULL(t.jam, ''),"
+                . " t.qty_kirim, t.qty_terima, t.keterangan,"
+                . " IF(t.qty_terima > 0, 'selesai', 'dalam perjalanan'),"
+                . " IF(t.qty_terima = 0, '', IF(t.qty_terima < t.qty_kirim, CONCAT('kurang ', t.qty_kirim - t.qty_terima),"
+                . " IF(t.qty_terima > t.qty_kirim, CONCAT('lebih ', t.qty_terima - t.qty_kirim), 'pas'))),"
+                . " IFNULL(r.tanggal, ''), IFNULL(DATE_FORMAT(r.tanggal, '%d/%m/%Y'), ''), IFNULL(r.jam, ''))";
             $this->db->where($teks . " LIKE '%" . $this->db->escape_like_str($q) . "%' ESCAPE '!'", NULL, FALSE);
         }
     }

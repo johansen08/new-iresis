@@ -67,10 +67,10 @@ if (!empty($akses_ditolak)) : ?>
                 <tr>
                   <th>No</th><th>Tgl transfer</th><th>Jam</th>
                   <th class="text-right">Qty kirim</th><th class="text-right">Diterima</th><th class="text-right">Selisih</th>
-                  <th>Status</th><th>Keterangan</th>
+                  <th>Status</th><th>Tgl terima</th><th>Jam terima</th><th>Keterangan</th>
                 </tr>
               </thead>
-              <tbody><tr><td colspan="8" class="text-muted text-center">Memuat…</td></tr></tbody>
+              <tbody><tr><td colspan="10" class="text-muted text-center">Memuat…</td></tr></tbody>
             </table>
           </div>
 
@@ -155,7 +155,7 @@ if (!empty($akses_ditolak)) : ?>
       F.halaman = d.halaman;
       var $tb = $('#ts-tabel tbody').empty();
       if (!d.rows.length) {
-        $tb.append('<tr><td colspan="8" class="text-muted text-center">Tidak ada transfer yang cocok dengan filter.</td></tr>');
+        $tb.append('<tr><td colspan="10" class="text-muted text-center">Tidak ada transfer yang cocok dengan filter.</td></tr>');
       }
       $.each(d.rows, function (i, r) {
         var selesai = Number(r.selesai) === 1;
@@ -163,6 +163,7 @@ if (!empty($akses_ditolak)) : ?>
         $tb.append('<tr><td><code>' + esc(r.no) + '</code></td><td>' + esc(fmtD(r.tanggal)) + '</td><td><code>' + esc(r.jam || '') + '</code></td>' +
           '<td class="text-right">' + esc(r.qty_kirim) + '</td><td class="text-right">' + esc(r.qty_terima) + '</td><td class="text-right">' + esc(sel) + '</td>' +
           '<td><span class="label label-' + (selesai ? 'success' : 'default') + '">' + (selesai ? 'Selesai' : 'Dalam perjalanan') + '</span></td>' +
+          '<td>' + esc(r.tgl_terima ? fmtD(r.tgl_terima) : '') + '</td><td><code>' + esc(r.jam_terima || '') + '</code></td>' +
           '<td>' + esc(r.keterangan) + '</td></tr>');
       });
       $('#ts-info-tabel').text(d.total ? 'Menampilkan ' + d.dari + '-' + d.sampai + ' dari ' + d.total : '0 transfer');
