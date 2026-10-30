@@ -228,6 +228,22 @@ class Qc_return_fcd extends CI_Model
         return $this->db->affected_rows() > 0;
     }
 
+    // Tandai kesalahan picker (LEBIH/SALAH AMBIL) terpilih sebagai barang diambil Restok.
+    // Baris yang sudah ditandai dilewati. Mengembalikan jumlah baris yang baru ditandai.
+    function tandai_kesalahan_diambil($ids, $id_user)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $ids))));
+        if (!$ids) {
+            return 0;
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge(array((int) $id_user), $ids);
+        $this->db->query("INSERT IGNORE INTO tblkesalahan_picker_diambil (id_masalahpicker, diambil_oleh, diambil_at)
+                          SELECT id_masalahpicker, ?, NOW() FROM tblmasalahpicker
+                          WHERE id_typemasalah IN (2, 4) AND id_masalahpicker IN ($ph)", $params);
+        return $this->db->affected_rows();
+    }
+
     function delete_data($id)
     {
         $this->db->where('id_pengembalian', $id);
@@ -267,8 +283,8 @@ class Qc_return_fcd extends CI_Model
     function get_kesalahan_picker($start_date, $end_date)
     {
         $this->db->select('
-            mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
-            sr.diambil_at, sr.selesai_at, ct.jumlah_cetak,
+            mp.id_masalahpicker, mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
+            kd.diambil_at AS diambil_baris_at, sr.diambil_at, sr.selesai_at, ct.jumlah_cetak,
             tm.type_masalah,
             COALESCE(NULLIF(NULLIF(TRIM(s.nama_sku), \'\'), \'False\'), mp.sku) AS nama_barang,
             COALESCE(peg_picker.nama_pegawai,
@@ -283,6 +299,7 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tblpegawai peg_packer', 'peg_packer.kode_pegawai = u.id_pegawai', 'left');
         $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
         $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
+        $this->db->join('tblkesalahan_picker_diambil kd', 'kd.id_masalahpicker = mp.id_masalahpicker', 'left');
         // Status pengembalian mengikuti pengerjaan serah terima harian pada tanggal yang sama
         $this->db->join('tblpengembalian_qc_serah sr', 'sr.tanggal = DATE(mp.created)', 'left');
         $this->db->join('(SELECT tanggal_awal, COUNT(*) AS jumlah_cetak FROM tblpengembalian_qc_cetak WHERE tanggal_awal = tanggal_akhir GROUP BY tanggal_awal) ct', 'ct.tanggal_awal = DATE(mp.created)', 'left', FALSE);

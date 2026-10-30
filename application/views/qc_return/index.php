@@ -12,6 +12,9 @@
                         <button type="button" class="kp-chip" data-preset="7_hari">7 Hari</button>
                         <button type="button" class="kp-chip" data-preset="bulan_ini">Bulan Ini</button>
                     </div>
+                    <?php if (!empty($bisa_diambil)): ?>
+                    <button type="button" class="btn btn-primary" id="kp_btn_diambil" disabled onclick="kpBarangDiambil()"><i class="fa fa-shopping-basket"></i> Barang Diambil <span id="kp_jml"></span></button>
+                    <?php endif; ?>
                     <div class="kp-tanggal" id="kp_tanggal">
                         <i class="fa fa-calendar"></i>
                         <span id="kp_label"></span>
@@ -21,7 +24,7 @@
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>
-                            <tr><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
+                            <tr><?php if (!empty($bisa_diambil)): ?><th style="width:30px"><input type="checkbox" id="kp_pilih_semua"></th><?php endif; ?><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
                         </thead>
                         <tbody id="tbody_kesalahan_picker"></tbody>
                     </table>
@@ -33,6 +36,7 @@
 
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
+    var KP_BISA_DIAMBIL = <?= !empty($bisa_diambil) ? 'true' : 'false' ?>;
 
     function kpPreset(nama) {
         switch (nama) {
@@ -97,7 +101,7 @@
     function muatKesalahanPicker() {
         var $tb = $('#tbody_kesalahan_picker');
         
-        $tb.html('<tr><td colspan="9" class="text-center">Memuat...</td></tr>');
+        $tb.html('<tr><td colspan="10" class="text-center">Memuat...</td></tr>');
         $.ajax({
             url: 'qc_return/kesalahan_picker',
             type: 'POST',
@@ -109,24 +113,63 @@
             success: function(res) {
                 var list = (res && res.data) ? res.data : [];
                 if (!list.length) {
-                    $tb.html('<tr><td colspan="9" class="text-center">Tidak ada kesalahan picker pada rentang ini</td></tr>');
+                    $tb.html('<tr><td colspan="10" class="text-center">Tidak ada kesalahan picker pada rentang ini</td></tr>');
                     return;
                 }
                 var html = '';
                 $.each(list, function(i, r) {
                     var jenis = esc(r.type_masalah || '-') + (r.sku_salah ? '<br><small class="text-muted">Terambil: ' + esc(r.sku_salah) + '</small>' : '');
                     var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
+                    var sudahDiambil = !!(r.diambil_baris_at || r.diambil_at);
                     var status = r.selesai_at ? '<span class="label label-success">SELESAI</span>' :
-                        (r.diambil_at ? '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>' :
+                        (sudahDiambil ? '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>' :
                         (r.jumlah_cetak > 0 ? '<span class="label label-info">SERAH TERIMA DICETAK</span>' : '<span class="label label-default">BARANG BELUM DIAMBIL</span>'));
-                    html += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.created) + '</td><td>' + esc(r.noresi) + '</td><td>' + esc(r.sku) +
+                    var cek = KP_BISA_DIAMBIL ? '<td><input type="checkbox" class="kp-cek" value="' + r.id_masalahpicker + '"' + (sudahDiambil || r.selesai_at ? ' disabled' : '') + '></td>' : '';
+                    html += '<tr>' + cek + '<td>' + (i + 1) + '</td><td>' + esc(r.created) + '</td><td>' + esc(r.noresi) + '</td><td>' + esc(r.sku) +
                         '</td><td>' + jenis + '</td><td>' + esc(qty) + '</td><td>' + esc(r.nama_picker || '-') +
                         '</td><td>' + esc(r.nama_packer || '-') + '</td><td>' + status + '</td></tr>';
                 });
                 $tb.html(html);
+                kpUpdateTombol();
             },
             error: function() {
-                $tb.html('<tr><td colspan="9" class="text-center text-danger">Gagal memuat kesalahan picker</td></tr>');
+                $tb.html('<tr><td colspan="10" class="text-center text-danger">Gagal memuat kesalahan picker</td></tr>');
+            }
+        });
+    }
+
+    // Aktifkan tombol Barang Diambil hanya bila ada baris yang dicentang
+    function kpUpdateTombol() {
+        var n = $('.kp-cek:checked').length;
+        $('#kp_btn_diambil').prop('disabled', n === 0);
+        $('#kp_jml').text(n ? '(' + n + ')' : '');
+        var total = $('.kp-cek:not(:disabled)').length;
+        $('#kp_pilih_semua').prop('checked', total > 0 && n === total);
+    }
+
+    $(document).on('change', '.kp-cek', kpUpdateTombol);
+    $(document).on('change', '#kp_pilih_semua', function() {
+        $('.kp-cek:not(:disabled)').prop('checked', this.checked);
+        kpUpdateTombol();
+    });
+
+    function kpBarangDiambil() {
+        var ids = $('.kp-cek:checked').map(function() { return this.value; }).get();
+        if (!ids.length) return;
+        if (!confirm('Tandai ' + ids.length + ' baris sebagai BARANG DIAMBIL RESTOK? Waktu akan tercatat dan tidak bisa diubah.')) return;
+        $('#kp_btn_diambil').prop('disabled', true);
+        $.ajax({
+            url: 'qc_return/kesalahan_picker_diambil',
+            type: 'POST',
+            data: { ids: ids },
+            dataType: 'JSON',
+            success: function(res) {
+                noty({ text: res.message, layout: 'topRight', type: res.code == 200 ? 'success' : 'error', timeout: 3000 });
+                muatKesalahanPicker();
+            },
+            error: function() {
+                noty({ text: 'Gagal menyimpan', layout: 'topRight', type: 'error', timeout: 3000 });
+                kpUpdateTombol();
             }
         });
     }

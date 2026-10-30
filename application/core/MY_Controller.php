@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.1';
+    const BOOTSTRAP_VERSI = '2026-10-30.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2233,6 +2233,14 @@ class MY_Controller extends CI_Controller
           `dicetak_at` datetime NOT NULL,
           PRIMARY KEY (`id_cetak`),
           KEY `idx_dicetak_at` (`dicetak_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Penanda per baris: kesalahan picker (LEBIH/SALAH AMBIL) yang barangnya sudah diambil Restok.
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblkesalahan_picker_diambil` (
+          `id_masalahpicker` int(11) NOT NULL,
+          `diambil_oleh` int(11) NOT NULL,
+          `diambil_at` datetime NOT NULL,
+          PRIMARY KEY (`id_masalahpicker`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Menu: "Daftar Pengembalian" (TIM PACKER) jadi "Pengembalian Barang"; tim Restok (role 6)
