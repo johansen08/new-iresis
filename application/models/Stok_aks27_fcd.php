@@ -26,6 +26,106 @@ class Stok_aks27_fcd extends CI_Model
     /** Resi dengan scan packer (atau scan HO bila tanpa catatan packer) sebelum tanggal ini tidak memotong stok bonus. */
     const TANGGAL_MULAI_POTONG = '2026-10-28';
 
+    /** Barang bonusnya sendiri: tidak pernah jadi pemicu dan tidak ikut dihitung sebagai qty jual. */
+    const KODE_BONUS = 'AKS27-RDM';
+
+    /** Sinkron penuh dijalankan paling sering sekali per sekian detik (penanda berkas di application/cache). */
+    const SINKRON_JEDA = 30;
+
+    /**
+     * Catat pemotongan (PENJUALAN) dan pengembalian cancel (CANCEL) dari data scan resi.
+     *
+     * Aturan:
+     *  - Resi memotong bila berisi minimal satu SKU aktif di tblsku_bonus (selain AKS27-RDM sendiri,
+     *    yang dibeli diambil dari rak biasa) dan tanggal scan packer (tblpacking) -- atau scan HO
+     *    (tblscan_ho) bila tanpa catatan packer -- >= TANGGAL_MULAI_POTONG. Tepat 1 pinset per resi.
+     *  - Resi berstatus CANCELED atau batal tidak memotong.
+     *  - Resi yang sudah tercatat memotong lalu menjadi CANCELED dan belum scan HO: CANCEL +1.
+     * Idempoten: kolom `kunci` UNIQUE (JUAL:<noresi>, CANCEL:<noresi>) + INSERT IGNORE, jadi aman
+     * dipanggil berulang dan bersamaan. Tidak pernah mengubah atau menghapus baris.
+     *
+     * @param int|null $id_resi satu resi (dari scan live), atau NULL untuk semua resi pemicu
+     * @return array ['jual' => baris PENJUALAN baru, 'cancel' => baris CANCEL baru]
+     */
+    public function sinkron_scan($id_resi = NULL)
+    {
+        $bonus  = $this->db->escape(self::KODE_BONUS);
+        $mulai  = $this->db->escape(self::TANGGAL_MULAI_POTONG . ' 00:00:00');
+        $filter = $id_resi !== NULL ? ' AND d.id_resi = ' . (int) $id_resi : '';
+
+        $this->db->query(
+            "INSERT IGNORE INTO tblstok_aks27 (ref, tanggal, jam, masuk, keluar, qty, no_ref, keterangan, flag, kunci, created, createdby)"
+            . " SELECT 'PENJUALAN', DATE(COALESCE(s.tgl_packing, s.tgl_ho)), TIME(COALESCE(s.tgl_packing, s.tgl_ho)), 0, 1, t.qty, pr.noresi,"
+            . "  CONCAT_WS('; ',"
+            . "   IF(t.jml_pemicu > 1 OR t.qty > 1, 'dipukul rata 1 pinset', NULL),"
+            . "   IF(t.beli > 0, CONCAT(" . $bonus . ", ' dibeli ', t.beli, ' pcs dari rak biasa, tidak memotong stok ini'), NULL),"
+            . "   CONCAT('dari data scan ', IF(s.tgl_packing IS NOT NULL, 'packer', 'HO'))),"
+            . "  NULL, CONCAT('JUAL:', pr.noresi), NOW(), 0"
+            . " FROM ("
+            . "  SELECT d.id_resi, COUNT(DISTINCT d.sku) AS jml_pemicu,"
+            . "   (SELECT COALESCE(SUM(x.jumlah), 0) FROM tbldetailprintresi x WHERE x.id_resi = d.id_resi AND x.sku <> " . $bonus . ") AS qty,"
+            . "   (SELECT COALESCE(SUM(x.jumlah), 0) FROM tbldetailprintresi x WHERE x.id_resi = d.id_resi AND x.sku = " . $bonus . ") AS beli"
+            . "  FROM tbldetailprintresi d JOIN tblsku_bonus b ON b.sku = d.sku AND b.aktif = 1"
+            . "  WHERE d.sku <> " . $bonus . $filter . " GROUP BY d.id_resi"
+            . " ) t"
+            . " JOIN tblprintresi pr ON pr.id_printresi = t.id_resi"
+            . " JOIN ("
+            . "  SELECT t2.id_resi,"
+            . "   (SELECT MIN(p.tanggal_packing) FROM tblpacking p WHERE p.id_resi = t2.id_resi) AS tgl_packing,"
+            . "   (SELECT MIN(h.tanggal_scan) FROM tblscan_ho h WHERE h.id_resi = t2.id_resi) AS tgl_ho"
+            . "  FROM (SELECT d.id_resi FROM tbldetailprintresi d JOIN tblsku_bonus b ON b.sku = d.sku AND b.aktif = 1"
+            . "        WHERE d.sku <> " . $bonus . $filter . " GROUP BY d.id_resi) t2"
+            . " ) s ON s.id_resi = pr.id_printresi"
+            . " WHERE COALESCE(s.tgl_packing, s.tgl_ho) >= " . $mulai
+            . "  AND (pr.status_pesanan IS NULL OR pr.status_pesanan <> 'CANCELED')"
+            . "  AND (pr.batal IS NULL OR pr.batal NOT IN ('1'))"
+        );
+        $jual = (int) $this->db->affected_rows();
+
+        $filter_cancel = $id_resi !== NULL ? ' AND pr.id_printresi = ' . (int) $id_resi : '';
+        $this->db->query(
+            "INSERT IGNORE INTO tblstok_aks27 (ref, tanggal, jam, masuk, keluar, qty, no_ref, keterangan, flag, kunci, created, createdby)"
+            . " SELECT 'CANCEL', CURDATE(), CURTIME(), 1, 0, NULL, j.no_ref, 'batal sebelum HO, pinset kembali otomatis', NULL,"
+            . "  CONCAT('CANCEL:', j.no_ref), NOW(), 0"
+            . " FROM tblstok_aks27 j JOIN tblprintresi pr ON pr.noresi = j.no_ref"
+            . " WHERE j.ref = 'PENJUALAN' AND pr.status_pesanan = 'CANCELED'"
+            . "  AND NOT EXISTS (SELECT 1 FROM tblscan_ho h WHERE h.id_resi = pr.id_printresi)" . $filter_cancel
+        );
+        $cancel = (int) $this->db->affected_rows();
+
+        return ['jual' => $jual, 'cancel' => $cancel];
+    }
+
+    /**
+     * Sinkron penuh dengan jeda: dipanggil saat menu Stok / saldo dibuka supaya buku selalu mutakhir
+     * (menangkap scan HO tanpa catatan packer dan resi yang baru berstatus CANCELED). Tidak pernah
+     * melempar galat ke pemanggil; kegagalan hanya dicatat di log.
+     */
+    public function sinkron_terjadwal($paksa = FALSE)
+    {
+        $penanda = APPPATH . 'cache/stok_aks27_sinkron.txt';
+        if (!$paksa && is_file($penanda) && (time() - (int) @filemtime($penanda)) < self::SINKRON_JEDA) {
+            return NULL;
+        }
+        @file_put_contents($penanda, date('c'), LOCK_EX);
+        return $this->sinkron_aman(NULL);
+    }
+
+    /** sinkron_scan() yang tidak boleh mengganggu pemanggil (dipakai juga oleh scan packer). */
+    public function sinkron_aman($id_resi)
+    {
+        $debug = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        $hasil = NULL;
+        try {
+            $hasil = $this->sinkron_scan($id_resi);
+        } catch (Throwable $e) {
+            log_message('error', 'Stok_aks27_fcd::sinkron_scan gagal: ' . $e->getMessage());
+        }
+        $this->db->db_debug = $debug;
+        return $hasil;
+    }
+
     /** Buku lengkap dengan saldo berjalan (derived table, dipakai sebagai "(...) x"). */
     private function sql_buku()
     {
@@ -46,6 +146,7 @@ class Stok_aks27_fcd extends CI_Model
     /** Saldo stok sekarang = total masuk - total keluar. */
     public function saldo()
     {
+        $this->sinkron_terjadwal();
         $in  = $this->db->query('SELECT COALESCE(SUM(qty), 0) AS n FROM tbltransfer_stok_terima')->row_array();
         $lain = $this->db->query('SELECT COALESCE(SUM(masuk) - SUM(keluar), 0) AS n FROM tblstok_aks27')->row_array();
         return (int) $in['n'] + (int) $lain['n'];
@@ -54,6 +155,7 @@ class Stok_aks27_fcd extends CI_Model
     /** Kartu ringkasan, jumlah baris per ref, dan titik grafik saldo. */
     public function ringkas()
     {
+        $this->sinkron_terjadwal();
         $hitung = [];
         foreach (self::REFS as $r) {
             $hitung[$r] = 0;
@@ -91,6 +193,7 @@ class Stok_aks27_fcd extends CI_Model
             $per = 10;
         }
 
+        $this->sinkron_terjadwal();
         list($where, $bind) = $this->bangun_filter($f);
         $buku  = $this->sql_buku();
         $total = (int) $this->db->query('SELECT COUNT(*) AS n FROM (' . $buku . ') x' . $where, $bind)->row()->n;
