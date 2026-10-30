@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.7';
+    const BOOTSTRAP_VERSI = '2026-10-30.8';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -182,6 +182,7 @@ class MY_Controller extends CI_Controller
         $this->run_serah_terima_qc_migration();
         $this->run_sku_bonus_migration();
         $this->run_transfer_stok_migration();
+        $this->run_barang_reject_menu_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2269,6 +2270,47 @@ class MY_Controller extends CI_Controller
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
                     'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PACKER -> "Barang Reject" (uri qc_return/barang_reject).
+     * Tampilan sama dengan Pengembalian Barang, tapi hanya baris tblmasalahpicker
+     * berjenis Reject Display (id 5) dan hanya tombol Export Excel. Hak akses
+     * disalin dari menu Pengembalian Barang (qc_return/index); hanya INSERT.
+     */
+    protected function run_barang_reject_menu_migration()
+    {
+        $uri = 'qc_return/barang_reject';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $asal = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'qc_return/index'])->row();
+            $this->db->insert('menu', [
+                'name'      => 'Barang Reject',
+                'parentid'  => $asal ? $asal->parentid : 24,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-times-circle',
+                'sortorder' => 31,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $asal = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'qc_return/index'])->row();
+        $roles = $asal ? $this->db->select('roleid')->get_where('roleaccess', ['menuid' => $asal->id])->result() : [];
+        foreach ($roles as $r) {
+            if (!$this->db->get_where('roleaccess', ['roleid' => $r->roleid, 'menuid' => $menu_id])->row()) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $r->roleid,
                     'menuid'    => $menu_id,
                     'created'   => date('Y-m-d H:i:s'),
                     'createdby' => 1

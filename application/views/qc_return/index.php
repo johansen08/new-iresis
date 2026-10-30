@@ -1,3 +1,4 @@
+<?php $mode_reject = !empty($mode_reject); ?>
 <div class="row">
     <div class="col-md-12">
         <div class="panel panel-default kp-root">
@@ -18,7 +19,11 @@
                         </button>
                     </div>
 
-                    <?php if (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)): ?>
+                    <?php if ($mode_reject): ?>
+                    <div class="kp-aksi">
+                        <button type="button" class="kp-btn kp-btn-selesai" id="kp_btn_excel" onclick="kpExportExcel()"><i class="fa fa-file-excel-o"></i><span>Export Excel</span></button>
+                    </div>
+                    <?php elseif (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)): ?>
                     <div class="kp-aksi">
                         <?php if (!empty($bisa_diambil)): ?>
                         <button type="button" class="kp-btn kp-btn-diambil" id="kp_btn_diambil" disabled onclick="kpBarangDiambil()"><i class="fa fa-shopping-basket"></i><span>Barang Diambil</span><b class="kp-n" id="kp_jml"></b></button>
@@ -82,6 +87,7 @@
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
     var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
+    var KP_MODE_REJECT = <?= $mode_reject ? 'true' : 'false' ?>; // menu Barang Reject: hanya jenis REJECT, tombol Export Excel
     var KP_BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
     function kpTgl(m, denganTahun) {
@@ -192,7 +198,7 @@
         $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-spinner fa-spin"></i> Memuat data…</td></tr>');
         $('#kp_total').text('Memuat…');
         $.ajax({
-            url: 'qc_return/kesalahan_picker',
+            url: KP_MODE_REJECT ? 'qc_return/barang_reject_data' : 'qc_return/kesalahan_picker',
             type: 'POST',
             data: {
                 start_date: kpMulai.format('YYYY-MM-DD'),
@@ -203,7 +209,7 @@
                 var list = (res && res.data) ? res.data : [];
                 $('#kp_total').text(list.length + ' data');
                 if (!list.length) {
-                    $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> Tidak ada kesalahan picker pada rentang ini</td></tr>');
+                    $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> ' + (KP_MODE_REJECT ? 'Tidak ada barang reject pada rentang ini' : 'Tidak ada kesalahan picker pada rentang ini') + '</td></tr>');
                     kpUpdateTombol();
                     return;
                 }
@@ -219,7 +225,7 @@
                             '<span class="kp-log">' + esc(w[0] + ', ' + w[1]) + '</span>';
                     }
                     var tipe = (r.type_masalah || '-');
-                    var jenis = '<span class="kp-jenis ' + (tipe == 'SALAH AMBIL' ? 'kp-j-salah' : 'kp-j-lebih') + '">' + esc(tipe) + '</span>' +
+                    var jenis = '<span class="kp-jenis ' + (tipe == 'SALAH AMBIL' || tipe.toUpperCase().indexOf('REJECT') >= 0 ? 'kp-j-salah' : 'kp-j-lebih') + '">' + esc(tipe) + '</span>' +
                         (r.sku_salah ? '<span class="kp-sub">Terambil: ' + esc(r.sku_salah) + '</span>' : '');
                     var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
                     var cek = KP_BISA_DIAMBIL ? '<td class="kp-c-cek" data-label=""><input type="checkbox" class="kp-cek" aria-label="Pilih baris ' + (i + 1) + '" data-tahap="' + tahap + '" value="' + r.id_masalahpicker + '"' + (tahap == 'selesai' ? ' disabled' : '') + '></td>' : '';
@@ -371,6 +377,10 @@
             kpUpdateTombol();
         }
         $('#kp_popup').modal('hide');
+    }
+
+    function kpExportExcel() {
+        window.location.href = 'qc_return/barang_reject_excel?start_date=' + kpMulai.format('YYYY-MM-DD') + '&end_date=' + kpAkhir.format('YYYY-MM-DD');
     }
 
     function kpBarangDiambil() {
