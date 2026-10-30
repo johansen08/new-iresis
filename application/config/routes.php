@@ -474,6 +474,10 @@ $route['purchasing/sku-bonus/ubah-status']    = 'sku_bonus/ubah_status';
 $route['purchasing/transfer-stok']            = 'transfer_stok/index';
 $route['purchasing/transfer-stok/data']       = 'transfer_stok/data';
 $route['purchasing/transfer-stok/simpan']     = 'transfer_stok/simpan';
+$route['packer/penerimaan-transfer']          = 'penerimaan_transfer/index';
+$route['packer/penerimaan-transfer/menunggu'] = 'penerimaan_transfer/menunggu';
+$route['packer/penerimaan-transfer/riwayat']  = 'penerimaan_transfer/riwayat';
+$route['packer/penerimaan-transfer/terima']   = 'penerimaan_transfer/terima';
 
 
 // TIM ACCOUNTING

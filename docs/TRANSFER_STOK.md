@@ -2,15 +2,14 @@
 
 Menu `purchasing/transfer-stok`: Purchasing mencatat pinset **AKS27-RDM** yang dikirim ke lokasi packer.
 Bagian dari kontrol stok pinset; teman menu [Daftar SKU Bonus](SKU_BONUS.md).
-Menu lain (Penerimaan Transfer, Scan Resi Packer, Kartu Stok, Penyesuaian/Opname) belum dibuat.
+Sisi packer: [Penerimaan Transfer](PENERIMAAN_TRANSFER.md). Menu lain (Scan Resi Packer, Kartu Stok, Penyesuaian/Opname) belum dibuat.
 
 ## Aturan
 
 - Transfer **tidak mengubah saldo packing**. Saldo baru bertambah saat packer menerima dan memasukkan qty real
-  (menu Penerimaan Transfer, belum ada; sementara `qty_terima` selalu 0).
-- Status hanya dua: **Dalam perjalanan** selama `qty_terima < qty_kirim`, lalu **Selesai**.
-  Kurang tetap Dalam perjalanan; lebih diterima apa adanya. Kurang/lebih terlihat di kolom Selisih
-  (kosong selama belum ada penerimaan).
+  (menu Penerimaan Transfer; mengisi `qty_terima`).
+- Status hanya dua: **Dalam perjalanan** selama `qty_terima = 0`, lalu **Selesai**. Satu transfer diterima
+  sekali; kurang/lebih terlihat di kolom Selisih (kosong selama belum diterima).
 - Tanggal transfer wajib, tidak boleh lebih dari hari ini. **Jam** (jam server) terisi hanya bila tanggal
   = hari ini; tanggal lain jamnya `NULL`.
 - Qty kirim bilangan bulat 1 .. 1.000.000. Keterangan opsional (default `transfer stok`, maks 255).
