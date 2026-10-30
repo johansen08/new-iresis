@@ -267,7 +267,8 @@ class Qc_return_fcd extends CI_Model
     function get_kesalahan_picker($start_date, $end_date)
     {
         $this->db->select('
-            mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah, mp.status,
+            mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
+            sr.diambil_at, sr.selesai_at, ct.jumlah_cetak,
             tm.type_masalah,
             COALESCE(NULLIF(NULLIF(TRIM(s.nama_sku), \'\'), \'False\'), mp.sku) AS nama_barang,
             COALESCE(peg_picker.nama_pegawai,
@@ -282,6 +283,9 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tblpegawai peg_packer', 'peg_packer.kode_pegawai = u.id_pegawai', 'left');
         $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
         $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
+        // Status pengembalian mengikuti pengerjaan serah terima harian pada tanggal yang sama
+        $this->db->join('tblpengembalian_qc_serah sr', 'sr.tanggal = DATE(mp.created)', 'left');
+        $this->db->join('(SELECT tanggal_awal, COUNT(*) AS jumlah_cetak FROM tblpengembalian_qc_cetak WHERE tanggal_awal = tanggal_akhir GROUP BY tanggal_awal) ct', 'ct.tanggal_awal = DATE(mp.created)', 'left', FALSE);
         $this->db->where_in('mp.id_typemasalah', array(2, 4)); // LEBIH AMBIL, SALAH AMBIL
         $this->db->where('mp.created >=', $start_date . ' 00:00:00');
         $this->db->where('mp.created <=', $end_date . ' 23:59:59');
