@@ -39,6 +39,7 @@ class Pengembalian_qc extends CI_Model {
     {
         $this->db->select('*');
         $this->db->from($this->_table);
+        $this->db->where('dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('status', 'GIVEAWAY');
 
         if (!empty($range) && strpos($range, ' - ') !== false) {
@@ -60,6 +61,7 @@ class Pengembalian_qc extends CI_Model {
     {
         $this->db->select('*');
         $this->db->from($this->_table);
+        $this->db->where('dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('status', 'DIKIRIM KE GUDANG PURCHASING');
 
         if (!empty($range) && strpos($range, ' - ') !== false) {
@@ -82,6 +84,7 @@ class Pengembalian_qc extends CI_Model {
         $this->db->select('t.*, u.name as nama_acc');
         $this->db->from($this->_table . ' t');
         $this->db->join('tbluser u', 't.acc_by = u.id_user', 'left');
+        $this->db->where('t.dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('t.status', 'REJECTED');
         $this->db->where('t.status_sortir', 1);
 
@@ -105,6 +108,7 @@ class Pengembalian_qc extends CI_Model {
         $this->db->select('t.*, u.name as nama_acc');
         $this->db->from($this->_table . ' t');
         $this->db->join('tbluser u', 't.acc_by = u.id_user', 'left');
+        $this->db->where('t.dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('t.status', 'BARANG_TIDAK_ADA');
 
         if (!empty($range) && strpos($range, ' - ') !== false) {
