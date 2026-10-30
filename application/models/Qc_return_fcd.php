@@ -327,12 +327,9 @@ class Qc_return_fcd extends CI_Model
             $tgl[] = $r['tgl'];
             $kunci = $r['no_rak'] . "\0" . $r['sku'];
             if (!isset($gabung[$kunci])) {
-                $gabung[$kunci] = array('no_rak' => $r['no_rak'], 'sku' => $r['sku'], 'qty' => 0, 'terambil' => array());
+                $gabung[$kunci] = array('no_rak' => $r['no_rak'], 'sku' => $r['sku'], 'qty' => 0);
             }
             $gabung[$kunci]['qty'] += (int) $r['qty_bermasalah'] > 0 ? (int) $r['qty_bermasalah'] : (int) $r['qty'];
-            if ((int) $r['id_typemasalah'] === 4 && $r['sku_salah'] !== '' && $r['sku_salah'] !== NULL) {
-                $gabung[$kunci]['terambil'][$r['sku_salah']] = TRUE;
-            }
         }
 
         $this->db->trans_start();
@@ -344,11 +341,6 @@ class Qc_return_fcd extends CI_Model
         }
 
         $rows = array_values($gabung);
-        foreach ($rows as &$x) {
-            $x['ket'] = $x['terambil'] ? 'Terambil: ' . implode(', ', array_keys($x['terambil'])) : '';
-            unset($x['terambil']);
-        }
-        unset($x);
         usort($rows, function ($a, $b) {
             return strcmp($a['no_rak'] . $a['sku'], $b['no_rak'] . $b['sku']);
         });
