@@ -268,6 +268,42 @@ class Qc_return extends MY_Controller
         $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_kesalahan_picker($mulai, $akhir)->result_array());
     }
 
+    // Menu Barang Reject: tampilan sama dengan Pengembalian Barang, hanya jenis Reject Display (id 5), tombol Export Excel saja
+    public function barang_reject()
+    {
+        $data['message'] = $this->session->flashdata('message');
+        $data['mode_reject'] = TRUE;
+        $data['bisa_diambil'] = $data['bisa_restok'] = $data['bisa_selesai'] = $data['bisa_cetak'] = FALSE;
+        $this->show($data, 'qc_return/index');
+    }
+
+    public function barang_reject_data()
+    {
+        list($mulai, $akhir) = $this->rentang_tanggal($this->input->post('start_date'), $this->input->post('end_date'));
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_kesalahan_picker($mulai, $akhir, array(5))->result_array());
+    }
+
+    public function barang_reject_excel()
+    {
+        ini_set('memory_limit', '-1');
+        list($mulai, $akhir) = $this->rentang_tanggal($this->input->get('start_date'), $this->input->get('end_date'));
+        $data['list_data'] = $this->qc_return_fcd->get_kesalahan_picker($mulai, $akhir, array(5), 100000)->result_array();
+        $data['start_date'] = $mulai;
+        $data['end_date'] = $akhir;
+        header("Content-type: application/vnd-ms-excel");
+        header("Content-Disposition: attachment; filename=Barang_Reject_" . $mulai . "_to_" . $akhir . ".xls");
+        $this->load->view('template_report/barang_reject_report', $data);
+    }
+
+    private function rentang_tanggal($mulai, $akhir)
+    {
+        $tgl = '/^\d{4}-\d{2}-\d{2}$/';
+        if (!preg_match($tgl, (string) $mulai) || !preg_match($tgl, (string) $akhir)) {
+            $mulai = $akhir = date('Y-m-d');
+        }
+        return array($mulai, $akhir);
+    }
+
     // Tombol "Barang Diambil" di tabel Kesalahan Picker: baris terpilih jadi BARANG DIAMBIL RESTOK
     public function kesalahan_picker_diambil()
     {

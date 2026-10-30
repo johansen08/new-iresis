@@ -469,7 +469,7 @@ class Qc_return_fcd extends CI_Model
      * tanggal. Picker dibaca dari tblresiambilbarang -- sama dengan menu Daftar
      * Masalah Picker New, jadi atribusinya konsisten. Hanya baca, semua status.
      */
-    function get_kesalahan_picker($start_date, $end_date)
+    function get_kesalahan_picker($start_date, $end_date, $tipe = array(2, 4), $limit = 1000)
     {
         $this->db->select('
             mp.id_masalahpicker, mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
@@ -498,11 +498,11 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('(SELECT l.id_masalahpicker, l.no_absen, l.nama, l.role, l.dicatat_at FROM tblkesalahan_picker_status_log l
                           JOIN (SELECT MAX(id_log) AS m FROM tblkesalahan_picker_status_log GROUP BY id_masalahpicker) x ON x.m = l.id_log) lg',
             'lg.id_masalahpicker = mp.id_masalahpicker', 'left', FALSE);
-        $this->db->where_in('mp.id_typemasalah', array(2, 4)); // LEBIH AMBIL, SALAH AMBIL
+        $this->db->where_in('mp.id_typemasalah', $tipe); // default: LEBIH AMBIL, SALAH AMBIL; 5 = Reject Display
         $this->db->where('mp.created >=', $start_date . ' 00:00:00');
         $this->db->where('mp.created <=', $end_date . ' 23:59:59');
         $this->db->order_by('mp.created', 'DESC');
-        $this->db->limit(1000);
+        $this->db->limit($limit);
         return $this->db->get();
     }
 }
