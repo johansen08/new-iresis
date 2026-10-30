@@ -5,18 +5,19 @@
                 <h3 class="panel-title">Kesalahan Picker</h3>
             </div>
             <div class="panel-body">
-                <div class="row" style="margin-bottom: 20px;">
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
-                            <input type="text" id="reportrange" class="form-control" value="<?= date('Y-m-d') ?> - <?= date('Y-m-d') ?>">
-                        </div>
+                <div class="kp-filter">
+                    <div class="kp-chips" id="kp_chips">
+                        <button type="button" class="kp-chip" data-preset="hari_ini">Hari Ini</button>
+                        <button type="button" class="kp-chip" data-preset="kemarin">Kemarin</button>
+                        <button type="button" class="kp-chip" data-preset="7_hari">7 Hari</button>
+                        <button type="button" class="kp-chip" data-preset="bulan_ini">Bulan Ini</button>
                     </div>
-                    <div class="col-md-3">
-                        <button class="btn btn-primary" onclick="muatKesalahanPicker()"><i class="fa fa-search"></i> Filter</button>
+                    <div class="kp-tanggal" id="kp_tanggal">
+                        <i class="fa fa-calendar"></i>
+                        <span id="kp_label"></span>
+                        <i class="fa fa-angle-down kp-caret"></i>
                     </div>
                 </div>
-                <p class="text-muted" style="margin-bottom:10px">Masalah picker jenis LEBIH AMBIL dan SALAH AMBIL yang dilaporkan Packer saat scan, sesuai rentang tanggal di atas.</p>
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>
@@ -31,25 +32,40 @@
 </div>
 
 <script type="text/javascript">
+    var kpMulai = moment(), kpAkhir = moment();
+
+    function kpPreset(nama) {
+        switch (nama) {
+            case 'kemarin': return [moment().subtract(1, 'days'), moment().subtract(1, 'days')];
+            case '7_hari': return [moment().subtract(6, 'days'), moment()];
+            case 'bulan_ini': return [moment().startOf('month'), moment()];
+            default: return [moment(), moment()];
+        }
+    }
+
+    // Isi label tanggal + tandai chip yang cocok, lalu muat ulang tabel
+    function kpTerapkan(mulai, akhir) {
+        kpMulai = mulai;
+        kpAkhir = akhir;
+        var label = mulai.isSame(akhir, 'day') ?
+            mulai.format('D MMM YYYY') :
+            mulai.format(mulai.isSame(akhir, 'year') ? 'D MMM' : 'D MMM YYYY') + ' – ' + akhir.format('D MMM YYYY');
+        $('#kp_label').text(label);
+        $('#kp_chips .kp-chip').each(function() {
+            var p = kpPreset($(this).data('preset'));
+            $(this).toggleClass('aktif', p[0].isSame(mulai, 'day') && p[1].isSame(akhir, 'day'));
+        });
+        muatKesalahanPicker();
+    }
+
     $(document).ready(function() {
-        $('#reportrange').daterangepicker({
-            timePicker: false,
-            autoUpdateInput: true,
-            ranges: {
-                'Hari Ini': [moment().startOf('day'), moment()],
-                'Kemarin': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
-                '7 Hari Terakhir': [moment().subtract(6, 'days').startOf('day'), moment()],
-                '30 Hari Terakhir': [moment().subtract(29, 'days').startOf('day'), moment()],
-                'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
-                'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-            },
+        $('#kp_tanggal').daterangepicker({
+            autoApply: true,
+            opens: 'left',
+            maxDate: moment(),
             locale: {
                 format: 'YYYY-MM-DD',
                 separator: ' - ',
-                applyLabel: 'Terapkan',
-                cancelLabel: 'Batal',
-                fromLabel: 'Dari',
-                toLabel: 'Sampai',
                 customRangeLabel: 'Custom',
                 weekLabel: 'M',
                 daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
@@ -58,9 +74,21 @@
             },
             startDate: moment(),
             endDate: moment()
+        }, function(mulai, akhir) {
+            kpTerapkan(mulai, akhir);
         });
-        muatKesalahanPicker();
+
+        $('#kp_chips').on('click', '.kp-chip', function() {
+            var p = kpPreset($(this).data('preset'));
+            var dp = $('#kp_tanggal').data('daterangepicker');
+            dp.setStartDate(p[0]);
+            dp.setEndDate(p[1]);
+            kpTerapkan(p[0], p[1]);
+        });
+
+        kpTerapkan(moment(), moment());
     });
+
 
     function esc(s) {
         return $('<div>').text(s == null ? '' : s).html();
@@ -68,14 +96,14 @@
 
     function muatKesalahanPicker() {
         var $tb = $('#tbody_kesalahan_picker');
-        var range = $('#reportrange').val().split(' - ');
+        
         $tb.html('<tr><td colspan="9" class="text-center">Memuat...</td></tr>');
         $.ajax({
             url: 'qc_return/kesalahan_picker',
             type: 'POST',
             data: {
-                start_date: range[0],
-                end_date: range[1]
+                start_date: kpMulai.format('YYYY-MM-DD'),
+                end_date: kpAkhir.format('YYYY-MM-DD')
             },
             dataType: 'JSON',
             success: function(res) {
@@ -103,10 +131,64 @@
 </script>
 
 <style>
-    #reportrange {
-        background-color: #fff !important;
-        cursor: pointer !important;
-        color: #555 !important;
-        border: 1px solid #ccc !important;
+    .kp-filter {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .kp-chips {
+        display: inline-flex;
+        background: #f1f3f5;
+        border-radius: 999px;
+        padding: 3px;
+    }
+
+    .kp-chip {
+        border: 0;
+        background: transparent;
+        color: #555;
+        font-size: 13px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+
+    .kp-chip:hover {
+        color: #1b6ef3;
+    }
+
+    .kp-chip.aktif {
+        background: #fff;
+        color: #1b6ef3;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+    }
+
+    .kp-tanggal {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 14px;
+        background: #fff;
+        border: 1px solid #d5dae0;
+        border-radius: 999px;
+        font-size: 13px;
+        color: #333;
+        cursor: pointer;
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .kp-tanggal:hover {
+        border-color: #1b6ef3;
+        box-shadow: 0 0 0 3px rgba(27, 110, 243, .12);
+    }
+
+    .kp-tanggal .fa-calendar,
+    .kp-caret {
+        color: #1b6ef3;
     }
 </style>
