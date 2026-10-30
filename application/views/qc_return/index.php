@@ -14,6 +14,8 @@
                     </div>
                     <?php if (!empty($bisa_diambil)): ?>
                     <button type="button" class="btn btn-primary" id="kp_btn_diambil" disabled onclick="kpBarangDiambil()"><i class="fa fa-shopping-basket"></i> Barang Diambil <span id="kp_jml"></span></button>
+                    <?php endif; ?>
+                    <?php if (!empty($bisa_cetak)): ?>
                     <button type="button" class="btn btn-warning" id="kp_btn_cetak" disabled onclick="kpCetakSerahTerima()"><i class="fa fa-print"></i> Cetak Serah Terima <span id="kp_jml_cetak"></span></button>
                     <?php endif; ?>
                     <?php if (!empty($bisa_selesai)): ?>
@@ -28,7 +30,7 @@
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>
-                            <tr><?php if (!empty($bisa_diambil) || !empty($bisa_selesai)): ?><th style="width:30px"><input type="checkbox" id="kp_pilih_semua"></th><?php endif; ?><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
+                            <tr><?php if (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)): ?><th style="width:30px"><input type="checkbox" id="kp_pilih_semua"></th><?php endif; ?><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
                         </thead>
                         <tbody id="tbody_kesalahan_picker"></tbody>
                     </table>
@@ -40,7 +42,7 @@
 
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
-    var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
+    var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
 
     function kpPreset(nama) {
         switch (nama) {

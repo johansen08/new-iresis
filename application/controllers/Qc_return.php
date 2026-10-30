@@ -7,7 +7,9 @@ class Qc_return extends MY_Controller
     // Barang Diambil: packer (4) dan webmaster (1), admin (2) tidak. Dicek di server; tombol di layar hanya cermin dari ini.
     const ROLE_DIAMBIL = array(1, 4);
     const ROLE_RESTOK = array(1, 2, 6);
-    // Tombol Selesai di tabel Kesalahan Picker: hanya tim retur (6) dan webmaster (1).
+    // Tabel Kesalahan Picker (role 6 = tim retur/restok, 1 = webmaster, 4 = packer):
+    //   Barang Diambil = packer + webmaster; Cetak Serah Terima dan Selesai = tim retur/restok + webmaster.
+    const ROLE_CETAK = array(1, 6);
     const ROLE_SELESAI = array(1, 6);
 
     private function punya_peran($daftar)
@@ -29,6 +31,7 @@ class Qc_return extends MY_Controller
         $data['bisa_diambil'] = $this->punya_peran(self::ROLE_DIAMBIL);
         $data['bisa_restok'] = $this->punya_peran(self::ROLE_RESTOK);
         $data['bisa_selesai'] = $this->punya_peran(self::ROLE_SELESAI);
+        $data['bisa_cetak'] = $this->punya_peran(self::ROLE_CETAK);
         $this->show($data);
     }
 
@@ -296,8 +299,8 @@ class Qc_return extends MY_Controller
     // (form POST, tab baru). Status baris yang sudah diambil menjadi SERAH TERIMA DICETAK.
     public function cetak_serah_kesalahan()
     {
-        if (!$this->punya_peran(self::ROLE_DIAMBIL)) {
-            exit('Cetak serah terima hanya untuk tim Packer.');
+        if (!$this->punya_peran(self::ROLE_CETAK)) {
+            exit('Cetak serah terima hanya untuk tim Retur/Restok dan webmaster.');
         }
         $ids = $this->input->post('ids');
         $petugas = $this->petugas();
