@@ -290,7 +290,7 @@ class Qc_return extends MY_Controller
         }
 
         $data = $hasil;
-        $data['penyerah'] = array($petugas['no_absen'] . ' - ' . $petugas['nama'] . ' - ' . $petugas['role']);
+        $data['penyerah'] = array(); // nama QC dikosongkan, ditulis tangan saat tanda tangan
         $this->load->view('qc_return/serah_terima', $data);
     }
 
