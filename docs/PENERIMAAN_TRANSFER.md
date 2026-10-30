@@ -24,8 +24,8 @@ packer menekan Terima bersamaan), `tanggal`, `jam` NULL, `qty`, `created`, `crea
 Penerimaan juga mengisi `tbltransfer_stok.qty_terima` dalam satu transaksi (baris transfer dikunci `FOR UPDATE`).
 Dibuat oleh `MY_Controller::run_penerimaan_transfer_migration()` (`BOOTSTRAP_VERSI` 2026-10-30.10) bersama menu dan hak akses.
 
-**Saldo stok packing** yang tampil di popup/pratinjau sementara = `SUM(qty)` tabel ini. Saat menu Kartu Stok
-dibuat, sumber saldo pindah ke buku stok itu.
+**Saldo stok packing** yang tampil di popup/pratinjau = saldo buku [Stok AKS27-RDM](STOK_AKS27.md)
+(`Stok_aks27_fcd::saldo()`); penerimaan ini menjadi baris INPUT di buku itu.
 
 ## Akses
 

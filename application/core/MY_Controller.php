@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.10';
+    const BOOTSTRAP_VERSI = '2026-10-30.11';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -183,6 +183,7 @@ class MY_Controller extends CI_Controller
         $this->run_sku_bonus_migration();
         $this->run_transfer_stok_migration();
         $this->run_penerimaan_transfer_migration();
+        $this->run_stok_aks27_migration();
         $this->run_barang_reject_menu_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
@@ -2443,6 +2444,73 @@ class MY_Controller extends CI_Controller
         }
 
         foreach ([1, 4] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PURCHASING -> "Stok AKS27-RDM" (uri purchasing/stok-aks27).
+     * Buku stok pinset bonus. Baris INPUT diambil langsung dari penerimaan transfer
+     * (tbltransfer_stok_terima), jadi tidak disalin. Tabel tblstok_aks27 menampung
+     * ref lain (PENJUALAN, CANCEL, RETURAN, PENYESUAIAN) yang ditulis menu scan dan
+     * penyesuaian nanti; kolom kunci UNIQUE menjaga satu pemotongan per resi.
+     * Baris tidak pernah diubah/dihapus. Akses: webmaster (1) dan tim purchasing (7);
+     * sejalan dengan Stok_aks27::ROLE_BOLEH.
+     */
+    protected function run_stok_aks27_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblstok_aks27` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `ref` ENUM('PENJUALAN','CANCEL','RETURAN','PENYESUAIAN') NOT NULL,
+            `tanggal` DATE NOT NULL,
+            `jam` TIME NULL,
+            `masuk` INT UNSIGNED NOT NULL DEFAULT 0,
+            `keluar` INT UNSIGNED NOT NULL DEFAULT 0,
+            `qty` INT UNSIGNED NULL,
+            `no_ref` VARCHAR(100) NOT NULL DEFAULT '',
+            `keterangan` VARCHAR(255) NOT NULL DEFAULT '',
+            `flag` VARCHAR(20) NULL,
+            `kunci` VARCHAR(100) NULL,
+            `created` DATETIME NULL,
+            `createdby` INT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_kunci` (`kunci`),
+            KEY `idx_tanggal` (`tanggal`),
+            KEY `idx_no_ref` (`no_ref`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+        $uri  = 'purchasing/stok-aks27';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PURCHASING'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Stok AKS27-RDM',
+                'parentid'    => $induk->id,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-cubes',
+                'sortorder'   => 7,
+                'description' => 'Buku stok pinset bonus AKS27-RDM di lokasi packer: masuk, keluar, dan saldo.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 7] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
