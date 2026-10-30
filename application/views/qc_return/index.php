@@ -199,7 +199,7 @@
         var ids = kpIds(['diambil', 'dicetak']);
         if (!ids.length) return;
         if (!confirm('Cetak serah terima untuk ' + ids.length + ' baris? Status menjadi SERAH TERIMA DICETAK dan nama + waktu tercatat.')) return;
-        var $f = $('<form method="POST" action="qc_return/cetak_serah_kesalahan" target="_blank" style="display:none"></form>');
+        var $f = $('<form method="POST" action="qc_return/cetak_serah_kesalahan" target="_blank" class="nojs" style="display:none"></form>');
         $.each(ids, function(i, id) {
             $f.append($('<input type="hidden" name="ids[]">').val(id));
         });
