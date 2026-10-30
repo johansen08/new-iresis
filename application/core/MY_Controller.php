@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.9';
+    const BOOTSTRAP_VERSI = '2026-10-30.10';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -182,6 +182,7 @@ class MY_Controller extends CI_Controller
         $this->run_serah_terima_qc_migration();
         $this->run_sku_bonus_migration();
         $this->run_transfer_stok_migration();
+        $this->run_penerimaan_transfer_migration();
         $this->run_barang_reject_menu_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
@@ -2384,6 +2385,64 @@ class MY_Controller extends CI_Controller
         }
 
         foreach ([1, 7] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PACKER -> "Penerimaan Transfer" (uri packer/penerimaan-transfer).
+     * Tabel tbltransfer_stok_terima: satu baris per transfer (transfer_id UNIQUE,
+     * karena satu transfer hanya diterima sekali). Saldo stok packing sementara =
+     * jumlah qty di tabel ini; Kartu Stok akan mengambil alih. Akses: webmaster (1)
+     * dan client packer (4); sejalan dengan Penerimaan_transfer::ROLE_BOLEH.
+     */
+    protected function run_penerimaan_transfer_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tbltransfer_stok_terima` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `transfer_id` INT UNSIGNED NOT NULL,
+            `tanggal` DATE NOT NULL,
+            `jam` TIME NULL,
+            `qty` INT UNSIGNED NOT NULL,
+            `created` DATETIME NULL,
+            `createdby` INT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_transfer` (`transfer_id`),
+            KEY `idx_tanggal` (`tanggal`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+        $uri  = 'packer/penerimaan-transfer';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PACKER'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Penerimaan Transfer',
+                'parentid'    => $induk->id,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-inbox',
+                'sortorder'   => 5,
+                'description' => 'Packer menghitung ulang dan menerima transfer pinset AKS27-RDM dari Purchasing.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 4] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [

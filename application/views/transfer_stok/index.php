@@ -26,7 +26,7 @@ if (!empty($akses_ditolak)) : ?>
         <div class="panel-body">
           <div id="ts-info" class="alert alert-info hidden">
             <p>Purchasing mencatat pinset AKS27-RDM yang dikirim ke lokasi packer. Saldo packing belum berubah sampai packer menerima dan memasukkan qty real.</p>
-            <p style="margin-bottom:0;">Status <b>Dalam perjalanan</b> berlaku sampai qty diterima mencapai qty kirim, lalu menjadi <b>Selesai</b>. Kurang tetap Dalam perjalanan; lebih diterima apa adanya. Jam hanya terisi bila tanggal transfer adalah hari ini.</p>
+            <p style="margin-bottom:0;">Status <b>Dalam perjalanan</b> berlaku sampai packer menerima. Satu transfer diterima sekali, lalu <b>Selesai</b>; kurang atau lebihnya tampil di kolom Selisih. Jam hanya terisi bila tanggal transfer adalah hari ini.</p>
           </div>
 
           <div class="row ts-buat">

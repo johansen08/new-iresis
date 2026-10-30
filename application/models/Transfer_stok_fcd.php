@@ -6,8 +6,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *
  * Purchasing mencatat pinset AKS27-RDM yang dikirim ke lokasi packer. Saldo
  * packing belum berubah saat transfer dibuat; qty_terima diisi menu Penerimaan
- * Transfer (belum dibuat, sementara 0). Status hanya dua: "Dalam perjalanan"
- * selama qty_terima < qty_kirim, lalu "Selesai". Kurang/lebihnya terlihat di
+ * Transfer (satu transfer diterima sekali). Status hanya dua: "Dalam
+ * perjalanan" selama qty_terima = 0, lalu "Selesai". Kurang/lebihnya terlihat di
  * kolom selisih. Tabel: tbltransfer_stok. Baris tidak pernah dihapus.
  */
 class Transfer_stok_fcd extends CI_Model
@@ -41,7 +41,7 @@ class Transfer_stok_fcd extends CI_Model
             $r['no']         = 'TR-' . $r['id'];
             $r['qty_kirim']  = (int) $r['qty_kirim'];
             $r['qty_terima'] = (int) $r['qty_terima'];
-            $r['selesai']    = $r['qty_terima'] >= $r['qty_kirim'] ? 1 : 0;
+            $r['selesai']    = $r['qty_terima'] > 0 ? 1 : 0;
             $r['selisih']    = $r['qty_terima'] > 0 ? $r['qty_terima'] - $r['qty_kirim'] : NULL;
         }
         unset($r);
@@ -72,7 +72,7 @@ class Transfer_stok_fcd extends CI_Model
             // qty, status, selisih, keterangan.
             $teks = "CONCAT_WS(' ', CONCAT('TR-', id), tanggal, DATE_FORMAT(tanggal, '%d/%m/%Y'), IFNULL(jam, ''),"
                 . " qty_kirim, qty_terima, keterangan,"
-                . " IF(qty_terima >= qty_kirim, 'selesai', 'dalam perjalanan'),"
+                . " IF(qty_terima > 0, 'selesai', 'dalam perjalanan'),"
                 . " IF(qty_terima = 0, '', IF(qty_terima < qty_kirim, CONCAT('kurang ', qty_kirim - qty_terima),"
                 . " IF(qty_terima > qty_kirim, CONCAT('lebih ', qty_terima - qty_kirim), 'pas'))))";
             $this->db->where($teks . " LIKE '%" . $this->db->escape_like_str($q) . "%' ESCAPE '!'", NULL, FALSE);
