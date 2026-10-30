@@ -853,7 +853,7 @@
         });
 
         // Standarisasi teks menu: Title Case; singkatan di daftar ini tetap kapital
-        var singkatan = ['HO', 'CS', 'QC', 'KPI', 'SKU', 'PO', 'SJ', 'SO', 'MP', 'OT', 'COD', 'WMS', 'ID', 'PDF', 'TV', 'RTS', 'NDD', 'HPP'];
+        var singkatan = ['HO', 'CS', 'QC', 'KPI', 'SKU', 'PO', 'SJ', 'SO', 'MP', 'OT', 'COD', 'WMS', 'ID', 'PDF', 'TV', 'RTS', 'NDD', 'HPP', 'AKS', 'RDM'];
         function titleCase(s) {
             return s.replace(/[A-Za-z]+/g, function(k) {
                 var u = k.toUpperCase();
