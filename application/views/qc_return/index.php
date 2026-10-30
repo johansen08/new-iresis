@@ -227,7 +227,7 @@
                     var tipe = (r.type_masalah || '-');
                     var jenis = '<span class="kp-jenis ' + (tipe == 'SALAH AMBIL' || tipe.toUpperCase().indexOf('REJECT') >= 0 ? 'kp-j-salah' : 'kp-j-lebih') + '">' + esc(tipe) + '</span>' +
                         (r.sku_salah ? '<span class="kp-sub">Terambil: ' + esc(r.sku_salah) + '</span>' : '');
-                    var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
+                    var qty = KP_MODE_REJECT ? r.qty_bermasalah : (r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty); // reject: qty yang di-reject saja
                     var cek = KP_BISA_DIAMBIL ? '<td class="kp-c-cek" data-label=""><input type="checkbox" class="kp-cek" aria-label="Pilih baris ' + (i + 1) + '" data-tahap="' + tahap + '" value="' + r.id_masalahpicker + '"' + (tahap == 'selesai' ? ' disabled' : '') + '></td>' : '';
                     html += '<tr class="kp-tahap-' + tahap + '">' + cek +
                         '<td class="kp-c-no" data-label="#">' + (i + 1) + '</td>' +

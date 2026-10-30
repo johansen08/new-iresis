@@ -23,7 +23,6 @@
       <th>Tanggal</th>
       <th>No Resi</th>
       <th>SKU</th>
-      <th>Nama Barang</th>
       <th>Jenis Masalah</th>
       <th>Qty</th>
       <th>Picker</th>
@@ -37,9 +36,8 @@
         <td><?= htmlspecialchars($d['created']) ?></td>
         <td style="mso-number-format:'\@'"><?= htmlspecialchars($d['noresi']) ?></td>
         <td><?= htmlspecialchars($d['sku']) ?></td>
-        <td><?= htmlspecialchars($d['nama_barang']) ?></td>
         <td><?= htmlspecialchars($d['type_masalah']) ?></td>
-        <td><?= $d['qty_bermasalah'] > 0 ? $d['qty_bermasalah'] . ' / ' . $d['qty'] : $d['qty'] ?></td>
+        <td><?= (int) $d['qty_bermasalah'] ?></td>
         <td><?= htmlspecialchars((string) $d['nama_picker']) ?></td>
         <td><?= htmlspecialchars((string) $d['nama_packer']) ?></td>
       </tr>
