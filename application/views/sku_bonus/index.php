@@ -160,8 +160,7 @@ if (!empty($akses_ditolak)) : ?>
       }
       $saran.append('<li class="sb-judul text-muted">SKU standar dari master</li>');
       $.each(item, function (i, it) {
-        $saran.append('<li class="sb-opsi" data-i="' + i + '"><strong>' + esc(it.sku) + '</strong>' +
-          (it.nama ? ' <span class="text-muted">' + esc(String(it.nama).slice(0, 40)) + '</span>' : '') + '</li>');
+        $saran.append('<li class="sb-opsi" data-i="' + i + '"><strong>' + esc(it.sku) + '</strong></li>');
       });
       $saran.removeClass('hidden');
       sorot(-1);
@@ -207,12 +206,12 @@ if (!empty($akses_ditolak)) : ?>
   #sb-root .sb-tambah { position: relative; }
   .sb-saran {
     position: absolute; left: 15px; right: 15px; top: 36px; z-index: 99999;
-    margin: 0; padding: 0; list-style: none; max-height: 260px; overflow-y: auto; font-size: 13px;
+    margin: 0; padding: 0; list-style: none; max-height: 300px; overflow-y: auto; font-size: 16px;
     background: #fff; border: 1px solid #d1d5db; box-shadow: 0 6px 12px rgba(0,0,0,0.15);
   }
-  .sb-saran li { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
+  .sb-saran li { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; }
   .sb-saran li.sb-opsi { cursor: pointer; }
   .sb-saran li.sb-opsi:hover, .sb-saran li.sb-opsi.aktif { background: #337ab7; color: #fff; }
   .sb-saran li.sb-opsi:hover .text-muted, .sb-saran li.sb-opsi.aktif .text-muted { color: #dbe7f3; }
-  .sb-saran li.sb-judul { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .sb-saran li.sb-judul { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 </style>
