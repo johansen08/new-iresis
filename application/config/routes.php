@@ -471,6 +471,9 @@ $route['purchasing/sku-bonus/data']           = 'sku_bonus/data';
 $route['purchasing/sku-bonus/saran']          = 'sku_bonus/saran';
 $route['purchasing/sku-bonus/tambah']         = 'sku_bonus/tambah';
 $route['purchasing/sku-bonus/ubah-status']    = 'sku_bonus/ubah_status';
+$route['purchasing/transfer-stok']            = 'transfer_stok/index';
+$route['purchasing/transfer-stok/data']       = 'transfer_stok/data';
+$route['purchasing/transfer-stok/simpan']     = 'transfer_stok/simpan';
 
 
 // TIM ACCOUNTING
