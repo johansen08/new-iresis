@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.4';
+    const BOOTSTRAP_VERSI = '2026-10-30.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2258,6 +2258,16 @@ class MY_Controller extends CI_Controller
           PRIMARY KEY (`id_log`),
           KEY `idx_masalahpicker` (`id_masalahpicker`, `status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Role "tim restok" (id 12) terpisah dari "tim retur" (6): hanya role ini (+ webmaster) yang melihat tombol
+        // Cetak Serah Terima di Pengembalian Barang. Hak menunya disalin dari tim retur (hanya INSERT, tidak ada
+        // yang diubah/dihapus); akun TIDAK dipindahkan otomatis, itu dikerjakan manual lewat halaman user.
+        if (!$this->db->get_where('tblhakakses', ['id_hakakses' => 12])->row()) {
+            $this->db->insert('tblhakakses', ['id_hakakses' => 12, 'akses' => 'tim restok']);
+        }
+        $this->db->query("INSERT INTO roleaccess (menuid, roleid, createdby, created)
+          SELECT ra.menuid, '12', ra.createdby, NOW() FROM roleaccess ra
+          WHERE ra.roleid = '6' AND NOT EXISTS (SELECT 1 FROM roleaccess x WHERE x.roleid = '12' AND x.menuid = ra.menuid)");
 
         // Menu: "Daftar Pengembalian" (TIM PACKER) jadi "Pengembalian Barang"; tim Restok (role 6)
         // diberi akses ke "Laporan Pengembalian Barang" (TIM RESTOCK) agar bisa Cetak/Selesai.
