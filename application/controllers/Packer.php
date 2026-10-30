@@ -144,7 +144,20 @@ class Packer extends MY_Controller
         $masalah['qty'] = $this->input->post('qty');
         $masalah['id_typemasalah'] = $this->input->post('type_masalah');
         $masalah['qty_bermasalah'] = $this->input->post('qty_bermasalah');
-        $masalah['sku_salah'] = $this->input->post('sku_salah');
+        $masalah['sku_salah'] = trim((string) $this->input->post('sku_salah'));
+
+        // SKU salah yang ada di master wajib disimpan sebagai SKU standar (id_sku).
+        // Tidak ada di master: simpan sesuai ketikan. Cocok banyak: user harus memilih.
+        if ($masalah['sku_salah'] !== '') {
+            $this->load->model('qc_return_fcd');
+            $cari = $this->qc_return_fcd->cari_sku($masalah['sku_salah']);
+            if ($cari['status'] === 'ok') {
+                $masalah['sku_salah'] = $cari['sku']['id_sku'];
+            } elseif ($cari['status'] === 'ambigu') {
+                $contoh = implode(', ', array_slice(array_column($cari['kandidat'], 'id_sku'), 0, 5));
+                $this->make_ajax_response(400, 'SKU Salah "' . $masalah['sku_salah'] . '" cocok dengan beberapa SKU (' . $contoh . '). Pilih salah satu dari rekomendasi.');
+            }
+        }
 
         $save = $this->packer_fcd->save_masalah_picker($masalah, $this->data['user']);
 

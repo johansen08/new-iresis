@@ -273,6 +273,8 @@
         </div>
       </div>
 
+      <script src="assets/js/sku_salah_saran.js?v=1"></script>
+
       <!-- Modal buat preview foto -->
       <div id="fotoModal" class="custom-popup-overlay" style="display: none;">
         <div class="modal-content-custom">
@@ -618,6 +620,12 @@
             success: function(data) {},
             error: function(data) {},
           }).done(function(response) {
+            // Server menolak (mis. SKU salah ambigu): modal tetap terbuka.
+            if (response && response.code >= 400) {
+              alert(response.message);
+              playAudio('audio-fail');
+              return;
+            }
             $("#span_latest_receipt").text(sku);
 
             playAudio('audio-alert');

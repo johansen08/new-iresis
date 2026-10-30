@@ -67,7 +67,17 @@ class Qc_return_fcd extends CI_Model
         $this->db->like('id_sku', $search);
         $this->db->order_by('id_sku');
         $this->db->limit(10);
-        return $this->db->get()->result_array();
+        $hasil = $this->db->get()->result_array();
+
+        // Tidak ada yang mengandung teks persis: coba abaikan tanda hubung ("FIL-7" untuk "GL-FIL7").
+        $polos = str_replace('-', '', $search);
+        if (!$hasil && $polos !== '' && $polos !== $search) {
+            $hasil = $this->db->query(
+                "SELECT id_sku, nama_sku, no_rak FROM tblsku WHERE REPLACE(id_sku, '-', '') LIKE ? ORDER BY id_sku LIMIT 10",
+                array('%' . $this->db->escape_like_str($polos) . '%')
+            )->result_array();
+        }
+        return $hasil;
     }
 
     /**
