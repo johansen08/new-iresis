@@ -15,7 +15,7 @@ Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRAN
   memakai `sku != 'AKS27-RDM'`.
 - **Tanggal mulai potong** `Stok_aks27_fcd::TANGGAL_MULAI_POTONG` = **2026-10-28** (stok 3080 masuk malam 27 Okt).
   Resi dihitung memotong bila tanggal scan packer (`tblpacking.tanggal_packing`), atau scan HO
-  (`tblscan_ho.tanggal_scan`) bila tanpa catatan packer, >= tanggal itu. Resi yang discan sebelumnya tidak
+  (`tblresikeluar.tanggal_resikeluar`, scan HO / serah terima) bila tanpa catatan packer, >= tanggal itu. Resi yang discan sebelumnya tidak
   dicatat sama sekali, jadi cancel/retur-nya juga tidak menambah stok.
 - Ref: INPUT (penerimaan transfer), PENJUALAN (keluar 1), CANCEL (+1, sebelum HO), RETURAN (+1, hanya bila
   pinset bonus ikut kembali dan lolos QC retur), PENYESUAIAN (manual/opname). Baris hanya bertambah.
@@ -32,7 +32,7 @@ Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRAN
   (`BOOTSTRAP_VERSI` 2026-10-30.11) bersama menu dan hak akses.
 - Saldo berjalan (`Sisa`) dihitung di SQL (`SUM() OVER`) atas urutan waktu catat, sebelum filter apa pun.
   Tgl QC, Tgl HO, dan Status untuk baris PENJUALAN diambil dari data resi (`tblprintresi`, `tblpacking`,
-  `tblscan_ho`), tidak disimpan.
+  `tblresikeluar`), tidak disimpan.
 - Kolom nomor: **No. Transfer** (baris INPUT), **No. Resi** (`tblprintresi.noresi`, baris PENJUALAN/CANCEL/RETURAN),
   dan **No. Pesanan** (`tbldetailprintresi.no_pesanan`, diambil dari data resi, tidak disimpan). Buku hanya
   menyimpan satu `no_ref`; pemisahannya dilakukan saat dibaca.
@@ -59,7 +59,7 @@ Webmaster (role 1) dan tim purchasing (role 7); role lain mendapat 403 JSON (`St
 `Stok_aks27_fcd::sinkron_scan()` membaca data scan yang sudah ada, jadi tidak ada menu scan baru:
 
 - **PENJUALAN** (keluar 1, `kunci` `JUAL:<noresi>`): resi yang berisi >= 1 SKU aktif di `tblsku_bonus` (selain
-  AKS27-RDM) dan tanggal `tblpacking.tanggal_packing` (bila tidak ada catatan packer: `tblscan_ho.tanggal_scan`)
+  AKS27-RDM) dan tanggal `tblpacking.tanggal_packing` (bila tidak ada catatan packer: `tblresikeluar.tanggal_resikeluar`)
   >= `TANGGAL_MULAI_POTONG`. Tepat 1 per resi; `qty` = total qty barang selain AKS27-RDM; keterangan mencatat
   "dipukul rata" (>1 SKU atau qty) dan AKS27-RDM yang dibeli. Resi `CANCELED` / `batal = 1` dilewati.
 - **CANCEL** (masuk 1, `kunci` `CANCEL:<noresi>`): resi yang sudah tercatat PENJUALAN lalu berstatus
