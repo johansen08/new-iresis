@@ -46,7 +46,7 @@ if (!empty($akses_ditolak)) : ?>
           </div>
 
           <div class="sa-filter">
-            <input type="text" id="sa-cari" class="form-control sa-cari" placeholder="Cari no, ref, ket, tanggal" autocomplete="off" />
+            <input type="text" id="sa-cari" class="form-control sa-cari" placeholder="Cari no. resi, no. pesanan, ref, ket, tanggal" autocomplete="off" />
             <div id="sa-dp" class="sa-dp">
               <button type="button" id="sa-dp-btn" class="sa-dp-btn" aria-haspopup="dialog" aria-expanded="false">
                 <i class="fa fa-calendar"></i> <span id="sa-dp-label">Semua tanggal</span> <i class="fa fa-caret-down"></i>
@@ -67,10 +67,10 @@ if (!empty($akses_ditolak)) : ?>
               <thead>
                 <tr>
                   <th>Tgl</th><th>Ref</th><th class="text-right">Masuk</th><th class="text-right">Keluar</th><th class="text-right">Sisa</th>
-                  <th class="text-right">Qty jual</th><th>No pesanan / transfer</th><th>Tgl QC</th><th>Tgl HO</th><th>Status</th><th>Ket</th>
+                  <th class="text-right">Qty jual</th><th>No. Transfer</th><th>No. Resi</th><th>No. Pesanan</th><th>Tgl QC</th><th>Tgl HO</th><th>Status</th><th>Ket</th>
                 </tr>
               </thead>
-              <tbody><tr><td colspan="11" class="text-muted text-center">Memuat…</td></tr></tbody>
+              <tbody><tr><td colspan="13" class="text-muted text-center">Memuat…</td></tr></tbody>
             </table>
           </div>
 
@@ -163,7 +163,7 @@ if (!empty($akses_ditolak)) : ?>
       F.halaman = d.halaman;
       var $tb = $('#sa-tabel tbody').empty();
       if (!d.rows.length) {
-        $tb.append('<tr><td colspan="11" class="text-muted text-center">' + (F.q || F.dari || F.sampai || F.ref.length ? 'Tidak ada baris yang cocok dengan filter.' : 'Belum ada transaksi stok.') + '</td></tr>');
+        $tb.append('<tr><td colspan="13" class="text-muted text-center">' + (F.q || F.dari || F.sampai || F.ref.length ? 'Tidak ada baris yang cocok dengan filter.' : 'Belum ada transaksi stok.') + '</td></tr>');
       }
       $.each(d.rows, function (i, r) {
         var tgl = fmtD(r.tanggal) + (r.jam ? ' ' + r.jam.slice(0, 5) : '');
@@ -173,7 +173,9 @@ if (!empty($akses_ditolak)) : ?>
           '<td class="text-right">' + (Number(r.keluar) ? esc(r.keluar) : '') + '</td>' +
           '<td class="text-right"><b' + (Number(r.sisa) < 0 ? ' class="text-danger"' : '') + '>' + esc(r.sisa) + '</b></td>' +
           '<td class="text-right">' + esc(r.qty_jual === null ? '' : r.qty_jual) + '</td>' +
-          '<td><code>' + esc(r.no_ref) + '</code></td>' +
+          '<td>' + (r.no_transfer ? '<code>' + esc(r.no_transfer) + '</code>' : '') + '</td>' +
+          '<td>' + (r.no_resi ? '<code>' + esc(r.no_resi) + '</code>' : '') + '</td>' +
+          '<td>' + esc(r.no_pesanan || '') + '</td>' +
           '<td>' + esc(fmtWaktu(r.tgl_qc)) + '</td><td>' + esc(fmtWaktu(r.tgl_ho)) + '</td>' +
           '<td>' + (r.status ? '<span class="label label-default">' + esc(r.status) + '</span>' : '') + '</td>' +
           '<td>' + esc(r.keterangan) + (r.flag ? ' <span class="label label-' + (r.flag === 'besar' ? 'danger' : 'warning') + '">' + esc(r.flag) + '</span>' : '') + '</td></tr>');
@@ -378,8 +380,8 @@ if (!empty($akses_ditolak)) : ?>
   #sa-root .table > thead > tr > th { font-size: 16px; padding: 12px 14px; white-space: nowrap; }
   #sa-root .table > tbody > tr > td { font-size: 17px; padding: 10px 14px; vertical-align: middle; }
   #sa-root .table code { font-size: 16px; font-weight: 600; }
-  #sa-root .table > tbody > tr > td:nth-child(-n+10) { white-space: nowrap; }
-  #sa-root .table > tbody > tr > td:nth-child(11) { min-width: 360px; }
+  #sa-root .table > tbody > tr > td:nth-child(-n+12) { white-space: nowrap; }
+  #sa-root .table > tbody > tr > td:nth-child(13) { min-width: 360px; }
   #sa-root .table .label { font-size: 13px; padding: 5px 9px; }
   #sa-root #sa-info-tabel { font-size: 16px; }
   #sa-root .pagination > li > a { font-size: 16px; padding: 8px 14px; }

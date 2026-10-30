@@ -33,8 +33,11 @@ Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRAN
 - Saldo berjalan (`Sisa`) dihitung di SQL (`SUM() OVER`) atas urutan waktu catat, sebelum filter apa pun.
   Tgl QC, Tgl HO, dan Status untuk baris PENJUALAN diambil dari data resi (`tblprintresi`, `tblpacking`,
   `tblscan_ho`), tidak disimpan.
-- Pencarian server-side atas no, ref, keterangan, penanda, tanggal (`Y-m-d`, `d/m/Y`), jam, masuk, keluar,
-  sisa, qty jual. Status resi belum ikut dicari.
+- Kolom nomor: **No. Transfer** (baris INPUT), **No. Resi** (`tblprintresi.noresi`, baris PENJUALAN/CANCEL/RETURAN),
+  dan **No. Pesanan** (`tbldetailprintresi.no_pesanan`, diambil dari data resi, tidak disimpan). Buku hanya
+  menyimpan satu `no_ref`; pemisahannya dilakukan saat dibaca.
+- Pencarian server-side atas no transfer/resi, no pesanan, ref, keterangan, penanda, tanggal (`Y-m-d`, `d/m/Y`),
+  jam, masuk, keluar, sisa, qty jual. Status resi belum ikut dicari.
 
 ## Akses
 
