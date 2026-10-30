@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-29.8';
+    const BOOTSTRAP_VERSI = '2026-10-30.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2235,9 +2235,9 @@ class MY_Controller extends CI_Controller
           KEY `idx_dicetak_at` (`dicetak_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Menu: "Daftar Pengembalian" (TIM PACKER) jadi "Serah Terima Pengembalian"; tim Restok (role 6)
+        // Menu: "Daftar Pengembalian" (TIM PACKER) jadi "Pengembalian Barang"; tim Restok (role 6)
         // diberi akses ke "Laporan Pengembalian Barang" (TIM RESTOCK) agar bisa Cetak/Selesai.
-        $this->db->query("UPDATE menu SET name = 'Serah Terima Pengembalian' WHERE uri = 'qc_return/index' AND name = 'Daftar Pengembalian'");
+        $this->db->query("UPDATE menu SET name = 'Pengembalian Barang' WHERE uri = 'qc_return/index' AND name IN ('Daftar Pengembalian', 'Serah Terima Pengembalian')");
         $menu_laporan = $this->db->get_where('menu', ['uri' => 'report/qc-return-report'])->row();
         if ($menu_laporan) {
             $sudah = $this->db->get_where('roleaccess', ['roleid' => 6, 'menuid' => $menu_laporan->id])->row();
