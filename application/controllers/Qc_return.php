@@ -12,6 +12,8 @@ class Qc_return extends MY_Controller
     //   Selesai = tim retur (6) + webmaster. Role 12 dibuat migrasi (MY_Controller::run_serah_terima_qc_migration).
     const ROLE_CETAK = array(1, 12);
     const ROLE_SELESAI = array(1, 6);
+    // Barang Reject: edit & hapus (soft-delete) hanya webmaster + tim retur
+    const ROLE_UBAH_REJECT = array(1, 6);
 
     private function punya_peran($daftar)
     {
@@ -273,6 +275,7 @@ class Qc_return extends MY_Controller
     {
         $data['message'] = $this->session->flashdata('message');
         $data['mode_reject'] = TRUE;
+        $data['bisa_ubah'] = $this->punya_peran(self::ROLE_UBAH_REJECT);
         $data['bisa_diambil'] = $data['bisa_restok'] = $data['bisa_selesai'] = $data['bisa_cetak'] = FALSE;
         $this->show($data, 'qc_return/index');
     }
@@ -280,7 +283,34 @@ class Qc_return extends MY_Controller
     public function barang_reject_data()
     {
         list($mulai, $akhir) = $this->rentang_tanggal($this->input->post('start_date'), $this->input->post('end_date'));
-        $this->make_ajax_response(200, 'ok', $this->gabung_per_sku($this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array()));
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array());
+    }
+
+    public function barang_reject_edit()
+    {
+        if (!$this->punya_peran(self::ROLE_UBAH_REJECT)) {
+            $this->make_ajax_response(403, 'Edit hanya untuk webmaster dan tim retur');
+        }
+        $qty = $this->input->post('qty');
+        $kurang = $this->input->post('qty_kurang');
+        $rak = trim((string) $this->input->post('no_rak'));
+        if (!ctype_digit((string) $qty) || (int) $qty < 1 || !ctype_digit((string) $kurang) || $rak === '') {
+            $this->make_ajax_response(400, 'Qty (minimal 1), qty kurang, dan No Rak wajib diisi dengan benar');
+        }
+        list($ok, $pesan) = $this->qc_return_fcd->edit_reject($this->input->post('id'), array(
+            'qty' => $qty, 'qty_kurang' => $kurang, 'no_rak' => substr($rak, 0, 50),
+            'keterangan_reject' => substr(trim((string) $this->input->post('keterangan_reject')), 0, 255),
+        ), $this->data['user']['id_user']);
+        $this->make_ajax_response($ok ? 200 : 400, $pesan);
+    }
+
+    public function barang_reject_hapus()
+    {
+        if (!$this->punya_peran(self::ROLE_UBAH_REJECT)) {
+            $this->make_ajax_response(403, 'Hapus hanya untuk webmaster dan tim retur');
+        }
+        list($ok, $pesan) = $this->qc_return_fcd->hapus_reject($this->input->post('id'), $this->data['user']['id_user']);
+        $this->make_ajax_response($ok ? 200 : 400, $pesan);
     }
 
     public function barang_reject_excel()

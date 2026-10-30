@@ -17,6 +17,7 @@ class Pengembalian_qc extends CI_Model {
         $this->db->select('*');
         $this->db->from($this->_table);
         $this->db->where('kondisi', 'REJECT');
+        $this->db->where('dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('status_sortir', 0);
         $this->db->where_not_in('status', ['REJECTED', 'REPAIR', 'GIVEAWAY', 'BARANG_TIDAK_ADA']);
 
