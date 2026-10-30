@@ -317,6 +317,30 @@ class Qc_return extends MY_Controller
             $sheet->getColumnDimension($kol)->setAutoSize(TRUE);
         }
 
+        // Sheet kedua: SKU yang sama dijumlahkan qty-nya
+        $total = array();
+        foreach ($data['list_data'] as $d) {
+            $k = (string) $d['sku'];
+            $total[$k] = (isset($total[$k]) ? $total[$k] : 0) + (int) $d['qty'];
+        }
+        ksort($total, SORT_STRING);
+        $sheet2 = $ss->createSheet();
+        $sheet2->setTitle('Total per SKU');
+        $sheet2->fromArray(array('SKU', 'Total Qty'), NULL, 'A1');
+        $sheet2->getStyle('A1:B1')->getFont()->setBold(TRUE);
+        $baris = 2;
+        foreach ($total as $sku => $qty) {
+            $sheet2->setCellValueExplicit('A' . $baris, (string) $sku, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet2->setCellValue('B' . $baris, $qty);
+            $baris++;
+        }
+        $sheet2->setCellValue('A' . $baris, 'TOTAL');
+        $sheet2->setCellValue('B' . $baris, array_sum($total));
+        $sheet2->getStyle('A' . $baris . ':B' . $baris)->getFont()->setBold(TRUE);
+        $sheet2->getColumnDimension('A')->setAutoSize(TRUE);
+        $sheet2->getColumnDimension('B')->setAutoSize(TRUE);
+        $ss->setActiveSheetIndex(0);
+
         while (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="Barang_Reject_' . $mulai . '_to_' . $akhir . '.xlsx"');
