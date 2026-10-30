@@ -118,7 +118,7 @@
                     var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
                     var status = r.selesai_at ? '<span class="label label-success">SELESAI</span>' :
                         (r.diambil_at ? '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>' :
-                        (r.jumlah_cetak > 0 ? '<span class="label label-info">SERAH TERIMA DICETAK</span>' : '<span class="label label-default">BELUM DICETAK</span>'));
+                        (r.jumlah_cetak > 0 ? '<span class="label label-info">SERAH TERIMA DICETAK</span>' : '<span class="label label-default">BARANG BELUM DIAMBIL</span>'));
                     html += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.created) + '</td><td>' + esc(r.noresi) + '</td><td>' + esc(r.sku) +
                         '</td><td>' + jenis + '</td><td>' + esc(qty) + '</td><td>' + esc(r.nama_picker || '-') +
                         '</td><td>' + esc(r.nama_packer || '-') + '</td><td>' + status + '</td></tr>';
