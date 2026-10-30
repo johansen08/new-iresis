@@ -278,6 +278,7 @@ class Qc_return extends MY_Controller
         if (!is_array($ids) || !$ids) {
             $this->make_ajax_response(400, 'Pilih minimal satu baris');
         }
+        $this->tolak_bila_urutan_salah($ids, 'diambil');
         $jumlah = $this->qc_return_fcd->tandai_kesalahan_diambil($ids, $this->petugas());
         $this->make_ajax_response(200, $jumlah . ' baris ditandai Barang Diambil Restok', array('jumlah' => $jumlah));
     }
@@ -292,6 +293,7 @@ class Qc_return extends MY_Controller
         if (!is_array($ids) || !$ids) {
             $this->make_ajax_response(400, 'Pilih minimal satu baris');
         }
+        $this->tolak_bila_urutan_salah($ids, 'selesai');
         $jumlah = $this->qc_return_fcd->tandai_kesalahan_selesai($ids, $this->petugas());
         $this->make_ajax_response(200, $jumlah . ' baris ditandai Selesai', array('jumlah' => $jumlah));
     }
@@ -305,6 +307,12 @@ class Qc_return extends MY_Controller
         }
         $ids = $this->input->post('ids');
         $petugas = $this->petugas();
+        if (is_array($ids)) {
+            $salah = $this->pelanggaran_urutan($ids, 'cetak');
+            if ($salah) {
+                exit($salah);
+            }
+        }
         $hasil = is_array($ids) ? $this->qc_return_fcd->cetak_kesalahan_serah($ids, $petugas) : NULL;
         if (!$hasil) {
             exit('Tidak ada baris yang bisa dicetak. Pilih baris yang berstatus BARANG DIAMBIL RESTOK dan belum SELESAI.');
@@ -313,6 +321,43 @@ class Qc_return extends MY_Controller
         $data = $hasil;
         $data['penyerah'] = array(); // nama QC dikosongkan, ditulis tangan saat tanda tangan
         $this->load->view('qc_return/serah_terima', $data);
+    }
+
+    /**
+     * Urutan status pengembalian: BARANG DIAMBIL RESTOK -> SERAH TERIMA DICETAK -> SELESAI.
+     * Mengembalikan pesan penjelasan bila ada baris terpilih yang belum/tidak memenuhi syarat aksi, NULL bila semua sesuai.
+     */
+    private function pelanggaran_urutan($ids, $aksi)
+    {
+        $izin = array('diambil' => array('belum'), 'cetak' => array('diambil', 'dicetak'), 'selesai' => array('dicetak'));
+        $label = array('belum' => 'BARANG BELUM DIAMBIL', 'diambil' => 'BARANG DIAMBIL RESTOK', 'dicetak' => 'SERAH TERIMA DICETAK', 'selesai' => 'SELESAI');
+        $syarat = array(
+            'diambil' => 'Barang Diambil hanya untuk baris berstatus BARANG BELUM DIAMBIL.',
+            'cetak' => 'Cetak Serah Terima hanya untuk baris berstatus BARANG DIAMBIL RESTOK (atau SERAH TERIMA DICETAK untuk cetak ulang). Klik Barang Diambil dulu.',
+            'selesai' => 'Selesai hanya untuk baris berstatus SERAH TERIMA DICETAK. Cetak Serah Terima dulu.'
+        );
+        $hitung = array();
+        foreach ($this->qc_return_fcd->status_kesalahan($ids) as $tahap) {
+            if (!in_array($tahap, $izin[$aksi], TRUE)) {
+                $hitung[$tahap] = isset($hitung[$tahap]) ? $hitung[$tahap] + 1 : 1;
+            }
+        }
+        if (!$hitung) {
+            return NULL;
+        }
+        $bagian = array();
+        foreach ($hitung as $tahap => $n) {
+            $bagian[] = $n . ' baris berstatus ' . $label[$tahap];
+        }
+        return 'Urutan status harus BARANG DIAMBIL RESTOK > SERAH TERIMA DICETAK > SELESAI. ' . implode(', ', $bagian) . '. ' . $syarat[$aksi] . ' Tidak ada yang diubah.';
+    }
+
+    private function tolak_bila_urutan_salah($ids, $aksi)
+    {
+        $salah = $this->pelanggaran_urutan($ids, $aksi);
+        if ($salah) {
+            $this->make_ajax_response(409, $salah);
+        }
     }
 
     /**

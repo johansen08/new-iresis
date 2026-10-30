@@ -264,6 +264,29 @@ class Qc_return_fcd extends CI_Model
         }
     }
 
+    // Tahap tiap baris: belum / diambil / dicetak / selesai (id => tahap). Hanya baca.
+    function status_kesalahan($ids)
+    {
+        $ids = $this->bersihkan_ids($ids);
+        if (!$ids) {
+            return array();
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $rows = $this->db->query(
+            "SELECT mp.id_masalahpicker,
+                EXISTS (SELECT 1 FROM tblkesalahan_picker_diambil kd WHERE kd.id_masalahpicker = mp.id_masalahpicker) AS diambil,
+                EXISTS (SELECT 1 FROM tblkesalahan_picker_status_log l WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = 'SERAH TERIMA DICETAK') AS dicetak,
+                EXISTS (SELECT 1 FROM tblkesalahan_picker_status_log l WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = 'SELESAI') AS selesai
+             FROM tblmasalahpicker mp
+             WHERE mp.id_typemasalah IN (2, 4) AND mp.id_masalahpicker IN ($ph)", $ids
+        )->result_array();
+        $peta = array();
+        foreach ($rows as $r) {
+            $peta[(int) $r['id_masalahpicker']] = $r['selesai'] ? 'selesai' : ($r['dicetak'] ? 'dicetak' : ($r['diambil'] ? 'diambil' : 'belum'));
+        }
+        return $peta;
+    }
+
     // Tandai kesalahan picker (LEBIH/SALAH AMBIL) terpilih sebagai barang diambil Restok + catat riwayatnya.
     // Baris yang sudah ditandai dilewati. Mengembalikan jumlah baris yang baru ditandai.
     function tandai_kesalahan_diambil($ids, $u)
