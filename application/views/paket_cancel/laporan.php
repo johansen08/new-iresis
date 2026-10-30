@@ -268,7 +268,7 @@
         var c = g('cetak');
         c.className = 'pcd';
         c.innerHTML = '<div class="pr"><h2 class="grow">Pratinjau kertas serah terima</h2><button type="button" class="a w s" data-act="cetak" data-t="' + esc(t) + '">&#128424; Cetak</button><button type="button" class="a x s" data-act="cetak-tutup">Tutup</button></div>' +
-            '<div class="paper"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:6px"><b style="font-size:16px">SERAH TERIMA PAKET CANCEL</b><b>' + U.tglIndo(t) + '</b></div>' +
+            '<div class="paper"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:6px"><b style="font-size:16px">PENGEMBALIAN BARANG (PAKET CANCEL DARI RETUR KE RESTOK)</b><b>' + U.tglIndo(t) + '</b></div>' +
             '<table><thead><tr><th class="f">No</th><th class="f">No. Rak</th><th class="f">SKU</th><th class="f">Qty</th><th class="f">Qty Real</th><th>Ket</th></tr></thead><tbody>' + baris + '</tbody></table>' +
             '<div class="ttd"><div>RETUR<div class="sp"></div>' + nama + '</div><div>RESTOK<div class="sp"></div>&nbsp;</div></div></div>';
         c.scrollIntoView();

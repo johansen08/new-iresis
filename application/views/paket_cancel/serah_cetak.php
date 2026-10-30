@@ -14,7 +14,7 @@ $fs = max(7.5, min(11.5, $rowH * 1.45));
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>Serah Terima Paket Cancel <?= html_escape($tgl_indo) ?></title>
+<title>Pengembalian Barang (Paket Cancel dari Retur ke Restok) <?= html_escape($tgl_indo) ?></title>
 <style>
 @page{size:A4;margin:12mm}
 *{box-sizing:border-box}
@@ -39,7 +39,7 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
 </head>
 <body>
 <div class="head">
-    <h1>SERAH TERIMA PAKET CANCEL</h1>
+    <h1>PENGEMBALIAN BARANG (PAKET CANCEL DARI RETUR KE RESTOK)</h1>
     <b><?= html_escape($tgl_indo) ?></b>
 </div>
 <?php if (empty($det)): ?>
