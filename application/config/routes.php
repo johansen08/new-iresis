@@ -478,6 +478,9 @@ $route['packer/penerimaan-transfer']          = 'penerimaan_transfer/index';
 $route['packer/penerimaan-transfer/menunggu'] = 'penerimaan_transfer/menunggu';
 $route['packer/penerimaan-transfer/riwayat']  = 'penerimaan_transfer/riwayat';
 $route['packer/penerimaan-transfer/terima']   = 'penerimaan_transfer/terima';
+$route['purchasing/stok-aks27']               = 'stok_aks27/index';
+$route['purchasing/stok-aks27/ringkas']       = 'stok_aks27/ringkas';
+$route['purchasing/stok-aks27/data']          = 'stok_aks27/data';
 
 
 // TIM ACCOUNTING

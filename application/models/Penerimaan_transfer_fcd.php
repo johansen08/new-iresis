@@ -16,11 +16,11 @@ class Penerimaan_transfer_fcd extends CI_Model
     const PER_HALAMAN_BOLEH = [10, 20, 50];
     const QTY_MAKS          = 1000000;
 
-    /** Saldo stok packing. Sementara = total qty yang pernah diterima (Kartu Stok akan mengambil alih). */
+    /** Saldo stok packing = saldo buku Stok AKS27-RDM (masuk dari penerimaan dikurangi keluar). */
     public function saldo()
     {
-        $row = $this->db->select('COALESCE(SUM(qty), 0) AS total', FALSE)->get('tbltransfer_stok_terima')->row_array();
-        return (int) $row['total'];
+        $this->load->model('stok_aks27_fcd');
+        return $this->stok_aks27_fcd->saldo();
     }
 
     /** Transfer yang belum diterima, terlama dulu. */
