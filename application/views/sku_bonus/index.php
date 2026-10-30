@@ -20,7 +20,7 @@ if (!empty($akses_ditolak)) : ?>
       <div class="panel panel-default">
         <div class="panel-heading">
           <h3 class="panel-title"><strong>Daftar SKU Bonus</strong>
-            <small class="text-muted" style="margin-left:8px;">resi yang berisi salah satu SKU aktif di bawah mendapat 1 pinset</small>
+            <small class="text-muted" style="margin-left:8px;">resi yang berisi salah satu SKU aktif di bawah mendapat 1 AKS27-RDM (PINSET)</small>
           </h3>
         </div>
         <div class="panel-body">
