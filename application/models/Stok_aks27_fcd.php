@@ -255,43 +255,60 @@ class Stok_aks27_fcd extends CI_Model
         $q = isset($f['q']) ? trim((string) $f['q']) : '';
         if ($q !== '') {
             // Satu teks pencarian untuk yang tampil di tabel: no pesanan/transfer, ref, keterangan,
-            // penanda, tanggal, jam, masuk, keluar, sisa, qty jual.
-            $w[] = "CONCAT_WS(' ', x.no_ref, x.ref, x.keterangan, IFNULL(x.flag, ''), x.tanggal, DATE_FORMAT(x.tanggal, '%d/%m/%Y'),"
-                . " IFNULL(x.jam, ''), IF(x.masuk > 0, x.masuk, ''), IF(x.keluar > 0, x.keluar, ''), x.sisa, IFNULL(x.qty_jual, '')) LIKE ? ESCAPE '!'";
-            $b[] = '%' . $this->db->escape_like_str($q) . '%';
+            // penanda, tanggal, jam, masuk, keluar, sisa, qty jual, dan no pesanan resi.
+            $w[] = "(CONCAT_WS(' ', x.no_ref, x.ref, x.keterangan, IFNULL(x.flag, ''), x.tanggal, DATE_FORMAT(x.tanggal, '%d/%m/%Y'),"
+                . " IFNULL(x.jam, ''), IF(x.masuk > 0, x.masuk, ''), IF(x.keluar > 0, x.keluar, ''), x.sisa, IFNULL(x.qty_jual, '')) LIKE ? ESCAPE '!'"
+                . " OR (x.ref <> 'INPUT' AND x.no_ref <> '' AND EXISTS (SELECT 1 FROM tblprintresi pr JOIN tbldetailprintresi dd ON dd.id_resi = pr.id_printresi"
+                . " WHERE pr.noresi = x.no_ref AND dd.no_pesanan LIKE ? ESCAPE '!')))";
+            $like = '%' . $this->db->escape_like_str($q) . '%';
+            $b[] = $like;
+            $b[] = $like;
         }
         return [$w ? ' WHERE ' . implode(' AND ', $w) : '', $b];
     }
 
     /**
-     * Tgl QC, Tgl HO, dan status resi untuk baris PENJUALAN: diambil dari data resi
-     * (tblprintresi, tblpacking, tblscan_ho), tidak disimpan di buku stok.
+     * No. Resi / No. Transfer dipisah dari no_ref (INPUT = nomor transfer, ref lain = no resi).
+     * No. Pesanan untuk baris berbasis resi, serta Tgl QC, Tgl HO, dan status resi untuk baris
+     * PENJUALAN: diambil dari data resi (tblprintresi, tbldetailprintresi, tblpacking, tblscan_ho),
+     * tidak disimpan di buku stok.
      */
     private function lengkapi_resi(array &$rows)
     {
         $no = [];
         foreach ($rows as $r) {
-            if ($r['ref'] === 'PENJUALAN' && $r['no_ref'] !== '') {
+            if ($r['ref'] !== 'INPUT' && $r['no_ref'] !== '') {
                 $no[$r['no_ref']] = TRUE;
             }
         }
         $peta = [];
         if ($no) {
-            $this->db->select('pr.noresi, pr.status_pesanan,'
-                . ' (SELECT MIN(p.tanggal_packing) FROM tblpacking p WHERE p.id_resi = pr.id_printresi) AS tgl_qc,'
-                . ' (SELECT MIN(h.tanggal_scan) FROM tblscan_ho h WHERE h.id_resi = pr.id_printresi) AS tgl_ho', FALSE)
-                ->from('tblprintresi pr')->where_in('pr.noresi', array_keys($no));
-            foreach ($this->db->get()->result_array() as $p) {
+            // Query mentah: select() CI memecah teks di setiap koma, termasuk koma di dalam SEPARATOR.
+            $daftar = implode(',', array_map([$this->db, 'escape'], array_keys($no)));
+            $hasil  = $this->db->query(
+                "SELECT pr.noresi, pr.status_pesanan,"
+                . " (SELECT GROUP_CONCAT(DISTINCT dd.no_pesanan SEPARATOR ', ') FROM tbldetailprintresi dd WHERE dd.id_resi = pr.id_printresi) AS no_pesanan,"
+                . " (SELECT MIN(p.tanggal_packing) FROM tblpacking p WHERE p.id_resi = pr.id_printresi) AS tgl_qc,"
+                . " (SELECT MIN(h.tanggal_scan) FROM tblscan_ho h WHERE h.id_resi = pr.id_printresi) AS tgl_ho"
+                . " FROM tblprintresi pr WHERE pr.noresi IN (" . $daftar . ")"
+            )->result_array();
+            foreach ($hasil as $p) {
                 if (!isset($peta[$p['noresi']])) {
                     $peta[$p['noresi']] = $p;
                 }
             }
         }
         foreach ($rows as &$r) {
-            $p = isset($peta[$r['no_ref']]) ? $peta[$r['no_ref']] : NULL;
-            $r['tgl_qc'] = ($r['ref'] === 'PENJUALAN' && $p) ? $p['tgl_qc'] : NULL;
-            $r['tgl_ho'] = ($r['ref'] === 'PENJUALAN' && $p) ? $p['tgl_ho'] : NULL;
-            $r['status'] = ($r['ref'] === 'PENJUALAN' && $p) ? $p['status_pesanan'] : NULL;
+            $resi = ($r['ref'] !== 'INPUT' && $r['no_ref'] !== '');
+            $p    = ($resi && isset($peta[$r['no_ref']])) ? $peta[$r['no_ref']] : NULL;
+            $jual = ($r['ref'] === 'PENJUALAN' && $p);
+            $r['no_transfer'] = $r['ref'] === 'INPUT' ? $r['no_ref'] : '';
+            $r['no_resi']     = $resi ? $r['no_ref'] : '';
+            $r['no_pesanan']  = $p ? $p['no_pesanan'] : NULL;
+            $r['tgl_qc']      = $jual ? $p['tgl_qc'] : NULL;
+            $r['tgl_ho']      = $jual ? $p['tgl_ho'] : NULL;
+            $r['status']      = $jual ? $p['status_pesanan'] : NULL;
+            unset($r['no_ref']);
         }
         unset($r);
     }
