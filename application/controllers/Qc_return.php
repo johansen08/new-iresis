@@ -4,8 +4,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Qc_return extends MY_Controller
 {
     // Hak klik serah terima: Barang Diambil = tim packer (4); Cetak Serah Terima + Selesai = tim restok (6).
-    // Barang Diambil hanya packer (admin tidak). Dicek di server; tombol di layar hanya cermin dari ini.
-    const ROLE_DIAMBIL = array(4);
+    // Barang Diambil: packer (4) dan webmaster (1), admin (2) tidak. Dicek di server; tombol di layar hanya cermin dari ini.
+    const ROLE_DIAMBIL = array(1, 4);
     const ROLE_RESTOK = array(1, 2, 6);
 
     private function punya_peran($daftar)
