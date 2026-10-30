@@ -466,6 +466,11 @@ $route['purchasing/laporan-penolakan']      = 'purchasing/laporan_penolakan';
 $route['purchasing/laporan-tidak-ada']      = 'purchasing/laporan_tidak_ada';
 $route['purchasing/kirim-gudang-purchasing'] = 'purchasing/kirim_gudang_purchasing';
 $route['purchasing/refresh-menu']           = 'purchasing/refresh_menu';
+$route['purchasing/sku-bonus']                = 'sku_bonus/index';
+$route['purchasing/sku-bonus/data']           = 'sku_bonus/data';
+$route['purchasing/sku-bonus/saran']          = 'sku_bonus/saran';
+$route['purchasing/sku-bonus/tambah']         = 'sku_bonus/tambah';
+$route['purchasing/sku-bonus/ubah-status']    = 'sku_bonus/ubah_status';
 
 
 // TIM ACCOUNTING
