@@ -290,9 +290,39 @@ class Qc_return extends MY_Controller
         $data['list_data'] = $this->qc_return_fcd->get_data_export($mulai, $akhir, null, 'REJECT')->result_array();
         $data['start_date'] = $mulai;
         $data['end_date'] = $akhir;
-        header("Content-type: application/vnd-ms-excel");
-        header("Content-Disposition: attachment; filename=Barang_Reject_" . $mulai . "_to_" . $akhir . ".xls");
-        $this->load->view('template_report/barang_reject_report', $data);
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $ss->getActiveSheet();
+        $sheet->setTitle('Barang Reject');
+        $sheet->fromArray(array('No', 'Tanggal', 'SKU', 'Qty', 'No Rak', 'Kondisi', 'Submitted By', 'Status', 'Acc By', 'Acc At'), NULL, 'A1');
+        $sheet->getStyle('A1:J1')->getFont()->setBold(TRUE);
+        $baris = 2;
+        foreach ($data['list_data'] as $i => $d) {
+            $sheet->fromArray(array(
+                $i + 1,
+                $d['tanggal'],
+                $d['sku'],
+                $d['qty'] . ($d['qty_kurang'] > 0 ? ' (Kurang: ' . $d['qty_kurang'] . ')' : ''),
+                $d['no_rak'],
+                $d['kondisi'] . ($d['keterangan_reject'] ? ' (' . $d['keterangan_reject'] . ')' : ''),
+                $d['submitter'],
+                $d['status'],
+                $d['approver'],
+                $d['acc_at']
+            ), NULL, 'A' . $baris);
+            // SKU bisa berbentuk angka/E-notation: paksa teks
+            $sheet->setCellValueExplicit('C' . $baris, (string) $d['sku'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $baris++;
+        }
+        foreach (range('A', 'J') as $kol) {
+            $sheet->getColumnDimension($kol)->setAutoSize(TRUE);
+        }
+
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="Barang_Reject_' . $mulai . '_to_' . $akhir . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit;
     }
 
     private function rentang_tanggal($mulai, $akhir)
