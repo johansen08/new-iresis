@@ -38,13 +38,6 @@ if (!empty($akses_ditolak)) : ?>
             <div class="sa-kpi"><small>Dalam perjalanan</small><b id="sa-k-jalan">-</b></div>
           </div>
 
-          <div class="panel panel-default sa-grafik">
-            <div class="panel-body">
-              <div class="sa-judul">Saldo per transaksi</div>
-              <div id="sa-grafik"></div>
-            </div>
-          </div>
-
           <div class="sa-filter">
             <input type="text" id="sa-cari" class="form-control sa-cari" placeholder="Cari no. resi, no. pesanan, ref, ket, tanggal" autocomplete="off" />
             <div id="sa-dp" class="sa-dp">
@@ -128,19 +121,7 @@ if (!empty($akses_ditolak)) : ?>
     $(this).attr('aria-expanded', !$i.hasClass('hidden'));
   });
 
-  // ---------- kartu + grafik ----------
-  function gambarGrafik(pts, total) {
-    if (!pts.length) { $('#sa-grafik').html('<div class="text-muted">Belum ada transaksi.</div>'); return; }
-    var W = 640, H = 90, mx = Math.max.apply(null, pts.concat([1])), mn = Math.min.apply(null, pts.concat([0]));
-    var X = function (i) { return pts.length < 2 ? 10 : 10 + i * (W - 20) / (pts.length - 1); };
-    var Y = function (v) { return 8 + (mx - v) * (H - 16) / ((mx - mn) || 1); };
-    var d = $.map(pts, function (v, i) { return X(i) + ',' + Y(v); }).join(' ');
-    $('#sa-grafik').html('<svg viewBox="0 0 ' + W + ' ' + (H + 14) + '" style="width:100%;height:auto" role="img" aria-label="Grafik saldo stok per transaksi">' +
-      '<polyline fill="none" stroke="#337ab7" stroke-width="2" points="' + d + '"/>' +
-      '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1]) + '" r="4" fill="#337ab7"/>' +
-      '<text x="10" y="' + (H + 10) + '" font-size="11" fill="#888">transaksi ' + (total - pts.length + 1) + '</text>' +
-      '<text x="' + (W - 10) + '" y="' + (H + 10) + '" text-anchor="end" font-size="11" fill="#888">transaksi ' + total + '</text></svg>');
-  }
+  // ---------- kartu ----------
   function muatRingkas() {
     $.getJSON(URL.ringkas).done(function (res) {
       if (Number(res.code) !== 200 || !res.data) { pesan(res.message || 'Gagal memuat ringkasan.'); return; }
@@ -149,7 +130,6 @@ if (!empty($akses_ditolak)) : ?>
       $('#sa-k-jual').text(d.penjualan);
       $('#sa-k-jalan').text(d.perjalanan);
       perRef = d.per_ref || {};
-      gambarGrafik(d.grafik || [], Number(d.total_baris));
     }).fail(jsonGagal);
   }
 
@@ -392,7 +372,6 @@ if (!empty($akses_ditolak)) : ?>
   #sa-root .sa-kpi { flex: 1 1 200px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 18px; background: #f7f8fa; }
   #sa-root .sa-kpi small { display: block; font-size: 15px; color: #666; }
   #sa-root .sa-kpi b { font-size: 32px; }
-  #sa-root .sa-grafik .sa-judul { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
 
   #sa-root .sa-filter { clear: both; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
   #sa-root .sa-cari { width: 320px; max-width: 100%; border-radius: 22px; padding-left: 18px; }

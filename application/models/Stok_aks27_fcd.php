@@ -21,7 +21,6 @@ class Stok_aks27_fcd extends CI_Model
 {
     const PER_HALAMAN_BOLEH = [10, 20, 50];
     const REFS              = ['INPUT', 'PENYESUAIAN', 'RETURAN', 'CANCEL', 'PENJUALAN'];
-    const TITIK_GRAFIK      = 200;
 
     /** Resi dengan scan packer (atau scan HO bila tanpa catatan packer) sebelum tanggal ini tidak memotong stok bonus. */
     const TANGGAL_MULAI_POTONG = '2026-10-28';
@@ -152,7 +151,7 @@ class Stok_aks27_fcd extends CI_Model
         return (int) $in['n'] + (int) $lain['n'];
     }
 
-    /** Kartu ringkasan, jumlah baris per ref, dan titik grafik saldo. */
+    /** Kartu ringkasan dan jumlah baris per ref. */
     public function ringkas()
     {
         $this->sinkron_terjadwal();
@@ -167,18 +166,11 @@ class Stok_aks27_fcd extends CI_Model
 
         $jalan = $this->db->query('SELECT COALESCE(SUM(qty_kirim), 0) AS n FROM tbltransfer_stok WHERE qty_terima = 0')->row_array();
 
-        $titik = $this->db->query(
-            'SELECT x.sisa FROM (' . $this->sql_buku() . ') x ORDER BY x.urut DESC, x.sumber DESC, x.sid DESC LIMIT ' . (int) self::TITIK_GRAFIK
-        )->result_array();
-        $grafik = array_reverse(array_map('intval', array_column($titik, 'sisa')));
-
         return [
             'saldo'      => $this->saldo(),
             'penjualan'  => $hitung['PENJUALAN'],
             'perjalanan' => (int) $jalan['n'],
             'per_ref'    => $hitung,
-            'grafik'     => $grafik,
-            'total_baris' => array_sum($hitung),
         ];
     }
 

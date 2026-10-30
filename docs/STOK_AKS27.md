@@ -20,7 +20,7 @@ Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRAN
 - Ref: INPUT (penerimaan transfer), PENJUALAN (keluar 1), CANCEL (+1, sebelum HO), RETURAN (+1, hanya bila
   pinset bonus ikut kembali dan lolos QC retur), PENYESUAIAN (manual/opname). Baris hanya bertambah.
 - Kartu: **Sisa Stok**, **Penjualan** (jumlah baris PENJUALAN), **Dalam perjalanan** (jumlah qty kirim transfer
-  yang belum diterima). Grafik saldo memakai 200 transaksi terakhir.
+  yang belum diterima).
 
 ## Data
 
