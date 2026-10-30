@@ -14,6 +14,7 @@ Sisi packer: [Penerimaan Transfer](PENERIMAAN_TRANSFER.md). Menu lain (Scan Resi
   = hari ini; tanggal lain jamnya `NULL`.
 - Qty kirim bilangan bulat 1 .. 1.000.000. Keterangan opsional (default `transfer stok`, maks 255).
 - Tidak ada hapus dan tidak ada tutup manual. Transfer yang barangnya tidak akan datang dikoreksi lewat Penyesuaian.
+- Kolom **Tgl terima** dan **Jam terima** diambil dari `tbltransfer_stok_terima` (kosong selama belum diterima) dan ikut dicari.
 - Tombol "Buat transfer" membuka popup konfirmasi dulu; baru simpan setelah "Ya, simpan transfer".
 
 ## Tabel `tbltransfer_stok`
