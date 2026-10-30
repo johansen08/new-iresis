@@ -331,6 +331,18 @@ class Qc_return_fcd extends CI_Model
             if ((int) $r['id_typemasalah'] === 4 && trim((string) $r['sku_salah']) !== '') {
                 $r['sku'] = $r['sku_salah_master'] !== NULL ? $r['sku_salah_master'] : trim((string) $r['sku_salah']);
                 $r['no_rak'] = $r['rak_salah'];
+                if ($r['sku_salah_master'] === NULL) {
+                    // Packer sering mengetik kode singkat tanpa awalan ("cnc25-1" untuk "C223-CNC25-1"):
+                    // pakai SKU berakhiran sama HANYA bila tepat satu, kalau lebih rak dibiarkan kosong.
+                    $mirip = $this->db->query(
+                        "SELECT id_sku, COALESCE(NULLIF(no_rak, ''), '') AS no_rak FROM tblsku WHERE id_sku LIKE ? LIMIT 2",
+                        array('%-' . $this->db->escape_like_str(trim((string) $r['sku_salah'])))
+                    )->result_array();
+                    if (count($mirip) === 1) {
+                        $r['sku'] = $mirip[0]['id_sku'];
+                        $r['no_rak'] = $mirip[0]['no_rak'];
+                    }
+                }
             }
             $kunci = $r['no_rak'] . "\0" . $r['sku'];
             if (!isset($gabung[$kunci])) {
