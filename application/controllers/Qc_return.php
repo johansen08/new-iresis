@@ -271,8 +271,50 @@ class Qc_return extends MY_Controller
         if (!is_array($ids) || !$ids) {
             $this->make_ajax_response(400, 'Pilih minimal satu baris');
         }
-        $jumlah = $this->qc_return_fcd->tandai_kesalahan_diambil($ids, $this->data['user']['id_user']);
+        $jumlah = $this->qc_return_fcd->tandai_kesalahan_diambil($ids, $this->petugas());
         $this->make_ajax_response(200, $jumlah . ' baris ditandai Barang Diambil Restok', array('jumlah' => $jumlah));
+    }
+
+    // Tombol "Cetak Serah Terima" di tabel Kesalahan Picker: halaman cetak A4 dari baris yang dicentang
+    // (form POST, tab baru). Status baris yang sudah diambil menjadi SERAH TERIMA DICETAK.
+    public function cetak_serah_kesalahan()
+    {
+        if (!$this->punya_peran(self::ROLE_DIAMBIL)) {
+            exit('Cetak serah terima hanya untuk tim Packer.');
+        }
+        $ids = $this->input->post('ids');
+        $petugas = $this->petugas();
+        $hasil = is_array($ids) ? $this->qc_return_fcd->cetak_kesalahan_serah($ids, $petugas) : NULL;
+        if (!$hasil) {
+            exit('Tidak ada baris yang bisa dicetak. Pilih baris yang berstatus BARANG DIAMBIL RESTOK dan belum SELESAI.');
+        }
+
+        $data = $hasil;
+        $data['penyerah'] = array($petugas['no_absen'] . ' - ' . $petugas['nama'] . ' - ' . $petugas['role']);
+        $this->load->view('qc_return/serah_terima', $data);
+    }
+
+    /**
+     * Identitas user yang sedang login untuk riwayat status: no absen - nama - role.
+     * Nama di tbluser berformat "NAMA - ROLE - NOABSEN" (no absen = angka di ujung).
+     */
+    private function petugas()
+    {
+        $u = $this->data['user'];
+        $nama = trim((string) (isset($u['name']) ? $u['name'] : ''));
+        $absen = '';
+        $role = '';
+        if (preg_match('/^(.+?)\s+-\s+(.+?)\s*-\s*(\d+)\s*$/', $nama, $m)) {
+            list(, $nama, $role, $absen) = $m;
+            $nama = trim($nama);
+            $role = trim($role);
+        }
+        $akses = '';
+        if (isset($u['hakakses'])) {
+            $r = $this->db->get_where('tblhakakses', array('id_hakakses' => (int) $u['hakakses']))->row_array();
+            $akses = $r ? (string) $r['akses'] : '';
+        }
+        return array('id_user' => (int) $u['id_user'], 'no_absen' => $absen, 'nama' => $nama, 'role' => $role, 'akses' => $akses);
     }
 
     // Daftar riwayat cetak serah terima (untuk modal di halaman laporan)

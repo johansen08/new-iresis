@@ -228,20 +228,132 @@ class Qc_return_fcd extends CI_Model
         return $this->db->affected_rows() > 0;
     }
 
-    // Tandai kesalahan picker (LEBIH/SALAH AMBIL) terpilih sebagai barang diambil Restok.
-    // Baris yang sudah ditandai dilewati. Mengembalikan jumlah baris yang baru ditandai.
-    function tandai_kesalahan_diambil($ids, $id_user)
+    private function bersihkan_ids($ids)
     {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $ids))));
+        return array_values(array_unique(array_filter(array_map('intval', (array) $ids))));
+    }
+
+    // Satu baris riwayat per perubahan status: siapa ($u: id_user, no_absen, nama, role, akses) dan kapan.
+    private function catat_status_kesalahan($id_list, $status, $u, $waktu)
+    {
+        $batch = array();
+        foreach ($id_list as $id) {
+            $batch[] = array(
+                'id_masalahpicker' => (int) $id,
+                'status' => $status,
+                'id_user' => (int) $u['id_user'],
+                'no_absen' => $u['no_absen'],
+                'nama' => $u['nama'],
+                'role' => $u['role'],
+                'akses' => $u['akses'],
+                'dicatat_at' => $waktu
+            );
+        }
+        if ($batch) {
+            $this->db->insert_batch('tblkesalahan_picker_status_log', $batch);
+        }
+    }
+
+    // Tandai kesalahan picker (LEBIH/SALAH AMBIL) terpilih sebagai barang diambil Restok + catat riwayatnya.
+    // Baris yang sudah ditandai dilewati. Mengembalikan jumlah baris yang baru ditandai.
+    function tandai_kesalahan_diambil($ids, $u)
+    {
+        $ids = $this->bersihkan_ids($ids);
         if (!$ids) {
             return 0;
         }
         $ph = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge(array((int) $id_user), $ids);
-        $this->db->query("INSERT IGNORE INTO tblkesalahan_picker_diambil (id_masalahpicker, diambil_oleh, diambil_at)
-                          SELECT id_masalahpicker, ?, NOW() FROM tblmasalahpicker
-                          WHERE id_typemasalah IN (2, 4) AND id_masalahpicker IN ($ph)", $params);
-        return $this->db->affected_rows();
+        $baru = array_column($this->db->query(
+            "SELECT mp.id_masalahpicker FROM tblmasalahpicker mp
+             LEFT JOIN tblkesalahan_picker_diambil kd ON kd.id_masalahpicker = mp.id_masalahpicker
+             WHERE mp.id_typemasalah IN (2, 4) AND kd.id_masalahpicker IS NULL AND mp.id_masalahpicker IN ($ph)", $ids
+        )->result_array(), 'id_masalahpicker');
+        if (!$baru) {
+            return 0;
+        }
+
+        $waktu = date('Y-m-d H:i:s');
+        $this->db->trans_start();
+        $batch = array();
+        foreach ($baru as $id) {
+            $batch[] = array('id_masalahpicker' => (int) $id, 'diambil_oleh' => (int) $u['id_user'], 'diambil_at' => $waktu);
+        }
+        $this->db->insert_batch('tblkesalahan_picker_diambil', $batch);
+        $this->catat_status_kesalahan($baru, 'BARANG DIAMBIL RESTOK', $u, $waktu);
+        $this->db->trans_complete();
+
+        return $this->db->trans_status() ? count($baru) : 0;
+    }
+
+    /**
+     * Cetak Serah Terima kesalahan picker. Hanya baris yang SUDAH diambil Restok dan belum SELESAI yang diproses.
+     * Pertama kali dicetak -> status SERAH TERIMA DICETAK; cetak ulang dicatat sebagai CETAK ULANG.
+     * Mengembalikan baris cetak (digabung per rak + SKU) atau NULL bila tidak ada yang memenuhi syarat.
+     */
+    function cetak_kesalahan_serah($ids, $u)
+    {
+        $ids = $this->bersihkan_ids($ids);
+        if (!$ids) {
+            return NULL;
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $list = $this->db->query(
+            "SELECT mp.id_masalahpicker, mp.id_typemasalah, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah, DATE(mp.created) AS tgl,
+                COALESCE(NULLIF((SELECT dr.no_rak FROM tbldetailprintresi dr WHERE dr.id_resi = mp.id_printresi AND dr.sku = mp.sku
+                                 ORDER BY dr.id_detail_resi ASC LIMIT 1), ''), s.no_rak, '') AS no_rak,
+                (SELECT COUNT(*) FROM tblkesalahan_picker_status_log l
+                 WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = 'SERAH TERIMA DICETAK') AS sudah_cetak
+             FROM tblmasalahpicker mp
+             JOIN tblkesalahan_picker_diambil kd ON kd.id_masalahpicker = mp.id_masalahpicker
+             LEFT JOIN tblpengembalian_qc_serah sr ON sr.tanggal = DATE(mp.created)
+             LEFT JOIN tblsku s ON s.id_sku = mp.sku
+             WHERE mp.id_typemasalah IN (2, 4) AND sr.selesai_at IS NULL AND mp.id_masalahpicker IN ($ph)", $ids
+        )->result_array();
+        if (!$list) {
+            return NULL;
+        }
+
+        $waktu = date('Y-m-d H:i:s');
+        $pertama = array();
+        $ulang = array();
+        $gabung = array();
+        $tgl = array();
+        foreach ($list as $r) {
+            if ((int) $r['sudah_cetak'] > 0) {
+                $ulang[] = $r['id_masalahpicker'];
+            } else {
+                $pertama[] = $r['id_masalahpicker'];
+            }
+            $tgl[] = $r['tgl'];
+            $kunci = $r['no_rak'] . "\0" . $r['sku'];
+            if (!isset($gabung[$kunci])) {
+                $gabung[$kunci] = array('no_rak' => $r['no_rak'], 'sku' => $r['sku'], 'qty' => 0, 'terambil' => array());
+            }
+            $gabung[$kunci]['qty'] += (int) $r['qty_bermasalah'] > 0 ? (int) $r['qty_bermasalah'] : (int) $r['qty'];
+            if ((int) $r['id_typemasalah'] === 4 && $r['sku_salah'] !== '' && $r['sku_salah'] !== NULL) {
+                $gabung[$kunci]['terambil'][$r['sku_salah']] = TRUE;
+            }
+        }
+
+        $this->db->trans_start();
+        $this->catat_status_kesalahan($pertama, 'SERAH TERIMA DICETAK', $u, $waktu);
+        $this->catat_status_kesalahan($ulang, 'CETAK ULANG', $u, $waktu);
+        $this->db->trans_complete();
+        if (!$this->db->trans_status()) {
+            return NULL;
+        }
+
+        $rows = array_values($gabung);
+        foreach ($rows as &$x) {
+            $x['ket'] = $x['terambil'] ? 'Terambil: ' . implode(', ', array_keys($x['terambil'])) : '';
+            unset($x['terambil']);
+        }
+        unset($x);
+        usort($rows, function ($a, $b) {
+            return strcmp($a['no_rak'] . $a['sku'], $b['no_rak'] . $b['sku']);
+        });
+
+        return array('rows' => $rows, 'start_date' => min($tgl), 'end_date' => max($tgl), 'waktu_cetak' => $waktu);
     }
 
     function delete_data($id)
@@ -284,7 +396,10 @@ class Qc_return_fcd extends CI_Model
     {
         $this->db->select('
             mp.id_masalahpicker, mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah,
-            kd.diambil_at AS diambil_baris_at, sr.diambil_at, sr.selesai_at, ct.jumlah_cetak,
+            kd.diambil_at AS diambil_baris_at, sr.selesai_at,
+            (SELECT MIN(l.dicatat_at) FROM tblkesalahan_picker_status_log l
+             WHERE l.id_masalahpicker = mp.id_masalahpicker AND l.status = \'SERAH TERIMA DICETAK\') AS dicetak_at,
+            lg.no_absen AS log_absen, lg.nama AS log_nama, lg.role AS log_role, lg.dicatat_at AS log_at,
             tm.type_masalah,
             COALESCE(NULLIF(NULLIF(TRIM(s.nama_sku), \'\'), \'False\'), mp.sku) AS nama_barang,
             COALESCE(peg_picker.nama_pegawai,
@@ -300,9 +415,12 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
         $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
         $this->db->join('tblkesalahan_picker_diambil kd', 'kd.id_masalahpicker = mp.id_masalahpicker', 'left');
-        // Status pengembalian mengikuti pengerjaan serah terima harian pada tanggal yang sama
+        // SELESAI masih mengikuti pengerjaan serah terima harian pada tanggal yang sama
         $this->db->join('tblpengembalian_qc_serah sr', 'sr.tanggal = DATE(mp.created)', 'left');
-        $this->db->join('(SELECT tanggal_awal, COUNT(*) AS jumlah_cetak FROM tblpengembalian_qc_cetak WHERE tanggal_awal = tanggal_akhir GROUP BY tanggal_awal) ct', 'ct.tanggal_awal = DATE(mp.created)', 'left', FALSE);
+        // Perubahan status terakhir (siapa & kapan)
+        $this->db->join('(SELECT l.id_masalahpicker, l.no_absen, l.nama, l.role, l.dicatat_at FROM tblkesalahan_picker_status_log l
+                          JOIN (SELECT MAX(id_log) AS m FROM tblkesalahan_picker_status_log GROUP BY id_masalahpicker) x ON x.m = l.id_log) lg',
+            'lg.id_masalahpicker = mp.id_masalahpicker', 'left', FALSE);
         $this->db->where_in('mp.id_typemasalah', array(2, 4)); // LEBIH AMBIL, SALAH AMBIL
         $this->db->where('mp.created >=', $start_date . ' 00:00:00');
         $this->db->where('mp.created <=', $end_date . ' 23:59:59');
