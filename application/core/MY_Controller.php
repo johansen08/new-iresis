@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.8';
+    const BOOTSTRAP_VERSI = '2026-10-30.9';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2304,6 +2304,23 @@ class MY_Controller extends CI_Controller
         } else {
             $menu_id = $menu->id;
         }
+
+        // Soft-delete + riwayat edit untuk menu Barang Reject (baris tidak pernah di-DELETE)
+        $kolom = $this->db->list_fields('tblpengembalian_qc');
+        if (!in_array('dihapus_at', $kolom)) {
+            $this->db->query("ALTER TABLE tblpengembalian_qc ADD COLUMN dihapus_at DATETIME DEFAULT NULL, ADD COLUMN dihapus_oleh INT UNSIGNED DEFAULT NULL");
+        }
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblpengembalian_qc_riwayat` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `id_pengembalian` INT NOT NULL,
+            `aksi` VARCHAR(10) NOT NULL,
+            `data_sebelum` TEXT,
+            `data_sesudah` TEXT,
+            `oleh` INT UNSIGNED DEFAULT NULL,
+            `at` DATETIME NOT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_pengembalian` (`id_pengembalian`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=latin1");
 
         $asal = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'qc_return/index'])->row();
         $roles = $asal ? $this->db->select('roleid')->get_where('roleaccess', ['menuid' => $asal->id])->result() : [];

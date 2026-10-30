@@ -9,6 +9,7 @@ class Qc_return_fcd extends CI_Model
         $this->db->from('tblpengembalian_qc t');
         $this->db->join('tbluser u1', 'u1.id_user = t.submit_by', 'left');
         $this->db->join('tbluser u2', 'u2.id_user = t.acc_by', 'left');
+        $this->db->where('t.dihapus_at IS NULL', NULL, FALSE);
 
         if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
             $this->db->where('t.tanggal >=', $filters['start_date']);
@@ -135,6 +136,7 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tbluser u1', 'u1.id_user = t.submit_by', 'left');
         $this->db->join('tbluser u2', 'u2.id_user = t.acc_by', 'left');
 
+        $this->db->where('t.dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('t.tanggal >=', $start_date);
         $this->db->where('t.tanggal <=', $end_date);
 
@@ -157,6 +159,7 @@ class Qc_return_fcd extends CI_Model
     {
         $this->db->select('no_rak, sku, SUM(qty) AS qty', FALSE);
         $this->db->from('tblpengembalian_qc');
+        $this->db->where('dihapus_at IS NULL', NULL, FALSE);
         $this->db->where('tanggal >=', $start_date);
         $this->db->where('tanggal <=', $end_date);
         $this->db->where_in('kondisi', array('SALAH AMBIL', 'LEBIH AMBIL'));
@@ -212,7 +215,7 @@ class Qc_return_fcd extends CI_Model
                     WHERE tanggal_awal = tanggal_akhir
                     GROUP BY tanggal_awal
                 ) c ON c.tanggal_awal = q.tanggal
-                WHERE q.kondisi IN ('SALAH AMBIL', 'LEBIH AMBIL') AND q.tanggal >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                WHERE q.dihapus_at IS NULL AND q.kondisi IN ('SALAH AMBIL', 'LEBIH AMBIL') AND q.tanggal >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
                 GROUP BY q.tanggal
                 ORDER BY q.tanggal DESC";
         return $this->db->query($sql, array((int) $hari))->result_array();
@@ -439,6 +442,64 @@ class Qc_return_fcd extends CI_Model
         return $this->db->delete('tblpengembalian_qc');
     }
 
+    // ===== Barang Reject: edit & soft-delete (tidak ada DELETE; riwayat di tblpengembalian_qc_riwayat) =====
+
+    // Baris yang sudah dipakai Purchasing (reject/repair) tidak boleh diubah/dihapus dari sini
+    private function dipakai_purchasing($id)
+    {
+        foreach (array('purchasing_reject', 'purchasing_repair') as $t) {
+            if ($this->db->where('id_pengembalian', (int) $id)->count_all_results($t) > 0) return TRUE;
+        }
+        return FALSE;
+    }
+
+    private function baris_reject($id)
+    {
+        return $this->db->get_where('tblpengembalian_qc', array('id_pengembalian' => (int) $id, 'kondisi' => 'REJECT', 'dihapus_at' => NULL))->row_array();
+    }
+
+    // Kembalikan array(ok, pesan)
+    function edit_reject($id, $data, $oleh)
+    {
+        $lama = $this->baris_reject($id);
+        if (!$lama) return array(FALSE, 'Data tidak ditemukan atau sudah dihapus');
+        if ($this->dipakai_purchasing($id)) return array(FALSE, 'Data sudah diproses Purchasing, tidak bisa diubah');
+        $baru = array(
+            'qty' => (int) $data['qty'],
+            'qty_kurang' => (int) $data['qty_kurang'],
+            'no_rak' => $data['no_rak'],
+            'keterangan_reject' => $data['keterangan_reject'],
+            'updated_at' => date('Y-m-d H:i:s'),
+        );
+        $this->db->trans_start();
+        $this->db->where('id_pengembalian', (int) $id)->update('tblpengembalian_qc', $baru);
+        $this->db->insert('tblpengembalian_qc_riwayat', array(
+            'id_pengembalian' => (int) $id, 'aksi' => 'EDIT',
+            'data_sebelum' => json_encode(array_intersect_key($lama, $baru)),
+            'data_sesudah' => json_encode($baru),
+            'oleh' => $oleh, 'at' => date('Y-m-d H:i:s'),
+        ));
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? array(TRUE, 'Data diperbarui') : array(FALSE, 'Gagal menyimpan');
+    }
+
+    function hapus_reject($id, $oleh)
+    {
+        $lama = $this->baris_reject($id);
+        if (!$lama) return array(FALSE, 'Data tidak ditemukan atau sudah dihapus');
+        if ($this->dipakai_purchasing($id)) return array(FALSE, 'Data sudah diproses Purchasing, tidak bisa dihapus');
+        $now = date('Y-m-d H:i:s');
+        $this->db->trans_start();
+        $this->db->where('id_pengembalian', (int) $id)->update('tblpengembalian_qc', array('dihapus_at' => $now, 'dihapus_oleh' => $oleh));
+        $this->db->insert('tblpengembalian_qc_riwayat', array(
+            'id_pengembalian' => (int) $id, 'aksi' => 'HAPUS',
+            'data_sebelum' => json_encode($lama), 'data_sesudah' => NULL,
+            'oleh' => $oleh, 'at' => $now,
+        ));
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? array(TRUE, 'Data dihapus') : array(FALSE, 'Gagal menghapus');
+    }
+
     function get_proses_barang_qc($filters = array())
     {
         $this->db->select('t.*, u1.name as submitter_name, u2.name as acc_name, 
@@ -449,6 +510,7 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tbluser u2', 'u2.id_user = t.acc_by', 'left');
         $this->db->join('purchasing_reject pr', 't.id_pengembalian = pr.id_pengembalian', 'left');
         $this->db->join('purchasing_repair pr_repair', 't.id_pengembalian = pr_repair.id_pengembalian', 'left');
+        $this->db->where('t.dihapus_at IS NULL', NULL, FALSE);
 
         if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
             $this->db->where('t.tanggal >=', $filters['start_date']);

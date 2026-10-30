@@ -1,4 +1,4 @@
-<?php $mode_reject = !empty($mode_reject); ?>
+<?php $mode_reject = !empty($mode_reject); $bisa_ubah = !empty($bisa_ubah); ?>
 <div class="row">
     <div class="col-md-12">
         <div class="panel panel-default kp-root">
@@ -58,6 +58,7 @@
                                 <th>Status</th>
                                 <th>Acc By</th>
                                 <th>Acc At</th>
+                                <?php if ($bisa_ubah): ?><th>Aksi</th><?php endif; ?>
                             </tr>
                             <?php else: ?>
                             <tr>
@@ -99,9 +100,34 @@
     </div>
 </div>
 
+<?php if ($mode_reject && $bisa_ubah): ?>
+<div class="modal fade kp-modal kp-root" id="kp_edit" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title"><i class="fa fa-pencil"></i> Edit Barang Reject <small id="kpe_info"></small></h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="kpe_id">
+                <div class="form-group"><label>Qty</label><input type="number" min="1" class="form-control" id="kpe_qty"></div>
+                <div class="form-group"><label>Qty Kurang</label><input type="number" min="0" class="form-control" id="kpe_kurang"></div>
+                <div class="form-group"><label>No Rak</label><input type="text" maxlength="50" class="form-control" id="kpe_rak"></div>
+                <div class="form-group"><label>Keterangan</label><input type="text" maxlength="255" class="form-control" id="kpe_ket"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="kp-btn kp-btn-sekunder" data-dismiss="modal"><span>Batal</span></button>
+                <button type="button" class="kp-btn kp-btn-diambil" onclick="kpSimpanEdit()"><i class="fa fa-save"></i><span>Simpan</span></button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script type="text/javascript">
     var kpMulai = moment(), kpAkhir = moment();
     var KP_BISA_DIAMBIL = <?= (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)) ? 'true' : 'false' ?>; // tampilkan kolom checkbox
+    var KP_BISA_UBAH = <?= $bisa_ubah ? 'true' : 'false' ?>;
     var KP_MODE_REJECT = <?= $mode_reject ? 'true' : 'false' ?>; // menu Barang Reject: hanya jenis REJECT, tombol Export Excel
     var KP_BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -208,7 +234,9 @@
     };
 
     // Menu Barang Reject: baris tblpengembalian_qc berkondisi REJECT
+    var KP_DATA_REJECT = [];
     function kpIsiReject(list, $tb, kolom) {
+        KP_DATA_REJECT = list;
         $('#kp_total').text(list.length + ' data');
         if (!list.length) {
             $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> Tidak ada barang reject pada rentang ini</td></tr>');
@@ -227,14 +255,17 @@
                 '<td data-label="Submitted By">' + esc(r.submitter) + '</td>' +
                 '<td data-label="Status">' + esc(r.status) + '</td>' +
                 '<td data-label="Acc By">' + esc(r.approver) + '</td>' +
-                '<td data-label="Acc At">' + esc(r.acc_at) + '</td></tr>';
+                '<td data-label="Acc At">' + esc(r.acc_at) + '</td>' +
+                (KP_BISA_UBAH ? '<td data-label="Aksi" style="white-space:nowrap">' +
+                    '<button type="button" class="btn btn-xs btn-primary" onclick="kpEditReject(' + i + ')"><i class="fa fa-pencil"></i> Edit</button> ' +
+                    '<button type="button" class="btn btn-xs btn-danger" onclick="kpHapusReject(' + i + ')"><i class="fa fa-trash"></i> Hapus</button></td>' : '') + '</tr>';
         });
         $tb.html(html);
     }
 
     function muatKesalahanPicker() {
         var $tb = $('#tbody_kesalahan_picker');
-        var kolom = KP_MODE_REJECT ? 10 : (KP_BISA_DIAMBIL ? 10 : 9);
+        var kolom = KP_MODE_REJECT ? (KP_BISA_UBAH ? 11 : 10) : (KP_BISA_DIAMBIL ? 10 : 9);
         $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-spinner fa-spin"></i> Memuat data…</td></tr>');
         $('#kp_total').text('Memuat…');
         $.ajax({
@@ -418,6 +449,42 @@
             kpUpdateTombol();
         }
         $('#kp_popup').modal('hide');
+    }
+
+    function kpEditReject(i) {
+        var r = KP_DATA_REJECT[i];
+        $('#kpe_id').val(r.id_pengembalian);
+        $('#kpe_info').text(r.sku + ' · ' + r.tanggal);
+        $('#kpe_qty').val(r.qty);
+        $('#kpe_kurang').val(r.qty_kurang || 0);
+        $('#kpe_rak').val(r.no_rak);
+        $('#kpe_ket').val(r.keterangan_reject || '');
+        $('#kp_edit').modal('show');
+    }
+
+    function kpSimpanEdit() {
+        $.ajax({
+            url: 'qc_return/barang_reject_edit', type: 'POST', dataType: 'JSON',
+            data: { id: $('#kpe_id').val(), qty: $('#kpe_qty').val(), qty_kurang: $('#kpe_kurang').val(), no_rak: $('#kpe_rak').val(), keterangan_reject: $('#kpe_ket').val() },
+            success: function(res) {
+                noty({ text: res.message, layout: 'topRight', type: res.code == 200 ? 'success' : 'error', timeout: 3000 });
+                if (res.code == 200) { $('#kp_edit').modal('hide'); muatKesalahanPicker(); }
+            },
+            error: function() { noty({ text: 'Gagal menyimpan', layout: 'topRight', type: 'error', timeout: 3000 }); }
+        });
+    }
+
+    function kpHapusReject(i) {
+        var r = KP_DATA_REJECT[i];
+        if (!confirm('Hapus data reject ' + r.sku + ' (qty ' + r.qty + ', rak ' + r.no_rak + ')? Data disembunyikan dan riwayatnya tetap tercatat.')) return;
+        $.ajax({
+            url: 'qc_return/barang_reject_hapus', type: 'POST', dataType: 'JSON', data: { id: r.id_pengembalian },
+            success: function(res) {
+                noty({ text: res.message, layout: 'topRight', type: res.code == 200 ? 'success' : 'error', timeout: 3000 });
+                if (res.code == 200) muatKesalahanPicker();
+            },
+            error: function() { noty({ text: 'Gagal menghapus', layout: 'topRight', type: 'error', timeout: 3000 }); }
+        });
     }
 
     function kpExportExcel() {
