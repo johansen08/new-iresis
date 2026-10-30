@@ -21,7 +21,7 @@
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>
-                            <tr><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status</th></tr>
+                            <tr><th>#</th><th>Tanggal</th><th>No Resi</th><th>SKU</th><th>Jenis Masalah</th><th>Qty</th><th>Picker</th><th>Packer</th><th>Status Pengembalian</th></tr>
                         </thead>
                         <tbody id="tbody_kesalahan_picker"></tbody>
                     </table>
@@ -116,7 +116,9 @@
                 $.each(list, function(i, r) {
                     var jenis = esc(r.type_masalah || '-') + (r.sku_salah ? '<br><small class="text-muted">Terambil: ' + esc(r.sku_salah) + '</small>' : '');
                     var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
-                    var status = r.status == 0 ? '<span class="label label-warning">BELUM DIPROSES</span>' : '<span class="label label-success">SUDAH DIPROSES</span>';
+                    var status = r.selesai_at ? '<span class="label label-success">SELESAI</span>' :
+                        (r.diambil_at ? '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>' :
+                        (r.jumlah_cetak > 0 ? '<span class="label label-info">SERAH TERIMA DICETAK</span>' : '<span class="label label-default">BELUM DICETAK</span>'));
                     html += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.created) + '</td><td>' + esc(r.noresi) + '</td><td>' + esc(r.sku) +
                         '</td><td>' + jenis + '</td><td>' + esc(qty) + '</td><td>' + esc(r.nama_picker || '-') +
                         '</td><td>' + esc(r.nama_packer || '-') + '</td><td>' + status + '</td></tr>';
