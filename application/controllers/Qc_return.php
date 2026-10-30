@@ -261,6 +261,20 @@ class Qc_return extends MY_Controller
         $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_kesalahan_picker($mulai, $akhir)->result_array());
     }
 
+    // Tombol "Barang Diambil" di tabel Kesalahan Picker: baris terpilih jadi BARANG DIAMBIL RESTOK
+    public function kesalahan_picker_diambil()
+    {
+        if (!$this->punya_peran(self::ROLE_DIAMBIL)) {
+            $this->make_ajax_response(403, 'Barang Diambil hanya bisa dilakukan tim Packer');
+        }
+        $ids = $this->input->post('ids');
+        if (!is_array($ids) || !$ids) {
+            $this->make_ajax_response(400, 'Pilih minimal satu baris');
+        }
+        $jumlah = $this->qc_return_fcd->tandai_kesalahan_diambil($ids, $this->data['user']['id_user']);
+        $this->make_ajax_response(200, $jumlah . ' baris ditandai Barang Diambil Restok', array('jumlah' => $jumlah));
+    }
+
     // Daftar riwayat cetak serah terima (untuk modal di halaman laporan)
     public function riwayat_cetak()
     {
