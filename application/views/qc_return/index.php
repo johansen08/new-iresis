@@ -46,6 +46,20 @@
                 <div class="kp-scroll">
                     <table id="table_kesalahan_picker" class="kp-table">
                         <thead>
+                            <?php if ($mode_reject): ?>
+                            <tr>
+                                <th class="kp-c-no">#</th>
+                                <th>Tanggal</th>
+                                <th>SKU</th>
+                                <th class="kp-c-qty">Qty</th>
+                                <th>No Rak</th>
+                                <th>Kondisi</th>
+                                <th>Submitted By</th>
+                                <th>Status</th>
+                                <th>Acc By</th>
+                                <th>Acc At</th>
+                            </tr>
+                            <?php else: ?>
                             <tr>
                                 <?php if (!empty($bisa_diambil) || !empty($bisa_cetak) || !empty($bisa_selesai)): ?><th class="kp-c-cek"><input type="checkbox" id="kp_pilih_semua" aria-label="Pilih semua baris"></th><?php endif; ?>
                                 <th class="kp-c-no">#</th>
@@ -58,6 +72,7 @@
                                 <th>Packer</th>
                                 <th>Status Pengembalian</th>
                             </tr>
+                            <?php endif; ?>
                         </thead>
                         <tbody id="tbody_kesalahan_picker"></tbody>
                     </table>
@@ -192,9 +207,34 @@
         selesai: ['kp-b-selesai', 'fa-check-circle', 'SELESAI']
     };
 
+    // Menu Barang Reject: baris tblpengembalian_qc berkondisi REJECT
+    function kpIsiReject(list, $tb, kolom) {
+        $('#kp_total').text(list.length + ' data');
+        if (!list.length) {
+            $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> Tidak ada barang reject pada rentang ini</td></tr>');
+            return;
+        }
+        var html = '';
+        $.each(list, function(i, r) {
+            var qty = esc(r.qty) + (r.qty_kurang > 0 ? ' (Kurang: ' + esc(r.qty_kurang) + ')' : '');
+            var kondisi = esc(r.kondisi) + (r.keterangan_reject ? ' (' + esc(r.keterangan_reject) + ')' : '');
+            html += '<tr><td class="kp-c-no" data-label="#">' + (i + 1) + '</td>' +
+                '<td data-label="Tanggal">' + esc(r.tanggal) + '</td>' +
+                '<td data-label="SKU"><span class="kp-sku">' + esc(r.sku) + '</span></td>' +
+                '<td class="kp-c-qty" data-label="Qty">' + qty + '</td>' +
+                '<td data-label="No Rak">' + esc(r.no_rak) + '</td>' +
+                '<td data-label="Kondisi">' + kondisi + '</td>' +
+                '<td data-label="Submitted By">' + esc(r.submitter) + '</td>' +
+                '<td data-label="Status">' + esc(r.status) + '</td>' +
+                '<td data-label="Acc By">' + esc(r.approver) + '</td>' +
+                '<td data-label="Acc At">' + esc(r.acc_at) + '</td></tr>';
+        });
+        $tb.html(html);
+    }
+
     function muatKesalahanPicker() {
         var $tb = $('#tbody_kesalahan_picker');
-        var kolom = KP_BISA_DIAMBIL ? 10 : 9;
+        var kolom = KP_MODE_REJECT ? 10 : (KP_BISA_DIAMBIL ? 10 : 9);
         $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-spinner fa-spin"></i> Memuat data…</td></tr>');
         $('#kp_total').text('Memuat…');
         $.ajax({
@@ -207,9 +247,10 @@
             dataType: 'JSON',
             success: function(res) {
                 var list = (res && res.data) ? res.data : [];
+                if (KP_MODE_REJECT) { kpIsiReject(list, $tb, kolom); return; }
                 $('#kp_total').text(list.length + ' data');
                 if (!list.length) {
-                    $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> ' + (KP_MODE_REJECT ? 'Tidak ada barang reject pada rentang ini' : 'Tidak ada kesalahan picker pada rentang ini') + '</td></tr>');
+                    $tb.html('<tr class="kp-kosong"><td colspan="' + kolom + '"><i class="fa fa-inbox"></i> ' + 'Tidak ada kesalahan picker pada rentang ini' + '</td></tr>');
                     kpUpdateTombol();
                     return;
                 }
@@ -227,7 +268,7 @@
                     var tipe = (r.type_masalah || '-');
                     var jenis = '<span class="kp-jenis ' + (tipe == 'SALAH AMBIL' || tipe.toUpperCase().indexOf('REJECT') >= 0 ? 'kp-j-salah' : 'kp-j-lebih') + '">' + esc(tipe) + '</span>' +
                         (r.sku_salah ? '<span class="kp-sub">Terambil: ' + esc(r.sku_salah) + '</span>' : '');
-                    var qty = KP_MODE_REJECT ? r.qty_bermasalah : (r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty); // reject: qty yang di-reject saja
+                    var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
                     var cek = KP_BISA_DIAMBIL ? '<td class="kp-c-cek" data-label=""><input type="checkbox" class="kp-cek" aria-label="Pilih baris ' + (i + 1) + '" data-tahap="' + tahap + '" value="' + r.id_masalahpicker + '"' + (tahap == 'selesai' ? ' disabled' : '') + '></td>' : '';
                     html += '<tr class="kp-tahap-' + tahap + '">' + cek +
                         '<td class="kp-c-no" data-label="#">' + (i + 1) + '</td>' +
