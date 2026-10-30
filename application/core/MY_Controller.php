@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.6';
+    const BOOTSTRAP_VERSI = '2026-10-30.7';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -181,6 +181,7 @@ class MY_Controller extends CI_Controller
         $this->run_top_level_migration();
         $this->run_serah_terima_qc_migration();
         $this->run_sku_bonus_migration();
+        $this->run_transfer_stok_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2254,6 +2255,66 @@ class MY_Controller extends CI_Controller
                 'icon'        => 'fa fa-gift',
                 'sortorder'   => 5,
                 'description' => 'SKU pemicu bonus pinset AKS27-RDM: 1 resi yang berisi SKU aktif mendapat 1 pinset.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 7] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PURCHASING -> "Transfer Stok" (uri purchasing/transfer-stok).
+     * Tabel tbltransfer_stok: catatan pinset AKS27-RDM yang dikirim Purchasing ke
+     * lokasi packer. qty_terima diisi menu Penerimaan Transfer (belum ada;
+     * sementara 0). Akses: webmaster (1) dan tim purchasing (7); sejalan dengan
+     * Transfer_stok::ROLE_BOLEH.
+     */
+    protected function run_transfer_stok_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tbltransfer_stok` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `tanggal` DATE NOT NULL,
+            `jam` TIME NULL,
+            `qty_kirim` INT UNSIGNED NOT NULL,
+            `qty_terima` INT UNSIGNED NOT NULL DEFAULT 0,
+            `keterangan` VARCHAR(255) NOT NULL DEFAULT 'transfer stok',
+            `created` DATETIME NULL,
+            `createdby` INT NULL,
+            `updated` DATETIME NULL,
+            `updatedby` INT NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_tanggal` (`tanggal`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+        $uri  = 'purchasing/transfer-stok';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PURCHASING'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Transfer Stok',
+                'parentid'    => $induk->id,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-truck',
+                'sortorder'   => 6,
+                'description' => 'Catatan pinset AKS27-RDM yang dikirim Purchasing ke lokasi packer.',
                 'isactive'    => 1,
                 'createdby'   => 1,
                 'created'     => date('Y-m-d H:i:s')
