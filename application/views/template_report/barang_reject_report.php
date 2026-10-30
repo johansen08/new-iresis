@@ -21,25 +21,29 @@
     <tr>
       <th>No</th>
       <th>Tanggal</th>
-      <th>No Resi</th>
       <th>SKU</th>
-      <th>Jenis Masalah</th>
       <th>Qty</th>
-      <th>Picker</th>
-      <th>Packer</th>
+      <th>No Rak</th>
+      <th>Kondisi</th>
+      <th>Submitted By</th>
+      <th>Status</th>
+      <th>Acc By</th>
+      <th>Acc At</th>
     </tr>
   </thead>
   <tbody>
-    <?php $i = 1; foreach ($list_data as $d) : ?>
+    <?php $i = 1; foreach ($list_data as $data) : ?>
       <tr>
         <td><?= $i++ ?></td>
-        <td><?= htmlspecialchars($d['created']) ?></td>
-        <td style="mso-number-format:'\@'"><?= htmlspecialchars($d['noresi']) ?></td>
-        <td><?= htmlspecialchars($d['sku']) ?></td>
-        <td><?= htmlspecialchars($d['type_masalah']) ?></td>
-        <td><?= (int) $d['qty_bermasalah'] ?></td>
-        <td><?= htmlspecialchars((string) $d['nama_picker']) ?></td>
-        <td><?= htmlspecialchars((string) $d['nama_packer']) ?></td>
+        <td><?= $data['tanggal'] ?></td>
+        <td><?= $data['sku'] ?></td>
+        <td><?= $data['qty'] . ($data['qty_kurang'] > 0 ? " (Kurang: " . $data['qty_kurang'] . ")" : "") ?></td>
+        <td><?= $data['no_rak'] ?></td>
+        <td><?= $data['kondisi'] . ($data['keterangan_reject'] ? ' (' . $data['keterangan_reject'] . ')' : '') ?></td>
+        <td><?= $data['submitter'] ?></td>
+        <td><?= $data['status'] ?></td>
+        <td><?= $data['approver'] ?></td>
+        <td><?= $data['acc_at'] ?></td>
       </tr>
     <?php endforeach; ?>
   </tbody>
