@@ -14,6 +14,7 @@
                     </div>
                     <?php if (!empty($bisa_diambil)): ?>
                     <button type="button" class="btn btn-primary" id="kp_btn_diambil" disabled onclick="kpBarangDiambil()"><i class="fa fa-shopping-basket"></i> Barang Diambil <span id="kp_jml"></span></button>
+                    <button type="button" class="btn btn-warning" id="kp_btn_cetak" disabled onclick="kpCetakSerahTerima()"><i class="fa fa-print"></i> Cetak Serah Terima <span id="kp_jml_cetak"></span></button>
                     <?php endif; ?>
                     <div class="kp-tanggal" id="kp_tanggal">
                         <i class="fa fa-calendar"></i>
@@ -120,11 +121,20 @@
                 $.each(list, function(i, r) {
                     var jenis = esc(r.type_masalah || '-') + (r.sku_salah ? '<br><small class="text-muted">Terambil: ' + esc(r.sku_salah) + '</small>' : '');
                     var qty = r.qty_bermasalah > 0 ? r.qty_bermasalah + ' / ' + r.qty : r.qty;
-                    var sudahDiambil = !!(r.diambil_baris_at || r.diambil_at);
-                    var status = r.selesai_at ? '<span class="label label-success">SELESAI</span>' :
-                        (sudahDiambil ? '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>' :
-                        (r.jumlah_cetak > 0 ? '<span class="label label-info">SERAH TERIMA DICETAK</span>' : '<span class="label label-default">BARANG BELUM DIAMBIL</span>'));
-                    var cek = KP_BISA_DIAMBIL ? '<td><input type="checkbox" class="kp-cek" value="' + r.id_masalahpicker + '"' + (sudahDiambil || r.selesai_at ? ' disabled' : '') + '></td>' : '';
+                    // Alur: BELUM DIAMBIL -> DIAMBIL RESTOK -> SERAH TERIMA DICETAK -> SELESAI
+                    var tahap = r.selesai_at ? 'selesai' : (r.dicetak_at ? 'dicetak' : (r.diambil_baris_at ? 'diambil' : 'belum'));
+                    var label = {
+                        selesai: '<span class="label label-success">SELESAI</span>',
+                        dicetak: '<span class="label label-info">SERAH TERIMA DICETAK</span>',
+                        diambil: '<span class="label label-primary">BARANG DIAMBIL RESTOK</span>',
+                        belum: '<span class="label label-default">BARANG BELUM DIAMBIL</span>'
+                    }[tahap];
+                    var status = label;
+                    if (r.log_at) {
+                        status += '<br><small class="text-muted">' + esc((r.log_absen || '-') + ' - ' + (r.log_nama || '-') + ' - ' + (r.log_role || '-')) +
+                            '<br>' + esc(r.log_at) + '</small>';
+                    }
+                    var cek = KP_BISA_DIAMBIL ? '<td><input type="checkbox" class="kp-cek" data-tahap="' + tahap + '" value="' + r.id_masalahpicker + '"' + (tahap == 'selesai' ? ' disabled' : '') + '></td>' : '';
                     html += '<tr>' + cek + '<td>' + (i + 1) + '</td><td>' + esc(r.created) + '</td><td>' + esc(r.noresi) + '</td><td>' + esc(r.sku) +
                         '</td><td>' + jenis + '</td><td>' + esc(qty) + '</td><td>' + esc(r.nama_picker || '-') +
                         '</td><td>' + esc(r.nama_packer || '-') + '</td><td>' + status + '</td></tr>';
@@ -138,13 +148,23 @@
         });
     }
 
-    // Aktifkan tombol Barang Diambil hanya bila ada baris yang dicentang
+    // ID baris tercentang pada tahap tertentu
+    function kpIds(tahap) {
+        return $('.kp-cek:checked').filter(function() {
+            return tahap.indexOf($(this).data('tahap')) >= 0;
+        }).map(function() { return this.value; }).get();
+    }
+
+    // Barang Diambil: untuk baris yang belum diambil. Cetak Serah Terima: baris yang sudah diambil (atau cetak ulang).
     function kpUpdateTombol() {
-        var n = $('.kp-cek:checked').length;
-        $('#kp_btn_diambil').prop('disabled', n === 0);
-        $('#kp_jml').text(n ? '(' + n + ')' : '');
+        var nAmbil = kpIds(['belum']).length;
+        var nCetak = kpIds(['diambil', 'dicetak']).length;
+        $('#kp_btn_diambil').prop('disabled', nAmbil === 0);
+        $('#kp_jml').text(nAmbil ? '(' + nAmbil + ')' : '');
+        $('#kp_btn_cetak').prop('disabled', nCetak === 0);
+        $('#kp_jml_cetak').text(nCetak ? '(' + nCetak + ')' : '');
         var total = $('.kp-cek:not(:disabled)').length;
-        $('#kp_pilih_semua').prop('checked', total > 0 && n === total);
+        $('#kp_pilih_semua').prop('checked', total > 0 && $('.kp-cek:checked').length === total);
     }
 
     $(document).on('change', '.kp-cek', kpUpdateTombol);
@@ -154,9 +174,9 @@
     });
 
     function kpBarangDiambil() {
-        var ids = $('.kp-cek:checked').map(function() { return this.value; }).get();
+        var ids = kpIds(['belum']);
         if (!ids.length) return;
-        if (!confirm('Tandai ' + ids.length + ' baris sebagai BARANG DIAMBIL RESTOK? Waktu akan tercatat dan tidak bisa diubah.')) return;
+        if (!confirm('Tandai ' + ids.length + ' baris sebagai BARANG DIAMBIL RESTOK? Nama dan waktu akan tercatat dan tidak bisa diubah.')) return;
         $('#kp_btn_diambil').prop('disabled', true);
         $.ajax({
             url: 'qc_return/kesalahan_picker_diambil',
@@ -172,6 +192,19 @@
                 kpUpdateTombol();
             }
         });
+    }
+
+    // Buka halaman cetak serah terima (tab baru, form POST) untuk baris yang sudah diambil
+    function kpCetakSerahTerima() {
+        var ids = kpIds(['diambil', 'dicetak']);
+        if (!ids.length) return;
+        if (!confirm('Cetak serah terima untuk ' + ids.length + ' baris? Status menjadi SERAH TERIMA DICETAK dan nama + waktu tercatat.')) return;
+        var $f = $('<form method="POST" action="qc_return/cetak_serah_kesalahan" target="_blank" style="display:none"></form>');
+        $.each(ids, function(i, id) {
+            $f.append($('<input type="hidden" name="ids[]">').val(id));
+        });
+        $f.appendTo('body').submit().remove();
+        setTimeout(muatKesalahanPicker, 1500);
     }
 </script>
 

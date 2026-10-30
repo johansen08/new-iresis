@@ -62,7 +62,7 @@ td{border:1px solid #888;padding:0 6px;font-size:<?= round($fs, 1) ?>pt;height:<
             <td class="fit"><?= html_escape($x['sku']) ?></td>
             <td class="c fit"><?= (int) $x['qty'] ?></td>
             <td></td>
-            <td></td>
+            <td><?= isset($x["ket"]) ? html_escape($x["ket"]) : "" ?></td>
         </tr>
     <?php endforeach; ?>
     </tbody>
