@@ -37,7 +37,7 @@ class Stok_aks27_fcd extends CI_Model
      * Aturan:
      *  - Resi memotong bila berisi minimal satu SKU aktif di tblsku_bonus (selain AKS27-RDM sendiri,
      *    yang dibeli diambil dari rak biasa) dan tanggal scan packer (tblpacking) -- atau scan HO
-     *    (tblscan_ho) bila tanpa catatan packer -- >= TANGGAL_MULAI_POTONG. Tepat 1 pinset per resi.
+     *    (tblresikeluar, scan HO / serah terima) bila tanpa catatan packer -- >= TANGGAL_MULAI_POTONG. Tepat 1 pinset per resi.
      *  - Resi berstatus CANCELED atau batal tidak memotong.
      *  - Resi yang sudah tercatat memotong lalu menjadi CANCELED dan belum scan HO: CANCEL +1.
      * Idempoten: kolom `kunci` UNIQUE (JUAL:<noresi>, CANCEL:<noresi>) + INSERT IGNORE, jadi aman
@@ -71,7 +71,7 @@ class Stok_aks27_fcd extends CI_Model
             . " JOIN ("
             . "  SELECT t2.id_resi,"
             . "   (SELECT MIN(p.tanggal_packing) FROM tblpacking p WHERE p.id_resi = t2.id_resi) AS tgl_packing,"
-            . "   (SELECT MIN(h.tanggal_scan) FROM tblscan_ho h WHERE h.id_resi = t2.id_resi) AS tgl_ho"
+            . "   (SELECT MIN(h.tanggal_resikeluar) FROM tblresikeluar h WHERE h.id_resi = t2.id_resi) AS tgl_ho"
             . "  FROM (SELECT d.id_resi FROM tbldetailprintresi d JOIN tblsku_bonus b ON b.sku = d.sku AND b.aktif = 1"
             . "        WHERE d.sku <> " . $bonus . $filter . " GROUP BY d.id_resi) t2"
             . " ) s ON s.id_resi = pr.id_printresi"
@@ -88,7 +88,7 @@ class Stok_aks27_fcd extends CI_Model
             . "  CONCAT('CANCEL:', j.no_ref), NOW(), 0"
             . " FROM tblstok_aks27 j JOIN tblprintresi pr ON pr.noresi = j.no_ref"
             . " WHERE j.ref = 'PENJUALAN' AND pr.status_pesanan = 'CANCELED'"
-            . "  AND NOT EXISTS (SELECT 1 FROM tblscan_ho h WHERE h.id_resi = pr.id_printresi)" . $filter_cancel
+            . "  AND NOT EXISTS (SELECT 1 FROM tblresikeluar h WHERE h.id_resi = pr.id_printresi)" . $filter_cancel
         );
         $cancel = (int) $this->db->affected_rows();
 
@@ -262,7 +262,7 @@ class Stok_aks27_fcd extends CI_Model
     /**
      * No. Resi / No. Transfer dipisah dari no_ref (INPUT = nomor transfer, ref lain = no resi).
      * No. Pesanan untuk baris berbasis resi, serta Tgl QC, Tgl HO, dan status resi untuk baris
-     * PENJUALAN: diambil dari data resi (tblprintresi, tbldetailprintresi, tblpacking, tblscan_ho),
+     * PENJUALAN: diambil dari data resi (tblprintresi, tbldetailprintresi, tblpacking, tblresikeluar),
      * tidak disimpan di buku stok.
      */
     private function lengkapi_resi(array &$rows)
@@ -281,7 +281,7 @@ class Stok_aks27_fcd extends CI_Model
                 "SELECT pr.noresi, pr.status_pesanan,"
                 . " (SELECT GROUP_CONCAT(DISTINCT dd.no_pesanan SEPARATOR ', ') FROM tbldetailprintresi dd WHERE dd.id_resi = pr.id_printresi) AS no_pesanan,"
                 . " (SELECT MIN(p.tanggal_packing) FROM tblpacking p WHERE p.id_resi = pr.id_printresi) AS tgl_qc,"
-                . " (SELECT MIN(h.tanggal_scan) FROM tblscan_ho h WHERE h.id_resi = pr.id_printresi) AS tgl_ho"
+                . " (SELECT MIN(h.tanggal_resikeluar) FROM tblresikeluar h WHERE h.id_resi = pr.id_printresi) AS tgl_ho"
                 . " FROM tblprintresi pr WHERE pr.noresi IN (" . $daftar . ")"
             )->result_array();
             foreach ($hasil as $p) {
