@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.5';
+    const BOOTSTRAP_VERSI = '2026-10-30.6';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -180,6 +180,7 @@ class MY_Controller extends CI_Controller
         $this->run_indeks_pencairan_dana_migration();
         $this->run_top_level_migration();
         $this->run_serah_terima_qc_migration();
+        $this->run_sku_bonus_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2205,6 +2206,73 @@ class MY_Controller extends CI_Controller
                 'created'   => date('Y-m-d H:i:s'),
                 'createdby' => 1
             ]);
+        }
+    }
+
+    /**
+     * Menu TIM PURCHASING -> "Daftar SKU Bonus" (uri purchasing/sku-bonus).
+     * Tabel tblsku_bonus (sku UNIQUE; SKU tidak dihapus, hanya dinonaktifkan),
+     * diisi 22 SKU awal dari file AKS27-RDM.xlsx -- hanya saat tabel baru
+     * dibuat, supaya perubahan status oleh Purchasing tidak tertimpa. Akses:
+     * webmaster (1) dan tim purchasing (7); sejalan dengan Sku_bonus::ROLE_BOLEH.
+     */
+    protected function run_sku_bonus_migration()
+    {
+        if (!$this->db->table_exists('tblsku_bonus')) {
+            $this->db->query("CREATE TABLE IF NOT EXISTS `tblsku_bonus` (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `sku` VARCHAR(100) NOT NULL,
+                `aktif` TINYINT(1) NOT NULL DEFAULT 1,
+                `created` DATETIME NULL,
+                `createdby` INT NULL,
+                `updated` DATETIME NULL,
+                `updatedby` INT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_sku` (`sku`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+            $awal = ['BM-MK01', 'BM-MK02', 'BM-MK02A', 'BM-MK03', 'BM-MK04', 'BM-MK05', 'BM-MK06', 'BM-MK07', 'BM-MK08', 'BM-MK09',
+                'BM-MK10', 'BM-MK11', 'BM-MK12', 'BM-MKB01', 'BM-MKB02', 'BM-MKB03', 'BM-MKB04', 'BM-MKB05', 'BM-MKB06', 'BM-MKB07',
+                'BM-MKB09', 'BM-MKB10'];
+            $this->db->query(
+                'INSERT IGNORE INTO tblsku_bonus (sku, aktif, created, createdby) '
+                . 'SELECT id_sku, 1, NOW(), 1 FROM tblsku WHERE id_sku IN (' . implode(',', array_map([$this->db, 'escape'], $awal)) . ')'
+            );
+        }
+
+        $uri  = 'purchasing/sku-bonus';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PURCHASING'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Daftar SKU Bonus',
+                'parentid'    => $induk->id,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-gift',
+                'sortorder'   => 5,
+                'description' => 'SKU pemicu bonus pinset AKS27-RDM: 1 resi yang berisi SKU aktif mendapat 1 pinset.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 7] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
         }
     }
 
