@@ -74,7 +74,7 @@
                 <h3 class="panel-title">Kesalahan Picker</h3>
             </div>
             <div class="panel-body">
-                <p class="text-muted" style="margin-bottom:10px">Masalah picker yang dilaporkan Packer saat scan, sesuai rentang tanggal di atas.</p>
+                <p class="text-muted" style="margin-bottom:10px">Masalah picker jenis LEBIH AMBIL dan SALAH AMBIL yang dilaporkan Packer saat scan, sesuai rentang tanggal di atas.</p>
                 <div class="table-responsive">
                     <table id="table_kesalahan_picker" class="table table-bordered table-striped table-condensed">
                         <thead>

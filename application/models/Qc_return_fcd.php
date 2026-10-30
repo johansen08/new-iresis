@@ -282,6 +282,7 @@ class Qc_return_fcd extends CI_Model
         $this->db->join('tblpegawai peg_packer', 'peg_packer.kode_pegawai = u.id_pegawai', 'left');
         $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
         $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
+        $this->db->where_in('mp.id_typemasalah', array(2, 4)); // LEBIH AMBIL, SALAH AMBIL
         $this->db->where('mp.created >=', $start_date . ' 00:00:00');
         $this->db->where('mp.created <=', $end_date . ' 23:59:59');
         $this->db->order_by('mp.created', 'DESC');
