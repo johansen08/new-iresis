@@ -258,4 +258,34 @@ class Qc_return_fcd extends CI_Model
         $this->db->order_by('t.id_pengembalian', 'DESC');
         return $this->db->get();
     }
+
+    /**
+     * Kesalahan picker (tblmasalahpicker, dilaporkan Packer saat scan) pada rentang
+     * tanggal. Picker dibaca dari tblresiambilbarang -- sama dengan menu Daftar
+     * Masalah Picker New, jadi atribusinya konsisten. Hanya baca, semua status.
+     */
+    function get_kesalahan_picker($start_date, $end_date)
+    {
+        $this->db->select('
+            mp.created, mp.noresi, mp.sku, mp.sku_salah, mp.qty, mp.qty_bermasalah, mp.status,
+            tm.type_masalah,
+            COALESCE(NULLIF(NULLIF(TRIM(s.nama_sku), \'\'), \'False\'), mp.sku) AS nama_barang,
+            COALESCE(peg_picker.nama_pegawai,
+                     (SELECT up.name FROM tbluser up WHERE up.id_pegawai = rab.yangambil_pegawai LIMIT 1)
+            ) AS nama_picker,
+            COALESCE(peg_packer.nama_pegawai, u.name) AS nama_packer
+        ', FALSE);
+        $this->db->from('tblmasalahpicker mp');
+        $this->db->join('tbltypemasalah tm', 'tm.id_typemasalah = mp.id_typemasalah', 'left');
+        $this->db->join('tblsku s', 's.id_sku = mp.sku', 'left');
+        $this->db->join('tbluser u', 'u.id_user = mp.created_by', 'left');
+        $this->db->join('tblpegawai peg_packer', 'peg_packer.kode_pegawai = u.id_pegawai', 'left');
+        $this->db->join('tblresiambilbarang rab', 'rab.id_resi = mp.id_printresi', 'left');
+        $this->db->join('tblpegawai peg_picker', 'peg_picker.kode_pegawai = rab.yangambil_pegawai', 'left');
+        $this->db->where('mp.created >=', $start_date . ' 00:00:00');
+        $this->db->where('mp.created <=', $end_date . ' 23:59:59');
+        $this->db->order_by('mp.created', 'DESC');
+        $this->db->limit(1000);
+        return $this->db->get();
+    }
 }
