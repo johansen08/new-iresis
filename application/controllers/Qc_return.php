@@ -249,6 +249,18 @@ class Qc_return extends MY_Controller
         $this->load->view('qc_return/serah_terima', $data);
     }
 
+    // Tabel kesalahan picker di halaman Pengembalian Barang (rentang tanggal sama dengan tabel utama)
+    public function kesalahan_picker()
+    {
+        $mulai = $this->input->post('start_date');
+        $akhir = $this->input->post('end_date');
+        $tgl = '/^\d{4}-\d{2}-\d{2}$/';
+        if (!preg_match($tgl, (string) $mulai) || !preg_match($tgl, (string) $akhir)) {
+            $mulai = $akhir = date('Y-m-d');
+        }
+        $this->make_ajax_response(200, 'ok', $this->qc_return_fcd->get_kesalahan_picker($mulai, $akhir)->result_array());
+    }
+
     // Daftar riwayat cetak serah terima (untuk modal di halaman laporan)
     public function riwayat_cetak()
     {
