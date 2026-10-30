@@ -156,7 +156,7 @@
                     targets: 4,
                     className: 'text-center',
                     render: function (data, type, row) {
-                        return '<span class="badge btn-detail-picker" data-id-picker="' + row.id_picker + '" data-tanggal="' + row.tanggal_raw + '" data-nama-picker="' + row.pegawai + '" style="font-size:14px; background-color:#337ab7; cursor:pointer;" title="Klik untuk melihat detail">' + data + '</span>';
+                        return '<span class="badge btn-detail-picker" data-id-picker="' + row.id_picker + '" data-tanggal="' + row.tanggal_raw + '" data-id-status="' + row.id_status + '" data-nama-picker="' + row.pegawai + '" style="font-size:14px; background-color:#337ab7; cursor:pointer;" title="Klik untuk melihat detail">' + data + '</span>';
                     }
                 },
                 {
@@ -208,6 +208,7 @@
     // Global variables to store active picker info
     var activePickerId = null;
     var activeTanggal = null;
+    var activeIdStatus = null;
     var activePickerName = '';
     var activeCategory = '';
     var activeCategoryLabel = '';
@@ -216,6 +217,7 @@
     $(document).on('click', '.btn-detail-picker', function() {
         activePickerId = $(this).data('id-picker');
         activeTanggal = $(this).data('tanggal');
+        activeIdStatus = $(this).data('id-status');
         activePickerName = $(this).data('nama-picker');
 
         $('#summary-picker-name').text(activePickerName);
@@ -235,7 +237,8 @@
             type: 'POST',
             data: {
                 id_picker: activePickerId,
-                tanggal: activeTanggal
+                tanggal: activeTanggal,
+                id_status: activeIdStatus
             },
             dataType: 'json',
             success: function(response) {
@@ -268,7 +271,7 @@
         $('#sku-summary-date').text(moment(activeTanggal).format('DD-MM-YYYY'));
 
         // Set href for SKU summary export
-        $('#btn-export-picker-sku-summary').attr('href', 'report/export-picker-sku-summary?id_picker=' + activePickerId + '&tanggal=' + activeTanggal + '&category=' + activeCategory);
+        $('#btn-export-picker-sku-summary').attr('href', 'report/export-picker-sku-summary?id_picker=' + activePickerId + '&tanggal=' + activeTanggal + '&category=' + activeCategory + '&id_status=' + activeIdStatus);
 
         $('#picker-sku-summary-body').html('<tr><td colspan="4" class="text-center"><i class="fa fa-spinner fa-spin"></i> Memuat rangkuman SKU...</td></tr>');
 
@@ -283,6 +286,7 @@
             data: {
                 id_picker: activePickerId,
                 tanggal: activeTanggal,
+                id_status: activeIdStatus,
                 category: activeCategory
             },
             dataType: 'json',
@@ -324,7 +328,7 @@
         $('#list-category-title').text(activeCategoryLabel);
 
         // Set href for receipt list export
-        $('#btn-export-picker-resi-list').attr('href', 'report/export-picker-resi-list-by-sku?id_picker=' + activePickerId + '&tanggal=' + activeTanggal + '&category=' + activeCategory + '&id_sku=' + idSku);
+        $('#btn-export-picker-resi-list').attr('href', 'report/export-picker-resi-list-by-sku?id_picker=' + activePickerId + '&tanggal=' + activeTanggal + '&category=' + activeCategory + '&id_sku=' + idSku + '&id_status=' + activeIdStatus);
 
         $('#picker-resi-list-body').html('<tr><td colspan="6" class="text-center"><i class="fa fa-spinner fa-spin"></i> Memuat daftar resi...</td></tr>');
 

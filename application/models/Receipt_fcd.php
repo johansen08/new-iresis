@@ -2081,6 +2081,7 @@ class Receipt_fcd extends CI_Model
             MIN(b.admin_pegawai) as admin_pegawai,
             MAX(COALESCE(t_usr.name, t_usr.username)) as pegawai,
             COALESCE(sp.status_name, 'Tanpa Status') as status_performa,
+            COALESCE(b.status_performa_id, 0) as id_status,
             COUNT(DISTINCT a.id_printresi) as total,
             MIN(b.tanggal_resiambilbarang) as waktu_scan_picker,
             MAX(b.tanggal_resiambilbarang) as waktu_scan_selesai,
@@ -3101,7 +3102,20 @@ class Receipt_fcd extends CI_Model
         return $this->db->query($sql)->row_array();
     }
 
-    public function get_picker_performance_detail_summary($id_picker, $tanggal)
+    /**
+     * Syarat status performa untuk rincian laporan picker. Kosong = semua status;
+     * 0 = baris tanpa status (NULL); selain itu id_statusperforma.
+     */
+    private function syarat_status_picker($id_status)
+    {
+        if ($id_status === null || $id_status === '') {
+            return '';
+        }
+        $id = (int) $id_status;
+        return $id === 0 ? ' AND rab.status_performa_id IS NULL' : ' AND rab.status_performa_id = ' . $id;
+    }
+
+    public function get_picker_performance_detail_summary($id_picker, $tanggal, $id_status = null)
     {
         $sql = "
             SELECT 
@@ -3129,7 +3143,7 @@ class Receipt_fcd extends CI_Model
                     GROUP BY dt.id_resi
                 ) m ON m.id_resi = pr.id_printresi
                 WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
-                  AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+                  AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . $this->syarat_status_picker($id_status) . "
             ) as t
         ";
         return $this->db->query($sql)->row_array();
@@ -3174,6 +3188,7 @@ class Receipt_fcd extends CI_Model
             SELECT 
                 rab.yangambil_pegawai as id_picker,
                 DATE(rab.tanggal_resiambilbarang) as tanggal,
+                COALESCE(rab.status_performa_id, 0) as id_status,
                 SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
                 SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
                 SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
@@ -3192,12 +3207,12 @@ class Receipt_fcd extends CI_Model
             ) m ON m.id_resi = pr.id_printresi
             WHERE rab.tanggal_resiambilbarang >= " . $this->db->escape($start_date) . "
               AND rab.tanggal_resiambilbarang <= " . $this->db->escape($end_date) . "
-            GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)
+            GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang), rab.status_performa_id
         ";
         return $this->db->query($sql)->result_array();
     }
 
-    public function get_picker_sku_summary_by_category($id_picker, $tanggal, $category)
+    public function get_picker_sku_summary_by_category($id_picker, $tanggal, $category, $id_status = null)
     {
         $category_cond = "";
         if ($category == 'sku_special') {
@@ -3231,7 +3246,7 @@ class Receipt_fcd extends CI_Model
                 GROUP BY dt2.id_resi
             ) m ON m.id_resi = pr.id_printresi
             WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
-              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . $this->syarat_status_picker($id_status) . "
               $category_cond
             GROUP BY dt.sku, s.nama_sku
             ORDER BY total_qty DESC
@@ -3239,7 +3254,7 @@ class Receipt_fcd extends CI_Model
         return $this->db->query($sql)->result_array();
     }
 
-    public function get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku)
+    public function get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku, $id_status = null)
     {
         $category_cond = "";
         if ($category == 'sku_special') {
@@ -3277,7 +3292,7 @@ class Receipt_fcd extends CI_Model
                 GROUP BY dt2.id_resi
             ) m ON m.id_resi = pr.id_printresi
             WHERE rab.yangambil_pegawai = " . $this->db->escape($id_picker) . "
-              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . "
+              AND DATE(rab.tanggal_resiambilbarang) = " . $this->db->escape($tanggal) . $this->syarat_status_picker($id_status) . "
               $category_cond
             ORDER BY rab.tanggal_resiambilbarang ASC
         ";

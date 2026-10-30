@@ -1321,7 +1321,8 @@ class Report extends MY_Controller
                 'jam_mulai'       => empty($row->waktu_scan_picker) ? '-' : date('H:i:s', strtotime($row->waktu_scan_picker)),
                 'jam_selesai'     => empty($row->waktu_scan_selesai) ? '-' : date('H:i:s', strtotime($row->waktu_scan_selesai)),
                 'total'           => $row->total,
-                'status_performa' => $row->status_performa ?: 'Tanpa Status'
+                'status_performa' => $row->status_performa ?: 'Tanpa Status',
+                'id_status'       => (int) $row->id_status
             );
         }
 
@@ -1467,7 +1468,7 @@ class Report extends MY_Controller
         $details = $this->receipt_fcd->get_production_team_report_details_batch($start_date, $end_date);
         $details_map = [];
         foreach ($details as $d) {
-            $details_map[$d['id_picker']][$d['tanggal']] = $d;
+            $details_map[$d['id_picker']][$d['tanggal']][(int) $d['id_status']] = $d;
         }
 
         $min_mulai_inti = null;
@@ -1486,7 +1487,7 @@ class Report extends MY_Controller
             $role = strtolower(trim($picker['role'] ?? ''));
             $isInti = (strpos($role, 'picker') !== false);
             
-            $det = isset($details_map[$id_picker][$tanggal]) ? $details_map[$id_picker][$tanggal] : [
+            $det = isset($details_map[$id_picker][$tanggal][(int) $picker['id_status']]) ? $details_map[$id_picker][$tanggal][(int) $picker['id_status']] : [
                 'sku_special' => 0,
                 'resi_1_sku_sd_9' => 0,
                 'resi_2_9_sku_sd_9' => 0,
@@ -2401,7 +2402,7 @@ class Report extends MY_Controller
             exit();
         }
 
-        $summary = $this->receipt_fcd->get_picker_performance_detail_summary($id_picker, $tanggal);
+        $summary = $this->receipt_fcd->get_picker_performance_detail_summary($id_picker, $tanggal, $this->input->post('id_status'));
         echo json_encode(['status' => 'success', 'data' => $summary]);
         exit();
     }
@@ -2417,7 +2418,7 @@ class Report extends MY_Controller
             exit();
         }
 
-        $summary = $this->receipt_fcd->get_picker_sku_summary_by_category($id_picker, $tanggal, $category);
+        $summary = $this->receipt_fcd->get_picker_sku_summary_by_category($id_picker, $tanggal, $category, $this->input->post('id_status'));
         echo json_encode(['status' => 'success', 'data' => $summary]);
         exit();
     }
@@ -2434,7 +2435,7 @@ class Report extends MY_Controller
             exit();
         }
 
-        $list = $this->receipt_fcd->get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku);
+        $list = $this->receipt_fcd->get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku, $this->input->post('id_status'));
         
         $data = array();
         foreach ($list as $item) {
@@ -2466,7 +2467,7 @@ class Report extends MY_Controller
         $picker_name = $this->db->select('name')->where('id_user', $id_picker)->get('tbluser')->row();
         $nama_picker = $picker_name ? $picker_name->name : 'Picker';
 
-        $list = $this->receipt_fcd->get_picker_sku_summary_by_category($id_picker, $tanggal, $category);
+        $list = $this->receipt_fcd->get_picker_sku_summary_by_category($id_picker, $tanggal, $category, $this->input->get('id_status'));
 
         $data['list'] = $list;
         $data['nama_picker'] = $nama_picker;
@@ -2500,7 +2501,7 @@ class Report extends MY_Controller
         $picker_name = $this->db->select('name')->where('id_user', $id_picker)->get('tbluser')->row();
         $nama_picker = $picker_name ? $picker_name->name : 'Picker';
 
-        $list = $this->receipt_fcd->get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku);
+        $list = $this->receipt_fcd->get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku, $this->input->get('id_status'));
         
         $data['list'] = $list;
         $data['nama_picker'] = $nama_picker;
