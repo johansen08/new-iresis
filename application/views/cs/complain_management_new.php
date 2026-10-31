@@ -448,6 +448,7 @@
       .kp-page { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; }
       .kp-page input, .kp-page select, .kp-page button { font-family: inherit; }
       .kp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 28px 6px; }
+      .kp-head-actions { display: flex; gap: 8px; flex: none; }
       .kp-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
       .kp-crumb span { margin: 0 4px; color: #cbd5e1; }
       .kp-title { margin: 0; font-size: 22px; font-weight: 700; color: #0f172a; font-family: inherit; letter-spacing: -.01em; }
@@ -592,7 +593,10 @@
           <h3 class="kp-title">Manajemen Komplain CS <span class="kp-new-tag">New</span></h3>
           <p class="kp-subtitle">Catat, telusuri, dan pantau komplain pembeli beserta hasil investigasinya.</p>
         </div>
-        <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
+        <div class="kp-head-actions">
+          <button type="button" class="btn-modern btn-modern-secondary" id="btn-export-komplain" title="Unduh daftar sesuai filter yang aktif"><i class="fa fa-download"></i> Export</button>
+          <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
+        </div>
       </div>
 
       <!-- Kartu ringkasan: mengikuti rentang tanggal & filter yang aktif -->
@@ -1115,6 +1119,24 @@
         }
     });
     $('#reportrange').on('apply.daterangepicker', function() { table.ajax.reload(); });
+
+    // Export Excel: kirim filter yang sedang aktif lewat form POST ke iframe tersembunyi
+    $('#btn-export-komplain').on('click', function() {
+        var d = sertakanFilter({});
+        d.search_text = $('#kp-search').val();
+        var $f = $('<form method="post" class="nojs" action="cs-new/complain-management/export" target="kp-unduh" style="display:none"></form>');
+        $.each(d, function(k, v) {
+            if ($.isArray(v)) {
+                $.each(v, function(i, x) { $f.append($('<input type="hidden">').attr('name', k + '[]').val(x)); });
+            } else {
+                $f.append($('<input type="hidden">').attr('name', k).val(v));
+            }
+        });
+        if (!$('#kp-unduh').length) $('body').append('<iframe name="kp-unduh" id="kp-unduh" style="display:none"></iframe>');
+        $f.appendTo('body').submit();
+        setTimeout(function() { $f.remove(); }, 2000);
+        showNoty('Menyiapkan file Excel sesuai filter yang aktif...', 'success');
+    });
 
     // ---------------- Drawer detail ----------------
     function pvRow(ikon, label, nilai) {

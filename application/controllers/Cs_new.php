@@ -312,6 +312,100 @@ class Cs_new extends MY_Controller
         }
     }
 
+    /**
+     * Ekspor daftar komplain ke Excel (.xlsx) mengikuti rentang tanggal, pencarian, dan filter
+     * yang sedang aktif di layar. Dikirim lewat form POST biasa (bukan AJAX) supaya browser
+     * mengunduh berkasnya.
+     */
+    public function export_complain_management()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+
+        $this->_apply_complain_filters(
+            $this->input->post('reportrange') ?: '',
+            $this->input->post('search_text') ?: '',
+            $this->_filter_dari_request()
+        );
+        $this->db->order_by('tgl_efektif', 'DESC');
+        $this->db->order_by('c.id_complain', 'DESC');
+        $this->db->limit(20000);
+        $items = $this->db->get()->result_array();
+
+        // Barang per komplain, digabung jadi satu sel "SKU x qty"
+        $barang = [];
+        $ids = array_column($items, 'id_complain');
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $rows = $this->db->select('id_complain, sku, qty, price')
+                             ->where_in('id_complain', $chunk)
+                             ->where('is_deleted', 0)
+                             ->order_by('id_complain_detail', 'ASC')
+                             ->get('tblcs_complain_detail')->result_array();
+            foreach ($rows as $r) {
+                $barang[$r['id_complain']][] = $r['sku'] . ' x' . (int) $r['qty'];
+            }
+        }
+
+        $sheet_obj = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $sheet_obj->getActiveSheet();
+        $sheet->setTitle('Komplain CS');
+
+        $judul = ['ID', 'Tanggal Komplain', 'No. Resi', 'No. Pesanan', 'Marketplace', 'Toko', 'Jenis', 'Kategori', 'Keterangan',
+                  'Sumber', 'Hasil Cek CCTV', 'Catatan Investigasi', 'Barang', 'Nominal', 'Picker', 'Packer',
+                  'Tanggal Input', 'No. Absen Input', 'Nama Penginput'];
+        $sheet->fromArray($judul, null, 'A1');
+
+        $baris = 2;
+        foreach ($items as $it) {
+            $sheet->fromArray([
+                'K-' . str_pad((int) $it['id_complain'], 5, '0', STR_PAD_LEFT),
+                $it['tgl_efektif'] ? date('d/m/Y', strtotime($it['tgl_efektif'])) : '',
+                $it['no_resi'],
+                preg_replace('/^SP-/i', '', (string) $it['no_pesanan']),
+                trim((string) $it['nama_marketplace']),
+                $it['toko'],
+                $it['jenis_komplain'] ?: 'CCTV',
+                $it['kategori_komplain'],
+                $it['detail_lainnya'],
+                $it['sumber_komplain'],
+                $it['hasil_investigasi'] ?: 'Belum dicek',
+                $it['catatan_penanganan'],
+                implode('; ', $barang[$it['id_complain']] ?? []),
+                (float) $it['nominal_total'],
+                $this->_nama_pendek($it['nama_picker']),
+                $this->_nama_pendek($it['nama_qc'] ?: $it['nama_packer']),
+                $it['created_at'] ? date('d/m/Y H:i:s', strtotime($it['created_at'])) : '',
+                $it['no_absen_input'],
+                $it['nama_penginput'],
+            ], null, 'A' . $baris);
+            // Resi/pesanan berupa teks panjang: jangan sampai dibaca Excel sebagai angka
+            $sheet->setCellValueExplicit('C' . $baris, (string) $it['no_resi'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('D' . $baris, preg_replace('/^SP-/i', '', (string) $it['no_pesanan']), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $baris++;
+        }
+
+        $akhir = max($baris - 1, 1);
+        $sheet->getStyle('A1:S1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+        ]);
+        $sheet->getStyle('N2:N' . $akhir)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:S' . $akhir);
+        foreach (range('A', 'S') as $kolom) {
+            $sheet->getColumnDimension($kolom)->setAutoSize(true);
+        }
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="Komplain_CS_' . date('Ymd_His') . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($sheet_obj))->save('php://output');
+        exit;
+    }
+
     /** Filter dari request (dipakai tabel dan kartu ringkasan agar selalu sama). */
     private function _filter_dari_request()
     {
