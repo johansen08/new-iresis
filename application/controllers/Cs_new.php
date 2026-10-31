@@ -761,6 +761,12 @@ class Cs_new extends MY_Controller
                 $res['toko'] = $harga['nama_toko'];
             }
 
+            // tblprintresi.toko baru terisi sejak upload resi memuat nama toko; resi lama
+            // (Agu-Sep 2026) masih kosong. Cari di tabel lain yang pernah mencatat toko resi ini.
+            if (empty($res['toko'])) {
+                $res['toko'] = $this->_toko_dari_tabel_lain($res['noresi'], $res['no_pesanan'], $res['id_marketplace']);
+            }
+
             // Nilai pesanan: pakai harga resi kalau ada, kalau tidak jumlahkan barang
             if (empty($res['nilai_pesanan']) || $res['nilai_pesanan'] <= 0) {
                 $total = 0;
@@ -850,6 +856,43 @@ class Cs_new extends MY_Controller
             ]);
         }
         exit;
+    }
+
+    /**
+     * Cadangan nama toko untuk resi yang tblprintresi.toko-nya kosong. Urutan:
+     * komplain sebelumnya, buka retur, cancel order, klaim retur, lalu resi lain
+     * dengan nomor pesanan yang sama. Semua lookup lewat index resi/pesanan.
+     */
+    private function _toko_dari_tabel_lain($noresi, $no_pesanan, $id_marketplace)
+    {
+        $kandidat = [
+            ['tblcs_complain', 'toko', 'no_resi'],
+            ['tblbukaretur', 'toko', 'resi_buka'],
+            ['tblcancelorder', 'toko', 'noresi'],
+            ['tblreturklaim', 'nama_toko', 'no_resi'],
+        ];
+        foreach ($kandidat as $k) {
+            $row = $this->db->query(
+                "SELECT {$k[1]} AS t FROM {$k[0]} WHERE {$k[2]} = ? AND {$k[1]} IS NOT NULL AND {$k[1]} <> '' LIMIT 1",
+                [$noresi]
+            )->row_array();
+            if ($row) {
+                return $row['t'];
+            }
+        }
+
+        if (!empty($no_pesanan)) {
+            $row = $this->db->query(
+                "SELECT p.toko AS t FROM tbldetailprintresi d
+                 JOIN tblprintresi p ON p.id_printresi = d.id_resi
+                 WHERE d.no_pesanan = ? AND p.toko IS NOT NULL AND p.toko <> '' LIMIT 1",
+                [$no_pesanan]
+            )->row_array();
+            if ($row) {
+                return $row['t'];
+            }
+        }
+        return null;
     }
 
     /**
