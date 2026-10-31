@@ -382,6 +382,7 @@ $route['cs/complain-management/delete-lampiran/(:num)'] = 'cs/delete_lampiran_co
 $route['cs-new/complain-management'] = 'cs_new/complain_management';
 $route['cs-new/complain-management/get-data'] = 'cs_new/get_complain_management_data';
 $route['cs-new/complain-management/ringkasan'] = 'cs_new/get_complain_ringkasan';
+$route['cs-new/complain-management/export'] = 'cs_new/export_complain_management';
 $route['cs-new/complain-management/detail/(:num)'] = 'cs_new/get_complain_management_detail/$1';
 $route['cs-new/complain-management/save'] = 'cs_new/save_complain_management';
 $route['cs-new/complain-management/delete/(:num)'] = 'cs_new/delete_complain_management/$1';
