@@ -758,8 +758,8 @@
                 <div class="row kf-row-tight">
                   <div class="col-sm-6">
                     <div class="kf-field">
-                      <label class="kf-label" for="nama_qc">Packer</label>
-                      <select name="nama_qc" id="nama_qc" class="kf-input">
+                      <label class="kf-label" for="nama_picker">Picker</label>
+                      <select name="nama_picker" id="nama_picker" class="kf-input">
                         <option value="">Pilih</option>
                         <?php foreach ($employees as $emp): ?>
                           <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
@@ -769,8 +769,8 @@
                   </div>
                   <div class="col-sm-6">
                     <div class="kf-field">
-                      <label class="kf-label" for="nama_picker">Picker</label>
-                      <select name="nama_picker" id="nama_picker" class="kf-input">
+                      <label class="kf-label" for="nama_qc">Packer</label>
+                      <select name="nama_qc" id="nama_qc" class="kf-input">
                         <option value="">Pilih</option>
                         <?php foreach ($employees as $emp): ?>
                           <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
@@ -1430,7 +1430,7 @@
                 barisPv('Sumber', $('#sumber_komplain').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Investigasi</h5>' +
                 barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) +
-                barisPv('Packer', $('#nama_qc').val()) + barisPv('Picker', $('#nama_picker').val()) + '</div>' +
+                barisPv('Picker', $('#nama_picker').val()) + barisPv('Packer', $('#nama_qc').val()) + '</div>' +
             '</div></div>';
 
         $('#kf-preview').html(html);
