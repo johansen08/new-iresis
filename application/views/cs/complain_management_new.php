@@ -415,7 +415,24 @@
       .kf-footer .btn-modern { height: 40px; }
       .kf-footer #role-warning-edit { margin-right: auto; }
 
+      .kf-preview .kf-pv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 28px; }
+      .kf-pv-sec { margin-bottom: 18px; }
+      .kf-pv-sec h5 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: .04em; }
+      .kf-pv-row { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; }
+      .kf-pv-row dt { flex: 0 0 130px; margin: 0; font-weight: 500; color: var(--text-muted); }
+      .kf-pv-row dd { flex: 1; margin: 0; font-weight: 600; color: #0f172a; word-break: break-word; }
+      .kf-pv-auto { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; }
+      .kf-pv-auto h5 { color: #3730a3; }
+      .kf-pv-auto .kf-pv-row { border-bottom-color: #e0e7ff; }
+      .kf-pv-auto .kf-pv-note { margin-top: 6px; font-size: 12px; color: #4f46e5; }
+      .kf-pv-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+      .kf-pv-table th { text-align: left; padding: 4px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-bottom: 1px solid var(--border-slate); }
+      .kf-pv-table td { padding: 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+      .kf-pv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .kf-pv-table .nama { display: block; font-size: 11.5px; color: var(--text-muted); }
+
       @media (max-width: 991px) {
+        .kf-preview .kf-pv-grid { grid-template-columns: 1fr; }
         .kf-col-side { border-left: 0; border-top: 1px solid var(--border-slate); padding-top: 18px; }
         .kf-body { padding: 16px 14px 4px; }
         .kf-header, .kf-footer { padding-left: 16px; padding-right: 16px; }
@@ -618,12 +635,8 @@
                     <span class="kf-summary-label">Tanggal Pesanan</span>
                     <input type="text" name="tgl_pesanan" id="tgl_pesanan" class="kf-ro" readonly placeholder="&ndash;" />
                   </div>
-                  <div class="kf-summary-item kf-summary-wide">
-                    <span class="kf-summary-label">Diinput</span>
-                    <input type="hidden" name="nilai_pesanan" id="nilai_pesanan" />
-                    <input type="text" id="info_input" class="kf-ro" readonly />
-                  </div>
                 </div>
+                <input type="hidden" name="nilai_pesanan" id="nilai_pesanan" />
 
                 <div class="row kf-row-tight" style="margin-top: 12px;">
                   <div class="col-sm-5">
@@ -771,10 +784,15 @@
           </div>
         </div>
 
+        <!-- Pratinjau sebelum simpan: ringkasan isi form + data input otomatis -->
+        <div class="modal-body kf-body kf-preview" id="kf-preview" style="display: none;"></div>
+
         <div class="modal-footer kf-footer">
           <span id="role-warning-edit" class="text-warning pull-left" style="display: none; padding-top: 8px; font-size:12px; font-weight:600;"><i class="fa fa-lock"></i> Mode Read-only (Edit hanya diizinkan bagi Admin/Supervisor)</span>
-          <button type="button" class="btn-modern btn-modern-secondary" data-dismiss="modal">Batal</button>
-          <button type="submit" class="btn-modern" id="btn-save-submit"><i class="fa fa-save"></i> Simpan Komplain</button>
+          <button type="button" class="btn-modern btn-modern-secondary" data-dismiss="modal" id="btn-batal-form">Batal</button>
+          <button type="submit" class="btn-modern" id="btn-save-submit"><i class="fa fa-eye"></i> Pratinjau &amp; Simpan</button>
+          <button type="button" class="btn-modern btn-modern-secondary" id="btn-preview-back" style="display:none;"><i class="fa fa-arrow-left"></i> Ubah</button>
+          <button type="button" class="btn-modern" id="btn-preview-save" style="display:none;"><i class="fa fa-save"></i> Simpan Komplain</button>
         </div>
       </form>
     </div>
@@ -958,6 +976,7 @@
     // ---------------- Form komplain ----------------
 
     function resetFormKomplain() {
+        dataInputAsli = null;
         $('#form-save-complain')[0].reset();
         $('#force_duplikat').val('0');
         $('#sku-rows-list').empty();
@@ -983,7 +1002,6 @@
         // Hampir semua komplain masuk lewat chat marketplace; ganti hanya bila berbeda
         $('#sumber_komplain').val('Chat Marketplace');
         // Tanggal input & penginput terisi sendiri, tidak bisa diubah manual
-        $('#info_input').val(moment().format('DD/MM/YYYY HH:mm') + ' oleh ' + namaPenggunaLogin);
 
         // Add 1 default empty row
         addSkuRow('', 1, 0, '');
@@ -1341,11 +1359,109 @@
     $('#form-save-complain').on('submit', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        kirimFormKomplain();
+        tampilkanPratinjau();
     });
 
+    // ---------------- Pratinjau sebelum simpan ----------------
+
+    var dataInputAsli = null;   // terisi saat membuka mode edit
+    var timerJam = null;
+
+    // Format nama user tidak seragam ("IKA - LEADER - 0001", "0353 - JOHANSEN - IT"):
+    // no absen = potongan yang semuanya angka, nama = potongan pertama yang bukan angka
+    function pecahNamaUser(teks) {
+        var hasil = { nama: '-', absen: '-' };
+        $.each(String(teks || '').split('-'), function(i, potong) {
+            potong = $.trim(potong);
+            if (potong === '') return;
+            if (/^\d+$/.test(potong)) {
+                if (hasil.absen === '-') hasil.absen = potong;
+            } else if (hasil.nama === '-') {
+                hasil.nama = potong;
+            }
+        });
+        return hasil;
+    }
+
+    function esc(v) { return $('<div>').text(v === undefined || v === null || v === '' ? '-' : v).html(); }
+
+    function barisPv(label, nilai) {
+        return '<div class="kf-pv-row"><dt>' + label + '</dt><dd>' + esc(nilai) + '</dd></div>';
+    }
+
+    function tampilkanPratinjau() {
+        var editMode = $('#is_edit').val() === '1';
+        var mp = $('#id_marketplace option:selected').text();
+        var total = 0, barang = '';
+        $('.sku-item-row').each(function() {
+            var sku = $(this).find('.sku-autocomplete').val().trim();
+            if (!sku) return;
+            var qty = parseInt($(this).find('.item-qty').val()) || 0;
+            var harga = parseFloat(String($(this).find('.item-price').val()).replace(',', '.')) || 0;
+            total += qty * harga;
+            barang += '<tr><td>' + esc(sku) + '<span class="nama">' + esc($(this).find('.sku-nama').text()) + '</span></td>' +
+                      '<td class="num">' + qty + '</td><td class="num">Rp ' + harga.toLocaleString('id-ID') + '</td>' +
+                      '<td class="num">Rp ' + (qty * harga).toLocaleString('id-ID') + '</td></tr>';
+        });
+
+        var penginput = pecahNamaUser(namaPenggunaLogin);
+        var autoHtml = '<div class="kf-pv-auto"><h5><i class="fa fa-magic"></i> Data input (terisi otomatis saat disimpan)</h5>';
+        if (editMode && dataInputAsli) {
+            autoHtml += barisPv('Tanggal input', dataInputAsli.waktu) + barisPv('No. absen input', dataInputAsli.absen) + barisPv('Nama penginput', dataInputAsli.nama) +
+                        '<div class="kf-pv-note">Data input asli, tidak berubah saat diedit.</div>';
+        } else {
+            autoHtml += '<div class="kf-pv-row"><dt>Tanggal input</dt><dd id="pv-jam"></dd></div>' +
+                        barisPv('No. absen input', penginput.absen) + barisPv('Nama penginput', penginput.nama) +
+                        '<div class="kf-pv-note">Jam mengikuti waktu server saat tombol Simpan ditekan.</div>';
+        }
+        autoHtml += '</div>';
+
+        var html = autoHtml + '<div class="kf-pv-grid"><div>' +
+            '<div class="kf-pv-sec"><h5>Pesanan</h5>' +
+                barisPv('No. resi', $('#no_resi').val()) + barisPv('No. pesanan', $('#no_pesanan').val()) +
+                barisPv('Tanggal pesanan', $('#tgl_pesanan').val()) + barisPv('Marketplace', $('#id_marketplace').val() ? mp : '') +
+                barisPv('Toko', $('#toko').val()) + '</div>' +
+            '<div class="kf-pv-sec"><h5>Barang komplain</h5><table class="kf-pv-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
+                barang + '<tr><td colspan="3" class="num"><strong>Total</strong></td><td class="num"><strong>Rp ' + total.toLocaleString('id-ID') + '</strong></td></tr></tbody></table></div>' +
+            '</div><div>' +
+            '<div class="kf-pv-sec"><h5>Komplain</h5>' +
+                barisPv('Jenis', $('input[name="jenis_komplain"]:checked').val()) + barisPv('Kategori', $('#kategori_komplain').val()) +
+                barisPv('Keterangan', $('#detail_lainnya').val()) + barisPv('Tanggal komplain', $('#tgl_komplain').val()) +
+                barisPv('Sumber', $('#sumber_komplain').val()) + '</div>' +
+            '<div class="kf-pv-sec"><h5>Investigasi</h5>' +
+                barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) +
+                barisPv('QC (Packer)', $('#nama_qc').val()) + barisPv('Picker', $('#nama_picker').val()) + '</div>' +
+            '</div></div>';
+
+        $('#kf-preview').html(html);
+        modeFormKomplain(false);
+
+        if (!(editMode && dataInputAsli)) {
+            var tickJam = function() { $('#pv-jam').text(moment().format('DD/MM/YYYY HH:mm:ss')); };
+            tickJam();
+            clearInterval(timerJam);
+            timerJam = setInterval(tickJam, 1000);
+        }
+    }
+
+    // true = form isian, false = pratinjau
+    function modeFormKomplain(form) {
+        clearInterval(form ? timerJam : null);
+        $('.kf-body').not('#kf-preview').toggle(form);
+        $('#kf-preview').toggle(!form);
+        $('#btn-batal-form, #btn-save-submit').toggle(form && !($('#is_edit').val() === '1' && !isAdminOrSupervisor));
+        if (form && $('#is_edit').val() === '1' && !isAdminOrSupervisor) { $('#btn-batal-form').show(); }
+        $('#btn-preview-back, #btn-preview-save').toggle(!form);
+        $('#modalFormKomplainLabel').toggleClass('kf-pv-mode', !form);
+        $('.kf-subtitle').toggle(form);
+    }
+
+    $('#btn-preview-back').on('click', function() { modeFormKomplain(true); });
+    $('#btn-preview-save').on('click', function() { kirimFormKomplain(); });
+    $('#modalFormKomplain').on('hidden.bs.modal', function() { clearInterval(timerJam); modeFormKomplain(true); });
+
     function kirimFormKomplain() {
-        var $btn = $('#btn-save-submit');
+        var $btn = $('#btn-preview-save');
         var originalHtml = $btn.html();
         $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
 
@@ -1445,9 +1561,12 @@
 
                     $('#nilai_pesanan').val(comp.nilai_pesanan || '');
 
-                    // Tanggal input & penginput asli, bukan waktu sekarang
-                    var tglInput = comp.created_at ? moment(comp.created_at).format('DD/MM/YYYY HH:mm') : '-';
-                    $('#info_input').val(tglInput + ' oleh ' + (comp.nama_penginput || '-'));
+                    // Data input asli (untuk pratinjau mode edit), bukan waktu sekarang
+                    dataInputAsli = {
+                        waktu: comp.created_at ? moment(comp.created_at).format('DD/MM/YYYY HH:mm:ss') : '-',
+                        absen: comp.no_absen_input || '-',
+                        nama: comp.nama_penginput || '-'
+                    };
 
                     // SKU rows
                     if (resp.items && resp.items.length > 0) {
