@@ -12,8 +12,8 @@ class Qc_return extends MY_Controller
     //   Selesai = tim retur (6) + webmaster. Role 12 dibuat migrasi (MY_Controller::run_serah_terima_qc_migration).
     const ROLE_CETAK = array(1, 12);
     const ROLE_SELESAI = array(1, 6);
-    // Barang Reject: edit & hapus (soft-delete) hanya webmaster + tim retur
-    const ROLE_UBAH_REJECT = array(1, 6);
+    // Barang Reject: edit & hapus (soft-delete) webmaster + packer (4) + tim retur
+    const ROLE_UBAH_REJECT = array(1, 4, 6);
 
     private function punya_peran($daftar)
     {
@@ -289,7 +289,7 @@ class Qc_return extends MY_Controller
     public function barang_reject_edit()
     {
         if (!$this->punya_peran(self::ROLE_UBAH_REJECT)) {
-            $this->make_ajax_response(403, 'Edit hanya untuk webmaster dan tim retur');
+            $this->make_ajax_response(403, 'Edit hanya untuk webmaster, packer, dan tim retur');
         }
         $qty = $this->input->post('qty');
         $kurang = $this->input->post('qty_kurang');
@@ -307,7 +307,7 @@ class Qc_return extends MY_Controller
     public function barang_reject_hapus()
     {
         if (!$this->punya_peran(self::ROLE_UBAH_REJECT)) {
-            $this->make_ajax_response(403, 'Hapus hanya untuk webmaster dan tim retur');
+            $this->make_ajax_response(403, 'Hapus hanya untuk webmaster, packer, dan tim retur');
         }
         list($ok, $pesan) = $this->qc_return_fcd->hapus_reject($this->input->post('id'), $this->data['user']['id_user']);
         $this->make_ajax_response($ok ? 200 : 400, $pesan);
