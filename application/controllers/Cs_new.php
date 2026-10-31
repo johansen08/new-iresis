@@ -443,6 +443,11 @@ class Cs_new extends MY_Controller
             echo json_encode(['code' => 400, 'message' => 'Kategori komplain tidak dikenali.']);
             exit;
         }
+        $detail_lainnya = trim((string) $detail_lainnya);
+        if ($kategori_komplain === 'Lainnya' && $detail_lainnya === '') {
+            echo json_encode(['code' => 400, 'message' => 'Keterangan wajib diisi untuk kategori Lainnya.']);
+            exit;
+        }
         if ($sumber_komplain !== null && !in_array($sumber_komplain, $this->complain_sumber)) {
             echo json_encode(['code' => 400, 'message' => 'Sumber komplain tidak dikenali.']);
             exit;
@@ -528,9 +533,8 @@ class Cs_new extends MY_Controller
             'id_marketplace' => $id_marketplace,
             'toko' => $toko,
             'kategori_komplain' => $kategori_komplain,
-            'detail_lainnya' => $kategori_komplain === 'Lainnya' ? $detail_lainnya : null,
+            'detail_lainnya' => $detail_lainnya !== '' ? $detail_lainnya : null,
             'sumber_komplain' => $sumber_komplain,
-            'status_penanganan' => $status_penanganan,
             'catatan_penanganan' => $catatan_penanganan,
             'hasil_investigasi' => $hasil_investigasi,
             'no_pesanan' => $no_pesanan,
@@ -540,13 +544,24 @@ class Cs_new extends MY_Controller
             'nama_picker' => $nama_picker ?: null,
             'nominal_total' => $nominal_total,
             'nilai_pesanan' => $nilai_pesanan,
-            'tgl_banding_pengajuan' => $tgl_banding_pengajuan,
-            'tgl_banding_tinjauan' => $tgl_banding_tinjauan,
-            'tgl_claim_dana' => $tgl_claim_dana,
-            'keterangan_banding' => $keterangan_banding,
-            'nominal_claim_dana' => $nominal_claim_dana,
             'updated_by' => $this->data['user']['id_user']
         ];
+
+        // Form New tidak punya status penanganan & proses banding: tulis hanya bila dikirim
+        if ($status_penanganan !== null) {
+            $complain_data['status_penanganan'] = $status_penanganan;
+        } elseif (!$is_edit) {
+            $complain_data['status_penanganan'] = 'Baru';
+        }
+        foreach (['tgl_banding_pengajuan' => $tgl_banding_pengajuan, 'tgl_banding_tinjauan' => $tgl_banding_tinjauan,
+                  'tgl_claim_dana' => $tgl_claim_dana, 'keterangan_banding' => $keterangan_banding] as $kolom => $nilai) {
+            if ($this->input->post($kolom) !== null) {
+                $complain_data[$kolom] = $nilai;
+            }
+        }
+        if ($this->input->post('nominal_claim_dana') !== null) {
+            $complain_data['nominal_claim_dana'] = $nominal_claim_dana;
+        }
 
         if ($is_edit) {
             // Update master
@@ -680,6 +695,25 @@ class Cs_new extends MY_Controller
                   LIMIT 1";
 
         $res = $this->db->query($query, [$noresi, $noresi])->row_array();
+
+        // Bukan resi/picklist: coba sebagai nomor pesanan (detail resi, lalu retur Jubelio)
+        if (!$res) {
+            $via_pesanan = $this->db->query(
+                "SELECT pr.noresi FROM tbldetailprintresi d
+                 JOIN tblprintresi pr ON pr.id_printresi = d.id_resi
+                 WHERE d.no_pesanan = ? ORDER BY pr.id_printresi DESC LIMIT 1", [$noresi]
+            )->row_array();
+            if (!$via_pesanan) {
+                $via_pesanan = $this->db->query(
+                    "SELECT no_resi AS noresi FROM tblreturjubelio WHERE no_pesanan = ? AND no_resi <> '' LIMIT 1", [$noresi]
+                )->row_array();
+            }
+            if ($via_pesanan && !empty($via_pesanan['noresi'])) {
+                $noresi = $via_pesanan['noresi'];
+                pastikan_resi_live($noresi);
+                $res = $this->db->query($query, [$noresi, $noresi])->row_array();
+            }
+        }
 
         if ($res) {
             // Get items
