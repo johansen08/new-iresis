@@ -55,10 +55,7 @@ class Stok_aks27_fcd extends CI_Model
         $this->db->query(
             "INSERT IGNORE INTO tblstok_aks27 (ref, tanggal, jam, masuk, keluar, qty, no_ref, keterangan, flag, kunci, created, createdby)"
             . " SELECT 'PENJUALAN', DATE(COALESCE(s.tgl_packing, s.tgl_ho)), TIME(COALESCE(s.tgl_packing, s.tgl_ho)), 0, 1, t.qty, pr.noresi,"
-            . "  CONCAT_WS('; ',"
-            . "   IF(t.jml_pemicu > 1 OR t.qty > 1, 'dipukul rata 1 pinset', NULL),"
-            . "   IF(t.beli > 0, CONCAT(" . $bonus . ", ' dibeli ', t.beli, ' pcs dari rak biasa, tidak memotong stok ini'), NULL),"
-            . "   CONCAT('dari data scan ', IF(s.tgl_packing IS NOT NULL, 'packer', 'HO'))),"
+            . "  '',"
             . "  NULL, CONCAT('JUAL:', pr.noresi), NOW(), 0"
             . " FROM ("
             . "  SELECT d.id_resi, COUNT(DISTINCT d.sku) AS jml_pemicu,"
@@ -201,6 +198,10 @@ class Stok_aks27_fcd extends CI_Model
 
         $this->lengkapi_resi($rows);
         foreach ($rows as &$r) {
+            // Kolom Ket baris PENJUALAN dikosongkan (baris lama masih menyimpan catatan 'dari data scan ...').
+            if ($r['ref'] === 'PENJUALAN') {
+                $r['keterangan'] = '';
+            }
             $r['masuk']  = (int) $r['masuk'];
             $r['keluar'] = (int) $r['keluar'];
             $r['sisa']   = (int) $r['sisa'];
@@ -248,7 +249,7 @@ class Stok_aks27_fcd extends CI_Model
         if ($q !== '') {
             // Satu teks pencarian untuk yang tampil di tabel: no pesanan/transfer, ref, keterangan,
             // penanda, tanggal, jam, masuk, keluar, sisa, qty jual, dan no pesanan resi.
-            $w[] = "(CONCAT_WS(' ', x.no_ref, x.ref, x.keterangan, IFNULL(x.flag, ''), x.tanggal, DATE_FORMAT(x.tanggal, '%d/%m/%Y'),"
+            $w[] = "(CONCAT_WS(' ', x.no_ref, x.ref, IF(x.ref = 'PENJUALAN', '', x.keterangan), IFNULL(x.flag, ''), x.tanggal, DATE_FORMAT(x.tanggal, '%d/%m/%Y'),"
                 . " IFNULL(x.jam, ''), IF(x.masuk > 0, x.masuk, ''), IF(x.keluar > 0, x.keluar, ''), x.sisa, IFNULL(x.qty_jual, '')) LIKE ? ESCAPE '!'"
                 . " OR (x.ref <> 'INPUT' AND x.no_ref <> '' AND EXISTS (SELECT 1 FROM tblprintresi pr JOIN tbldetailprintresi dd ON dd.id_resi = pr.id_printresi"
                 . " WHERE pr.noresi = x.no_ref AND dd.no_pesanan LIKE ? ESCAPE '!')))";
