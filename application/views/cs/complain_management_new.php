@@ -470,17 +470,24 @@
       .kp-reset:hover { background: var(--primary-light); }
 
       .kp-table-wrap { border: 1px solid var(--border-slate); border-radius: 10px; overflow-x: auto; background: #fff; }
+      .kp-copyrow { display: flex; align-items: center; gap: 4px; }
+      .kp-copy { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #cbd5e1; font-size: 12px; cursor: pointer; line-height: 1; }
+      .kp-table tbody tr:hover .kp-copy { color: #94a3b8; }
+      .kp-copy:hover, .kp-table tbody tr:hover .kp-copy:hover { background: var(--primary-light); color: var(--primary); }
+      .kp-copy.ok, .kp-copy.ok:hover { color: #059669; background: #ecfdf5; }
+      .kp-dr-row dd .kp-copy { margin-left: 6px; vertical-align: middle; color: #94a3b8; }
       .kp-duo { display: flex; flex-direction: column; gap: 4px; }
       .kp-duo .kp-person:nth-child(n) { font-size: 13px; }
       .kp-duo > span + span .kp-avatar { background: #f1f5f9; color: #475569; }
       .kp-table { width: 100% !important; margin: 0 !important; border-collapse: separate; border-spacing: 0; }
-      .kp-table > thead > tr > th { padding: 10px 11px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+      .kp-table > thead > tr > th { padding: 10px 9px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
       .kp-table > thead > tr > th.kp-th-num { text-align: right; }
-      .kp-table > tbody > tr > td { padding: 10px 11px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
+      .kp-table > thead > tr > th[class*="sorting"] { padding-right: 20px; }
+      .kp-table > tbody > tr > td { padding: 10px 9px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
       .kp-table > tbody > tr:nth-child(even) > td { background: #fafbfd; }
       .kp-table > tbody > tr:hover > td { background: #f1f5ff; cursor: pointer; }
       .kp-table > tbody > tr:last-child > td { border-bottom: 0; }
-      .kp-table td:nth-child(5) { white-space: nowrap; }
+      .kp-table td:nth-child(5) { min-width: 120px; max-width: 150px; }
       .kp-table td:nth-child(6) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-id { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .kp-resi { display: block; font-weight: 600; color: #0f172a; white-space: nowrap; }
@@ -491,11 +498,11 @@
       .kp-pill-red { background: #fef2f2; color: #b91c1c; } .kp-pill-amber { background: #fffbeb; color: #b45309; }
       .kp-pill-green { background: #ecfdf5; color: #047857; } .kp-pill-indigo { background: #eef2ff; color: #4338ca; }
       .kp-pill-sky { background: #f0f9ff; color: #0369a1; } .kp-pill-slate { background: #f1f5f9; color: #475569; }
-      .kp-dot-text { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; white-space: nowrap; }
-      .kp-dot-text i { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+      .kp-dot-text { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; line-height: 1.3; }
+      .kp-dot-text i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
       .kp-dot-red i { background: #ef4444; } .kp-dot-amber i { background: #f59e0b; } .kp-dot-green i { background: #10b981; }
-      .kp-person { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-      .kp-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11px; font-weight: 700; }
+      .kp-person { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; }
+      .kp-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 10px; font-weight: 700; }
       .kp-actions { display: flex; gap: 2px; justify-content: flex-end; }
       .kp-icon-btn { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
       .kp-icon-btn:hover { background: #fff; border-color: var(--border-slate); color: var(--primary); }
@@ -773,7 +780,7 @@
                       <select name="nama_picker" id="nama_picker" class="kf-input">
                         <option value="">Pilih</option>
                         <?php foreach ($employees as $emp): ?>
-                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['label']) ?></option>
                         <?php endforeach; ?>
                       </select>
                     </div>
@@ -784,7 +791,7 @@
                       <select name="nama_qc" id="nama_qc" class="kf-input">
                         <option value="">Pilih</option>
                         <?php foreach ($employees as $emp): ?>
-                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['label']) ?></option>
                         <?php endforeach; ?>
                       </select>
                     </div>
@@ -1071,9 +1078,47 @@
     });
 
     // ---------------- Drawer detail ----------------
-    function pvRow(ikon, label, nilai) {
-        return '<div class="kp-dr-row"><i class="fa ' + ikon + '"></i><dt>' + label + '</dt><dd>' + esc(nilai) + '</dd></div>';
+    function pvRow(ikon, label, nilai, salin) {
+        var tombol = (salin && nilai) ? '<button type="button" class="kp-copy" data-copy="' + esc(nilai) + '" title="Salin"><i class="fa fa-files-o"></i></button>' : '';
+        return '<div class="kp-dr-row"><i class="fa ' + ikon + '"></i><dt>' + label + '</dt><dd>' + esc(nilai) + tombol + '</dd></div>';
     }
+
+    // Salin ke clipboard. Aplikasi dibuka lewat http di LAN (bukan konteks aman), jadi
+    // navigator.clipboard sering tidak ada: cadangannya textarea + execCommand('copy').
+    function salinTeks(teks) {
+        var cadangan = function() {
+            return new Promise(function(resolve, reject) {
+                var ta = document.createElement('textarea');
+                ta.value = teks;
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+                document.body.appendChild(ta);
+                ta.select();
+                var ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                document.body.removeChild(ta);
+                ok ? resolve() : reject();
+            });
+        };
+        if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
+            // izin/fokus ditolak -> pakai cara cadangan
+            return navigator.clipboard.writeText(teks).catch(cadangan);
+        }
+        return cadangan();
+    }
+
+    $(document).on('click.kpnew', '.kp-copy', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        var $b = $(this), teks = String($b.attr('data-copy') || '');
+        if (!teks) return;
+        salinTeks(teks).then(function() {
+            $b.addClass('ok').attr('title', 'Tersalin').find('i').removeClass('fa-files-o').addClass('fa-check');
+            setTimeout(function() { $b.removeClass('ok').attr('title', 'Salin').find('i').removeClass('fa-check').addClass('fa-files-o'); }, 1300);
+        }, function() {
+            showNoty('Gagal menyalin. Blok teks lalu salin manual.', 'error');
+        });
+    });
     var nadaHasil = { 'QC Salah': 'red', 'QC Benar': 'green', 'Tidak Terlihat CCTV': 'amber', 'CCTV Tidak Bisa Diakses': 'slate' };
 
     function bukaDrawer(id) {
@@ -1102,8 +1147,8 @@
 
             var html =
                 '<div class="kp-dr-sec"><h5>Pesanan</h5>' +
-                    pvRow('fa-barcode', 'No. resi', c.no_resi) +
-                    pvRow('fa-hashtag', 'No. pesanan', (c.no_pesanan || '').replace(/^SP-/i, '')) +
+                    pvRow('fa-barcode', 'No. resi', c.no_resi, true) +
+                    pvRow('fa-hashtag', 'No. pesanan', (c.no_pesanan || '').replace(/^SP-/i, ''), true) +
                     pvRow('fa-calendar', 'Tanggal pesanan', c.tgl_pesanan) +
                     pvRow('fa-shopping-bag', 'Marketplace', mp) +
                     pvRow('fa-building-o', 'Toko', c.toko) + '</div>' +
@@ -1118,8 +1163,8 @@
                 '<div class="kp-dr-sec"><h5>Investigasi</h5>' +
                     pvRow('fa-video-camera', 'Hasil cek CCTV', c.hasil_investigasi || 'Belum dicek') +
                     pvRow('fa-sticky-note-o', 'Catatan', c.catatan_penanganan) +
-                    pvRow('fa-user', 'Picker', c.nama_picker) +
-                    pvRow('fa-user', 'Packer', c.nama_qc || c.nama_packer) + '</div>';
+                    pvRow('fa-user', 'Picker', labelOrang(c.nama_picker)) +
+                    pvRow('fa-user', 'Packer', labelOrang(c.nama_qc || c.nama_packer)) + '</div>';
 
             $('#kp-dr-body').html(html).scrollTop(0);
             $('#kp-dr-edit, #kp-dr-hapus').data('id', c.id_complain).data('noresi', c.no_resi).toggle(isAdminOrSupervisor);
@@ -1432,6 +1477,15 @@
         $alert.html(html).show();
     }
 
+    // "NADYA - QC - 0107" -> "0107 - NADYA" (kapital); nama tanpa no. absen tetap tampil nama saja
+    function labelOrang(teks) {
+        teks = $.trim(teks || '');
+        if (!teks) return '';
+        var p = pecahNamaUser(teks);
+        var nama = p.nama.toUpperCase();
+        return p.absen !== '-' ? p.absen + ' - ' + nama : nama;
+    }
+
     function ensureOption(selector, value) {
         var exists = false;
         $(selector + ' option').each(function() {
@@ -1441,7 +1495,8 @@
             }
         });
         if (!exists) {
-            $(selector).append(new Option(value, value));
+            var tampil = (selector === '#nama_picker' || selector === '#nama_qc') ? labelOrang(value) : value;
+            $(selector).append(new Option(tampil, value));
         }
     }
 
@@ -1673,7 +1728,7 @@
                 barisPv('No. resi', $('#no_resi').val()) + barisPv('No. pesanan', $('#no_pesanan_tampil').val()) +
                 barisPv('Tanggal pesanan', $('#tgl_pesanan').val()) + barisPv('Marketplace', $('#id_marketplace').val() ? mp : '') +
                 barisPv('Toko', $('#toko').val()) +
-                barisPv('Picker', $('#nama_picker').val()) + barisPv('Packer', $('#nama_qc').val()) + '</div>' +
+                barisPv('Picker', labelOrang($('#nama_picker').val())) + barisPv('Packer', labelOrang($('#nama_qc').val())) + '</div>' +
             '<div class="kf-pv-sec"><h5>Barang komplain</h5><table class="kf-pv-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
                 barang + '<tr><td colspan="3" class="num"><strong>Total</strong></td><td class="num"><strong>Rp ' + total.toLocaleString('id-ID') + '</strong></td></tr></tbody></table></div>' +
             '</div><div>' +
