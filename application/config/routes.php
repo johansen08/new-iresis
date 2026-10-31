@@ -481,6 +481,14 @@ $route['packer/penerimaan-transfer/terima']   = 'penerimaan_transfer/terima';
 $route['purchasing/stok-aks27']               = 'stok_aks27/index';
 $route['purchasing/stok-aks27/ringkas']       = 'stok_aks27/ringkas';
 $route['purchasing/stok-aks27/data']          = 'stok_aks27/data';
+$route['packer/pinset-kembali']               = 'pinset_kembali/index';
+$route['packer/pinset-kembali/data']          = 'pinset_kembali/data';
+$route['packer/pinset-kembali/cek']           = 'pinset_kembali/cek';
+$route['packer/pinset-kembali/simpan']        = 'pinset_kembali/simpan';
+$route['packer/pinset-kembali/opname']        = 'pinset_kembali/opname';
+$route['purchasing/persetujuan-aks27']        = 'persetujuan_aks27/index';
+$route['purchasing/persetujuan-aks27/data']   = 'persetujuan_aks27/data';
+$route['purchasing/persetujuan-aks27/putuskan'] = 'persetujuan_aks27/putuskan';
 
 
 // TIM ACCOUNTING

@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-30.11';
+    const BOOTSTRAP_VERSI = '2026-10-31.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -184,6 +184,7 @@ class MY_Controller extends CI_Controller
         $this->run_transfer_stok_migration();
         $this->run_penerimaan_transfer_migration();
         $this->run_stok_aks27_migration();
+        $this->run_stok_aks27_kembali_migration();
         $this->run_barang_reject_menu_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
@@ -2519,6 +2520,91 @@ class MY_Controller extends CI_Controller
                     'created'   => date('Y-m-d H:i:s'),
                     'createdby' => 1
                 ]);
+            }
+        }
+    }
+
+    /**
+     * Pinset bonus AKS27-RDM yang kembali (cancel/retur) harus dikonfirmasi fisik dulu oleh packer.
+     * - tblstok_aks27_kembali : satu keputusan per resi (noresi UNIQUE).
+     * - tblstok_aks27_ajuan   : pengajuan yang baru berlaku setelah disetujui purchasing
+     *                           (koreksi "lupa dimasukkan" dan opname).
+     * Menu TIM PACKER "Konfirmasi Pinset Kembali" (role 1, 4) dan TIM PURCHASING "Persetujuan Stok AKS27"
+     * (role 1, 7); sejalan dengan Pinset_kembali::ROLE_BOLEH dan Persetujuan_aks27::ROLE_BOLEH.
+     */
+    protected function run_stok_aks27_kembali_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblstok_aks27_kembali` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `noresi` VARCHAR(100) NOT NULL,
+            `jenis` ENUM('CANCEL','RETUR') NOT NULL,
+            `status` ENUM('KEMBALI','TIDAK_KEMBALI','TIDAK_PERNAH_MASUK','RUSAK') NOT NULL,
+            `catatan` VARCHAR(255) NOT NULL DEFAULT '',
+            `ajuan_id` INT UNSIGNED NULL,
+            `created` DATETIME NOT NULL,
+            `createdby` INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uq_noresi` (`noresi`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblstok_aks27_ajuan` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `jenis` ENUM('LUPA_MASUK','OPNAME') NOT NULL,
+            `noresi` VARCHAR(100) NULL,
+            `selisih` INT NOT NULL,
+            `qty_fisik` INT NULL,
+            `qty_sistem` INT NULL,
+            `alasan` VARCHAR(255) NOT NULL DEFAULT '',
+            `status` ENUM('MENUNGGU','DISETUJUI','DITOLAK') NOT NULL DEFAULT 'MENUNGGU',
+            `diajukan` DATETIME NOT NULL,
+            `diajukanby` INT NOT NULL DEFAULT 0,
+            `diputus` DATETIME NULL,
+            `diputusby` INT NULL,
+            `catatan_putus` VARCHAR(255) NOT NULL DEFAULT '',
+            `stok_id` BIGINT UNSIGNED NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_status` (`status`),
+            KEY `idx_noresi` (`noresi`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
+        $menu_baru = [
+            ['TIM PACKER', 'Konfirmasi Pinset Kembali', 'packer/pinset-kembali', 'fa fa-undo', 6, [1, 4],
+                'Packer mengonfirmasi pinset bonus AKS27-RDM dari resi cancel/retur sudah kembali fisik atau belum, dan mengajukan opname.'],
+            ['TIM PURCHASING', 'Persetujuan Stok AKS27', 'purchasing/persetujuan-aks27', 'fa fa-check-square-o', 8, [1, 7],
+                'Purchasing menyetujui atau menolak koreksi dan opname stok pinset bonus AKS27-RDM yang diajukan packer.'],
+        ];
+        foreach ($menu_baru as $m) {
+            $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $m[2]])->row();
+            if (!$menu) {
+                $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => $m[0]])->row();
+                if (!$induk) {
+                    continue;
+                }
+                $this->db->insert('menu', [
+                    'name'        => $m[1],
+                    'parentid'    => $induk->id,
+                    'uri'         => $m[2],
+                    'icon'        => $m[3],
+                    'sortorder'   => $m[4],
+                    'description' => $m[6],
+                    'isactive'    => 1,
+                    'createdby'   => 1,
+                    'created'     => date('Y-m-d H:i:s')
+                ]);
+                $menu_id = $this->db->insert_id();
+            } else {
+                $menu_id = $menu->id;
+            }
+            foreach ($m[5] as $roleid) {
+                $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+                if (!$akses_ada) {
+                    $this->db->insert('roleaccess', [
+                        'roleid'    => $roleid,
+                        'menuid'    => $menu_id,
+                        'created'   => date('Y-m-d H:i:s'),
+                        'createdby' => 1
+                    ]);
+                }
             }
         }
     }

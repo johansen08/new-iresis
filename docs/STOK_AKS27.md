@@ -3,7 +3,8 @@
 Menu `purchasing/stok-aks27`: buku stok pinset **bonus** AKS27-RDM di lokasi khusus area packer (hanya baca).
 Rangkaian kontrol stok: [Daftar SKU Bonus](SKU_BONUS.md) -> [Transfer Stok](TRANSFER_STOK.md) ->
 [Penerimaan Transfer](PENERIMAAN_TRANSFER.md) -> buku stok ini. Pemotongan dari scan resi berjalan otomatis
-(lihat "Sinkron scan"); Penyesuaian/Opname dan RETURAN belum dibuat.
+(lihat "Sinkron scan"). Pengembalian dari cancel/retur dan opname lewat konfirmasi packer + persetujuan
+purchasing (lihat "Konfirmasi pinset kembali").
 
 ## Aturan
 
@@ -62,8 +63,8 @@ Webmaster (role 1) dan tim purchasing (role 7); role lain mendapat 403 JSON (`St
   AKS27-RDM) dan tanggal `tblpacking.tanggal_packing` (bila tidak ada catatan packer: `tblresikeluar.tanggal_resikeluar`)
   >= `TANGGAL_MULAI_POTONG`. Tepat 1 per resi; `qty` = total qty barang selain AKS27-RDM. Kolom Ket baris PENJUALAN
   dikosongkan (baris lama dari versi awal masih menyimpan catatan, tetapi tidak ditampilkan dan tidak dicari). Resi `CANCELED` / `batal = 1` dilewati.
-- **CANCEL** (masuk 1, `kunci` `CANCEL:<noresi>`): resi yang sudah tercatat PENJUALAN lalu berstatus
-  `CANCELED` dan belum ada scan HO.
+- **CANCEL/RETURAN tidak lagi otomatis** (sejak 31 Okt 2026). Resi tercatat PENJUALAN tetap mengurangi stok
+  walau lalu `CANCELED` atau diretur; pinsetnya baru masuk lewat konfirmasi packer di bawah.
 - Idempoten: `INSERT IGNORE` + UNIQUE `kunci`; aman dipanggil berulang atau bersamaan.
 - **Kapan jalan:** (1) segera setelah scan packer menyimpan (`Packer_fcd::save` dan `save_packer_nonsubmit` ->
   `catat_stok_aks27()`, satu resi, di luar transaksi packing, galat tidak pernah sampai ke packer); (2) tiap
@@ -71,5 +72,36 @@ Webmaster (role 1) dan tim purchasing (role 7); role lain mendapat 403 JSON (`St
   `application/cache/stok_aks27_sinkron.txt`), untuk menangkap scan HO tanpa catatan packer, status CANCELED baru,
   dan resi sejak 28 Okt yang discan sebelum fitur ini ada (pembukaan pertama menarik semuanya).
 - Query digerakkan dari SKU pemicu (ribuan resi, bukan jutaan), ~0,15 detik di produksi.
-- Belum: RETURAN (pinset ikut kembali setelah QC retur) dan PENYESUAIAN/opname. CANCEL saat ini hanya untuk
-  resi yang dibatalkan sebelum scan HO.
+
+## Konfirmasi pinset kembali (cancel, retur, opname)
+
+Pinset sudah keluar dari rak saat resi discan packer, jadi cancel/retur tidak otomatis mengembalikannya:
+stok baru naik setelah **packer** (pemegang stok fisik) mengonfirmasi. Model: `Stok_aks27_kembali_fcd`;
+migrasi `MY_Controller::run_stok_aks27_kembali_migration()` (`BOOTSTRAP_VERSI` 2026-10-31.1).
+
+**Menu TIM PACKER "Konfirmasi Pinset Kembali"** (`packer/pinset-kembali`, `Pinset_kembali`, role 1 dan 4 = semua
+client packer). Packer scan resi -> sistem memeriksa: resi harus punya baris PENJUALAN, berstatus `CANCELED`
+(jenis CANCEL) atau ada di `tblresiretur` (jenis RETUR), dan belum diputuskan. Pilihan:
+
+| Pilihan | Status | Efek stok |
+| --- | --- | --- |
+| Pinset ADA | KEMBALI | **+1 langsung** (ref `CANCEL` atau `RETURAN`, kunci `CANCEL:`/`RETUR:<noresi>`) |
+| TIDAK ADA - pembeli tidak mengirim balik | TIDAK_KEMBALI | tidak berubah (-1 sudah benar) |
+| TIDAK ADA - lupa dimasukkan saat packing | TIDAK_PERNAH_MASUK | tidak berubah sampai purchasing menyetujui ajuan +1 (pinset masih di rak) |
+| RUSAK | RUSAK | tidak berubah, hanya dicatat |
+
+Satu resi satu keputusan (`tblstok_aks27_kembali.noresi` UNIQUE), tidak bisa diubah; salah diperbaiki lewat opname.
+Daftar "Menunggu konfirmasi" diturunkan (tidak disalin): PENJUALAN + CANCELED/retur - sudah diputuskan; umur > 14 hari
+ditandai merah dan dihitung di kartu "Menunggu kembali" menu Stok.
+
+**Opname** (di menu packer yang sama): packer memasukkan jumlah fisik, **tanpa melihat saldo sistem** (hitung buta).
+Server menghitung `selisih = fisik - saldo` saat pengajuan dan menyimpannya di `tblstok_aks27_ajuan`
+(jenis `OPNAME`). Hanya satu opname boleh menunggu pada satu waktu.
+
+**Menu TIM PURCHASING "Persetujuan Stok AKS27"** (`purchasing/persetujuan-aks27`, `Persetujuan_aks27`, role 1 dan 7;
+tanpa batas jumlah, satu persetujuan cukup). Setuju menulis satu baris `PENYESUAIAN` (flag `opname`/`koreksi`,
+kunci `AJUAN:<id>`) dan mengaitkannya ke ajuan; tolak wajib beralasan dan tidak mengubah stok. Setuju yang akan
+membuat saldo negatif ditolak sistem. Keputusan tidak bisa ditarik. Kartu "Menunggu persetujuan" di menu Stok.
+
+Batas yang diketahui: selisih opname dihitung saat diajukan, bukan saat disetujui (penjualan di antaranya tidak
+ikut dikoreksi); resi yang sudah CANCELED sebelum sempat tercatat PENJUALAN tidak muncul sebagai menunggu.

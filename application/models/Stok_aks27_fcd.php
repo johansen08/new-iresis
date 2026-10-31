@@ -32,19 +32,20 @@ class Stok_aks27_fcd extends CI_Model
     const SINKRON_JEDA = 30;
 
     /**
-     * Catat pemotongan (PENJUALAN) dan pengembalian cancel (CANCEL) dari data scan resi.
+     * Catat pemotongan (PENJUALAN) dari data scan resi.
      *
      * Aturan:
      *  - Resi memotong bila berisi minimal satu SKU aktif di tblsku_bonus (selain AKS27-RDM sendiri,
      *    yang dibeli diambil dari rak biasa) dan tanggal scan packer (tblpacking) -- atau scan HO
      *    (tblresikeluar, scan HO / serah terima) bila tanpa catatan packer -- >= TANGGAL_MULAI_POTONG. Tepat 1 pinset per resi.
      *  - Resi berstatus CANCELED atau batal tidak memotong.
-     *  - Resi yang sudah tercatat memotong lalu menjadi CANCELED dan belum scan HO: CANCEL +1.
-     * Idempoten: kolom `kunci` UNIQUE (JUAL:<noresi>, CANCEL:<noresi>) + INSERT IGNORE, jadi aman
+     *  - Resi yang kemudian CANCELED / diretur tetap tercatat memotong; pinsetnya baru kembali ke stok
+     *    lewat konfirmasi packer (menu Konfirmasi Pinset Kembali).
+     * Idempoten: kolom `kunci` UNIQUE (JUAL:<noresi>) + INSERT IGNORE, jadi aman
      * dipanggil berulang dan bersamaan. Tidak pernah mengubah atau menghapus baris.
      *
      * @param int|null $id_resi satu resi (dari scan live), atau NULL untuk semua resi pemicu
-     * @return array ['jual' => baris PENJUALAN baru, 'cancel' => baris CANCEL baru]
+     * @return array ['jual' => baris PENJUALAN baru]
      */
     public function sinkron_scan($id_resi = NULL)
     {
@@ -78,18 +79,9 @@ class Stok_aks27_fcd extends CI_Model
         );
         $jual = (int) $this->db->affected_rows();
 
-        $filter_cancel = $id_resi !== NULL ? ' AND pr.id_printresi = ' . (int) $id_resi : '';
-        $this->db->query(
-            "INSERT IGNORE INTO tblstok_aks27 (ref, tanggal, jam, masuk, keluar, qty, no_ref, keterangan, flag, kunci, created, createdby)"
-            . " SELECT 'CANCEL', CURDATE(), CURTIME(), 1, 0, NULL, j.no_ref, 'batal sebelum HO, pinset kembali otomatis', NULL,"
-            . "  CONCAT('CANCEL:', j.no_ref), NOW(), 0"
-            . " FROM tblstok_aks27 j JOIN tblprintresi pr ON pr.noresi = j.no_ref"
-            . " WHERE j.ref = 'PENJUALAN' AND pr.status_pesanan = 'CANCELED'"
-            . "  AND NOT EXISTS (SELECT 1 FROM tblresikeluar h WHERE h.id_resi = pr.id_printresi)" . $filter_cancel
-        );
-        $cancel = (int) $this->db->affected_rows();
-
-        return ['jual' => $jual, 'cancel' => $cancel];
+        // CANCEL/RETURAN tidak lagi otomatis: stok baru naik setelah packer mengonfirmasi pinset kembali
+        // (Stok_aks27_kembali_fcd::konfirmasi).
+        return ['jual' => $jual];
     }
 
     /**
@@ -163,10 +155,16 @@ class Stok_aks27_fcd extends CI_Model
 
         $jalan = $this->db->query('SELECT COALESCE(SUM(qty_kirim), 0) AS n FROM tbltransfer_stok WHERE qty_terima = 0')->row_array();
 
+        $this->load->model('stok_aks27_kembali_fcd');
+        $tunggu = $this->stok_aks27_kembali_fcd->hitung_menunggu();
+
         return [
             'saldo'      => $this->saldo(),
             'penjualan'  => $hitung['PENJUALAN'],
             'perjalanan' => (int) $jalan['n'],
+            'menunggu'   => $tunggu['menunggu'],
+            'terlambat'  => $tunggu['terlambat'],
+            'ajuan'      => $this->stok_aks27_kembali_fcd->hitung_ajuan(),
             'per_ref'    => $hitung,
         ];
     }
