@@ -5,7 +5,6 @@
 if (!empty($akses_ditolak)) : ?>
 <div class="row"><div class="col-md-12">
   <div class="panel panel-default">
-    <div class="panel-heading"><h3 class="panel-title"><strong>Konfirmasi Stok AKS27-RDM</strong></h3></div>
     <div class="panel-body">
       <div class="alert alert-danger" style="margin-bottom:0;">
         <i class="fa fa-lock"></i> Role akun Anda tidak punya akses ke menu ini. Minta admin membukanya lewat menu Access.
@@ -17,11 +16,6 @@ if (!empty($akses_ditolak)) : ?>
 <div id="pk-root">
   <div class="row"><div class="col-md-12">
     <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title"><strong>Konfirmasi Stok AKS27-RDM</strong>
-          <button type="button" id="pk-ic" class="pk-ic" aria-label="Info halaman" aria-expanded="false">i</button>
-        </h3>
-      </div>
       <div class="panel-body">
         <div id="pk-info" class="alert alert-info hidden">
           <p>Pinset bonus AKS27-RDM sudah dipotong dari stok saat resi discan packer. Kalau resi itu cancel atau diretur, stok <b>tidak naik sendiri</b>: scan resinya di sini setelah paket dibuka, lalu catat apakah pinsetnya ada.</p>
@@ -37,6 +31,7 @@ if (!empty($akses_ditolak)) : ?>
 
         <div class="pk-scan">
           <label for="pk-resi"><i class="fa fa-barcode"></i> Scan nomor resi</label>
+          <button type="button" id="pk-ic" class="pk-ic" aria-label="Info halaman" aria-expanded="false">i</button>
           <input type="text" id="pk-resi" class="form-control" placeholder="Arahkan scanner ke barcode resi" autocomplete="off" />
           <div id="pk-pesan" class="alert hidden" role="status"></div>
         </div>
@@ -250,10 +245,10 @@ if (!empty($akses_ditolak)) : ?>
   #pk-root .alert { font-size: 16px; }
   #pk-root .alert ul { margin: 0 0 10px 18px; padding: 0; }
   #pk-root .pk-mut { color: #6b7280; font-size: 15px; }
-  #pk-root .pk-ic { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #999; background: #fff; color: #555; font: 600 14px/1 monospace; cursor: pointer; padding: 0; margin-left: 8px; vertical-align: middle; }
+  #pk-root .pk-ic { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #999; background: #fff; color: #555; font: 600 14px/1 monospace; cursor: pointer; padding: 0; margin-left: 8px; vertical-align: top; }
   #pk-root .pk-ic:hover, #pk-root .pk-ic[aria-expanded="true"] { color: #337ab7; border-color: #337ab7; background: #eaf2fa; }
   #pk-root .pk-scan { display: flow-root; margin: 4px 0 0; }
-  #pk-root .pk-scan label { font-size: 17px; }
+  #pk-root .pk-scan label { font-size: 17px; display: inline-block; margin-bottom: 6px; }
   #pk-root #pk-resi { height: 64px; font-size: 26px; font-weight: 600; letter-spacing: .5px; border: 2px solid #337ab7; }
   #pk-root #pk-resi:focus { border-color: #e91e63; box-shadow: 0 0 0 3px rgba(233,30,99,.15); }
   #pk-root .pk-scan .alert { margin: 12px 0 0; float: none; width: auto; }
