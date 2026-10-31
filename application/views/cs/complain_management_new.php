@@ -1223,32 +1223,107 @@
         searchResiAutoFill();
     });
 
-    // Handle pressing Enter inside no_resi input
-    $('#no_resi').on('keypress', function(e) {
-        if (e.which === 13) {
-            e.preventDefault();
-            searchResiAutoFill();
-        }
-    });
-
-    // Otomatis mencari begitu nomor selesai diisi (pindah kolom / tempel), tanpa harus Enter
+    // ---------------- Isian No. Resi / No. Pesanan: scan & ketik otomatis ----------------
+    // Scanner barcode mengetik sangat cepat (jeda antar karakter < 70 ms), manusia jauh lebih lambat.
+    // - Scan : isi lama dibuang dulu (tidak menempel), lalu dicari segera setelah karakter terakhir.
+    // - Ketik: dicari otomatis setelah berhenti mengetik sebentar, tanpa perlu Enter.
     var terakhirDicari = '';
-    function cariOtomatis() {
+    var sedangMencari = false;
+    var timerAuto = null;
+    var tsKeyTerakhir = 0, burstChars = '', burstScan = false, perluBersih = false;
+    var JEDA_SCAN_MS = 70, JEDA_BURST_BARU_MS = 300, TUNGGU_SCAN_MS = 120, TUNGGU_KETIK_MS = 650;
+    var teksHintAwal = $('#resi-search-hint').text();
+
+    function hintResi(teks, galat) {
+        $('#resi-search-hint').text(teks || teksHintAwal).css('color', galat ? '#b91c1c' : '');
+    }
+
+    function jalankanAuto(senyap) {
         if ($('#is_edit').val() === '1') return;
         var v = $('#no_resi').val().trim();
         if (v.length < 5 || v === terakhirDicari) return;
+        if (sedangMencari) return;       // selesai nanti dicek ulang di complete
         terakhirDicari = v;
-        searchResiAutoFill();
+        searchResiAutoFill(senyap);
     }
-    $('#no_resi').on('blur change paste', function() { setTimeout(cariOtomatis, 50); });
-    $('#modalFormKomplain').on('show.bs.modal', function() { terakhirDicari = ''; });
 
-    function searchResiAutoFill() {
+    $('#no_resi').on('keydown', function(e) {
+        if ($('#is_edit').val() === '1') return;
+        if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1) return;
+        var now = Date.now(), delta = now - tsKeyTerakhir;
+        tsKeyTerakhir = now;
+        if (delta > JEDA_BURST_BARU_MS) {          // rangkaian ketikan baru
+            burstChars = '';
+            burstScan = false;
+        } else if (delta < JEDA_SCAN_MS && !burstScan) {   // dua karakter beruntun secepat scanner
+            burstScan = true;
+            perluBersih = true;
+        }
+        burstChars += e.key;
+    });
+
+    $('#no_resi').on('input', function() {
+        if ($('#is_edit').val() === '1') return;
+        if (perluBersih) {                          // buang isi lama, sisakan hanya hasil scan
+            this.value = burstChars;
+            perluBersih = false;
+        }
+        clearTimeout(timerAuto);
+        hintResi();
+        timerAuto = setTimeout(function() { jalankanAuto(true); }, burstScan ? TUNGGU_SCAN_MS : TUNGGU_KETIK_MS);
+    });
+
+    // Tempel / scanner yang mengirim lewat paste: ganti seluruh isi lalu cari segera
+    $('#no_resi').on('paste', function(e) {
+        if ($('#is_edit').val() === '1') return;
+        var cd = (e.originalEvent || e).clipboardData;
+        if (!cd) return;
+        e.preventDefault();
+        this.value = String(cd.getData('text') || '').trim();
+        clearTimeout(timerAuto);
+        hintResi();
+        jalankanAuto(true);
+    });
+
+    // Enter (akhiran scanner atau ketikan manual): cari segera
+    $('#no_resi').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            clearTimeout(timerAuto);
+            var v = $(this).val().trim();
+            if (v !== '' && v === terakhirDicari) return;   // sudah dicari barusan
+            terakhirDicari = v;
+            searchResiAutoFill(false);
+        }
+    });
+
+    $('#no_resi').on('change', function() { clearTimeout(timerAuto); jalankanAuto(false); });
+    $('#modalFormKomplain').on('show.bs.modal', function() {
+        terakhirDicari = '';
+        burstChars = '';
+        burstScan = false;
+        perluBersih = false;
+        clearTimeout(timerAuto);
+        hintResi();
+    });
+
+    // Bersihkan hasil auto-isi sebelumnya (bukan isian CS) sebelum mengisi dari resi baru
+    function bersihkanDataResi() {
+        $('#no_pesanan, #nilai_pesanan, #nama_packer').val('');
+        $('#no_pesanan_tampil, #tgl_pesanan').val('');
+        $('#id_marketplace, #toko').prop('selectedIndex', 0);
+        $('#nama_picker, #nama_qc').val('');
+        $('#sku-rows-list').empty();
+        $('#alert-komplain-lain').hide().html('');
+    }
+
+    function searchResiAutoFill(senyap) {
         var noresi = $('#no_resi').val().trim();
         if (noresi === '') {
-            showNoty('Silakan masukkan nomor resi / nomor pesanan terlebih dahulu!', 'error');
+            if (!senyap) showNoty('Silakan masukkan nomor resi / nomor pesanan terlebih dahulu!', 'error');
             return;
         }
+        sedangMencari = true;
 
         var $btn = $('#btn-search-resi');
         var originalHtml = $btn.html();
@@ -1262,6 +1337,8 @@
             success: function(resp) {
                 if (resp.success) {
                     showNoty('Data resi ditemukan. Form diisi otomatis!', 'success');
+                    bersihkanDataResi();
+                    hintResi();
 
                     // Fill simple text inputs
                     if (resp.data.id_marketplace) {
@@ -1326,6 +1403,8 @@
                     if (resp.catatan) {
                         showNoty(resp.catatan, 'warning');
                     }
+                } else if (senyap) {
+                    hintResi(resp.message, true);   // pencarian otomatis: pesan di bawah kolom, bukan notifikasi
                 } else {
                     showNoty(resp.message, 'warning');
                 }
@@ -1334,7 +1413,10 @@
                 showNoty('Terjadi kesalahan koneksi server.', 'error');
             },
             complete: function() {
+                sedangMencari = false;
                 $btn.prop('disabled', false).html(originalHtml);
+                // nilai di kolom berubah saat mencari (scan berikutnya): cari lagi
+                if ($('#no_resi').val().trim() !== terakhirDicari) jalankanAuto(true);
             }
         });
     }
