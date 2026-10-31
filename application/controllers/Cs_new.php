@@ -353,7 +353,7 @@ class Cs_new extends MY_Controller
         header('Content-Type: application/json');
 
         $id_complain = (int) $id_complain;
-        $complain = $this->db->select('c.*, u.name AS nama_penginput')
+        $complain = $this->db->select('c.*, u.name AS nama_user_input')
                              ->from('tblcs_complain c')
                              ->join('tbluser u', 'u.id_user = c.created_by', 'left')
                              ->where(['c.id_complain' => $id_complain, 'c.is_deleted' => 0])
@@ -383,6 +383,12 @@ class Cs_new extends MY_Controller
         }
         unset($l);
 
+        if (empty($complain['nama_penginput']) || empty($complain['no_absen_input'])) {
+            $penginput = $this->_pecah_nama_user($complain['nama_user_input'] ?? '');
+            $complain['nama_penginput'] = $complain['nama_penginput'] ?: $penginput['nama'];
+            $complain['no_absen_input'] = $complain['no_absen_input'] ?: $penginput['absen'];
+        }
+
         // Komplain lain di resi yang sama (multi komplain per resi)
         $komplain_lain = $this->db->select('id_complain, kategori_komplain, tgl_komplain, created_at')
                                   ->from('tblcs_complain')
@@ -400,6 +406,31 @@ class Cs_new extends MY_Controller
             'komplain_lain' => $komplain_lain
         ]);
         exit;
+    }
+
+    /**
+     * Pecah nama user jadi nama + no absen. Format di tbluser tidak seragam:
+     * "IKA - LEADER - 0001", "0353 - JOHANSEN - IT", "KUSDIANTORO - MANAGEMENT -888".
+     * No absen = potongan yang semuanya angka; nama = potongan pertama yang bukan angka.
+     */
+    private function _pecah_nama_user($nama_lengkap)
+    {
+        $absen = '-';
+        $nama = '-';
+        foreach (explode('-', (string) $nama_lengkap) as $potong) {
+            $potong = trim($potong);
+            if ($potong === '') {
+                continue;
+            }
+            if (ctype_digit($potong)) {
+                if ($absen === '-') {
+                    $absen = $potong;
+                }
+            } elseif ($nama === '-') {
+                $nama = $potong;
+            }
+        }
+        return ['nama' => $nama, 'absen' => $absen];
     }
 
     public function save_complain_management()
@@ -584,6 +615,10 @@ class Cs_new extends MY_Controller
             $complain_data['no_resi'] = $no_resi;
             $complain_data['created_at'] = date('Y-m-d H:i:s');
             $complain_data['created_by'] = $this->data['user']['id_user'];
+            // Data penginput dipisah per kolom supaya bisa difilter/dilaporkan sendiri
+            $penginput = $this->_pecah_nama_user($this->data['user']['name'] ?? '');
+            $complain_data['no_absen_input'] = $penginput['absen'];
+            $complain_data['nama_penginput'] = $penginput['nama'];
             $this->db->insert('tblcs_complain', $complain_data);
             $id_complain = (int) $this->db->insert_id();
         }
