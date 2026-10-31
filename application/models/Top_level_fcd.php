@@ -1499,13 +1499,16 @@ class Top_level_fcd extends CI_Model
      * @param array $baris [['id'=>id baris atau '' untuk baris baru, 'sku'=>, 'rak'=>, 'qty'=>], ...]
      * @return array ['ok'=>bool, 'pesan'=>string, 'nomor'=>string]
      */
-    public function edit_transfer($id, $nama_tim, $nama_input, array $baris, $alasan, $oleh)
+    public function edit_transfer($id, $nama_tim, $nama_input, array $baris, $alasan, $oleh, $keterangan = null)
     {
         $alasan = trim(preg_replace('/\s+/', ' ', (string) $alasan));
-        if (mb_strlen($alasan) < 5) {
-            return array('ok' => false, 'pesan' => 'Alasan perubahan wajib diisi (minimal 5 huruf).');
-        }
         $alasan = mb_substr($alasan, 0, 255);
+        if ($keterangan !== null) {
+            $keterangan = trim(preg_replace('/\s+/', ' ', (string) $keterangan));
+            if (mb_strlen($keterangan) > 255) {
+                return array('ok' => false, 'pesan' => 'Keterangan maksimal 255 huruf.');
+            }
+        }
         $nama_tim = trim(preg_replace('/\s+/', ' ', (string) $nama_tim));
         $nama_input = trim(preg_replace('/\s+/', ' ', (string) $nama_input));
         if (mb_strlen($nama_tim) > 150 || mb_strlen($nama_input) > 150) {
@@ -1645,9 +1648,22 @@ class Top_level_fcd extends CI_Model
                     }
                 }
             }
+            // Keterangan: catatan bebas. Bila hanya ini yang berubah, alasan tidak wajib (keterangannya sendiri yang dicatat).
+            $ket_ubah = $keterangan !== null && $keterangan !== (string) $t['keterangan'];
+            $hanya_ket = $ket_ubah && !$perubahan;
+            if ($ket_ubah) {
+                $perubahan[] = 'Keterangan: ' . ((string) $t['keterangan'] !== '' ? $t['keterangan'] : '—') . ' → ' . ($keterangan !== '' ? $keterangan : '—');
+            }
             if (!$perubahan) {
                 $this->db->trans_rollback();
                 return array('ok' => false, 'pesan' => 'Tidak ada perubahan.');
+            }
+            if ($hanya_ket && mb_strlen($alasan) < 5) {
+                $alasan = 'Ubah keterangan';
+            }
+            if (mb_strlen($alasan) < 5) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'pesan' => 'Alasan perubahan wajib diisi (minimal 5 huruf).');
             }
 
             // Geser stok: hanya rak yang selisihnya bukan nol; tolak bila ada yang menjadi negatif.
@@ -1703,6 +1719,7 @@ class Top_level_fcd extends CI_Model
                 'nama_tim' => $nama_tim !== '' ? $nama_tim : $t['nama_tim'],
                 'nama_input' => $nama_input !== '' ? $nama_input : $t['nama_input'],
                 'jumlah_baris' => (int) $r->n, 'jumlah_qty' => (int) $r->q,
+                'keterangan' => $keterangan !== null ? ($keterangan !== '' ? $keterangan : null) : $t['keterangan'],
             ));
             $this->db->insert('tbltoplevel_transfer_edit', array(
                 'id_transfer' => (int) $id, 'nomor' => $nomor, 'waktu' => date('Y-m-d H:i:s'), 'oleh' => mb_substr((string) $oleh, 0, 100),

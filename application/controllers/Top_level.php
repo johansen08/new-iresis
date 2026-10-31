@@ -124,7 +124,8 @@ class Top_level extends MY_Controller
         $baris = $this->input->post('baris');
         $h = $this->top_level_fcd->edit_transfer(
             (int) $this->input->post('id'), (string) $this->input->post('nama_tim'), (string) $this->input->post('nama_input'),
-            is_array($baris) ? array_values($baris) : array(), (string) $this->input->post('alasan'), $this->_oleh()
+            is_array($baris) ? array_values($baris) : array(), (string) $this->input->post('alasan'), $this->_oleh(),
+            $this->input->post('keterangan') === null ? null : (string) $this->input->post('keterangan')
         );
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['pesan']);
     }

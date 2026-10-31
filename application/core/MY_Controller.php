@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-31.3';
+    const BOOTSTRAP_VERSI = '2026-10-31.4';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2883,6 +2883,10 @@ class MY_Controller extends CI_Controller
         }
         if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'diinput_at'")->num_rows()) {
             $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN diinput_at DATETIME NULL AFTER dibuat_by");
+        }
+        // keterangan = catatan bebas per transfer, bisa diisi/diubah dari popup Edit tanpa mengubah baris.
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'keterangan'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN keterangan VARCHAR(255) NULL");
         }
         $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_transfer_edit (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
