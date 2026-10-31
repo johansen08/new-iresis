@@ -167,6 +167,7 @@ $this->load->view('top_level/_dasar'); ?>
     var b = '<div class="tl-db">' + kepala(t) +
       '<dl class="tl-kv"><dt>Petugas list</dt><dd>' + T.esc(t.nama_tim || '—') + (t.tgl_list ? ' · ' + T.tgl(t.tgl_list) : '') + '</dd>' +
       '<dt>Petugas input</dt><dd>' + T.esc(t.nama_input || '—') + (t.waktu_input ? ' · ' + T.tgl(t.waktu_input) : '') + '</dd>' +
+      (t.keterangan ? '<dt>Keterangan</dt><dd>' + T.esc(t.keterangan) + '</dd>' : '') +
       '<dt>Dibuat</dt><dd class="mono">' + T.tgl(t.dibuat_at) + (t.dibuat_by ? ' · ' + T.esc(t.dibuat_by) : '') + '</dd>' +
       '<dt>Total</dt><dd><b>' + (masuk ? '+' : '−') + total.toLocaleString('id-ID') + ' pcs</b> · ' + t.baris.length + ' baris</dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:320px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum</th><th class="n">Stok sesudah</th></tr></thead><tbody>' +
@@ -193,7 +194,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   function tampilEdit($m) {
     var t = cur;
-    ed = { tim: t.nama_tim || '', input: t.nama_input || '', alasan: '', baris: $.map(t.baris, function (x) { return { id: x.id, sku: x.sku, rak: x.rak, qty: x.qty, hapus: false }; }), baru: 0 };
+    ed = { tim: t.nama_tim || '', input: t.nama_input || '', alasan: '', ket: t.keterangan || '', baris: $.map(t.baris, function (x) { return { id: x.id, sku: x.sku, rak: x.rak, qty: x.qty, hapus: false }; }), baru: 0 };
     var b = '<div class="tl-db">' + kepala(t) +
       '<div class="tlt-2"><label class="tl-fld">Petugas list<input type="text" id="tle-tim" value="' + T.esc(ed.tim) + '" maxlength="150" autocomplete="off"></label>' +
       '<label class="tl-fld">Petugas input<input type="text" id="tle-input" value="' + T.esc(ed.input) + '" maxlength="150" autocomplete="off"></label></div>' +
@@ -201,7 +202,8 @@ $this->load->view('top_level/_dasar'); ?>
       '<div class="tl-tw tl-panel tlt-ov"><table class="tl-tbl tlt-etbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum → sesudah</th><th></th></tr></thead><tbody id="tle-baris"></tbody></table></div>' +
       (t.edit_baris ? '<div><button type="button" class="tl-btn sm ghost" data-tle-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div>' : '') +
       '<div class="tlt-dampak" id="tle-dampak"></div>' +
-      '<label class="tl-fld"><span>Alasan perubahan <span class="tlt-wajib">wajib diisi</span></span><textarea id="tle-alasan" rows="2" maxlength="255" placeholder="Contoh: salah ketik qty dari slip"></textarea></label></div>' +
+      '<label class="tl-fld"><span>Keterangan <span class="muted">(opsional, catatan untuk transfer ini)</span></span><textarea id="tle-ket" rows="2" maxlength="255" placeholder="Contoh: barang diambil untuk display toko">' + T.esc(ed.ket) + '</textarea></label>' +
+      '<label class="tl-fld"><span>Alasan perubahan <span class="tlt-wajib" id="tle-wajib">wajib diisi</span></span><textarea id="tle-alasan" rows="2" maxlength="255" placeholder="Contoh: salah ketik qty dari slip"></textarea></label></div>' +
       '<div class="tl-df"><span class="muted" id="tle-sum"></span><button type="button" class="tl-btn" data-tle-batal>Batal</button><button type="button" class="tl-btn pri" data-tle-simpan disabled>Simpan perubahan</button></div>';
     $m.find('h2').text('Edit transfer');
     $m.find('.tl-body').html(b);
@@ -212,6 +214,7 @@ $this->load->view('top_level/_dasar'); ?>
     $m.off('.tltedit');
     $m.on('input.tltedit', '#tle-tim', function () { ed.tim = this.value; cek($m); });
     $m.on('input.tltedit', '#tle-input', function () { ed.input = this.value; cek($m); });
+    $m.on('input.tltedit', '#tle-ket', function () { ed.ket = this.value; cek($m); });
     $m.on('input.tltedit', '#tle-alasan', function () { ed.alasan = this.value; cek($m); });
     $m.on('input.tltedit', '.tle-sku', function () { ed.baris[idx(this)].sku = this.value; cek($m); });
     $m.on('input.tltedit', '.tle-rak', function () { ed.baris[idx(this)].rak = this.value; cek($m); });
@@ -258,7 +261,8 @@ $this->load->view('top_level/_dasar'); ?>
     var t = cur, d = [], tanda = t.arah === 'MASUK' ? '+' : '−';
     if ($.trim(ed.tim) !== (t.nama_tim || '')) d.push('Petugas list: ' + (t.nama_tim || '—') + ' → ' + $.trim(ed.tim));
     if ($.trim(ed.input) !== (t.nama_input || '')) d.push('Petugas input: ' + (t.nama_input || '—') + ' → ' + $.trim(ed.input));
-    if (!t.edit_baris) return d;
+    var ketUbah = $.trim(ed.ket) !== (t.keterangan || '');
+    if (!t.edit_baris) { if (ketUbah) d.push('Keterangan: ' + (t.keterangan || '—') + ' → ' + ($.trim(ed.ket) || '—')); return d; }
     $.each(ed.baris, function (i, b) {
       var lama = null; $.each(t.baris, function (j, x) { if (x.id === b.id) lama = x; });
       if (!lama) { if (!b.hapus) d.push('Baris baru: ' + ($.trim(b.sku) || '?') + ' @ ' + ($.trim(b.rak) || '?') + ' (' + tanda + (b.qty || 0) + ')'); return; }
@@ -269,6 +273,7 @@ $this->load->view('top_level/_dasar'); ?>
       if (+b.qty !== +lama.qty) u.push('qty ' + lama.qty + ' → ' + b.qty);
       if (u.length) d.push(lama.sku + ' @ ' + lama.rak + ': ' + u.join(', '));
     });
+    if (ketUbah) d.push('Keterangan: ' + (t.keterangan || '—') + ' → ' + ($.trim(ed.ket) || '—'));
     return d;
   }
   function barisValid() {
@@ -282,7 +287,8 @@ $this->load->view('top_level/_dasar'); ?>
     return ok;
   }
   function cek($m) {
-    var d = selisih(), valid = barisValid(), alasanOk = $.trim(ed.alasan).length >= 5;
+    var d = selisih(), valid = barisValid(), hanyaKet = d.length === 1 && d[0].indexOf('Keterangan:') === 0, alasanOk = hanyaKet || $.trim(ed.alasan).length >= 5;
+    $m.find('#tle-wajib').text(hanyaKet ? 'tidak wajib untuk keterangan saja' : 'wajib diisi');
     $m.find('#tle-dampak').html(d.length ? '<b>Dampak perubahan</b><ul>' + $.map(d, function (x) { return '<li>' + T.esc(x) + '</li>'; }).join('') + '</ul>' + (cur.edit_baris ? '<small>Stok top level digeser sesuai selisih. Ditolak bila stok sebuah rak jadi minus.</small>' : '') : '<span class="muted">Belum ada perubahan.</span>');
     $m.find('#tle-sum').text(d.length + ' perubahan' + (valid ? '' : ' · ada baris yang belum valid'));
     $m.find('[data-tle-simpan]').prop('disabled', !(d.length && valid && alasanOk));
@@ -290,7 +296,7 @@ $this->load->view('top_level/_dasar'); ?>
   function simpan($m, $b) {
     $b.prop('disabled', true);
     var rows = $.map(aktif(), function (b) { return { id: b.id, sku: $.trim(b.sku), rak: $.trim(b.rak), qty: b.qty }; });
-    T.post(URL + '/edit', { id: cur.id, nama_tim: $.trim(ed.tim), nama_input: $.trim(ed.input), baris: rows, alasan: $.trim(ed.alasan) }, function (res, j) {
+    T.post(URL + '/edit', { id: cur.id, nama_tim: $.trim(ed.tim), nama_input: $.trim(ed.input), baris: rows, alasan: $.trim(ed.alasan), keterangan: $.trim(ed.ket) }, function (res, j) {
       T.toast(j.message || 'Transfer diperbarui.'); T.closeModal(); muat();
     }, function (pesan) { T.galat(pesan); cek($m); });
   }
