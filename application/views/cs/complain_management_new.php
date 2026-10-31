@@ -273,44 +273,6 @@
       }
 
       /* Tab navigasi */
-      .modern-tabs {
-        display: flex;
-        gap: 4px;
-        border-bottom: 1px solid var(--border-slate);
-        margin-bottom: 20px;
-      }
-
-      .modern-tab {
-        padding: 10px 18px;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-muted);
-        border: none;
-        background: none;
-        border-bottom: 2px solid transparent;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .modern-tab:hover {
-        color: var(--text-slate);
-      }
-
-      .modern-tab.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-      }
-
-      .tab-badge {
-        display: inline-block;
-        background: #ef4444;
-        color: #fff;
-        border-radius: 10px;
-        padding: 1px 8px;
-        font-size: 11px;
-        margin-left: 6px;
-      }
-
       /* Lampiran */
       .lampiran-list {
         display: flex;
@@ -624,18 +586,6 @@
       </div>
 
       <div class="modern-panel-body kp-body">
-        <!-- Tab -->
-        <div class="modern-tabs">
-          <button type="button" class="modern-tab active" data-tab="daftar"><i class="fa fa-list"></i> Daftar Komplain</button>
-          <button type="button" class="modern-tab" data-tab="kandidat">
-            <i class="fa fa-truck"></i> Kandidat dari Retur Fisik
-            <?php if (!empty($jumlah_kandidat)): ?>
-              <span class="tab-badge" id="badge-kandidat"><?= (int) $jumlah_kandidat ?></span>
-            <?php endif; ?>
-          </button>
-        </div>
-
-        <!-- ================= TAB: DAFTAR KOMPLAIN ================= -->
         <div id="tab-pane-daftar">
           <div class="kp-toolbar">
             <div class="kp-search">
@@ -718,35 +668,6 @@
                   <th>Picker</th>
                   <th>Diinput</th>
                   <th></th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-        </div>
-
-        <!-- ================= TAB: KANDIDAT RETUR FISIK ================= -->
-        <div id="tab-pane-kandidat" style="display: none;">
-          <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
-            <i class="fa fa-info-circle"></i>
-            Resi yang ditandai komplain saat Scan Retur tapi belum tercatat di modul ini.
-            Tekan <strong>Tarik</strong> untuk membuatkan draft komplain (kategori &amp; nominal tetap harus dilengkapi CS).
-          </p>
-
-          <div style="margin-bottom: 12px;">
-            <button type="button" class="btn-modern btn-modern-secondary" id="btn-tarik-terpilih"><i class="fa fa-download"></i> Tarik Semua yang Tampil</button>
-          </div>
-
-          <div class="table-responsive">
-            <table class="modern-table table" id="datatable-kandidat-retur">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Tgl Scan Retur</th>
-                  <th>No. Resi</th>
-                  <th>Marketplace</th>
-                  <th>Toko</th>
-                  <th>Status Retur</th>
-                  <th style="width: 100px;">Aksi</th>
                 </tr>
               </thead>
             </table>
@@ -986,7 +907,6 @@
     var userRole = parseInt("<?= $this->session->userdata('user')['hakakses'] ?? 0 ?>");
     var isAdminOrSupervisor = [1, 2].includes(userRole);
     var namaPenggunaLogin = "<?= htmlspecialchars($this->session->userdata('user')['name'] ?? '-', ENT_QUOTES) ?>";
-    var kandidatTable = null;
 
     // Halaman ini dimuat ulang lewat AJAX (SPA): lepas handler lama di document supaya tidak menumpuk
     $(document).off('.kpnew');
@@ -1211,108 +1131,6 @@
     }
     $('#kp-dr-edit').on('click', function() { picuTombol('btn-edit-complain', $(this).data('id')); });
     $('#kp-dr-hapus').on('click', function() { picuTombol('btn-delete-complain', $(this).data('id'), $(this).data('noresi')); });
-
-    // ---------------- Tab switching ----------------
-    $('.modern-tab').on('click', function() {
-        var tab = $(this).data('tab');
-        $('.modern-tab').removeClass('active');
-        $(this).addClass('active');
-
-        if (tab === 'daftar') {
-            $('#tab-pane-daftar').show();
-            $('#tab-pane-kandidat').hide();
-        } else {
-            $('#tab-pane-daftar').hide();
-            $('#tab-pane-kandidat').show();
-            initKandidatTable();
-        }
-    });
-
-    function initKandidatTable() {
-        if (kandidatTable !== null) {
-            kandidatTable.columns.adjust().draw(false);
-            return;
-        }
-
-        kandidatTable = $('#datatable-kandidat-retur').DataTable({
-            "processing": true,
-            "serverSide": true,
-            "ajax": {
-                "url": "cs-new/complain-management/kandidat-retur",
-                "type": "POST"
-            },
-            "columns": [
-                { "data": 0, "orderable": false },
-                { "data": 1, "orderable": false },
-                { "data": 2, "orderable": false },
-                { "data": 3, "orderable": false },
-                { "data": 4, "orderable": false },
-                { "data": 5, "orderable": false },
-                { "data": 6, "orderable": false }
-            ],
-            "language": {
-                "emptyTable": "Tidak ada komplain retur fisik yang belum ditarik"
-            }
-        });
-    }
-
-    // Tarik satu kandidat
-    $(document).on('click.kpnew', '.btn-tarik-kandidat', function() {
-        var $btn = $(this);
-        tarikKandidat([$btn.data('id')], $btn);
-    });
-
-    // Tarik semua yang tampil di halaman aktif
-    $('#btn-tarik-terpilih').on('click', function() {
-        var ids = [];
-        $('#datatable-kandidat-retur .btn-tarik-kandidat').each(function() {
-            ids.push($(this).data('id'));
-        });
-
-        if (ids.length === 0) {
-            showNoty('Tidak ada kandidat di halaman ini.', 'warning');
-            return;
-        }
-
-        showConfirmation('Tarik <strong>' + ids.length + '</strong> komplain retur fisik jadi draft komplain?', function() {
-            tarikKandidat(ids, $('#btn-tarik-terpilih'));
-        }, 'Ya, Tarik');
-    });
-
-    function tarikKandidat(ids, $btn) {
-        var originalHtml = $btn.html();
-        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menarik...');
-
-        $.ajax({
-            url: 'cs-new/complain-management/tarik-kandidat',
-            type: 'POST',
-            data: { id_resiretur: ids },
-            dataType: 'json',
-            success: function(resp) {
-                showNoty(resp.message, resp.code === 201 ? 'success' : 'warning');
-                if (kandidatTable) kandidatTable.ajax.reload(null, false);
-                table.ajax.reload(null, false);
-                refreshBadgeKandidat(-(resp.ditarik || 0));
-            },
-            error: function() {
-                showNoty('Terjadi kesalahan koneksi server.', 'error');
-            },
-            complete: function() {
-                $btn.prop('disabled', false).html(originalHtml);
-            }
-        });
-    }
-
-    function refreshBadgeKandidat(delta) {
-        var $badge = $('#badge-kandidat');
-        if ($badge.length === 0) return;
-        var val = parseInt($badge.text()) + delta;
-        if (val > 0) {
-            $badge.text(val);
-        } else {
-            $badge.remove();
-        }
-    }
 
     // ---------------- Form komplain ----------------
 
