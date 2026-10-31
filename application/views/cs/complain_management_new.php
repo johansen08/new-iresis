@@ -417,12 +417,16 @@
 
       /* ===== Daftar komplain (kp-*) — referensi: tabel dashboard dengan kartu ringkasan,
          chip filter multi-pilih, dan drawer detail di sisi kanan ===== */
-      .kp-page { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; }
+      .kp-page, .kp-page.modern-panel { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; background: transparent; border: 0; box-shadow: none; margin-bottom: 8px; }
       .kp-page input, .kp-page select, .kp-page button { font-family: inherit; }
-      .kp-head { display: flex; justify-content: flex-end; align-items: center; gap: 16px; padding: 18px 28px 0; }
+      .kp-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 4px 0 14px; }
+      .kp-period { display: flex; align-items: center; gap: 10px; }
+      .kp-period-label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+      .kp-period .kp-chip { height: 40px; background: #fff; }
+      .kp-head-actions .btn-modern { height: 40px; }
       .kp-head-actions { display: flex; gap: 8px; flex: none; }
 
-      .kp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 16px 28px 4px; }
+      .kp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 0; }
       .kp-kpi { border: 1px solid var(--border-slate); border-radius: 12px; padding: 14px 16px 12px; background: #fff; }
       .kp-kpi-top { display: flex; align-items: center; gap: 8px; }
       .kp-kpi-ic { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 14px; }
@@ -434,7 +438,8 @@
       .kp-kpi-val { margin-top: 10px; font-size: 28px; line-height: 1.1; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
       .kp-kpi-note { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 
-      .kp-body { padding: 16px 28px 24px; }
+      /* Satu kartu untuk pencarian, filter, dan tabel: bagian "data" terpisah jelas dari ringkasan di atasnya */
+      .kp-body, .modern-panel-body.kp-body { margin-top: 16px; padding: 16px 18px 12px; background: #fff; border: 1px solid var(--border-slate); border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
       .kp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 14px; }
       .kp-search { position: relative; flex: 1 1 240px; max-width: 340px; }
       .kp-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; }
@@ -464,16 +469,19 @@
       .kp-reset { height: 38px; padding: 0 10px; border: 0; background: transparent; color: var(--primary); font-size: 13.5px; font-weight: 600; cursor: pointer; border-radius: 8px; }
       .kp-reset:hover { background: var(--primary-light); }
 
-      .kp-table-wrap { border: 1px solid var(--border-slate); border-radius: 12px; overflow-x: auto; background: #fff; }
+      .kp-table-wrap { border: 1px solid var(--border-slate); border-radius: 10px; overflow-x: auto; background: #fff; }
+      .kp-duo { display: flex; flex-direction: column; gap: 4px; }
+      .kp-duo .kp-person:nth-child(n) { font-size: 13px; }
+      .kp-duo > span + span .kp-avatar { background: #f1f5f9; color: #475569; }
       .kp-table { width: 100% !important; margin: 0 !important; border-collapse: separate; border-spacing: 0; }
-      .kp-table > thead > tr > th { padding: 11px 14px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+      .kp-table > thead > tr > th { padding: 10px 11px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
       .kp-table > thead > tr > th.kp-th-num { text-align: right; }
-      .kp-table > tbody > tr > td { padding: 11px 14px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
+      .kp-table > tbody > tr > td { padding: 10px 11px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
       .kp-table > tbody > tr:nth-child(even) > td { background: #fafbfd; }
       .kp-table > tbody > tr:hover > td { background: #f1f5ff; cursor: pointer; }
       .kp-table > tbody > tr:last-child > td { border-bottom: 0; }
-      .kp-table td:nth-child(6) { white-space: nowrap; }
-      .kp-table td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
+      .kp-table td:nth-child(5) { white-space: nowrap; }
+      .kp-table td:nth-child(6) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-id { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .kp-resi { display: block; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-sub { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--text-muted); white-space: nowrap; }
@@ -488,8 +496,8 @@
       .kp-dot-red i { background: #ef4444; } .kp-dot-amber i { background: #f59e0b; } .kp-dot-green i { background: #10b981; }
       .kp-person { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
       .kp-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11px; font-weight: 700; }
-      .kp-actions { display: flex; gap: 4px; justify-content: flex-end; }
-      .kp-icon-btn { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
+      .kp-actions { display: flex; gap: 2px; justify-content: flex-end; }
+      .kp-icon-btn { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
       .kp-icon-btn:hover { background: #fff; border-color: var(--border-slate); color: var(--primary); }
       .kp-icon-danger:hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
 
@@ -546,9 +554,9 @@
 
       @media (max-width: 1199px) { .kp-kpis { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 767px) {
-        .kp-head { padding: 14px 16px 0; }
-        .kp-kpis { padding: 12px 16px 0; gap: 10px; }
-        .kp-body { padding: 12px 16px 20px; }
+        .kp-head { padding: 0 0 12px; }
+        .kp-kpis { gap: 10px; }
+        .kp-body, .modern-panel-body.kp-body { padding: 12px 12px 8px; }
         .kp-search { max-width: none; flex-basis: 100%; }
         .kp-chip-date input { width: 190px; }
         .modal-dialog.kf-dialog, .modal-dialog.kp-dr-dialog { width: 100vw; }
@@ -563,6 +571,13 @@
     ?>
     <div class="modern-panel kp-page">
       <div class="kp-head">
+        <div class="kp-period">
+          <span class="kp-period-label">Periode</span>
+          <label class="kp-chip kp-chip-date" title="Rentang tanggal komplain">
+            <i class="fa fa-calendar"></i>
+            <input type="text" id="reportrange" readonly value="<?= date('Y-m-01 00:00:00') . ' - ' . date('Y-m-t 23:59:59') ?>" />
+          </label>
+        </div>
         <div class="kp-head-actions">
           <button type="button" class="btn-modern btn-modern-secondary" id="btn-export-komplain" title="Unduh daftar sesuai filter yang aktif"><i class="fa fa-download"></i> Export</button>
           <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
@@ -652,11 +667,6 @@
               </div>
             </div>
 
-            <label class="kp-chip kp-chip-date" title="Rentang tanggal komplain">
-              <i class="fa fa-calendar"></i>
-              <input type="text" id="reportrange" readonly value="<?= date('Y-m-01 00:00:00') . ' - ' . date('Y-m-t 23:59:59') ?>" />
-            </label>
-
             <button type="button" class="kp-reset" id="kp-reset" style="display:none;"><i class="fa fa-times"></i> Reset filter</button>
           </div>
 
@@ -665,16 +675,13 @@
             <table class="kp-table table" id="datatable-complain-management">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Tanggal</th>
+                  <th>ID / Tanggal</th>
                   <th>Resi / Pesanan</th>
                   <th>Toko</th>
                   <th>Kategori</th>
                   <th>Hasil CCTV</th>
                   <th class="kp-th-num">Nominal</th>
-                  <th>Packer</th>
-                  <th>Picker</th>
-                  <th>Diinput</th>
+                  <th>Packer / Picker</th>
                   <th></th>
                 </tr>
               </thead>
@@ -937,19 +944,16 @@
             "data": function(d) { sertakanFilter(d); }
         },
         "columns": [
-            { "data": 0 },  // id
-            { "data": 1 },  // tanggal
-            { "data": 2 },  // resi / pesanan
-            { "data": 3 },  // toko + marketplace
-            { "data": 4 },  // kategori
-            { "data": 5 },  // hasil cctv
-            { "data": 6 },  // nominal
-            { "data": 7 },  // packer
-            { "data": 8 },  // picker
-            { "data": 9 },  // diinput
-            { "data": 10, "orderable": false } // aksi
+            { "data": 0 },  // id + tanggal
+            { "data": 1 },  // resi / pesanan
+            { "data": 2 },  // toko + marketplace
+            { "data": 3 },  // kategori
+            { "data": 4 },  // hasil cctv
+            { "data": 5 },  // nominal
+            { "data": 6 },  // packer / picker
+            { "data": 7, "orderable": false } // aksi
         ],
-        "order": [[1, "desc"]],
+        "order": [[0, "desc"]],
         "pageLength": 25,
         "lengthMenu": [[10, 25, 50, 100], [10, 25, 50, 100]],
         "dom": 't<"kp-foot"<"kp-info"i><"kp-pager"lp>>',

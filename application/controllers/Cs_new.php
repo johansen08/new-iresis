@@ -104,16 +104,13 @@ class Cs_new extends MY_Controller
         $order_dir = 'DESC';
 
         $valid_columns = [
-            0 => 'c.id_complain',
-            1 => 'tgl_efektif',
-            2 => 'c.no_resi',
-            3 => 'c.toko',
-            4 => 'c.kategori_komplain',
-            5 => 'c.hasil_investigasi',
-            6 => 'c.nominal_total',
-            7 => 'c.nama_qc',
-            8 => 'c.nama_picker',
-            9 => 'c.created_at'
+            0 => 'tgl_efektif',
+            1 => 'c.no_resi',
+            2 => 'c.toko',
+            3 => 'c.kategori_komplain',
+            4 => 'c.hasil_investigasi',
+            5 => 'c.nominal_total',
+            6 => 'c.nama_qc'
         ];
 
         if (!empty($order)) {
@@ -199,16 +196,14 @@ class Cs_new extends MY_Controller
             $aksi .= '</div>';
 
             $data_table[] = [
-                $id_cell,
-                $item['tgl_efektif'] ? date('d/m/Y', strtotime($item['tgl_efektif'])) : '-',
+                $id_cell . '<span class="kp-sub">' . ($item['tgl_efektif'] ? date('d/m/Y', strtotime($item['tgl_efektif'])) : '-') . '</span>',
                 $resi_cell,
                 $toko_cell,
                 $kategori_cell,
                 $hasil_cell,
                 'Rp ' . number_format($item['nominal_total'], 0, ',', '.'),
-                $this->_sel_orang($item['nama_qc'] ?: $item['nama_packer']),
-                $this->_sel_orang($item['nama_picker']),
-                $input_cell,
+                '<div class="kp-duo"><span title="Packer">' . $this->_sel_orang($item['nama_qc'] ?: $item['nama_packer']) . '</span>'
+                    . '<span title="Picker">' . $this->_sel_orang($item['nama_picker']) . '</span></div>',
                 $aksi
             ];
         }
