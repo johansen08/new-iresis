@@ -320,6 +320,79 @@ class Picking_fcd extends CI_Model
         return $hasil;
     }
 
+    /**
+     * Susun ulang agregat Rak/SKU/Qty untuk CETAK ULANG ringkasan Upload Resi
+     * Spesial -- BACA-SAJA, tidak menulis apa pun. Hanya resi yang memang
+     * tersimpan atas nama picker yang dipilih, berstatus performa
+     * $status_id (1_SKU_PICKER), dan tersimpan dalam $jam jam terakhir yang
+     * dihitung; sisanya dikembalikan di 'ditolak' supaya tidak bisa dipakai
+     * membongkar resi picker lain.
+     *
+     * @param string[] $list_noresi
+     * @return array ['ringkasan' => [...], 'cocok' => noresi[], 'ditolak' => [['noresi','alasan']]]
+     */
+    function ringkasan_resi_tersimpan(array $list_noresi, $id_pegawaipicker, $status_id, $jam = 24)
+    {
+        $cocok = [];
+        $ditolak = [];
+        $id_resi_cocok = [];
+        $ditemukan = [];
+        $batas = date('Y-m-d H:i:s', time() - ((int) $jam * 3600));
+
+        foreach (array_chunk($list_noresi, 500) as $potongan) {
+            $rows = $this->db
+                ->select('pr.id_printresi, pr.noresi, rab.yangambil_pegawai, rab.status_performa_id, rab.tanggal_resiambilbarang')
+                ->from('tblprintresi pr')
+                ->join('tblresiambilbarang rab', 'rab.id_resi = pr.id_printresi')
+                ->where_in('pr.noresi', $potongan)
+                ->get()
+                ->result();
+
+            foreach ($rows as $r) {
+                $ditemukan[$r->noresi] = true;
+                if ((string) $r->yangambil_pegawai !== (string) $id_pegawaipicker) {
+                    $ditolak[] = ['noresi' => $r->noresi, 'alasan' => 'Tersimpan atas nama picker lain'];
+                } elseif ((string) $r->status_performa_id !== (string) $status_id) {
+                    $ditolak[] = ['noresi' => $r->noresi, 'alasan' => 'Bukan status 1_SKU_PICKER'];
+                } elseif ($r->tanggal_resiambilbarang < $batas) {
+                    $ditolak[] = ['noresi' => $r->noresi, 'alasan' => 'Tersimpan lebih dari ' . (int) $jam . ' jam lalu'];
+                } else {
+                    $cocok[] = $r->noresi;
+                    $id_resi_cocok[] = $r->id_printresi;
+                }
+            }
+        }
+
+        foreach ($list_noresi as $noresi) {
+            if (!isset($ditemukan[$noresi])) {
+                $ditolak[] = ['noresi' => $noresi, 'alasan' => 'Belum tersimpan sebagai di-picker'];
+            }
+        }
+
+        // Agregat sama persis dengan Picker::simpan_upload_resi_spesial().
+        $ringkasan = [];
+        foreach (array_chunk($id_resi_cocok, 500) as $potongan) {
+            $items = $this->db
+                ->select('dr.sku, dr.jumlah, dr.no_rak')
+                ->from('tbldetailprintresi dr')
+                ->where_in('dr.id_resi', $potongan)
+                ->get()
+                ->result_array();
+
+            foreach ($items as $item) {
+                $rak = !empty($item['no_rak']) ? $item['no_rak'] : 'NO_RAK';
+                $qty = ((int) $item['jumlah']) ?: 1;
+                $kunci = $rak . '|' . $item['sku'];
+                if (!isset($ringkasan[$kunci])) {
+                    $ringkasan[$kunci] = ['rak' => $rak, 'sku' => $item['sku'], 'qty' => 0];
+                }
+                $ringkasan[$kunci]['qty'] += $qty;
+            }
+        }
+
+        return ['ringkasan' => array_values($ringkasan), 'cocok' => $cocok, 'ditolak' => $ditolak];
+    }
+
     function save_picker($picker)
     {
         $existing_picker = $this->db->get_where('tblnamaambilbarang', ['id_pegawai' => $picker['id_pegawai']])->row_array();
