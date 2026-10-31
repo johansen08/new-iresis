@@ -758,7 +758,7 @@
                 <div class="row kf-row-tight">
                   <div class="col-sm-6">
                     <div class="kf-field">
-                      <label class="kf-label" for="nama_qc">QC (Packer)</label>
+                      <label class="kf-label" for="nama_qc">Packer</label>
                       <select name="nama_qc" id="nama_qc" class="kf-input">
                         <option value="">Pilih</option>
                         <?php foreach ($employees as $emp): ?>
@@ -1430,7 +1430,7 @@
                 barisPv('Sumber', $('#sumber_komplain').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Investigasi</h5>' +
                 barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) +
-                barisPv('QC (Packer)', $('#nama_qc').val()) + barisPv('Picker', $('#nama_picker').val()) + '</div>' +
+                barisPv('Packer', $('#nama_qc').val()) + barisPv('Picker', $('#nama_picker').val()) + '</div>' +
             '</div></div>';
 
         $('#kf-preview').html(html);
