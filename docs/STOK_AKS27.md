@@ -60,8 +60,8 @@ Webmaster (role 1) dan tim purchasing (role 7); role lain mendapat 403 JSON (`St
 
 - **PENJUALAN** (keluar 1, `kunci` `JUAL:<noresi>`): resi yang berisi >= 1 SKU aktif di `tblsku_bonus` (selain
   AKS27-RDM) dan tanggal `tblpacking.tanggal_packing` (bila tidak ada catatan packer: `tblresikeluar.tanggal_resikeluar`)
-  >= `TANGGAL_MULAI_POTONG`. Tepat 1 per resi; `qty` = total qty barang selain AKS27-RDM; keterangan mencatat
-  "dipukul rata" (>1 SKU atau qty) dan AKS27-RDM yang dibeli. Resi `CANCELED` / `batal = 1` dilewati.
+  >= `TANGGAL_MULAI_POTONG`. Tepat 1 per resi; `qty` = total qty barang selain AKS27-RDM. Kolom Ket baris PENJUALAN
+  dikosongkan (baris lama dari versi awal masih menyimpan catatan, tetapi tidak ditampilkan dan tidak dicari). Resi `CANCELED` / `batal = 1` dilewati.
 - **CANCEL** (masuk 1, `kunci` `CANCEL:<noresi>`): resi yang sudah tercatat PENJUALAN lalu berstatus
   `CANCELED` dan belum ada scan HO.
 - Idempoten: `INSERT IGNORE` + UNIQUE `kunci`; aman dipanggil berulang atau bersamaan.
