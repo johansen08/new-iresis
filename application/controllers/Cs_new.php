@@ -757,6 +757,27 @@ class Cs_new extends MY_Controller
                     "SELECT no_resi AS noresi FROM tblreturjubelio WHERE no_pesanan IN (?, ?) AND no_resi <> '' LIMIT 1", [$noresi, 'SP-' . $noresi]
                 )->row_array();
             }
+            // Nomor pesanan boleh sebagian (minimal 5 karakter): cocokkan bagian mana pun
+            if (!$via_pesanan && strlen($noresi) >= 5) {
+                $kata = str_replace(['%', '_'], ['\%', '\_'], $noresi);
+                $cocok = $this->db->query(
+                    "SELECT d.no_pesanan, MAX(pr.noresi) AS noresi FROM tbldetailprintresi d
+                     JOIN tblprintresi pr ON pr.id_printresi = d.id_resi
+                     WHERE d.no_pesanan LIKE ? GROUP BY d.no_pesanan ORDER BY MAX(pr.id_printresi) DESC LIMIT 6",
+                    ['%' . $kata . '%']
+                )->result_array();
+
+                if (count($cocok) === 1) {
+                    $via_pesanan = ['noresi' => $cocok[0]['noresi']];
+                } elseif (count($cocok) > 1) {
+                    $daftar = array_map(function ($c) { return preg_replace('/^SP-/i', '', $c['no_pesanan']); }, array_slice($cocok, 0, 5));
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Ada ' . (count($cocok) > 5 ? 'lebih dari 5' : count($cocok)) . ' pesanan yang cocok: ' . implode(', ', $daftar) . '. Ketik nomor lebih lengkap.'
+                    ]);
+                    exit;
+                }
+            }
             if ($via_pesanan && !empty($via_pesanan['noresi'])) {
                 $noresi = $via_pesanan['noresi'];
                 pastikan_resi_live($noresi);
