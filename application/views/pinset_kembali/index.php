@@ -242,7 +242,8 @@ if (!empty($akses_ditolak)) : ?>
   #pk-root .panel-title { font-size: 20px; }
   #pk-root label { font-size: 15px; font-weight: 600; color: #444; }
   #pk-root .form-control, #pk-root .btn { height: 46px; font-size: 17px; }
-  #pk-root .alert { font-size: 16px; }
+  #pk-root .alert { font-size: 16px; float: none; width: auto; clear: both; }
+  #pk-root .alert-info { background: #eef5fb; border: 1px solid #b6d4ee; color: #1f3a52; margin: 0 0 14px; }
   #pk-root .alert ul { margin: 0 0 10px 18px; padding: 0; }
   #pk-root .pk-mut { color: #6b7280; font-size: 15px; }
   #pk-root .pk-ic { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #999; background: #fff; color: #555; font: 600 14px/1 monospace; cursor: pointer; padding: 0; margin-left: 8px; vertical-align: top; }
