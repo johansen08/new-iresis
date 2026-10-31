@@ -682,7 +682,7 @@
             <table class="kp-table table" id="datatable-complain-management">
               <thead>
                 <tr>
-                  <th>ID / Tanggal</th>
+                  <th>Input</th>
                   <th>Resi / Pesanan</th>
                   <th>Toko</th>
                   <th>Kategori</th>

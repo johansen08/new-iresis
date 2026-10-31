@@ -109,7 +109,7 @@ class Cs_new extends MY_Controller
         $order_dir = 'DESC';
 
         $valid_columns = [
-            0 => 'tgl_efektif',
+            0 => 'c.created_at',
             1 => 'c.no_resi',
             2 => 'c.toko',
             3 => 'c.kategori_komplain',
@@ -158,10 +158,20 @@ class Cs_new extends MY_Controller
         foreach ($items as $item) {
             $id_complain = (int) $item['id_complain'];
 
-            $id_cell = '<span class="kp-id">K-' . str_pad($id_complain, 5, '0', STR_PAD_LEFT) . '</span>';
-            if (!empty($item['id_resiretur'])) {
-                $id_cell .= ' <i class="fa fa-truck kp-muted" title="Ditarik dari retur fisik"></i>';
+            // Kolom INPUT: "NO.ABSEN - NAMA" (kapital) + tanggal input. Komplain lama belum punya
+            // kolom penginput terpisah, jadi dipecah dari nama akun pembuatnya.
+            $absen = $item['no_absen_input'] ?: '';
+            $nama = $item['nama_penginput'] ?: '';
+            if ($absen === '' || $nama === '') {
+                $p = $this->_pecah_nama_user($item['nama_user_input'] ?? '');
+                $absen = $absen !== '' ? $absen : $p['absen'];
+                $nama = $nama !== '' ? $nama : $p['nama'];
             }
+            $label_input = ($absen !== '' && $absen !== '-' ? $absen . ' - ' : '') . mb_strtoupper($nama);
+            $tgl_input = $item['created_at'] ? date('d/m/Y', strtotime($item['created_at'])) : '-';
+            $id_cell = '<span class="kp-resi" title="Komplain K-' . str_pad($id_complain, 5, '0', STR_PAD_LEFT) . '">' . htmlspecialchars($label_input, ENT_QUOTES, 'UTF-8') . '</span>'
+                . '<span class="kp-sub" title="' . ($item['created_at'] ? date('d/m/Y H:i:s', strtotime($item['created_at'])) : '') . '">' . $tgl_input
+                . (!empty($item['id_resiretur']) ? ' <i class="fa fa-truck kp-muted" title="Ditarik dari retur fisik"></i>' : '') . '</span>';
 
             $resi_cell = '<span class="kp-resi kp-copyrow">' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8')
                 . $this->_tombol_salin($item['no_resi']) . '</span>';
@@ -204,7 +214,7 @@ class Cs_new extends MY_Controller
             $aksi .= '</div>';
 
             $data_table[] = [
-                $id_cell . '<span class="kp-sub">' . ($item['tgl_efektif'] ? date('d/m/Y', strtotime($item['tgl_efektif'])) : '-') . '</span>',
+                $id_cell,
                 $resi_cell,
                 $toko_cell,
                 $kategori_cell,
@@ -244,10 +254,11 @@ class Cs_new extends MY_Controller
         // tgl_efektif: tanggal komplain kalau diisi, kalau tidak jatuh ke created_at
         // (data lama hasil migrasi belum punya tgl_komplain)
         if (!$agregat) {
-            $this->db->select('c.*, m.nama_marketplace, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
+            $this->db->select('c.*, m.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
         }
         $this->db->from('tblcs_complain c');
         $this->db->join('tblmarketplace m', 'c.id_marketplace = m.id_marketplace', 'left');
+        $this->db->join('tbluser u', 'u.id_user = c.created_by', 'left');
         $this->db->where('c.is_deleted', 0);
 
         if (!empty($reportrange)) {
@@ -308,6 +319,7 @@ class Cs_new extends MY_Controller
             $this->db->or_like('c.nama_packer', $search_value);
             $this->db->or_like('c.nama_picker', $search_value);
             $this->db->or_like('c.nama_penginput', $search_value);
+            $this->db->or_like('c.no_absen_input', $search_value);
             $this->db->group_end();
         }
     }
