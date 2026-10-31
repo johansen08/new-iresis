@@ -373,6 +373,7 @@
       .kf-row-tight > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
 
       .kf-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 4px 0 6px; background: var(--border-slate); border: 1px solid var(--border-slate); border-radius: 10px; overflow: hidden; }
+      .kf-summary-wide { grid-column: 1 / -1; }
       .kf-summary-item { background: var(--bg-slate); padding: 8px 12px; min-width: 0; }
       .kf-summary-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
       .kf-ro { display: block; width: 100%; padding: 0; margin-top: 2px; border: 0; background: transparent; font-size: 13.5px; font-weight: 600; color: #0f172a; text-overflow: ellipsis; box-shadow: none; cursor: default; }
@@ -617,17 +618,12 @@
                     <span class="kf-summary-label">Tanggal Pesanan</span>
                     <input type="text" name="tgl_pesanan" id="tgl_pesanan" class="kf-ro" readonly placeholder="&ndash;" />
                   </div>
-                  <div class="kf-summary-item">
-                    <span class="kf-summary-label">Nilai Pesanan</span>
-                    <input type="text" id="nilai_pesanan_tampil" class="kf-ro" readonly placeholder="&ndash;" />
-                    <input type="hidden" name="nilai_pesanan" id="nilai_pesanan" />
-                  </div>
-                  <div class="kf-summary-item">
+                  <div class="kf-summary-item kf-summary-wide">
                     <span class="kf-summary-label">Diinput</span>
+                    <input type="hidden" name="nilai_pesanan" id="nilai_pesanan" />
                     <input type="text" id="info_input" class="kf-ro" readonly />
                   </div>
                 </div>
-                <small class="kf-hint" id="hint-nilai-perkiraan" style="display:none;">Harga pesanan kosong di data resi &mdash; nilai dihitung dari total harga barang.</small>
 
                 <div class="row kf-row-tight" style="margin-top: 12px;">
                   <div class="col-sm-5">
@@ -988,8 +984,6 @@
         $('#sumber_komplain').val('Chat Marketplace');
         // Tanggal input & penginput terisi sendiri, tidak bisa diubah manual
         $('#info_input').val(moment().format('DD/MM/YYYY HH:mm') + ' oleh ' + namaPenggunaLogin);
-        $('#nilai_pesanan_tampil').val('');
-        $('#hint-nilai-perkiraan').hide();
 
         // Add 1 default empty row
         addSkuRow('', 1, 0, '');
@@ -1103,15 +1097,9 @@
                     $('#no_pesanan').val(resp.data.no_pesanan || '');
                     $('#tgl_pesanan').val(resp.data.tanggal_pesan || '');
 
-                    // Nilai pesanan
+                    // Nilai pesanan disimpan diam-diam (tidak ditampilkan)
                     var nilai = parseFloat(resp.data.nilai_pesanan || 0);
                     $('#nilai_pesanan').val(nilai);
-                    $('#nilai_pesanan_tampil').val('Rp ' + nilai.toLocaleString('id-ID'));
-                    if (resp.data.nilai_pesanan_perkiraan) {
-                        $('#hint-nilai-perkiraan').show();
-                    } else {
-                        $('#hint-nilai-perkiraan').hide();
-                    }
 
                     // Tanggal komplain mengikuti saat resi discan, kalau belum diisi
                     if (!$('#tgl_komplain').val()) {
@@ -1455,9 +1443,7 @@
                     $('#no_pesanan').val(comp.no_pesanan || '');
                     $('#tgl_pesanan').val(comp.tgl_pesanan || '');
 
-                    var nilaiEdit = parseFloat(comp.nilai_pesanan || 0);
                     $('#nilai_pesanan').val(comp.nilai_pesanan || '');
-                    $('#nilai_pesanan_tampil').val(nilaiEdit > 0 ? 'Rp ' + nilaiEdit.toLocaleString('id-ID') : '');
 
                     // Tanggal input & penginput asli, bukan waktu sekarang
                     var tglInput = comp.created_at ? moment(comp.created_at).format('DD/MM/YYYY HH:mm') : '-';
