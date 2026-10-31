@@ -392,7 +392,6 @@
       .sku-item-row:focus-within { border-color: #a5b4fc; box-shadow: 0 0 0 3px var(--primary-light); }
       .sku-item-row .sku-cell { position: relative; min-width: 0; }
       .sku-item-row .kf-input { height: 38px; }
-      .sku-nama { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .sku-sub { display: flex; align-items: center; justify-content: flex-end; height: 38px; text-align: right; font-size: 13.5px; font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
       .sku-item-row .btn-icon { width: 34px; height: 38px; }
       .kf-rp { position: relative; }
@@ -429,7 +428,6 @@
       .kf-pv-table th { text-align: left; padding: 4px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-bottom: 1px solid var(--border-slate); }
       .kf-pv-table td { padding: 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
       .kf-pv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-      .kf-pv-table .nama { display: block; font-size: 11.5px; color: var(--text-muted); }
 
       @media (max-width: 991px) {
         .kf-preview .kf-pv-grid { grid-template-columns: 1fr; }
@@ -1195,7 +1193,6 @@
         var html = '<div class="sku-item-row" id="' + rowId + '">' +
                    '  <div class="sku-cell">' +
                    '    <input type="text" name="sku[]" class="kf-input sku-autocomplete" placeholder="Cari / ketik SKU" autocomplete="off" value="' + escAttr(sku) + '" required />' +
-                   '    <span class="sku-nama">' + escAttr(name) + '</span>' +
                    '  </div>' +
                    '  <div class="sku-cell">' +
                    '    <input type="number" name="qty[]" class="kf-input item-qty" placeholder="Qty" min="1" value="' + escAttr(qty) + '" required />' +
@@ -1233,7 +1230,6 @@
         var $row = $input.closest('.sku-item-row');
         $row.find('.sku-autocomplete').val($li.data('kode'));
         $row.find('.item-price').val(parseFloat($li.data('hpp') || 0).toFixed(2));
-        $row.find('.sku-nama').text($li.data('nama') || '');
         tutupSaran($input);
         calculateNominalTotal();
     }
@@ -1250,7 +1246,6 @@
                 var $li = $('<li></li>')
                     .attr('data-kode', it.label)
                     .attr('data-hpp', it.hpp)
-                    .attr('data-nama', it.value || '')
                     .append($('<span class="sku-suggest-kode"></span>').text(it.label))
                     .append($('<span class="sku-suggest-nama"></span>').text(it.value || ''));
                 $ul.append($li);
@@ -1392,7 +1387,7 @@
             var qty = parseInt($(this).find('.item-qty').val()) || 0;
             var harga = parseFloat(String($(this).find('.item-price').val()).replace(',', '.')) || 0;
             total += qty * harga;
-            barang += '<tr><td>' + esc(sku) + '<span class="nama">' + esc($(this).find('.sku-nama').text()) + '</span></td>' +
+            barang += '<tr><td>' + esc(sku) + '</td>' +
                       '<td class="num">' + qty + '</td><td class="num">Rp ' + harga.toLocaleString('id-ID') + '</td>' +
                       '<td class="num">Rp ' + (qty * harga).toLocaleString('id-ID') + '</td></tr>';
         });
