@@ -94,7 +94,7 @@ class Cs_new extends MY_Controller
     public function get_complain_management_data()
     {
         $reportrange = $this->input->post('reportrange') ?: '';
-        
+
         // DataTable parameters
         $draw = intval($this->input->post('draw'));
         $start = intval($this->input->post('start'));
@@ -107,40 +107,32 @@ class Cs_new extends MY_Controller
         $order_dir = 'DESC';
 
         $valid_columns = [
+            0 => 'c.id_complain',
             1 => 'tgl_efektif',
             2 => 'c.no_resi',
-            3 => 'm.nama_marketplace',
-            4 => 'c.toko',
-            5 => 'c.kategori_komplain',
-            6 => 'c.sumber_komplain',
-            7 => 'c.status_penanganan',
-            8 => 'c.hasil_investigasi',
-            9 => 'c.nominal_total',
-            10 => 'c.nama_qc',
-            11 => 'c.nama_packer',
-            12 => 'c.tgl_banding_pengajuan'
+            3 => 'c.toko',
+            4 => 'c.kategori_komplain',
+            5 => 'c.hasil_investigasi',
+            6 => 'c.nominal_total',
+            7 => 'c.nama_qc',
+            8 => 'c.nama_picker',
+            9 => 'c.created_at'
         ];
 
         if (!empty($order)) {
             $col_index = $order[0]['column'];
-            $order_dir = strtoupper($order[0]['dir']);
+            $order_dir = strtoupper($order[0]['dir']) === 'ASC' ? 'ASC' : 'DESC';
             $order_column = $valid_columns[$col_index] ?? null;
         }
 
-        // Apply filters
-        $this->_apply_complain_filters($reportrange, $search_value, [
-            'kategori' => $this->input->post('f_kategori'),
-            'sumber'   => $this->input->post('f_sumber'),
-            'status'   => $this->input->post('f_status'),
-            'hasil'    => $this->input->post('f_hasil')
-        ]);
+        $this->_apply_complain_filters($reportrange, $search_value, $this->_filter_dari_request());
 
         // Get total filtered count
         $total = $this->db->count_all_results('', false);
 
-        // Apply sorting and limit
         if ($order_column) {
             $this->db->order_by($order_column, $order_dir);
+            $this->db->order_by('c.id_complain', 'DESC');
         } else {
             $this->db->order_by('tgl_efektif', 'DESC');
             $this->db->order_by('c.id_complain', 'DESC');
@@ -152,131 +144,75 @@ class Cs_new extends MY_Controller
 
         $items = $this->db->get()->result_array();
 
-        // Hitung lampiran per komplain dalam satu query
-        $lampiran_count = [];
-        if (!empty($items)) {
-            $ids = array_column($items, 'id_complain');
-            $rows = $this->db->select('id_complain, COUNT(*) as jml')
-                             ->from('tblcs_complain_lampiran')
-                             ->where_in('id_complain', $ids)
-                             ->where('is_deleted', 0)
-                             ->group_by('id_complain')
-                             ->get()
-                             ->result_array();
-            foreach ($rows as $r) {
-                $lampiran_count[$r['id_complain']] = $r['jml'];
-            }
-        }
-
-        $data_table = [];
-        $row_number = $start + 1;
-
         $user_role = $this->data['user']['hakakses'];
         $is_admin = in_array($user_role, [1, 2]);
 
+        // Nada pil per kategori / hasil (kelas kp-pill-*, didefinisikan di view)
+        $nada_kategori = [
+            'Kurang Kirim' => 'amber', 'Reject' => 'red', 'Paket Kosong' => 'slate', 'Salah Kirim' => 'indigo',
+            'Tidak Sesuai Deskripsi' => 'sky', 'Barang Rusak' => 'red', 'Paket Hilang' => 'red', 'Telat Kirim' => 'amber',
+            'Salah Alamat' => 'indigo', 'Barang Tidak Original' => 'red', 'Lainnya' => 'slate'
+        ];
+        $nada_hasil = ['QC Salah' => 'red', 'QC Benar' => 'green', 'Tidak Terlihat CCTV' => 'amber', 'CCTV Tidak Bisa Diakses' => 'slate'];
+
+        $data_table = [];
         foreach ($items as $item) {
-            // Badges for complain categories
-            $badge_class = 'label-info';
-            switch ($item['kategori_komplain']) {
-                case 'Kurang Kirim': $badge_class = 'label-warning'; break;
-                case 'Reject': $badge_class = 'label-danger'; break;
-                case 'Paket Kosong': $badge_class = 'label-default'; break;
-                case 'Salah Kirim': $badge_class = 'label-primary'; break;
-                case 'Tidak Sesuai Deskripsi': $badge_class = 'label-info'; break;
-                case 'Barang Rusak': $badge_class = 'label-danger'; break;
-                case 'Paket Hilang': $badge_class = 'label-danger'; break;
-                case 'Telat Kirim': $badge_class = 'label-warning'; break;
-                case 'Salah Alamat': $badge_class = 'label-primary'; break;
-                case 'Barang Tidak Original': $badge_class = 'label-danger'; break;
-                case 'Lainnya': $badge_class = 'label-default'; break;
-            }
-            $complain_badge = '<span class="label ' . $badge_class . '">' . htmlspecialchars($item['kategori_komplain']) . '</span>';
-
-            // Sumber komplain (NULL = data lama yang belum dilengkapi)
-            if (empty($item['sumber_komplain'])) {
-                $sumber_badge = '<span class="text-muted">-</span>';
-            } else {
-                $sumber_badge = '<span class="label label-default">' . htmlspecialchars($item['sumber_komplain']) . '</span>';
-            }
-
-            // Status penanganan
-            if (empty($item['status_penanganan'])) {
-                $status_badge = '<span class="text-muted">-</span>';
-            } else {
-                $status_class = 'label-default';
-                switch ($item['status_penanganan']) {
-                    case 'Baru': $status_class = 'label-danger'; break;
-                    case 'Proses': $status_class = 'label-warning'; break;
-                    case 'Selesai': $status_class = 'label-success'; break;
-                    case 'Ditolak': $status_class = 'label-default'; break;
-                }
-                $status_badge = '<span class="label ' . $status_class . '">' . htmlspecialchars($item['status_penanganan']) . '</span>';
-            }
-
-            // Hasil investigasi CCTV
-            if (empty($item['hasil_investigasi'])) {
-                $hasil_badge = '<span class="text-muted">-</span>';
-            } else {
-                $hasil_class = 'label-default';
-                switch ($item['hasil_investigasi']) {
-                    case 'QC Salah': $hasil_class = 'label-danger'; break;
-                    case 'QC Benar': $hasil_class = 'label-success'; break;
-                    case 'Tidak Terlihat CCTV': $hasil_class = 'label-warning'; break;
-                    case 'CCTV Tidak Bisa Diakses': $hasil_class = 'label-default'; break;
-                }
-                $hasil_badge = '<span class="label ' . $hasil_class . '">' . htmlspecialchars($item['hasil_investigasi']) . '</span>';
-                if ($item['hasil_investigasi'] === 'QC Salah' && !empty($item['id_masalahpacker'])) {
-                    $hasil_badge .= ' <i class="fa fa-star text-danger" title="Poin kesalahan masuk rekapan KPI packer"></i>';
-                }
-            }
-
-            // Penanda asal & lampiran di kolom resi
-            $resi_cell = htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8');
-            if (!empty($item['no_pesanan'])) {
-                $resi_cell .= '<br><small class="text-muted">' . htmlspecialchars($item['no_pesanan'], ENT_QUOTES, 'UTF-8') . '</small>';
-            }
-            if (!empty($item['id_resiretur'])) {
-                $resi_cell .= ' <i class="fa fa-truck text-muted" title="Ditarik dari retur fisik"></i>';
-            }
-            $jml_lampiran = $lampiran_count[$item['id_complain']] ?? 0;
-            if ($jml_lampiran > 0) {
-                $resi_cell .= ' <span class="text-muted" title="' . $jml_lampiran . ' lampiran"><i class="fa fa-paperclip"></i> ' . $jml_lampiran . '</span>';
-            }
-
-            // Banding status
-            $status_banding = '<span class="label label-default">Belum Diajukan</span>';
-            if (!empty($item['tgl_banding_pengajuan'])) {
-                if (!empty($item['tgl_claim_dana'])) {
-                    $status_banding = '<span class="label label-success">Claimed: Rp ' . number_format($item['nominal_claim_dana'], 0, ',', '.') . '</span>';
-                } else if (!empty($item['tgl_banding_tinjauan'])) {
-                    $status_banding = '<span class="label label-info">Ditinjau</span>';
-                } else {
-                    $status_banding = '<span class="label label-warning">Diajukan</span>';
-                }
-            }
-
-            // Edit and Delete buttons (Delete only for admin/supervisor)
             $id_complain = (int) $item['id_complain'];
-            $action_buttons = '<button type="button" class="btn btn-info btn-xs btn-edit-complain" title="Detail / Edit" data-id="' . $id_complain . '"><i class="fa fa-pencil"></i></button> ';
-            if ($is_admin) {
-                $action_buttons .= '<button type="button" class="btn btn-danger btn-xs btn-delete-complain" title="Hapus (Soft-delete)" data-id="' . $id_complain . '" data-noresi="' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8') . '"><i class="fa fa-trash"></i></button>';
+
+            $id_cell = '<span class="kp-id">K-' . str_pad($id_complain, 5, '0', STR_PAD_LEFT) . '</span>';
+            if (!empty($item['id_resiretur'])) {
+                $id_cell .= ' <i class="fa fa-truck kp-muted" title="Ditarik dari retur fisik"></i>';
             }
+
+            $resi_cell = '<span class="kp-resi">' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8') . '</span>';
+            if (!empty($item['no_pesanan'])) {
+                $resi_cell .= '<span class="kp-sub">' . htmlspecialchars(preg_replace('/^SP-/i', '', $item['no_pesanan']), ENT_QUOTES, 'UTF-8') . '</span>';
+            }
+
+            $toko_cell = '<span class="kp-resi">' . htmlspecialchars($item['toko'] ?: '-', ENT_QUOTES, 'UTF-8') . '</span>'
+                . '<span class="kp-sub">' . htmlspecialchars($item['nama_marketplace'] ?: '-', ENT_QUOTES, 'UTF-8') . '</span>';
+
+            $kategori_cell = '<span class="kp-pill kp-pill-' . ($nada_kategori[$item['kategori_komplain']] ?? 'slate') . '">'
+                . htmlspecialchars($item['kategori_komplain']) . '</span>';
+            if (!empty($item['jenis_komplain']) && $item['jenis_komplain'] !== 'CCTV') {
+                $kategori_cell .= '<span class="kp-sub">' . htmlspecialchars($item['jenis_komplain']) . '</span>';
+            }
+
+            if (empty($item['hasil_investigasi'])) {
+                $hasil_cell = '<span class="kp-dot-text kp-dot-slate"><i></i>Belum dicek</span>';
+            } else {
+                $hasil_cell = '<span class="kp-dot-text kp-dot-' . ($nada_hasil[$item['hasil_investigasi']] ?? 'slate') . '"><i></i>'
+                    . htmlspecialchars($item['hasil_investigasi']) . '</span>';
+                if ($item['hasil_investigasi'] === 'QC Salah' && !empty($item['id_masalahpacker'])) {
+                    $hasil_cell .= ' <i class="fa fa-star kp-star" title="Poin kesalahan masuk rekapan KPI packer"></i>';
+                }
+            }
+
+            $penginput = $item['nama_penginput'] ?: '';
+            $input_cell = $penginput !== ''
+                ? '<span class="kp-resi">' . htmlspecialchars($penginput) . '</span><span class="kp-sub">' . date('d/m/Y H:i', strtotime($item['created_at'])) . '</span>'
+                : '<span class="kp-sub" style="margin:0">' . date('d/m/Y H:i', strtotime($item['created_at'])) . '</span>';
+
+            $aksi = '<div class="kp-actions">'
+                . '<button type="button" class="kp-icon-btn btn-detail-complain" title="Lihat detail" data-id="' . $id_complain . '"><i class="fa fa-eye"></i></button>';
+            if ($is_admin) {
+                $aksi .= '<button type="button" class="kp-icon-btn btn-edit-complain" title="Edit" data-id="' . $id_complain . '"><i class="fa fa-pencil"></i></button>'
+                    . '<button type="button" class="kp-icon-btn kp-icon-danger btn-delete-complain" title="Hapus (soft-delete)" data-id="' . $id_complain . '" data-noresi="' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8') . '"><i class="fa fa-trash"></i></button>';
+            }
+            $aksi .= '</div>';
 
             $data_table[] = [
-                $row_number++ . '.',
+                $id_cell,
                 $item['tgl_efektif'] ? date('d/m/Y', strtotime($item['tgl_efektif'])) : '-',
                 $resi_cell,
-                $item['nama_marketplace'],
-                $item['toko'] ?: '-',
-                $complain_badge,
-                $sumber_badge,
-                $status_badge,
-                $hasil_badge,
+                $toko_cell,
+                $kategori_cell,
+                $hasil_cell,
                 'Rp ' . number_format($item['nominal_total'], 0, ',', '.'),
-                $item['nama_qc'] ?: '-',
-                $item['nama_packer'] ?: '-',
-                $status_banding,
-                $action_buttons
+                $this->_sel_orang($item['nama_qc'] ?: $item['nama_packer']),
+                $this->_sel_orang($item['nama_picker']),
+                $input_cell,
+                $aksi
             ];
         }
 
@@ -290,11 +226,26 @@ class Cs_new extends MY_Controller
             ]));
     }
 
-    private function _apply_complain_filters($reportrange, $search_value = '', $filters = [])
+    /** Ambil nilai filter sebagai array string (dropdown multi-pilih mengirim f_xxx[]). */
+    private function _filter_array($nama)
+    {
+        $v = $this->input->post($nama);
+        if ($v === null || $v === '' || $v === []) {
+            return [];
+        }
+        return array_values(array_filter(array_map('strval', (array) $v), 'strlen'));
+    }
+
+    /**
+     * @param bool $agregat true = tanpa select kolom (dipakai kartu ringkasan, select diatur pemanggil)
+     */
+    private function _apply_complain_filters($reportrange, $search_value = '', $filters = [], $agregat = false)
     {
         // tgl_efektif: tanggal komplain kalau diisi, kalau tidak jatuh ke created_at
         // (data lama hasil migrasi belum punya tgl_komplain)
-        $this->db->select('c.*, m.nama_marketplace, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
+        if (!$agregat) {
+            $this->db->select('c.*, m.nama_marketplace, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
+        }
         $this->db->from('tblcs_complain c');
         $this->db->join('tblmarketplace m', 'c.id_marketplace = m.id_marketplace', 'left');
         $this->db->where('c.is_deleted', 0);
@@ -314,38 +265,110 @@ class Cs_new extends MY_Controller
             }
         }
 
-        if (!empty($filters['kategori']) && in_array($filters['kategori'], $this->complain_kategori)) {
-            $this->db->where('c.kategori_komplain', $filters['kategori']);
+        // Filter multi-pilih: hanya nilai yang dikenal yang dipakai
+        $kategori = array_values(array_intersect($filters['kategori'] ?? [], $this->complain_kategori));
+        if ($kategori) {
+            $this->db->where_in('c.kategori_komplain', $kategori);
         }
-        if (!empty($filters['sumber']) && in_array($filters['sumber'], $this->complain_sumber)) {
-            $this->db->where('c.sumber_komplain', $filters['sumber']);
+        $sumber = array_values(array_intersect($filters['sumber'] ?? [], $this->complain_sumber));
+        if ($sumber) {
+            $this->db->where_in('c.sumber_komplain', $sumber);
         }
-        if (!empty($filters['status'])) {
-            if ($filters['status'] === '__KOSONG__') {
-                $this->db->where('c.status_penanganan IS NULL', null, false);
-            } elseif (in_array($filters['status'], $this->complain_status)) {
-                $this->db->where('c.status_penanganan', $filters['status']);
+        $jenis = array_values(array_intersect($filters['jenis'] ?? [], $this->complain_jenis));
+        if ($jenis) {
+            $this->db->where_in('c.jenis_komplain', $jenis);
+        }
+        $mp = array_values(array_filter(array_map('intval', $filters['marketplace'] ?? [])));
+        if ($mp) {
+            $this->db->where_in('c.id_marketplace', $mp);
+        }
+        $hasil_in = $filters['hasil'] ?? [];
+        $hasil = array_values(array_intersect($hasil_in, $this->complain_hasil));
+        $hasil_kosong = in_array('__KOSONG__', $hasil_in, true);
+        if ($hasil || $hasil_kosong) {
+            $this->db->group_start();
+            if ($hasil) {
+                $this->db->where_in('c.hasil_investigasi', $hasil);
             }
-        }
-        if (!empty($filters['hasil'])) {
-            if ($filters['hasil'] === '__KOSONG__') {
-                $this->db->where('c.hasil_investigasi IS NULL', null, false);
-            } elseif (in_array($filters['hasil'], $this->complain_hasil)) {
-                $this->db->where('c.hasil_investigasi', $filters['hasil']);
+            if ($hasil_kosong) {
+                $this->db->or_where('c.hasil_investigasi IS NULL', null, false);
             }
+            $this->db->group_end();
         }
 
         if (!empty($search_value)) {
             $this->db->group_start();
             $this->db->like('c.no_resi', $search_value);
+            $this->db->or_like('c.no_pesanan', $search_value);
             $this->db->or_like('c.toko', $search_value);
             $this->db->or_like('m.nama_marketplace', $search_value);
             $this->db->or_like('c.kategori_komplain', $search_value);
-            $this->db->or_like('c.sumber_komplain', $search_value);
+            $this->db->or_like('c.detail_lainnya', $search_value);
             $this->db->or_like('c.nama_qc', $search_value);
             $this->db->or_like('c.nama_packer', $search_value);
+            $this->db->or_like('c.nama_picker', $search_value);
+            $this->db->or_like('c.nama_penginput', $search_value);
             $this->db->group_end();
         }
+    }
+
+    /** Filter dari request (dipakai tabel dan kartu ringkasan agar selalu sama). */
+    private function _filter_dari_request()
+    {
+        return [
+            'kategori'    => $this->_filter_array('f_kategori'),
+            'sumber'      => $this->_filter_array('f_sumber'),
+            'jenis'       => $this->_filter_array('f_jenis'),
+            'marketplace' => $this->_filter_array('f_marketplace'),
+            'hasil'       => $this->_filter_array('f_hasil'),
+        ];
+    }
+
+    /** Kartu ringkasan di atas tabel, mengikuti filter yang sedang aktif. */
+    public function get_complain_ringkasan()
+    {
+        $this->_apply_complain_filters(
+            $this->input->post('reportrange') ?: '',
+            $this->input->post('search_text') ?: '',
+            $this->_filter_dari_request(),
+            true
+        );
+        $this->db->select(
+            "COUNT(*) AS total,
+             SUM(c.hasil_investigasi = 'QC Salah') AS qc_salah,
+             SUM(c.hasil_investigasi = 'QC Benar') AS qc_benar,
+             SUM(c.hasil_investigasi IS NULL) AS belum_dicek,
+             COALESCE(SUM(c.nominal_total), 0) AS nominal",
+            false
+        );
+        $r = $this->db->get()->row_array();
+
+        $this->output->set_content_type('application/json')->set_output(json_encode([
+            'total'       => (int) $r['total'],
+            'qc_salah'    => (int) $r['qc_salah'],
+            'qc_benar'    => (int) $r['qc_benar'],
+            'belum_dicek' => (int) $r['belum_dicek'],
+            'nominal'     => (float) $r['nominal'],
+        ]));
+    }
+
+    /** "NADYA - QC - 0107" -> "NADYA" (nama saja untuk sel tabel). */
+    private function _nama_pendek($teks)
+    {
+        $p = trim(explode(' - ', (string) $teks)[0]);
+        return $p;
+    }
+
+    /** Avatar inisial + nama pendek untuk sel tabel. */
+    private function _sel_orang($teks)
+    {
+        $nama = $this->_nama_pendek($teks);
+        if ($nama === '') {
+            return '<span class="kp-muted">&ndash;</span>';
+        }
+        $inisial = mb_strtoupper(mb_substr($nama, 0, 1));
+        return '<span class="kp-person"><span class="kp-avatar">' . htmlspecialchars($inisial) . '</span>'
+            . htmlspecialchars($nama) . '</span>';
     }
 
     public function get_complain_management_detail($id_complain)
