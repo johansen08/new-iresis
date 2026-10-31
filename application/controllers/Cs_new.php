@@ -750,11 +750,11 @@ class Cs_new extends MY_Controller
             $via_pesanan = $this->db->query(
                 "SELECT pr.noresi FROM tbldetailprintresi d
                  JOIN tblprintresi pr ON pr.id_printresi = d.id_resi
-                 WHERE d.no_pesanan = ? ORDER BY pr.id_printresi DESC LIMIT 1", [$noresi]
+                 WHERE d.no_pesanan IN (?, ?) ORDER BY pr.id_printresi DESC LIMIT 1", [$noresi, 'SP-' . $noresi]
             )->row_array();
             if (!$via_pesanan) {
                 $via_pesanan = $this->db->query(
-                    "SELECT no_resi AS noresi FROM tblreturjubelio WHERE no_pesanan = ? AND no_resi <> '' LIMIT 1", [$noresi]
+                    "SELECT no_resi AS noresi FROM tblreturjubelio WHERE no_pesanan IN (?, ?) AND no_resi <> '' LIMIT 1", [$noresi, 'SP-' . $noresi]
                 )->row_array();
             }
             if ($via_pesanan && !empty($via_pesanan['noresi'])) {
