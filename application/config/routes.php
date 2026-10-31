@@ -388,8 +388,6 @@ $route['cs-new/complain-management/save'] = 'cs_new/save_complain_management';
 $route['cs-new/complain-management/delete/(:num)'] = 'cs_new/delete_complain_management/$1';
 $route['cs-new/complain-management/search-resi'] = 'cs_new/search_resi_for_complain';
 $route['cs-new/complain-management/get-sku-suggestions'] = 'cs_new/get_sku_suggestions_with_hpp';
-$route['cs-new/complain-management/kandidat-retur'] = 'cs_new/get_kandidat_retur_data';
-$route['cs-new/complain-management/tarik-kandidat'] = 'cs_new/tarik_kandidat_retur';
 $route['cs-new/complain-management/upload-lampiran'] = 'cs_new/upload_lampiran_complain';
 $route['cs-new/complain-management/delete-lampiran/(:num)'] = 'cs_new/delete_lampiran_complain/$1';
 
