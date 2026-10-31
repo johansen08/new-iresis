@@ -36,6 +36,8 @@ if (!empty($akses_ditolak)) : ?>
             <div class="sa-kpi"><small>Sisa Stok</small><b id="sa-k-saldo">-</b></div>
             <div class="sa-kpi"><small>Penjualan</small><b id="sa-k-jual">-</b></div>
             <div class="sa-kpi"><small>Dalam perjalanan</small><b id="sa-k-jalan">-</b></div>
+            <div class="sa-kpi" title="Resi cancel/retur yang pinsetnya belum dikonfirmasi packer. Belum menambah stok."><small>Menunggu kembali</small><b id="sa-k-tunggu">-</b> <small id="sa-k-lambat" class="text-danger"></small></div>
+            <div class="sa-kpi" title="Koreksi dan opname dari packer yang menunggu persetujuan Purchasing."><small>Menunggu persetujuan</small><b id="sa-k-ajuan">-</b></div>
           </div>
 
           <div class="sa-filter">
@@ -129,6 +131,9 @@ if (!empty($akses_ditolak)) : ?>
       $('#sa-k-saldo').text(d.saldo).toggleClass('text-danger', Number(d.saldo) < 0);
       $('#sa-k-jual').text(d.penjualan);
       $('#sa-k-jalan').text(d.perjalanan);
+      $('#sa-k-tunggu').text(d.menunggu);
+      $('#sa-k-lambat').text(Number(d.terlambat) > 0 ? d.terlambat + ' terlambat' : '');
+      $('#sa-k-ajuan').text(d.ajuan);
       perRef = d.per_ref || {};
     }).fail(jsonGagal);
   }
