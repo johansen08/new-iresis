@@ -598,11 +598,6 @@
                 </div>
               </div>
 
-              <div class="modern-form-group">
-                <label class="modern-label">Nama Toko Lengkap</label>
-                <input type="text" id="toko_lengkap" class="modern-input" readonly placeholder="terisi otomatis dari marketplace + toko" />
-              </div>
-
               <div class="row">
                 <div class="col-md-5">
                   <div class="modern-form-group">
@@ -885,7 +880,6 @@
         $('#form-save-complain')[0].reset();
         $('#force_duplikat').val('0');
         $('#sku-rows-list').empty();
-        $('#toko_lengkap').val('');
         $('#tanda-wajib-keterangan').hide();
         // required harus ikut dilepas: field wajib yang tersembunyi bikin submit
         // diblokir browser tanpa pesan apa pun
@@ -933,17 +927,6 @@
         $('#detail_lainnya').prop('required', lainnya);
         $('#tanda-wajib-keterangan').toggle(lainnya);
     });
-
-    function perbaruiTokoLengkap() {
-        var mp = $('#id_marketplace option:selected').text().trim();
-        var toko = ($('#toko').val() || '').trim();
-        var teks = '';
-        if (toko) {
-            teks = (mp && $('#id_marketplace').val()) ? mp + ' - ' + toko : toko;
-        }
-        $('#toko_lengkap').val(teks);
-    }
-    $('#id_marketplace, #toko').on('change', perbaruiTokoLengkap);
 
     // Auto-fill trigger by clicking button
     $('#btn-search-resi').on('click', function() {
@@ -1018,7 +1001,6 @@
                         $('#no_resi').val(resp.data.noresi);
                         terakhirDicari = resp.data.noresi;
                     }
-                    perbaruiTokoLengkap();
 
                     // Nomor & tanggal pesanan
                     $('#no_pesanan').val(resp.data.no_pesanan || '');
@@ -1344,7 +1326,6 @@
                     $('#kategori_komplain').val(comp.kategori_komplain);
                     $('#detail_lainnya').val(comp.detail_lainnya || '').prop('required', comp.kategori_komplain === 'Lainnya');
                     $('#tanda-wajib-keterangan').toggle(comp.kategori_komplain === 'Lainnya');
-                    perbaruiTokoLengkap();
 
                     if (comp.nama_qc) {
                         ensureOption('#nama_qc', comp.nama_qc);
