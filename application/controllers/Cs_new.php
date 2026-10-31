@@ -455,7 +455,8 @@ class Cs_new extends MY_Controller
         $nilai_pesanan = ($nilai_pesanan === null || $nilai_pesanan === '') ? null : floatval($nilai_pesanan);
 
         // Field cakupan baru
-        $tgl_komplain = $this->input->post('tgl_komplain') ?: null;
+        // Tanggal komplain tidak ada di form: komplain baru = hari ini, edit tidak mengubahnya
+        $tgl_komplain = $this->input->post('tgl_komplain') ?: ($is_edit ? null : date('Y-m-d'));
         $sumber_komplain = $this->input->post('sumber_komplain') ?: null;
         $jenis_komplain = $this->input->post('jenis_komplain') ?: 'CCTV';
         $status_penanganan = $this->input->post('status_penanganan') ?: null;
@@ -569,7 +570,6 @@ class Cs_new extends MY_Controller
         }
 
         $complain_data = [
-            'tgl_komplain' => $tgl_komplain,
             'id_marketplace' => $id_marketplace,
             'toko' => $toko,
             'kategori_komplain' => $kategori_komplain,
@@ -587,6 +587,10 @@ class Cs_new extends MY_Controller
             'nilai_pesanan' => $nilai_pesanan,
             'updated_by' => $this->data['user']['id_user']
         ];
+
+        if ($tgl_komplain !== null) {
+            $complain_data['tgl_komplain'] = $tgl_komplain;
+        }
 
         // Form New tidak punya status penanganan & proses banding: tulis hanya bila dikirim
         if ($status_penanganan !== null) {

@@ -711,24 +711,14 @@
                   <textarea name="detail_lainnya" id="detail_lainnya" class="kf-input" rows="2" maxlength="500" placeholder="Rincian keluhan (wajib bila kategori Lainnya)"></textarea>
                 </div>
 
-                <div class="row kf-row-tight">
-                  <div class="col-sm-6">
-                    <div class="kf-field">
-                      <label class="kf-label" for="tgl_komplain">Tanggal Komplain</label>
-                      <input type="date" name="tgl_komplain" id="tgl_komplain" class="kf-input" />
-                    </div>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="kf-field">
-                      <label class="kf-label" for="sumber_komplain">Sumber</label>
-                      <select name="sumber_komplain" id="sumber_komplain" class="kf-input">
-                        <option value="">Belum ditentukan</option>
-                        <?php foreach ($sumber_list as $s): ?>
-                          <option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                  </div>
+                <div class="kf-field">
+                  <label class="kf-label" for="sumber_komplain">Sumber</label>
+                  <select name="sumber_komplain" id="sumber_komplain" class="kf-input">
+                    <option value="">Belum ditentukan</option>
+                    <?php foreach ($sumber_list as $s): ?>
+                      <option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
+                    <?php endforeach; ?>
+                  </select>
                 </div>
               </section>
 
@@ -998,7 +988,6 @@
         $('#resi-search-hint').show();
         $('#role-warning-edit').hide();
         $('#btn-save-submit').show();
-        $('#tgl_komplain').val(moment().format('YYYY-MM-DD'));
         // Hampir semua komplain masuk lewat chat marketplace; ganti hanya bila berbeda
         $('#sumber_komplain').val('Chat Marketplace');
         // Tanggal input & penginput terisi sendiri, tidak bisa diubah manual
@@ -1118,11 +1107,6 @@
                     // Nilai pesanan disimpan diam-diam (tidak ditampilkan)
                     var nilai = parseFloat(resp.data.nilai_pesanan || 0);
                     $('#nilai_pesanan').val(nilai);
-
-                    // Tanggal komplain mengikuti saat resi discan, kalau belum diisi
-                    if (!$('#tgl_komplain').val()) {
-                        $('#tgl_komplain').val(moment().format('YYYY-MM-DD'));
-                    }
 
                     // Fill dynamic items
                     $('#sku-rows-list').empty();
@@ -1426,7 +1410,7 @@
             '</div><div>' +
             '<div class="kf-pv-sec"><h5>Komplain</h5>' +
                 barisPv('Jenis', $('input[name="jenis_komplain"]:checked').val()) + barisPv('Kategori', $('#kategori_komplain').val()) +
-                barisPv('Keterangan', $('#detail_lainnya').val()) + barisPv('Tanggal komplain', $('#tgl_komplain').val()) +
+                barisPv('Keterangan', $('#detail_lainnya').val()) +
                 barisPv('Sumber', $('#sumber_komplain').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Investigasi</h5>' +
                 barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) +
@@ -1527,7 +1511,6 @@
                     var comp = resp.complain;
 
                     $('#no_resi').val(comp.no_resi);
-                    $('#tgl_komplain').val(comp.tgl_komplain || '');
                     $('#sumber_komplain').val(comp.sumber_komplain || '');
                     $('input[name="jenis_komplain"][value="' + (comp.jenis_komplain || 'CCTV') + '"]').prop('checked', true);
                     $('#catatan_penanganan').val(comp.catatan_penanganan || '');
