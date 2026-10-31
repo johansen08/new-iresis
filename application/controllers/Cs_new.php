@@ -70,6 +70,11 @@ class Cs_new extends MY_Controller
 
         // Get active employees for QC and Packer
         $data['employees'] = $this->db->get_where('tblpegawai', ['status_aktif' => 'AKTIF'])->result_array();
+        foreach ($data['employees'] as &$emp) {
+            // value tetap nama asli (cocok dengan data lama); yang tampil "no.absen - NAMA"
+            $emp['label'] = $this->_label_orang($emp['nama_pegawai']);
+        }
+        unset($emp);
 
         // Get list of unique stores
         $data['stores'] = $this->db->select('DISTINCT(toko) as nama_toko')
@@ -158,9 +163,12 @@ class Cs_new extends MY_Controller
                 $id_cell .= ' <i class="fa fa-truck kp-muted" title="Ditarik dari retur fisik"></i>';
             }
 
-            $resi_cell = '<span class="kp-resi">' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8') . '</span>';
+            $resi_cell = '<span class="kp-resi kp-copyrow">' . htmlspecialchars($item['no_resi'], ENT_QUOTES, 'UTF-8')
+                . $this->_tombol_salin($item['no_resi']) . '</span>';
             if (!empty($item['no_pesanan'])) {
-                $resi_cell .= '<span class="kp-sub">' . htmlspecialchars(preg_replace('/^SP-/i', '', $item['no_pesanan']), ENT_QUOTES, 'UTF-8') . '</span>';
+                $pesanan = preg_replace('/^SP-/i', '', $item['no_pesanan']);
+                $resi_cell .= '<span class="kp-sub kp-copyrow">' . htmlspecialchars($pesanan, ENT_QUOTES, 'UTF-8')
+                    . $this->_tombol_salin($pesanan) . '</span>';
             }
 
             $toko_cell = '<span class="kp-resi">' . htmlspecialchars($item['toko'] ?: '-', ENT_QUOTES, 'UTF-8') . '</span>'
@@ -364,8 +372,8 @@ class Cs_new extends MY_Controller
                 $it['catatan_penanganan'],
                 implode('; ', $barang[$it['id_complain']] ?? []),
                 (float) $it['nominal_total'],
-                $this->_nama_pendek($it['nama_picker']),
-                $this->_nama_pendek($it['nama_qc'] ?: $it['nama_packer']),
+                $this->_label_orang($it['nama_picker']),
+                $this->_label_orang($it['nama_qc'] ?: $it['nama_packer']),
                 $it['created_at'] ? date('d/m/Y H:i:s', strtotime($it['created_at'])) : '',
                 $it['no_absen_input'],
                 $it['nama_penginput'],
@@ -438,23 +446,34 @@ class Cs_new extends MY_Controller
         ]));
     }
 
-    /** "NADYA - QC - 0107" -> "NADYA" (nama saja untuk sel tabel). */
-    private function _nama_pendek($teks)
+    /** "NADYA - QC - 0107" / "0353 - JOHANSEN - IT" -> "0107 - NADYA" / "0353 - JOHANSEN" (kapital). */
+    private function _label_orang($teks)
     {
-        $p = trim(explode(' - ', (string) $teks)[0]);
-        return $p;
+        $teks = trim((string) $teks);
+        if ($teks === '') {
+            return '';
+        }
+        $p = $this->_pecah_nama_user($teks);
+        $nama = mb_strtoupper($p['nama']);
+        return $p['absen'] !== '-' ? $p['absen'] . ' - ' . $nama : $nama;
     }
 
-    /** Avatar inisial + nama pendek untuk sel tabel. */
+    /** Avatar inisial + "no.absen - NAMA" untuk sel tabel. */
     private function _sel_orang($teks)
     {
-        $nama = $this->_nama_pendek($teks);
-        if ($nama === '') {
+        $label = $this->_label_orang($teks);
+        if ($label === '') {
             return '<span class="kp-muted">&ndash;</span>';
         }
-        $inisial = mb_strtoupper(mb_substr($nama, 0, 1));
-        return '<span class="kp-person"><span class="kp-avatar">' . htmlspecialchars($inisial) . '</span>'
-            . htmlspecialchars($nama) . '</span>';
+        $nama = mb_strtoupper($this->_pecah_nama_user($teks)['nama']);
+        return '<span class="kp-person"><span class="kp-avatar">' . htmlspecialchars(mb_substr($nama, 0, 1)) . '</span>'
+            . htmlspecialchars($label) . '</span>';
+    }
+
+    /** Tombol salin kecil di samping nomor (diproses handler .kp-copy di view). */
+    private function _tombol_salin($nilai)
+    {
+        return '<button type="button" class="kp-copy" data-copy="' . htmlspecialchars($nilai, ENT_QUOTES, 'UTF-8') . '" title="Salin"><i class="fa fa-files-o"></i></button>';
     }
 
     public function get_complain_management_detail($id_complain)
