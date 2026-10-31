@@ -487,7 +487,7 @@
 
 <!-- Modal Form Input/Edit Komplain (Modern Layout) -->
 <div class="modal fade" id="modalFormKomplain" role="dialog" aria-labelledby="modalFormKomplainLabel" aria-hidden="true" style="overflow-y: auto;">
-  <div class="modal-dialog modal-lg" role="document" style="border-radius: 12px; overflow: hidden;">
+  <div class="modal-dialog modal-lg" role="document" style="border-radius: 12px; overflow: hidden; width: 96%; max-width: 1280px;">
     <div class="modal-content" style="border: none; border-radius: 12px;">
       <!-- class "nojs" wajib: tanpa itu handler global di plugins.js membajak submit,
            menimpa isi halaman dengan spinner, dan data tidak pernah terkirim. -->
@@ -506,7 +506,7 @@
 
           <div class="row">
             <!-- Sisi Kiri: Informasi Order & Komplain -->
-            <div class="col-md-6">
+            <div class="col-md-5">
               <div class="modern-form-group">
                 <label class="modern-label">No. Resi / Pesanan <span class="text-danger">*</span></label>
                 <div class="input-group">
@@ -515,7 +515,7 @@
                     <button type="button" class="btn btn-primary" id="btn-search-resi" style="height: 38px; border-top-left-radius:0; border-bottom-left-radius:0;" title="Auto-fill data dari resi"><i class="fa fa-magic"></i> Auto-fill</button>
                   </span>
                 </div>
-                <small class="text-muted" id="resi-search-hint">Scan atau ketik resi lalu Enter &mdash; nomor pesanan, tanggal pesanan, SKU, qty, nominal, marketplace, toko, picker, dan packer terisi otomatis.</small>
+                <small class="text-muted" id="resi-search-hint">Scan/ketik <strong>No. Resi</strong>, <strong>No. Pesanan</strong>, atau <strong>No. Picklist</strong> lalu Enter &mdash; nomor pesanan, tanggal pesanan, SKU, qty, harga, marketplace, toko, picker, dan QC terisi otomatis.</small>
               </div>
 
               <!-- Hasil auto-fill: hanya dibaca, tidak diketik manual -->
@@ -598,8 +598,13 @@
                 </div>
               </div>
 
+              <div class="modern-form-group">
+                <label class="modern-label">Nama Toko Lengkap</label>
+                <input type="text" id="toko_lengkap" class="modern-input" readonly placeholder="terisi otomatis dari marketplace + toko" />
+              </div>
+
               <div class="row">
-                <div class="col-md-7">
+                <div class="col-md-5">
                   <div class="modern-form-group">
                     <label class="modern-label">Kategori Komplain <span class="text-danger">*</span></label>
                     <select name="kategori_komplain" id="kategori_komplain" class="modern-select" required>
@@ -610,22 +615,12 @@
                     </select>
                   </div>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-7">
                   <div class="modern-form-group">
-                    <label class="modern-label">Status Penanganan</label>
-                    <select name="status_penanganan" id="status_penanganan" class="modern-select">
-                      <option value="">- Belum diisi -</option>
-                      <?php foreach ($status_list as $st): ?>
-                        <option value="<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($st) ?></option>
-                      <?php endforeach; ?>
-                    </select>
+                    <label class="modern-label">Keterangan Komplain <span class="text-danger" id="tanda-wajib-keterangan" style="display:none;">*</span></label>
+                    <input type="text" name="detail_lainnya" id="detail_lainnya" class="modern-input" maxlength="500" placeholder="Rincian masalah (wajib bila kategori Lainnya)" />
                   </div>
                 </div>
-              </div>
-
-              <div class="modern-form-group" id="group-detail-lainnya" style="display: none;">
-                <label class="modern-label">Detail Tambahan (Lainnya) <span class="text-danger">*</span></label>
-                <textarea name="detail_lainnya" id="detail_lainnya" class="modern-input" rows="3" placeholder="Tulis rincian masalah komplain..."></textarea>
               </div>
 
               <div class="modern-form-group">
@@ -644,12 +639,12 @@
               </div>
 
               <div class="modern-form-group">
-                <label class="modern-label">Catatan Penanganan</label>
-                <textarea name="catatan_penanganan" id="catatan_penanganan" class="modern-input" rows="2" placeholder="Tindakan yang sudah diambil CS..."></textarea>
+                <label class="modern-label">Catatan Hasil Investigasi</label>
+                <textarea name="catatan_penanganan" id="catatan_penanganan" class="modern-input" rows="2" placeholder="Temuan dari pengecekan CCTV / investigasi..."></textarea>
               </div>
 
               <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-6">
                   <div class="modern-form-group">
                     <label class="modern-label">Nama Picker</label>
                     <select name="nama_picker" id="nama_picker" class="modern-select">
@@ -660,18 +655,8 @@
                     </select>
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Nama Packer</label>
-                    <select name="nama_packer" id="nama_packer" class="modern-select">
-                      <option value="">Pilih Packer</option>
-                      <?php foreach ($employees as $emp): ?>
-                        <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-4">
+                <input type="hidden" name="nama_packer" id="nama_packer" value="" />
+                <div class="col-md-6">
                   <div class="modern-form-group">
                     <label class="modern-label">Nama QC</label>
                     <select name="nama_qc" id="nama_qc" class="modern-select">
@@ -686,7 +671,7 @@
             </div>
 
             <!-- Sisi Kanan: Input SKU & Qty Dinamis + Lampiran + Proses Banding -->
-            <div class="col-md-6" style="border-left: 1px solid var(--border-slate); padding-left: 24px;">
+            <div class="col-md-7" style="border-left: 1px solid var(--border-slate); padding-left: 24px;">
 
               <!-- SKU Dynamic Rows -->
               <div class="modern-form-group">
@@ -705,54 +690,7 @@
                 </div>
               </div>
 
-              <!-- Lampiran Bukti -->
-              <div style="border-top: 1px solid var(--border-slate); padding-top: 15px; margin-top: 15px;">
-                <h5 style="font-weight: 700; color: #334155; margin-bottom: 12px;"><i class="fa fa-paperclip"></i> Lampiran Bukti</h5>
-                <input type="file" name="lampiran[]" id="lampiran" class="modern-input" multiple accept=".jpg,.jpeg,.png,.gif,.pdf" style="padding: 6px;" />
-                <small class="text-muted">Screenshot chat / foto barang. JPG, PNG, GIF, atau PDF. Maks 5 MB per berkas.</small>
-                <div class="lampiran-list" id="lampiran-list"></div>
-              </div>
-
-              <!-- Proses Banding Section -->
-              <div style="border-top: 1px solid var(--border-slate); padding-top: 15px; margin-top: 15px;">
-                <h5 style="font-weight: 700; color: #334155; margin-bottom: 15px;"><i class="fa fa-balance-scale"></i> Proses Banding Logistik</h5>
-
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="modern-form-group">
-                      <label class="modern-label">Tgl & Jam Pengajuan</label>
-                      <input type="datetime-local" name="tgl_banding_pengajuan" id="tgl_banding_pengajuan" class="modern-input" />
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="modern-form-group">
-                      <label class="modern-label">Tgl & Jam Tinjauan</label>
-                      <input type="datetime-local" name="tgl_banding_tinjauan" id="tgl_banding_tinjauan" class="modern-input" />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="modern-form-group">
-                      <label class="modern-label">Tanggal Claim Dana</label>
-                      <input type="date" name="tgl_claim_dana" id="tgl_claim_dana" class="modern-input" />
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="modern-form-group">
-                      <label class="modern-label">Nominal Claim Dana</label>
-                      <input type="number" step="0.01" name="nominal_claim_dana" id="nominal_claim_dana" class="modern-input" placeholder="Rp 0" />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="modern-form-group">
-                  <label class="modern-label">Keterangan Hasil Banding</label>
-                  <textarea name="keterangan_banding" id="keterangan_banding" class="modern-input" rows="2" placeholder="Tulis hasil banding logistik..."></textarea>
-                </div>
-              </div>
-
+              
             </div>
           </div>
         </div>
@@ -947,8 +885,8 @@
         $('#form-save-complain')[0].reset();
         $('#force_duplikat').val('0');
         $('#sku-rows-list').empty();
-        $('#lampiran-list').empty();
-        $('#group-detail-lainnya').hide();
+        $('#toko_lengkap').val('');
+        $('#tanda-wajib-keterangan').hide();
         // required harus ikut dilepas: field wajib yang tersembunyi bikin submit
         // diblokir browser tanpa pesan apa pun
         $('#detail_lainnya').prop('required', false).val('');
@@ -967,7 +905,6 @@
         $('#role-warning-edit').hide();
         $('#btn-save-submit').show();
         $('#tgl_komplain').val(moment().format('YYYY-MM-DD'));
-        $('#status_penanganan').val('Baru');
         // Tanggal input & penginput terisi sendiri, tidak bisa diubah manual
         $('#info_input').val(moment().format('DD/MM/YYYY HH:mm') + ' oleh ' + namaPenggunaLogin);
         $('#nilai_pesanan_tampil').val('');
@@ -990,16 +927,23 @@
         }
     });
 
-    // Toggle detail lainnya textarea
+    // Keterangan selalu tampil; wajib hanya untuk kategori Lainnya
     $('#kategori_komplain').on('change', function() {
-        if ($(this).val() === 'Lainnya') {
-            $('#group-detail-lainnya').slideDown();
-            $('#detail_lainnya').prop('required', true);
-        } else {
-            $('#group-detail-lainnya').slideUp();
-            $('#detail_lainnya').prop('required', false).val('');
-        }
+        var lainnya = $(this).val() === 'Lainnya';
+        $('#detail_lainnya').prop('required', lainnya);
+        $('#tanda-wajib-keterangan').toggle(lainnya);
     });
+
+    function perbaruiTokoLengkap() {
+        var mp = $('#id_marketplace option:selected').text().trim();
+        var toko = ($('#toko').val() || '').trim();
+        var teks = '';
+        if (toko) {
+            teks = (mp && $('#id_marketplace').val()) ? mp + ' - ' + toko : toko;
+        }
+        $('#toko_lengkap').val(teks);
+    }
+    $('#id_marketplace, #toko').on('change', perbaruiTokoLengkap);
 
     // Auto-fill trigger by clicking button
     $('#btn-search-resi').on('click', function() {
@@ -1014,10 +958,22 @@
         }
     });
 
+    // Otomatis mencari begitu nomor selesai diisi (pindah kolom / tempel), tanpa harus Enter
+    var terakhirDicari = '';
+    function cariOtomatis() {
+        if ($('#is_edit').val() === '1') return;
+        var v = $('#no_resi').val().trim();
+        if (v.length < 5 || v === terakhirDicari) return;
+        terakhirDicari = v;
+        searchResiAutoFill();
+    }
+    $('#no_resi').on('blur change paste', function() { setTimeout(cariOtomatis, 50); });
+    $('#modalFormKomplain').on('show.bs.modal', function() { terakhirDicari = ''; });
+
     function searchResiAutoFill() {
         var noresi = $('#no_resi').val().trim();
         if (noresi === '') {
-            showNoty('Silakan masukkan nomor resi terlebih dahulu!', 'error');
+            showNoty('Silakan masukkan nomor resi / nomor pesanan terlebih dahulu!', 'error');
             return;
         }
 
@@ -1045,15 +1001,24 @@
                         $('#toko').val(resp.data.toko);
                     }
 
+                    // Packer disimpan tersembunyi; di meja ini packer = QC
                     if (resp.data.nama_packer) {
-                        ensureOption('#nama_packer', resp.data.nama_packer);
                         $('#nama_packer').val(resp.data.nama_packer);
+                        ensureOption('#nama_qc', resp.data.nama_packer);
+                        $('#nama_qc').val(resp.data.nama_packer);
                     }
 
                     if (resp.data.nama_picker) {
                         ensureOption('#nama_picker', resp.data.nama_picker);
                         $('#nama_picker').val(resp.data.nama_picker);
                     }
+
+                    // Nomor resi bisa terisi dari nomor pesanan / picklist yang diketik
+                    if (resp.data.noresi) {
+                        $('#no_resi').val(resp.data.noresi);
+                        terakhirDicari = resp.data.noresi;
+                    }
+                    perbaruiTokoLengkap();
 
                     // Nomor & tanggal pesanan
                     $('#no_pesanan').val(resp.data.no_pesanan || '');
@@ -1139,16 +1104,16 @@
         var formattedHpp = parseFloat(hpp || 0).toFixed(2);
 
         var html = '<div class="sku-item-row" id="' + rowId + '">' +
-                   '  <div style="flex: 3; position: relative;">' +
+                   '  <div style="flex: 5; position: relative; min-width: 220px;">' +
                    '    <input type="text" name="sku[]" class="modern-input sku-autocomplete" placeholder="Cari SKU..." value="' + sku + '" required />' +
                    '  </div>' +
-                   '  <div style="flex: 1;">' +
+                   '  <div style="flex: 1.2; min-width: 90px;">' +
                    '    <input type="number" name="qty[]" class="modern-input item-qty" placeholder="Qty" min="1" value="' + qty + '" required />' +
                    '  </div>' +
-                   '  <div style="flex: 2;">' +
+                   '  <div style="flex: 2.5; min-width: 170px;">' +
                    '    <div class="input-group">' +
                    '      <span class="input-group-addon" style="padding:6px 8px; font-size:12px;">Rp</span>' +
-                   '      <input type="text" name="price[]" class="modern-input item-price" value="' + formattedHpp + '" readonly />' +
+                   '      <input type="text" name="price[]" class="modern-input item-price" value="' + formattedHpp + '" inputmode="decimal" />' +
                    '    </div>' +
                    '  </div>' +
                    '  <div>' +
@@ -1159,7 +1124,7 @@
         $('#sku-rows-list').append(html);
 
         // Listener qty; saran SKU ditangani lewat event delegation di bawah
-        $('#' + rowId).find('.item-qty').on('input change', function() {
+        $('#' + rowId).find('.item-qty, .item-price').on('input change', function() {
             calculateNominalTotal();
         });
     }
@@ -1366,7 +1331,6 @@
                     $('#no_resi').val(comp.no_resi);
                     $('#tgl_komplain').val(comp.tgl_komplain || '');
                     $('#sumber_komplain').val(comp.sumber_komplain || '');
-                    $('#status_penanganan').val(comp.status_penanganan || '');
                     $('#catatan_penanganan').val(comp.catatan_penanganan || '');
                     $('#hasil_investigasi').val(comp.hasil_investigasi || '');
                     if (comp.hasil_investigasi === 'QC Salah') {
@@ -1378,20 +1342,16 @@
                     $('#toko').val(comp.toko);
 
                     $('#kategori_komplain').val(comp.kategori_komplain);
-                    if (comp.kategori_komplain === 'Lainnya') {
-                        $('#group-detail-lainnya').show();
-                        $('#detail_lainnya').val(comp.detail_lainnya).prop('required', true);
-                    }
+                    $('#detail_lainnya').val(comp.detail_lainnya || '').prop('required', comp.kategori_komplain === 'Lainnya');
+                    $('#tanda-wajib-keterangan').toggle(comp.kategori_komplain === 'Lainnya');
+                    perbaruiTokoLengkap();
 
                     if (comp.nama_qc) {
                         ensureOption('#nama_qc', comp.nama_qc);
                         $('#nama_qc').val(comp.nama_qc);
                     }
 
-                    if (comp.nama_packer) {
-                        ensureOption('#nama_packer', comp.nama_packer);
-                        $('#nama_packer').val(comp.nama_packer);
-                    }
+                    $('#nama_packer').val(comp.nama_packer || '');
 
                     if (comp.nama_picker) {
                         ensureOption('#nama_picker', comp.nama_picker);
@@ -1409,23 +1369,6 @@
                     var tglInput = comp.created_at ? moment(comp.created_at).format('DD/MM/YYYY HH:mm') : '-';
                     $('#info_input').val(tglInput + ' oleh ' + (comp.nama_penginput || '-'));
 
-                    // Banding inputs
-                    if (comp.tgl_banding_pengajuan) {
-                        $('#tgl_banding_pengajuan').val(comp.tgl_banding_pengajuan.replace(' ', 'T').substring(0, 16));
-                    }
-                    if (comp.tgl_banding_tinjauan) {
-                        $('#tgl_banding_tinjauan').val(comp.tgl_banding_tinjauan.replace(' ', 'T').substring(0, 16));
-                    }
-                    if (comp.tgl_claim_dana) {
-                        $('#tgl_claim_dana').val(comp.tgl_claim_dana);
-                    }
-                    if (comp.nominal_claim_dana) {
-                        $('#nominal_claim_dana').val(comp.nominal_claim_dana);
-                    }
-                    if (comp.keterangan_banding) {
-                        $('#keterangan_banding').val(comp.keterangan_banding);
-                    }
-
                     // SKU rows
                     if (resp.items && resp.items.length > 0) {
                         $.each(resp.items, function(idx, item) {
@@ -1436,7 +1379,6 @@
                     }
 
                     calculateNominalTotal();
-                    renderLampiran(resp.lampiran);
                     tampilkanKomplainLain(resp.komplain_lain);
 
                     $('#modalFormKomplainLabel').text(isAdminOrSupervisor ? 'Edit Data Komplain' : 'Detail Data Komplain (Read-Only)');
