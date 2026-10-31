@@ -1,11 +1,11 @@
 <?php
-// View menu TIM PACKER -> Konfirmasi Pinset Kembali. Dimuat lewat AJAX (SPA) oleh plugins.js:
+// View menu TIM PACKER -> Konfirmasi Stok AKS27-RDM. Dimuat lewat AJAX (SPA) oleh plugins.js:
 // semua handler diikat ke #pk-root supaya ikut hilang saat user pindah menu. Tanpa <form>
 // sengaja -- submit form dicegat handler global.
 if (!empty($akses_ditolak)) : ?>
 <div class="row"><div class="col-md-12">
   <div class="panel panel-default">
-    <div class="panel-heading"><h3 class="panel-title"><strong>Konfirmasi Pinset Kembali</strong></h3></div>
+    <div class="panel-heading"><h3 class="panel-title"><strong>Konfirmasi Stok AKS27-RDM</strong></h3></div>
     <div class="panel-body">
       <div class="alert alert-danger" style="margin-bottom:0;">
         <i class="fa fa-lock"></i> Role akun Anda tidak punya akses ke menu ini. Minta admin membukanya lewat menu Access.
@@ -18,7 +18,7 @@ if (!empty($akses_ditolak)) : ?>
   <div class="row"><div class="col-md-12">
     <div class="panel panel-default">
       <div class="panel-heading">
-        <h3 class="panel-title"><strong>Konfirmasi Pinset Kembali</strong>
+        <h3 class="panel-title"><strong>Konfirmasi Stok AKS27-RDM</strong>
           <button type="button" id="pk-ic" class="pk-ic" aria-label="Info halaman" aria-expanded="false">i</button>
         </h3>
       </div>

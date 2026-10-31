@@ -2,7 +2,7 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Menu TIM PACKER -> "Konfirmasi Pinset Kembali".
+ * Menu TIM PACKER -> "Konfirmasi Stok AKS27-RDM".
  *
  * Packer mengonfirmasi fisik pinset bonus AKS27-RDM dari resi cancel/retur dan mengajukan opname.
  * Aturan dan model: Stok_aks27_kembali_fcd. Saldo sistem sengaja tidak dikirim ke layar ini (opname buta).
@@ -39,7 +39,7 @@ class Pinset_kembali extends MY_Controller
             exit();
         }
 
-        $this->make_ajax_response(403, 'Role Anda tidak punya akses ke menu Konfirmasi Pinset Kembali.');
+        $this->make_ajax_response(403, 'Role Anda tidak punya akses ke menu Konfirmasi Stok AKS27-RDM.');
     }
 
     private function id_user()

@@ -40,7 +40,7 @@ class Stok_aks27_fcd extends CI_Model
      *    (tblresikeluar, scan HO / serah terima) bila tanpa catatan packer -- >= TANGGAL_MULAI_POTONG. Tepat 1 pinset per resi.
      *  - Resi berstatus CANCELED atau batal tidak memotong.
      *  - Resi yang kemudian CANCELED / diretur tetap tercatat memotong; pinsetnya baru kembali ke stok
-     *    lewat konfirmasi packer (menu Konfirmasi Pinset Kembali).
+     *    lewat konfirmasi packer (menu Konfirmasi Stok AKS27-RDM).
      * Idempoten: kolom `kunci` UNIQUE (JUAL:<noresi>) + INSERT IGNORE, jadi aman
      * dipanggil berulang dan bersamaan. Tidak pernah mengubah atau menghapus baris.
      *
