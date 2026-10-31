@@ -442,18 +442,184 @@
         .sku-item-row .sku-sub { grid-column: 3 / 4; }
         .kf-summary { grid-template-columns: 1fr; }
       }
+
+      /* ===== Daftar komplain (kp-*) — referensi: tabel dashboard dengan kartu ringkasan,
+         chip filter multi-pilih, dan drawer detail di sisi kanan ===== */
+      .kp-page { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; }
+      .kp-page input, .kp-page select, .kp-page button { font-family: inherit; }
+      .kp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 28px 6px; }
+      .kp-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
+      .kp-crumb span { margin: 0 4px; color: #cbd5e1; }
+      .kp-title { margin: 0; font-size: 22px; font-weight: 700; color: #0f172a; font-family: inherit; letter-spacing: -.01em; }
+      .kp-new-tag { vertical-align: middle; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--primary-light); color: var(--primary); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+      .kp-subtitle { margin: 4px 0 0; font-size: 13.5px; color: var(--text-muted); }
+
+      .kp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 16px 28px 4px; }
+      .kp-kpi { border: 1px solid var(--border-slate); border-radius: 12px; padding: 14px 16px 12px; background: #fff; }
+      .kp-kpi-top { display: flex; align-items: center; gap: 8px; }
+      .kp-kpi-ic { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 14px; }
+      .kp-ic-indigo { background: #eef2ff; color: #4338ca; }
+      .kp-ic-red { background: #fef2f2; color: #b91c1c; }
+      .kp-ic-amber { background: #fffbeb; color: #b45309; }
+      .kp-ic-green { background: #ecfdf5; color: #047857; }
+      .kp-kpi-label { font-size: 13px; font-weight: 600; color: var(--text-slate); }
+      .kp-kpi-val { margin-top: 10px; font-size: 28px; line-height: 1.1; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+      .kp-kpi-note { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+
+      .kp-body { padding: 16px 28px 24px; }
+      .kp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 14px; }
+      .kp-search { position: relative; flex: 1 1 240px; max-width: 340px; }
+      .kp-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; }
+      .kp-search input { width: 100%; height: 38px; padding: 0 12px 0 34px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13.5px; background: #fff; color: #0f172a; box-sizing: border-box; }
+      .kp-search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+      .kp-filter { position: relative; }
+      .kp-chip { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: var(--text-slate); font-size: 13.5px; font-weight: 500; cursor: pointer; margin: 0; white-space: nowrap; }
+      .kp-chip:hover { background: var(--bg-slate); }
+      .kp-chip .fa-angle-down { color: #94a3b8; }
+      .kp-chip-count { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+      .kp-filter.aktif .kp-chip { border-color: #a5b4fc; background: #eef2ff; color: #3730a3; }
+      .kp-filter.aktif .kp-chip-count { display: inline-block; }
+      .kp-chip-date input { width: 262px; border: 0; background: transparent; font-size: 13.5px; color: var(--text-slate); cursor: pointer; padding: 0; }
+      .kp-chip-date input:focus { outline: none; }
+      .kp-chip-date .fa { color: #94a3b8; }
+      .kp-pop { display: none; position: absolute; z-index: 1050; top: calc(100% + 6px); left: 0; min-width: 210px; padding: 6px; background: #fff; border: 1px solid var(--border-slate); border-radius: 10px; box-shadow: 0 12px 28px rgba(15,23,42,.14); }
+      .kp-filter.open .kp-pop { display: block; }
+      .kp-opt { display: flex; align-items: center; gap: 9px; margin: 0; padding: 8px 10px; border-radius: 6px; font-size: 13.5px; font-weight: 400; color: var(--text-slate); cursor: pointer; }
+      .kp-opt:hover { background: var(--bg-slate); }
+      .kp-opt input { margin: 0; accent-color: var(--primary); width: 15px; height: 15px; }
+      .kp-opt span { flex: 1; }
+      .kp-opt-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+      .kp-bg-red { background: #ef4444; } .kp-bg-amber { background: #f59e0b; } .kp-bg-green { background: #10b981; } .kp-bg-slate { background: #94a3b8; }
+      .kp-pop-foot { margin-top: 4px; padding: 6px 10px 2px; border-top: 1px solid var(--border-slate); }
+      .kp-pop-clear { border: 0; background: transparent; padding: 0; font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
+      .kp-pop-clear:hover { color: var(--primary); }
+      .kp-reset { height: 38px; padding: 0 10px; border: 0; background: transparent; color: var(--primary); font-size: 13.5px; font-weight: 600; cursor: pointer; border-radius: 8px; }
+      .kp-reset:hover { background: var(--primary-light); }
+
+      .kp-table-wrap { border: 1px solid var(--border-slate); border-radius: 12px; overflow-x: auto; background: #fff; }
+      .kp-table { width: 100% !important; margin: 0 !important; border-collapse: separate; border-spacing: 0; }
+      .kp-table > thead > tr > th { padding: 11px 14px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+      .kp-table > thead > tr > th.kp-th-num { text-align: right; }
+      .kp-table > tbody > tr > td { padding: 11px 14px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
+      .kp-table > tbody > tr:nth-child(even) > td { background: #fafbfd; }
+      .kp-table > tbody > tr:hover > td { background: #f1f5ff; cursor: pointer; }
+      .kp-table > tbody > tr:last-child > td { border-bottom: 0; }
+      .kp-table td:nth-child(6) { white-space: nowrap; }
+      .kp-table td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
+      .kp-id { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .kp-resi { display: block; font-weight: 600; color: #0f172a; white-space: nowrap; }
+      .kp-sub { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--text-muted); white-space: nowrap; }
+      .kp-muted { color: #94a3b8; }
+      .kp-star { color: #ef4444; }
+      .kp-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+      .kp-pill-red { background: #fef2f2; color: #b91c1c; } .kp-pill-amber { background: #fffbeb; color: #b45309; }
+      .kp-pill-green { background: #ecfdf5; color: #047857; } .kp-pill-indigo { background: #eef2ff; color: #4338ca; }
+      .kp-pill-sky { background: #f0f9ff; color: #0369a1; } .kp-pill-slate { background: #f1f5f9; color: #475569; }
+      .kp-dot-text { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; white-space: nowrap; }
+      .kp-dot-text i { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+      .kp-dot-red i { background: #ef4444; } .kp-dot-amber i { background: #f59e0b; } .kp-dot-green i { background: #10b981; }
+      .kp-person { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+      .kp-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #e0e7ff; color: #3730a3; font-size: 11px; font-weight: 700; }
+      .kp-actions { display: flex; gap: 4px; justify-content: flex-end; }
+      .kp-icon-btn { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
+      .kp-icon-btn:hover { background: #fff; border-color: var(--border-slate); color: var(--primary); }
+      .kp-icon-danger:hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+      .kp-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 4px 0; font-size: 13px; color: var(--text-muted); }
+      .kp-foot .dataTables_info { padding: 0; }
+      .kp-pager { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+      .kp-pager .dataTables_length label { margin: 0; font-weight: 400; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+      .kp-pager .dataTables_length select { height: 32px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 6px; background: #fff; color: var(--text-slate); }
+      .kp-pager .dataTables_paginate { margin: 0; }
+      .kp-pager .pagination { margin: 0; }
+      .kp-pager .pagination > li > a { margin-left: 4px; border: 1px solid var(--border-slate); border-radius: 8px !important; color: var(--text-slate); padding: 5px 11px; font-size: 13px; }
+      .kp-pager .pagination > li > a:hover { background: var(--bg-slate); }
+      .kp-pager .pagination > .active > a, .kp-pager .pagination > .active > a:hover, .kp-pager .pagination > .active > a:focus { background: var(--primary) !important; border-color: var(--primary) !important; color: #fff !important; }
+      .kp-pager .pagination > .disabled > a { color: #cbd5e1; background: #fff; }
+      #datatable-complain-management_processing { background: rgba(255,255,255,.9); border: 1px solid var(--border-slate); border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--text-muted); box-shadow: 0 6px 16px rgba(15,23,42,.1); }
+
+      /* ===== Drawer sisi kanan (form tambah/edit & detail) ===== */
+      #modalFormKomplain, #drawerKomplain { overflow: hidden !important; }
+      .modal-dialog.kf-dialog, .modal-dialog.kp-dr-dialog { position: fixed; top: 0; right: 0; bottom: 0; margin: 0 !important; height: 100vh; max-width: none; }
+      .modal-dialog.kf-dialog { width: min(1180px, 96vw); }
+      .modal-dialog.kp-dr-dialog { width: min(600px, 96vw); }
+      .modal.fade .kf-dialog, .modal.fade .kp-dr-dialog { transform: translateX(100%); transition: transform .28s ease-out; }
+      .modal.in .kf-dialog, .modal.in .kp-dr-dialog { transform: none; }
+      .kf-content, .kp-dr-content { height: 100%; display: flex; flex-direction: column; border-radius: 16px 0 0 16px; overflow: hidden; }
+      .kf-content > form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+      .kf-body { flex: 1 1 auto; min-height: 0; max-height: none; }
+      .kf-footer { flex: none; }
+
+      .kp-dr-content { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; box-shadow: -16px 0 48px rgba(15,23,42,.22); }
+      .kp-dr-header { flex: none; }
+      .kp-dr-titlebox { display: flex; align-items: center; gap: 12px; padding-right: 30px; }
+      .kp-dr-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: var(--primary-light); color: var(--primary); font-size: 17px; flex: none; }
+      .kp-dr-meta { margin-top: 3px; font-size: 12.5px; color: var(--text-muted); }
+      .kp-dr-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 28px 8px; }
+      .kp-dr-sec { margin-bottom: 20px; }
+      .kp-dr-sec h5 { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
+      .kp-dr-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; }
+      .kp-dr-row i.fa { flex: none; width: 18px; margin-top: 2px; text-align: center; color: #94a3b8; }
+      .kp-dr-row dt { flex: 0 0 120px; margin: 0; font-weight: 400; color: var(--text-muted); }
+      .kp-dr-row dd { flex: 1; margin: 0; font-weight: 600; color: #0f172a; word-break: break-word; }
+      .kp-dr-table { width: 100%; margin-top: 6px; border: 1px solid var(--border-slate); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; font-size: 13px; }
+      .kp-dr-table th { padding: 8px 12px; background: var(--bg-slate); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+      .kp-dr-table td { padding: 9px 12px; border-top: 1px solid #f1f5f9; }
+      .kp-dr-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+      .kp-dr-total td { font-weight: 700; background: var(--bg-slate); }
+
+      @media (max-width: 1199px) { .kp-kpis { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 767px) {
+        .kp-head { flex-direction: column; padding: 16px 16px 4px; }
+        .kp-kpis { padding: 12px 16px 0; gap: 10px; }
+        .kp-body { padding: 12px 16px 20px; }
+        .kp-search { max-width: none; flex-basis: 100%; }
+        .kp-chip-date input { width: 190px; }
+        .modal-dialog.kf-dialog, .modal-dialog.kp-dr-dialog { width: 100vw; }
+        .kf-content, .kp-dr-content { border-radius: 0; }
+      }
     </style>
 
     <!-- Header Menu -->
-    <div class="modern-panel">
-      <div class="modern-panel-header">
-        <h3 class="modern-panel-title"><i class="fa fa-exclamation-triangle" style="color: var(--primary); margin-right: 8px;"></i> Manajemen Komplain CS New</h3>
+    <?php
+      // Nada titik warna untuk opsi filter Hasil CCTV (sama dengan pil di tabel)
+      $kp_nada_hasil = ['QC Salah' => 'red', 'QC Benar' => 'green', 'Tidak Terlihat CCTV' => 'amber', 'CCTV Tidak Bisa Diakses' => 'slate'];
+    ?>
+    <div class="modern-panel kp-page">
+      <div class="kp-head">
         <div>
-          <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
+          <div class="kp-crumb">CS <span>/</span> Manajemen Komplain</div>
+          <h3 class="kp-title">Manajemen Komplain CS <span class="kp-new-tag">New</span></h3>
+          <p class="kp-subtitle">Catat, telusuri, dan pantau komplain pembeli beserta hasil investigasinya.</p>
+        </div>
+        <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
+      </div>
+
+      <!-- Kartu ringkasan: mengikuti rentang tanggal & filter yang aktif -->
+      <div class="kp-kpis">
+        <div class="kp-kpi">
+          <div class="kp-kpi-top"><span class="kp-kpi-ic kp-ic-indigo"><i class="fa fa-list-alt"></i></span><span class="kp-kpi-label">Total Komplain</span></div>
+          <div class="kp-kpi-val" id="kpi-total">&ndash;</div>
+          <div class="kp-kpi-note">pada periode &amp; filter terpilih</div>
+        </div>
+        <div class="kp-kpi">
+          <div class="kp-kpi-top"><span class="kp-kpi-ic kp-ic-red"><i class="fa fa-exclamation-triangle"></i></span><span class="kp-kpi-label">QC Salah</span></div>
+          <div class="kp-kpi-val" id="kpi-qcsalah">&ndash;</div>
+          <div class="kp-kpi-note" id="kpi-qcsalah-note">&nbsp;</div>
+        </div>
+        <div class="kp-kpi">
+          <div class="kp-kpi-top"><span class="kp-kpi-ic kp-ic-amber"><i class="fa fa-video-camera"></i></span><span class="kp-kpi-label">Belum Dicek CCTV</span></div>
+          <div class="kp-kpi-val" id="kpi-belum">&ndash;</div>
+          <div class="kp-kpi-note">perlu investigasi</div>
+        </div>
+        <div class="kp-kpi">
+          <div class="kp-kpi-top"><span class="kp-kpi-ic kp-ic-green"><i class="fa fa-money"></i></span><span class="kp-kpi-label">Total Nominal Barang</span></div>
+          <div class="kp-kpi-val" id="kpi-nominal">&ndash;</div>
+          <div class="kp-kpi-note">nilai barang yang dikomplain</div>
         </div>
       </div>
 
-      <div class="modern-panel-body">
+      <div class="modern-panel-body kp-body">
         <!-- Tab -->
         <div class="modern-tabs">
           <button type="button" class="modern-tab active" data-tab="daftar"><i class="fa fa-list"></i> Daftar Komplain</button>
@@ -467,89 +633,87 @@
 
         <!-- ================= TAB: DAFTAR KOMPLAIN ================= -->
         <div id="tab-pane-daftar">
-          <!-- Filter -->
-          <div class="row" style="margin-bottom: 10px;">
-            <div class="col-md-4">
-              <div class="modern-form-group">
-                <label class="modern-label">Rentang Tanggal Komplain</label>
-                <div class="input-group">
-                  <input type="text" id="reportrange" class="modern-input" style="border-top-right-radius:0; border-bottom-right-radius:0;" value="<?= date('Y-m-01 00:00:00') . ' - ' . date('Y-m-t 23:59:59') ?>" />
-                  <span class="input-group-btn">
-                    <button type="button" class="btn btn-default" id="btn-filter-date" style="height: 38px; border-color: var(--border-slate); border-top-left-radius:0; border-bottom-left-radius:0;"><i class="fa fa-refresh"></i></button>
-                  </span>
-                </div>
-              </div>
+          <div class="kp-toolbar">
+            <div class="kp-search">
+              <i class="fa fa-search"></i>
+              <input type="text" id="kp-search" placeholder="Cari resi, no. pesanan, toko, nama..." autocomplete="off" />
             </div>
-            <div class="col-md-3">
-              <div class="modern-form-group">
-                <label class="modern-label">Kategori</label>
-                <select id="f_kategori" class="modern-select">
-                  <option value="">Semua Kategori</option>
-                  <?php foreach ($kategori_list as $k): ?>
-                    <option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <div class="modern-form-group">
-                <label class="modern-label">Sumber Komplain</label>
-                <select id="f_sumber" class="modern-select">
-                  <option value="">Semua Sumber</option>
-                  <?php foreach ($sumber_list as $s): ?>
-                    <option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-            </div>
-            <div class="col-md-2">
-              <div class="modern-form-group">
-                <label class="modern-label">Status</label>
-                <select id="f_status" class="modern-select">
-                  <option value="">Semua Status</option>
-                  <?php foreach ($status_list as $st): ?>
-                    <option value="<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($st) ?></option>
-                  <?php endforeach; ?>
-                  <option value="__KOSONG__">(Belum diisi)</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
-          <div class="row" style="margin-bottom: 10px;">
-            <div class="col-md-3">
-              <div class="modern-form-group">
-                <label class="modern-label">Hasil Investigasi (CCTV)</label>
-                <select id="f_hasil" class="modern-select">
-                  <option value="">Semua Hasil</option>
-                  <?php foreach ($hasil_list as $h): ?>
-                    <option value="<?= htmlspecialchars($h) ?>"><?= htmlspecialchars($h) ?></option>
-                  <?php endforeach; ?>
-                  <option value="__KOSONG__">(Belum dicek)</option>
-                </select>
+            <div class="kp-filter" data-key="kategori">
+              <button type="button" class="kp-chip"><span class="kp-chip-label">Kategori</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
+              <div class="kp-pop">
+                <?php foreach ($kategori_list as $k): ?>
+                  <label class="kp-opt"><input type="checkbox" value="<?= htmlspecialchars($k) ?>"><span><?= htmlspecialchars($k) ?></span></label>
+                <?php endforeach; ?>
+                <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
               </div>
             </div>
+
+            <div class="kp-filter" data-key="hasil">
+              <button type="button" class="kp-chip"><span class="kp-chip-label">Hasil CCTV</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
+              <div class="kp-pop">
+                <?php foreach ($hasil_list as $h): ?>
+                  <label class="kp-opt"><input type="checkbox" value="<?= htmlspecialchars($h) ?>"><i class="kp-opt-dot kp-bg-<?= $kp_nada_hasil[$h] ?? 'slate' ?>"></i><span><?= htmlspecialchars($h) ?></span></label>
+                <?php endforeach; ?>
+                <label class="kp-opt"><input type="checkbox" value="__KOSONG__"><i class="kp-opt-dot kp-bg-slate"></i><span>Belum dicek</span></label>
+                <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
+              </div>
+            </div>
+
+            <div class="kp-filter" data-key="jenis">
+              <button type="button" class="kp-chip"><span class="kp-chip-label">Jenis</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
+              <div class="kp-pop">
+                <?php foreach ($jenis_list as $j): ?>
+                  <label class="kp-opt"><input type="checkbox" value="<?= htmlspecialchars($j) ?>"><span><?= htmlspecialchars($j) ?></span></label>
+                <?php endforeach; ?>
+                <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
+              </div>
+            </div>
+
+            <div class="kp-filter" data-key="marketplace">
+              <button type="button" class="kp-chip"><span class="kp-chip-label">Marketplace</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
+              <div class="kp-pop">
+                <?php foreach ($marketplaces as $m): ?>
+                  <label class="kp-opt"><input type="checkbox" value="<?= (int) $m['id_marketplace'] ?>"><span><?= htmlspecialchars(trim($m['nama_marketplace'])) ?></span></label>
+                <?php endforeach; ?>
+                <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
+              </div>
+            </div>
+
+            <div class="kp-filter" data-key="sumber">
+              <button type="button" class="kp-chip"><span class="kp-chip-label">Sumber</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
+              <div class="kp-pop">
+                <?php foreach ($sumber_list as $s): ?>
+                  <label class="kp-opt"><input type="checkbox" value="<?= htmlspecialchars($s) ?>"><span><?= htmlspecialchars($s) ?></span></label>
+                <?php endforeach; ?>
+                <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
+              </div>
+            </div>
+
+            <label class="kp-chip kp-chip-date" title="Rentang tanggal komplain">
+              <i class="fa fa-calendar"></i>
+              <input type="text" id="reportrange" readonly value="<?= date('Y-m-01 00:00:00') . ' - ' . date('Y-m-t 23:59:59') ?>" />
+            </label>
+
+            <button type="button" class="kp-reset" id="kp-reset" style="display:none;"><i class="fa fa-times"></i> Reset filter</button>
           </div>
 
           <!-- DataTable -->
-          <div class="table-responsive">
-            <table class="modern-table table" id="datatable-complain-management">
+          <div class="kp-table-wrap">
+            <table class="kp-table table" id="datatable-complain-management">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Tgl Komplain</th>
-                  <th>No. Resi / Pesanan</th>
-                  <th>Marketplace</th>
+                  <th>ID</th>
+                  <th>Tanggal</th>
+                  <th>Resi / Pesanan</th>
                   <th>Toko</th>
                   <th>Kategori</th>
-                  <th>Sumber</th>
-                  <th>Status</th>
-                  <th>Hasil Investigasi</th>
-                  <th>Nominal Total</th>
-                  <th>QC</th>
+                  <th>Hasil CCTV</th>
+                  <th class="kp-th-num">Nominal</th>
                   <th>Packer</th>
-                  <th>Proses Banding</th>
-                  <th style="width: 100px;">Aksi</th>
+                  <th>Picker</th>
+                  <th>Diinput</th>
+                  <th></th>
                 </tr>
               </thead>
             </table>
@@ -788,6 +952,30 @@
   </div>
 </div>
 
+<!-- Drawer detail komplain (hanya lihat). Edit/Hapus membuka alur yang sudah ada. -->
+<div class="modal fade" id="drawerKomplain" role="dialog" aria-labelledby="drawerKomplainLabel" aria-hidden="true">
+  <div class="modal-dialog kp-dr-dialog" role="document">
+    <div class="modal-content kp-dr-content">
+      <div class="kf-header kp-dr-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+        <div class="kp-dr-titlebox">
+          <span class="kp-dr-icon"><i class="fa fa-file-text-o"></i></span>
+          <div>
+            <h4 class="modal-title" id="drawerKomplainLabel">Komplain</h4>
+            <div class="kp-dr-meta" id="kp-dr-meta"></div>
+          </div>
+        </div>
+      </div>
+      <div class="kp-dr-body" id="kp-dr-body"></div>
+      <div class="kf-footer">
+        <button type="button" class="btn-modern btn-modern-secondary" data-dismiss="modal">Tutup</button>
+        <button type="button" class="btn-modern btn-modern-secondary kp-dr-admin" id="kp-dr-hapus" style="display:none;"><i class="fa fa-trash"></i> Hapus</button>
+        <button type="button" class="btn-modern kp-dr-admin" id="kp-dr-edit" style="display:none;"><i class="fa fa-pencil"></i> Edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts Section -->
 <script>
   $(document).ready(function() {
@@ -796,44 +984,119 @@
     var namaPenggunaLogin = "<?= htmlspecialchars($this->session->userdata('user')['name'] ?? '-', ENT_QUOTES) ?>";
     var kandidatTable = null;
 
-    // Initialisasi DataTables
+    // Halaman ini dimuat ulang lewat AJAX (SPA): lepas handler lama di document supaya tidak menumpuk
+    $(document).off('.kpnew');
+
+    // ---------------- Daftar komplain: filter, tabel, kartu ringkasan ----------------
+    var filterAktif = { kategori: [], hasil: [], jenis: [], marketplace: [], sumber: [] };
+
+    function sertakanFilter(d) {
+        d.reportrange = $('#reportrange').val();
+        $.each(filterAktif, function(k, v) { d['f_' + k] = v; });
+        return d;
+    }
+
     var table = $('#datatable-complain-management').DataTable({
         "processing": true,
         "serverSide": true,
         "ajax": {
             "url": "cs-new/complain-management/get-data",
             "type": "POST",
-            "data": function(d) {
-                d.reportrange = $('#reportrange').val();
-                d.f_kategori = $('#f_kategori').val();
-                d.f_sumber = $('#f_sumber').val();
-                d.f_status = $('#f_status').val();
-                d.f_hasil = $('#f_hasil').val();
-            }
+            "data": function(d) { sertakanFilter(d); }
         },
         "columns": [
-            { "data": 0, "orderable": false }, // index
-            { "data": 1 },  // tgl komplain
-            { "data": 2 },  // no resi
-            { "data": 3 },  // marketplace
-            { "data": 4 },  // toko
-            { "data": 5 },  // kategori
-            { "data": 6 },  // sumber
-            { "data": 7 },  // status
-            { "data": 8 },  // hasil investigasi
-            { "data": 9 },  // nominal
-            { "data": 10 }, // qc
-            { "data": 11 }, // packer
-            { "data": 12 }, // banding
-            { "data": 13, "orderable": false } // action
+            { "data": 0 },  // id
+            { "data": 1 },  // tanggal
+            { "data": 2 },  // resi / pesanan
+            { "data": 3 },  // toko + marketplace
+            { "data": 4 },  // kategori
+            { "data": 5 },  // hasil cctv
+            { "data": 6 },  // nominal
+            { "data": 7 },  // packer
+            { "data": 8 },  // picker
+            { "data": 9 },  // diinput
+            { "data": 10, "orderable": false } // aksi
         ],
         "order": [[1, "desc"]],
+        "pageLength": 25,
+        "lengthMenu": [[10, 25, 50, 100], [10, 25, 50, 100]],
+        "dom": 't<"kp-foot"<"kp-info"i><"kp-pager"lp>>',
         "language": {
-            "emptyTable": "Tidak ada data komplain yang terdaftar"
+            "emptyTable": "Tidak ada data komplain pada periode & filter ini",
+            "zeroRecords": "Tidak ada data komplain pada periode & filter ini",
+            "info": "Menampilkan _START_&ndash;_END_ dari _TOTAL_ komplain",
+            "infoEmpty": "Menampilkan 0 komplain",
+            "infoFiltered": "",
+            "lengthMenu": "Baris per halaman _MENU_",
+            "processing": "Memuat...",
+            "paginate": { "previous": "&lsaquo;", "next": "&rsaquo;" }
         }
     });
 
-    // DateRangePicker Initialization
+    // Kartu ringkasan: dimuat ulang setiap tabel digambar ulang, dengan filter yang sama
+    function muatRingkasan() {
+        var d = sertakanFilter({});
+        d.search_text = $('#kp-search').val();
+        $.post('cs-new/complain-management/ringkasan', d, function(r) {
+            if (!r || typeof r.total === 'undefined') return;
+            $('#kpi-total').text(r.total.toLocaleString('id-ID'));
+            $('#kpi-qcsalah').text(r.qc_salah.toLocaleString('id-ID'));
+            var pct = r.total > 0 ? Math.round(r.qc_salah / r.total * 100) : 0;
+            $('#kpi-qcsalah-note').text(pct + '% dari komplain, ' + r.qc_benar.toLocaleString('id-ID') + ' QC benar');
+            $('#kpi-belum').text(r.belum_dicek.toLocaleString('id-ID'));
+            $('#kpi-nominal').text('Rp ' + Math.round(r.nominal).toLocaleString('id-ID'));
+        }, 'json');
+    }
+    table.on('draw.dt', muatRingkasan);
+
+    // Pencarian (server-side), ditunda sebentar supaya tidak menembak tiap ketikan
+    var timerCari = null;
+    $('#kp-search').on('input', function() {
+        var v = this.value;
+        clearTimeout(timerCari);
+        timerCari = setTimeout(function() { table.search(v).draw(); }, 300);
+    });
+
+    // Chip filter multi-pilih
+    function perbaruiChip($f) {
+        var n = filterAktif[$f.data('key')].length;
+        $f.toggleClass('aktif', n > 0);
+        $f.find('.kp-chip-count').text(n);
+        var adaFilter = false;
+        $.each(filterAktif, function(k, v) { if (v.length) adaFilter = true; });
+        $('#kp-reset').toggle(adaFilter);
+    }
+
+    $(document).on('click.kpnew', '.kp-filter > .kp-chip', function(e) {
+        e.stopPropagation();
+        var $f = $(this).closest('.kp-filter');
+        $('.kp-filter').not($f).removeClass('open');
+        $f.toggleClass('open');
+    });
+    $(document).on('click.kpnew', function(e) {
+        if (!$(e.target).closest('.kp-filter').length) $('.kp-filter').removeClass('open');
+    });
+    $(document).on('change.kpnew', '.kp-opt input', function() {
+        var $f = $(this).closest('.kp-filter');
+        filterAktif[$f.data('key')] = $f.find('.kp-opt input:checked').map(function() { return this.value; }).get();
+        perbaruiChip($f);
+        table.ajax.reload();
+    });
+    $(document).on('click.kpnew', '.kp-pop-clear', function() {
+        var $f = $(this).closest('.kp-filter');
+        $f.find('.kp-opt input').prop('checked', false);
+        filterAktif[$f.data('key')] = [];
+        perbaruiChip($f);
+        table.ajax.reload();
+    });
+    $('#kp-reset').on('click', function() {
+        $('.kp-opt input').prop('checked', false);
+        $.each(filterAktif, function(k) { filterAktif[k] = []; });
+        $('.kp-filter').each(function() { perbaruiChip($(this)); });
+        table.ajax.reload();
+    });
+
+    // DateRangePicker
     $('#reportrange').daterangepicker({
         locale: {
             format: 'YYYY-MM-DD HH:mm:ss'
@@ -851,14 +1114,81 @@
            'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
         }
     });
+    $('#reportrange').on('apply.daterangepicker', function() { table.ajax.reload(); });
 
-    $('#btn-filter-date').on('click', function() {
-        table.ajax.reload();
-    });
+    // ---------------- Drawer detail ----------------
+    function pvRow(ikon, label, nilai) {
+        return '<div class="kp-dr-row"><i class="fa ' + ikon + '"></i><dt>' + label + '</dt><dd>' + esc(nilai) + '</dd></div>';
+    }
+    var nadaHasil = { 'QC Salah': 'red', 'QC Benar': 'green', 'Tidak Terlihat CCTV': 'amber', 'CCTV Tidak Bisa Diakses': 'slate' };
 
-    $('#f_kategori, #f_sumber, #f_status, #f_hasil').on('change', function() {
-        table.ajax.reload();
+    function bukaDrawer(id) {
+        $.getJSON('cs-new/complain-management/detail/' + encodeURIComponent(id), function(resp) {
+            if (!resp || !resp.success) {
+                showNoty((resp && resp.message) || 'Gagal mengambil detail komplain.', 'error');
+                return;
+            }
+            var c = resp.complain;
+            var kode = 'K-' + ('00000' + c.id_complain).slice(-5);
+            var mp = $('#id_marketplace option[value="' + c.id_marketplace + '"]').text().trim();
+            var nada = nadaHasil[c.hasil_investigasi] || 'slate';
+            var hasilPil = '<span class="kp-pill kp-pill-' + nada + '">' + esc(c.hasil_investigasi || 'Belum dicek') + '</span>';
+
+            $('#drawerKomplainLabel').html('Komplain ' + kode + ' ' + hasilPil);
+            $('#kp-dr-meta').text('Dibuat ' + (c.created_at ? moment(c.created_at).format('DD MMM YYYY HH:mm:ss') : '-') +
+                ' oleh ' + (c.nama_penginput || '-') + (c.no_absen_input && c.no_absen_input !== '-' ? ' (' + c.no_absen_input + ')' : ''));
+
+            var total = 0, barang = '';
+            $.each(resp.items || [], function(i, it) {
+                var sub = (parseInt(it.qty) || 0) * (parseFloat(it.price) || 0);
+                total += sub;
+                barang += '<tr><td>' + esc(it.sku) + '</td><td class="num">' + esc(it.qty) + '</td><td class="num">Rp ' +
+                          (parseFloat(it.price) || 0).toLocaleString('id-ID') + '</td><td class="num">Rp ' + sub.toLocaleString('id-ID') + '</td></tr>';
+            });
+
+            var html =
+                '<div class="kp-dr-sec"><h5>Pesanan</h5>' +
+                    pvRow('fa-barcode', 'No. resi', c.no_resi) +
+                    pvRow('fa-hashtag', 'No. pesanan', (c.no_pesanan || '').replace(/^SP-/i, '')) +
+                    pvRow('fa-calendar', 'Tanggal pesanan', c.tgl_pesanan) +
+                    pvRow('fa-shopping-bag', 'Marketplace', mp) +
+                    pvRow('fa-building-o', 'Toko', c.toko) + '</div>' +
+                '<div class="kp-dr-sec"><h5>Komplain</h5>' +
+                    pvRow('fa-tag', 'Jenis', c.jenis_komplain || 'CCTV') +
+                    pvRow('fa-exclamation-circle', 'Kategori', c.kategori_komplain) +
+                    pvRow('fa-align-left', 'Keterangan', c.detail_lainnya) +
+                    pvRow('fa-comments-o', 'Sumber', c.sumber_komplain) +
+                    pvRow('fa-calendar-check-o', 'Tanggal komplain', c.tgl_komplain) + '</div>' +
+                '<div class="kp-dr-sec"><h5>Barang komplain</h5><table class="kp-dr-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
+                    barang + '<tr class="kp-dr-total"><td colspan="3" class="num">Total</td><td class="num">Rp ' + total.toLocaleString('id-ID') + '</td></tr></tbody></table></div>' +
+                '<div class="kp-dr-sec"><h5>Investigasi</h5>' +
+                    pvRow('fa-video-camera', 'Hasil cek CCTV', c.hasil_investigasi || 'Belum dicek') +
+                    pvRow('fa-sticky-note-o', 'Catatan', c.catatan_penanganan) +
+                    pvRow('fa-user', 'Picker', c.nama_picker) +
+                    pvRow('fa-user', 'Packer', c.nama_qc || c.nama_packer) + '</div>';
+
+            $('#kp-dr-body').html(html).scrollTop(0);
+            $('#kp-dr-edit, #kp-dr-hapus').data('id', c.id_complain).data('noresi', c.no_resi).toggle(isAdminOrSupervisor);
+            $('#drawerKomplain').modal('show');
+        });
+    }
+
+    $(document).on('click.kpnew', '.btn-detail-complain', function(e) { e.stopPropagation(); bukaDrawer($(this).data('id')); });
+    $('#datatable-complain-management tbody').on('click', 'tr', function(e) {
+        if ($(e.target).closest('button, a').length) return;
+        var id = $(this).find('.btn-detail-complain').data('id');
+        if (id) bukaDrawer(id);
     });
+    // Edit & Hapus memakai alur yang sudah ada lewat tombol sementara di body
+    function picuTombol(kelas, id, noresi) {
+        $('#drawerKomplain').one('hidden.bs.modal', function() {
+            var $t = $('<button type="button" style="display:none"></button>').addClass(kelas).attr('data-id', id).attr('data-noresi', noresi || '').appendTo('body');
+            $t.trigger('click');
+            setTimeout(function() { $t.remove(); }, 1500);
+        }).modal('hide');
+    }
+    $('#kp-dr-edit').on('click', function() { picuTombol('btn-edit-complain', $(this).data('id')); });
+    $('#kp-dr-hapus').on('click', function() { picuTombol('btn-delete-complain', $(this).data('id'), $(this).data('noresi')); });
 
     // ---------------- Tab switching ----------------
     $('.modern-tab').on('click', function() {
@@ -905,7 +1235,7 @@
     }
 
     // Tarik satu kandidat
-    $(document).on('click', '.btn-tarik-kandidat', function() {
+    $(document).on('click.kpnew', '.btn-tarik-kandidat', function() {
         var $btn = $(this);
         tarikKandidat([$btn.data('id')], $btn);
     });
@@ -1254,7 +1584,7 @@
         $input.closest('div').append($ul);
     }
 
-    $(document).on('input', '.sku-autocomplete', function() {
+    $(document).on('input.kpnew', '.sku-autocomplete', function() {
         var $input = $(this);
         var term = $input.val().trim();
 
@@ -1280,12 +1610,12 @@
         }, 250);
     });
 
-    $(document).on('click', '.sku-suggest li', function() {
+    $(document).on('click.kpnew', '.sku-suggest li', function() {
         if ($(this).hasClass('sku-suggest-kosong')) return;
         pilihSaran($(this));
     });
 
-    $(document).on('keydown', '.sku-autocomplete', function(e) {
+    $(document).on('keydown.kpnew', '.sku-autocomplete', function(e) {
         var $ul = $(this).closest('div').find('.sku-suggest');
         if ($ul.length === 0) return;
 
@@ -1308,7 +1638,7 @@
     });
 
     // Klik di luar menutup dropdown
-    $(document).on('click', function(e) {
+    $(document).on('click.kpnew', function(e) {
         if (!$(e.target).closest('.sku-item-row').length) {
             $('.sku-suggest').remove();
         }
@@ -1320,7 +1650,7 @@
     });
 
     // Remove row button
-    $(document).on('click', '.btn-remove-sku-row', function() {
+    $(document).on('click.kpnew', '.btn-remove-sku-row', function() {
         if ($('.sku-item-row').length > 1) {
             $(this).closest('.sku-item-row').remove();
             calculateNominalTotal();
@@ -1487,7 +1817,7 @@
     }
 
     // Edit action trigger
-    $(document).on('click', '.btn-edit-complain', function() {
+    $(document).on('click.kpnew', '.btn-edit-complain', function() {
         var id = $(this).data('id');
 
         resetFormKomplain();
@@ -1531,9 +1861,10 @@
                     $('#detail_lainnya').val(comp.detail_lainnya || '').prop('required', comp.kategori_komplain === 'Lainnya');
                     $('#tanda-wajib-keterangan').toggle(comp.kategori_komplain === 'Lainnya');
 
-                    if (comp.nama_qc) {
-                        ensureOption('#nama_qc', comp.nama_qc);
-                        $('#nama_qc').val(comp.nama_qc);
+                    var packerEdit = comp.nama_qc || comp.nama_packer;
+                    if (packerEdit) {
+                        ensureOption('#nama_qc', packerEdit);
+                        $('#nama_qc').val(packerEdit);
                     }
 
                     $('#nama_packer').val(comp.nama_packer || '');
@@ -1597,7 +1928,7 @@
         });
     }
 
-    $(document).on('click', '.btn-hapus-lampiran', function() {
+    $(document).on('click.kpnew', '.btn-hapus-lampiran', function() {
         var $chip = $(this).closest('.lampiran-chip');
         var id = $(this).data('id');
 
@@ -1621,7 +1952,7 @@
     });
 
     // Delete/Soft-delete action trigger
-    $(document).on('click', '.btn-delete-complain', function() {
+    $(document).on('click.kpnew', '.btn-delete-complain', function() {
         var id = $(this).data('id');
         var noresi = $(this).data('noresi');
 
