@@ -419,13 +419,8 @@
          chip filter multi-pilih, dan drawer detail di sisi kanan ===== */
       .kp-page { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; }
       .kp-page input, .kp-page select, .kp-page button { font-family: inherit; }
-      .kp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 28px 6px; }
+      .kp-head { display: flex; justify-content: flex-end; align-items: center; gap: 16px; padding: 18px 28px 0; }
       .kp-head-actions { display: flex; gap: 8px; flex: none; }
-      .kp-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
-      .kp-crumb span { margin: 0 4px; color: #cbd5e1; }
-      .kp-title { margin: 0; font-size: 22px; font-weight: 700; color: #0f172a; font-family: inherit; letter-spacing: -.01em; }
-      .kp-new-tag { vertical-align: middle; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--primary-light); color: var(--primary); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-      .kp-subtitle { margin: 4px 0 0; font-size: 13.5px; color: var(--text-muted); }
 
       .kp-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 16px 28px 4px; }
       .kp-kpi { border: 1px solid var(--border-slate); border-radius: 12px; padding: 14px 16px 12px; background: #fff; }
@@ -551,7 +546,7 @@
 
       @media (max-width: 1199px) { .kp-kpis { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 767px) {
-        .kp-head { flex-direction: column; padding: 16px 16px 4px; }
+        .kp-head { padding: 14px 16px 0; }
         .kp-kpis { padding: 12px 16px 0; gap: 10px; }
         .kp-body { padding: 12px 16px 20px; }
         .kp-search { max-width: none; flex-basis: 100%; }
@@ -568,11 +563,6 @@
     ?>
     <div class="modern-panel kp-page">
       <div class="kp-head">
-        <div>
-          <div class="kp-crumb">CS <span>/</span> Manajemen Komplain</div>
-          <h3 class="kp-title">Manajemen Komplain CS <span class="kp-new-tag">New</span></h3>
-          <p class="kp-subtitle">Catat, telusuri, dan pantau komplain pembeli beserta hasil investigasinya.</p>
-        </div>
         <div class="kp-head-actions">
           <button type="button" class="btn-modern btn-modern-secondary" id="btn-export-komplain" title="Unduh daftar sesuai filter yang aktif"><i class="fa fa-download"></i> Export</button>
           <button type="button" class="btn-modern" id="btn-tambah-komplain"><i class="fa fa-plus"></i> Tambah Komplain</button>
