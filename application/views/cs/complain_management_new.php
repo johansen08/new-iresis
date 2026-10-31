@@ -992,6 +992,9 @@
                         ensureOption('#toko', resp.data.toko);
                         $('#toko').val(resp.data.toko);
                     }
+                    if (!resp.data.toko) {
+                        showNoty('Nama toko resi ini tidak tercatat di iresis (resi lama). Pilih toko secara manual.', 'warning');
+                    }
 
                     // Packer disimpan tersembunyi; di meja ini packer = QC
                     if (resp.data.nama_packer) {
