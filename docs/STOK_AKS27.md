@@ -79,7 +79,7 @@ Pinset sudah keluar dari rak saat resi discan packer, jadi cancel/retur tidak ot
 stok baru naik setelah **packer** (pemegang stok fisik) mengonfirmasi. Model: `Stok_aks27_kembali_fcd`;
 migrasi `MY_Controller::run_stok_aks27_kembali_migration()` (`BOOTSTRAP_VERSI` 2026-10-31.1).
 
-**Menu TIM PACKER "Konfirmasi Pinset Kembali"** (`packer/pinset-kembali`, `Pinset_kembali`, role 1 dan 4 = semua
+**Menu TIM PACKER "Konfirmasi Stok AKS27-RDM"** (`packer/pinset-kembali`, `Pinset_kembali`, role 1 dan 4 = semua
 client packer). Packer scan resi -> sistem memeriksa: resi harus punya baris PENJUALAN, berstatus `CANCELED`
 (jenis CANCEL) atau ada di `tblresiretur` (jenis RETUR), dan belum diputuskan. Pilihan:
 

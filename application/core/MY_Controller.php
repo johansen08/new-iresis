@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-31.1';
+    const BOOTSTRAP_VERSI = '2026-10-31.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2529,7 +2529,7 @@ class MY_Controller extends CI_Controller
      * - tblstok_aks27_kembali : satu keputusan per resi (noresi UNIQUE).
      * - tblstok_aks27_ajuan   : pengajuan yang baru berlaku setelah disetujui purchasing
      *                           (koreksi "lupa dimasukkan" dan opname).
-     * Menu TIM PACKER "Konfirmasi Pinset Kembali" (role 1, 4) dan TIM PURCHASING "Persetujuan Stok AKS27"
+     * Menu TIM PACKER "Konfirmasi Stok AKS27-RDM" (role 1, 4) dan TIM PURCHASING "Persetujuan Stok AKS27"
      * (role 1, 7); sejalan dengan Pinset_kembali::ROLE_BOLEH dan Persetujuan_aks27::ROLE_BOLEH.
      */
     protected function run_stok_aks27_kembali_migration()
@@ -2568,7 +2568,7 @@ class MY_Controller extends CI_Controller
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
 
         $menu_baru = [
-            ['TIM PACKER', 'Konfirmasi Pinset Kembali', 'packer/pinset-kembali', 'fa fa-undo', 6, [1, 4],
+            ['TIM PACKER', 'Konfirmasi Stok AKS27-RDM', 'packer/pinset-kembali', 'fa fa-undo', 6, [1, 4],
                 'Packer mengonfirmasi pinset bonus AKS27-RDM dari resi cancel/retur sudah kembali fisik atau belum, dan mengajukan opname.'],
             ['TIM PURCHASING', 'Persetujuan Stok AKS27', 'purchasing/persetujuan-aks27', 'fa fa-check-square-o', 8, [1, 7],
                 'Purchasing menyetujui atau menolak koreksi dan opname stok pinset bonus AKS27-RDM yang diajukan packer.'],
@@ -2594,6 +2594,10 @@ class MY_Controller extends CI_Controller
                 $menu_id = $this->db->insert_id();
             } else {
                 $menu_id = $menu->id;
+                if ($menu->name !== $m[1]) {
+                    // menu lama ("Konfirmasi Pinset Kembali") diganti namanya
+                    $this->db->where('id', $menu_id)->update('menu', ['name' => $m[1]]);
+                }
             }
             foreach ($m[5] as $roleid) {
                 $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();

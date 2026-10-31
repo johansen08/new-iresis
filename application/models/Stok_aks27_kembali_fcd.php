@@ -2,7 +2,7 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Model menu TIM PACKER -> "Konfirmasi Pinset Kembali" dan TIM PURCHASING -> "Persetujuan Stok AKS27".
+ * Model menu TIM PACKER -> "Konfirmasi Stok AKS27-RDM" dan TIM PURCHASING -> "Persetujuan Stok AKS27".
  *
  * Pinset bonus AKS27-RDM sudah keluar (PENJUALAN -1) saat resi discan packer. Kalau resinya lalu
  * CANCELED atau diretur, stok TIDAK naik otomatis: packer yang memegang stok harus mengonfirmasi
