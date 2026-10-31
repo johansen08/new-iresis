@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-31.5';
+    const BOOTSTRAP_VERSI = '2026-10-31.6';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -714,6 +714,11 @@ class MY_Controller extends CI_Controller
      */
     protected function run_complain_new_menu_migrations()
     {
+        // Kolom Jenis Komplain (CCTV / PENGEMBALIAN / BANDING); baris lama otomatis CCTV
+        if ($this->db->table_exists('tblcs_complain') && !$this->db->field_exists('jenis_komplain', 'tblcs_complain')) {
+            $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `jenis_komplain` VARCHAR(20) NOT NULL DEFAULT 'CCTV' AFTER `sumber_komplain`");
+        }
+
         $lama = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'cs/complain-management'])->row();
         if (!$lama) {
             return;

@@ -552,6 +552,15 @@
                 </div>
               </div>
 
+              <div class="modern-form-group">
+                <label class="modern-label">Jenis Komplain</label>
+                <select name="jenis_komplain" id="jenis_komplain" class="modern-select">
+                  <?php foreach ($jenis_list as $j): ?>
+                    <option value="<?= htmlspecialchars($j) ?>"><?= htmlspecialchars($j) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+
               <div class="row">
                 <div class="col-md-6">
                   <div class="modern-form-group">
@@ -1313,6 +1322,7 @@
                     $('#no_resi').val(comp.no_resi);
                     $('#tgl_komplain').val(comp.tgl_komplain || '');
                     $('#sumber_komplain').val(comp.sumber_komplain || '');
+                    $('#jenis_komplain').val(comp.jenis_komplain || 'CCTV');
                     $('#catatan_penanganan').val(comp.catatan_penanganan || '');
                     $('#hasil_investigasi').val(comp.hasil_investigasi || '');
                     if (comp.hasil_investigasi === 'QC Salah') {

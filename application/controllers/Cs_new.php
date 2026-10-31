@@ -45,6 +45,9 @@ class Cs_new extends MY_Controller
         'Lainnya'
     ];
 
+    // Jenis komplain (kolom "Jenis Komplain" di Excel manual); bawaan CCTV
+    private $complain_jenis = ['CCTV', 'PENGEMBALIAN', 'BANDING'];
+
     private $complain_status = ['Baru', 'Proses', 'Selesai', 'Ditolak'];
 
     // Hasil pengecekan CCTV atas komplain. Terpisah dari kategori supaya jenis
@@ -79,6 +82,7 @@ class Cs_new extends MY_Controller
         $data['kategori_list'] = $this->complain_kategori;
         $data['sumber_list']   = $this->complain_sumber;
         $data['status_list']   = $this->complain_status;
+        $data['jenis_list']    = $this->complain_jenis;
         $data['hasil_list']    = $this->complain_hasil;
 
         // Jumlah komplain retur fisik yang belum ditarik ke modul ini
@@ -422,6 +426,7 @@ class Cs_new extends MY_Controller
         // Field cakupan baru
         $tgl_komplain = $this->input->post('tgl_komplain') ?: null;
         $sumber_komplain = $this->input->post('sumber_komplain') ?: null;
+        $jenis_komplain = $this->input->post('jenis_komplain') ?: 'CCTV';
         $status_penanganan = $this->input->post('status_penanganan') ?: null;
         $catatan_penanganan = $this->input->post('catatan_penanganan') ?: null;
         $hasil_investigasi = $this->input->post('hasil_investigasi') ?: null;
@@ -446,6 +451,10 @@ class Cs_new extends MY_Controller
         $detail_lainnya = trim((string) $detail_lainnya);
         if ($kategori_komplain === 'Lainnya' && $detail_lainnya === '') {
             echo json_encode(['code' => 400, 'message' => 'Keterangan wajib diisi untuk kategori Lainnya.']);
+            exit;
+        }
+        if (!in_array($jenis_komplain, $this->complain_jenis)) {
+            echo json_encode(['code' => 400, 'message' => 'Jenis komplain tidak dikenali.']);
             exit;
         }
         if ($sumber_komplain !== null && !in_array($sumber_komplain, $this->complain_sumber)) {
@@ -535,6 +544,7 @@ class Cs_new extends MY_Controller
             'kategori_komplain' => $kategori_komplain,
             'detail_lainnya' => $detail_lainnya !== '' ? $detail_lainnya : null,
             'sumber_komplain' => $sumber_komplain,
+            'jenis_komplain' => $jenis_komplain,
             'catatan_penanganan' => $catatan_penanganan,
             'hasil_investigasi' => $hasil_investigasi,
             'no_pesanan' => $no_pesanan,
