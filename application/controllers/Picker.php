@@ -599,6 +599,7 @@ class Picker extends MY_Controller
         $valid = [];
         $tidak_valid = [];
         $duplikat = [];
+        $sudah_tersimpan = [];
         foreach ($noresi_unik as $noresi) {
             if ($hitung[$noresi] > 1) {
                 $duplikat[] = ['noresi' => $noresi, 'alasan' => 'Muncul ' . $hitung[$noresi] . 'x di file'];
@@ -610,6 +611,9 @@ class Picker extends MY_Controller
                 $valid[] = $noresi;
             } else {
                 $tidak_valid[] = ['noresi' => $noresi, 'alasan' => $klasifikasi[$noresi]['alasan']];
+                if ($status === 'ALREADY_PICKED') {
+                    $sudah_tersimpan[] = $noresi;
+                }
             }
         }
 
@@ -622,6 +626,7 @@ class Picker extends MY_Controller
             'valid'             => $valid,
             'tidak_valid'       => $tidak_valid,
             'duplikat'          => $duplikat,
+            'sudah_tersimpan'   => $sudah_tersimpan,
         ]);
     }
 
@@ -718,6 +723,51 @@ class Picker extends MY_Controller
             'total_gagal'    => count($gagal),
             'berhasil'       => $berhasil,
             'gagal'          => $gagal,
+        ]);
+    }
+
+    /**
+     * Cetak ulang ringkasan untuk resi yang SUDAH tersimpan lewat Upload Resi
+     * Spesial (mis. admin lupa klik Cetak Ringkasan). Baca-saja: tidak ada
+     * resi yang disimpan ulang, jadi aturan anti-duplikat tetap utuh.
+     */
+    public function ringkasan_resi_spesial()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+
+        $id_pegawaipicker = $this->input->post('id_pegawaipicker');
+        $list_noresi = json_decode((string) $this->input->post('list_noresi'), true);
+
+        if (empty($id_pegawaipicker)) {
+            $this->make_ajax_response(400, 'Nama Picker belum dipilih');
+        }
+        if (empty($list_noresi) || !is_array($list_noresi)) {
+            $this->make_ajax_response(400, 'Tidak ada No Resi untuk dicetak ulang');
+        }
+
+        $list_noresi = array_values(array_unique(array_filter(array_map(function ($n) {
+            return trim((string) $n);
+        }, $list_noresi), 'strlen')));
+
+        $this->load->model('kpi_fcd');
+        $status_id = $this->kpi_fcd->get_status_id_by_name('1_SKU_PICKER');
+        if (empty($status_id)) {
+            $this->make_ajax_response(500, 'Status performa 1_SKU_PICKER tidak ditemukan di master data');
+        }
+
+        $hasil = $this->picking_fcd->ringkasan_resi_tersimpan($list_noresi, $id_pegawaipicker, $status_id);
+
+        if (empty($hasil['cocok'])) {
+            $this->make_ajax_response(400, 'Tidak ada resi yang cocok untuk dicetak ulang (harus tersimpan atas nama picker yang dipilih, status 1_SKU_PICKER, dalam 24 jam terakhir)');
+        }
+
+        $this->make_ajax_response(200, 'Ringkasan cetak ulang siap', [
+            'ringkasan'      => $hasil['ringkasan'],
+            'total_berhasil' => count($hasil['cocok']),
+            'total_ditolak'  => count($hasil['ditolak']),
+            'ditolak'        => $hasil['ditolak'],
         ]);
     }
 

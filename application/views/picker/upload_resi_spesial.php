@@ -205,6 +205,7 @@
   </div>
 
   <button class="btn btn-primary btn-block" id="urs_btn_validasi" disabled>Validasi</button>
+  <button class="btn btn-ghost btn-block" id="urs_btn_cetak_terakhir" type="button" hidden style="margin-top:8px;"></button>
 </div>
 
 <div class="card fade-in" id="urs_card_validasi" hidden>
@@ -234,6 +235,11 @@
         <div class="info-pop list" id="urs_pop_dup"></div>
       </span>
     </div>
+  </div>
+
+  <div id="urs_box_cetak_ulang" hidden style="margin:0 0 12px; padding:10px 12px; border:1px solid var(--urs-line, #d9dde3); border-radius:8px; font-size:13px;">
+    <div><b id="urs_cu_n">0</b> resi sudah tersimpan sebelumnya. Lupa cetak ringkasan? Resi tidak disimpan ulang, ringkasan hanya disusun dari data yang sudah ada.</div>
+    <button type="button" class="btn btn-ghost" id="urs_btn_cetak_ulang" style="margin-top:8px;">Cetak ulang ringkasan resi tersimpan</button>
   </div>
 
   <div class="btn-row">
@@ -414,6 +420,7 @@
 
   // ---- langkah 1 -> validasi ----
   var noresiValidTerakhir = [];
+  var sudahTersimpanTerakhir = [];
 
   $('#urs_btn_validasi').on('click', function(){
     if (!chosen || !fileTerpilih) return;
@@ -440,6 +447,9 @@
 
         var d = res.data || res;
         noresiValidTerakhir = d.valid || [];
+        sudahTersimpanTerakhir = d.sudah_tersimpan || [];
+        $('#urs_cu_n').text(sudahTersimpanTerakhir.length);
+        $('#urs_box_cetak_ulang').attr('hidden', sudahTersimpanTerakhir.length === 0);
 
         $('#urs_total_unik').text(d.total_unik + ' No Resi');
         $('#urs_stat_valid_n').text(d.total_valid);
@@ -503,7 +513,7 @@
 
     var printContents = '' +
       '<div style="width: 100mm; font-family: monospace; font-size: 14px; padding: 5px;">' +
-        '<h3 style="text-align: center; margin: 0 0 10px 0;">PICKING SUMMARY</h3>' +
+        '<h3 style="text-align: center; margin: 0 0 10px 0;">PICKING SUMMARY' + (r.cetak_ulang ? ' (CETAK ULANG)' : '') + '</h3>' +
         '<p style="margin: 0;">Picker : ' + esc(r.picker_nama) + '</p>' +
         '<p style="margin: 0;">Waktu  : ' + esc(r.waktu) + '</p>' +
         '<p style="margin: 0;">Total Resi: ' + r.total_berhasil + '</p>' +
@@ -538,6 +548,62 @@
   }
 
   $('#urs_btn_cetak').on('click', function(){ cetakRingkasan(ringkasanTerakhir); });
+
+  // ---- cadangan batch terakhir di browser (jaga-jaga lupa cetak) ----
+  var KUNCI_TERAKHIR = 'urs_ringkasan_terakhir';
+
+  function simpanLokal(r){
+    try { localStorage.setItem(KUNCI_TERAKHIR, JSON.stringify(r)); } catch(e) {}
+  }
+  function bacaLokal(){
+    try { return JSON.parse(localStorage.getItem(KUNCI_TERAKHIR) || 'null'); } catch(e) { return null; }
+  }
+  function tampilkanTombolTerakhir(){
+    var r = bacaLokal();
+    var $b = $('#urs_btn_cetak_terakhir');
+    if (!r || !r.ringkasan) { $b.attr('hidden', true); return; }
+    $b.text('Cetak ulang batch terakhir: ' + r.picker_nama + ' (' + r.total_berhasil + ' resi, ' + r.waktu + ')').attr('hidden', false);
+  }
+  $('#urs_btn_cetak_terakhir').on('click', function(){
+    var r = bacaLokal();
+    if (r) cetakRingkasan($.extend({}, r, { cetak_ulang: true }));
+  });
+  tampilkanTombolTerakhir();
+
+  // ---- cetak ulang resi yang sudah tersimpan (hasil validasi ALREADY_PICKED) ----
+  $('#urs_btn_cetak_ulang').on('click', function(){
+    if (!chosen || sudahTersimpanTerakhir.length === 0) return;
+    var $btn = $(this);
+    $btn.prop('disabled', true);
+    $.ajax({
+      url: 'picker/ringkasan-resi-spesial',
+      type: 'post',
+      data: { id_pegawaipicker: $idPicker.val(), list_noresi: JSON.stringify(sudahTersimpanTerakhir) },
+      timeout: 600000,
+      success: function(res){
+        if (typeof res === 'string') { try { res = JSON.parse(res); } catch(e) {} }
+        if (!res || (res.code !== 200 && res.code !== 201)) {
+          noty({ text: (res && res.message) || 'Cetak ulang gagal', layout: 'topRight', type: 'error', timeout: 5000 });
+          return;
+        }
+        var d = res.data || res;
+        if (d.total_ditolak > 0) {
+          noty({ text: d.total_ditolak + ' resi dilewati (bukan milik picker ini / di luar 24 jam)', layout: 'topRight', type: 'warning', timeout: 5000 });
+        }
+        cetakRingkasan($.extend({}, d, {
+          picker_nama: chosen.nama,
+          waktu: new Date().toLocaleString('id-ID'),
+          cetak_ulang: true
+        }));
+      },
+      error: function(xhr){
+        var msg = 'Gagal menghubungi server';
+        try { msg = JSON.parse(xhr.responseText).message || msg; } catch(e) {}
+        noty({ text: msg, layout: 'topRight', type: 'error', timeout: 4000 });
+      },
+      complete: function(){ $btn.prop('disabled', false); }
+    });
+  });
 
   // ---- langkah 2 -> simpan ----
   $('#urs_btn_simpan').on('click', function(){
@@ -580,6 +646,9 @@
           picker_no_absen: chosen.no_absen,
           waktu: new Date().toLocaleString('id-ID')
         });
+
+        simpanLokal(ringkasanTerakhir);
+        tampilkanTombolTerakhir();
 
         $('#urs_card_validasi').attr('hidden', true);
         $('#urs_card_simpan').attr('hidden', false);
