@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-31.4';
+    const BOOTSTRAP_VERSI = '2026-10-31.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -154,6 +154,7 @@ class MY_Controller extends CI_Controller
         $this->run_daftar_sku_migrations();
         $this->run_accounting_menu_migrations();
         $this->run_complain_migrations();
+        $this->run_complain_new_menu_migrations();
         $this->run_cancel_order_migrations();
         $this->run_tracking_picker_migration();
         $this->run_menu_scan_packer_webcam();
@@ -703,6 +704,50 @@ class MY_Controller extends CI_Controller
         // Add no_rak_gudang to tblsku if not exists
         if (!$this->db->field_exists('no_rak_gudang', 'tblsku')) {
             $this->db->query("ALTER TABLE `tblsku` ADD COLUMN `no_rak_gudang` VARCHAR(100) DEFAULT NULL AFTER `no_rak`");
+        }
+    }
+
+    /**
+     * Menu "Manajemen Komplain CS New": duplikat menu lama (cs/complain-management) untuk
+     * eksperimen. Induk dan hak akses disalin dari menu lama; menu lama tidak disentuh.
+     * Aman dijalankan berulang.
+     */
+    protected function run_complain_new_menu_migrations()
+    {
+        $lama = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'cs/complain-management'])->row();
+        if (!$lama) {
+            return;
+        }
+
+        $uri  = 'cs-new/complain-management';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Manajemen Komplain CS New',
+                'parentid'  => $lama->parentid,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-exclamation-triangle',
+                'sortorder' => 67,
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $akses = $this->db->select('roleid')->get_where('roleaccess', ['menuid' => $lama->id])->result_array();
+        foreach ($akses as $a) {
+            $ada = $this->db->get_where('roleaccess', ['roleid' => $a['roleid'], 'menuid' => $menu_id])->row();
+            if (!$ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $a['roleid'],
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
         }
     }
 
