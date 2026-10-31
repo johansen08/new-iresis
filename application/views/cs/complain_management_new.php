@@ -618,7 +618,7 @@
                 <h5 class="kf-sec-title"><span class="kf-step">1</span> Pesanan</h5>
 
                 <div class="kf-field">
-                  <label class="kf-label" for="no_resi">No. Resi / Pesanan / Picklist <span class="kf-req">*</span></label>
+                  <label class="kf-label" for="no_resi">No. Resi / No. Pesanan <span class="kf-req">*</span></label>
                   <div class="kf-resi-group">
                     <input type="text" name="no_resi" id="no_resi" class="kf-input kf-input-lg" placeholder="Scan atau ketik, lalu Enter" autocomplete="off" required />
                     <button type="button" class="btn-modern" id="btn-search-resi" title="Isi data otomatis dari nomor ini"><i class="fa fa-magic"></i> Isi Otomatis</button>
@@ -629,7 +629,8 @@
                 <div class="kf-summary">
                   <div class="kf-summary-item">
                     <span class="kf-summary-label">No. Pesanan</span>
-                    <input type="text" name="no_pesanan" id="no_pesanan" class="kf-ro" readonly placeholder="&ndash;" />
+                    <input type="text" id="no_pesanan_tampil" class="kf-ro" readonly placeholder="&ndash;" />
+                    <input type="hidden" name="no_pesanan" id="no_pesanan" />
                   </div>
                   <div class="kf-summary-item">
                     <span class="kf-summary-label">Tanggal Pesanan</span>
@@ -965,6 +966,14 @@
 
     // ---------------- Form komplain ----------------
 
+    // Tampilan nomor pesanan Shopee tanpa awalan "SP-"; nilai asli tetap disimpan utuh
+    // supaya tetap cocok dengan data resi/Jubelio yang memakai awalan itu.
+    function setNoPesanan(nilai) {
+        nilai = nilai || '';
+        $('#no_pesanan').val(nilai);
+        $('#no_pesanan_tampil').val(nilai.replace(/^SP-/i, ''));
+    }
+
     function resetFormKomplain() {
         dataInputAsli = null;
         $('#form-save-complain')[0].reset();
@@ -1101,7 +1110,7 @@
                     }
 
                     // Nomor & tanggal pesanan
-                    $('#no_pesanan').val(resp.data.no_pesanan || '');
+                    setNoPesanan(resp.data.no_pesanan);
                     $('#tgl_pesanan').val(resp.data.tanggal_pesan || '');
 
                     // Nilai pesanan disimpan diam-diam (tidak ditampilkan)
@@ -1402,7 +1411,7 @@
 
         var html = autoHtml + '<div class="kf-pv-grid"><div>' +
             '<div class="kf-pv-sec"><h5>Pesanan</h5>' +
-                barisPv('No. resi', $('#no_resi').val()) + barisPv('No. pesanan', $('#no_pesanan').val()) +
+                barisPv('No. resi', $('#no_resi').val()) + barisPv('No. pesanan', $('#no_pesanan_tampil').val()) +
                 barisPv('Tanggal pesanan', $('#tgl_pesanan').val()) + barisPv('Marketplace', $('#id_marketplace').val() ? mp : '') +
                 barisPv('Toko', $('#toko').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Barang komplain</h5><table class="kf-pv-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
@@ -1539,7 +1548,7 @@
                         $('#nama_picker').val(comp.nama_picker);
                     }
 
-                    $('#no_pesanan').val(comp.no_pesanan || '');
+                    setNoPesanan(comp.no_pesanan);
                     $('#tgl_pesanan').val(comp.tgl_pesanan || '');
 
                     $('#nilai_pesanan').val(comp.nilai_pesanan || '');
