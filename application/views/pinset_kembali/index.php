@@ -233,6 +233,15 @@ if (!empty($akses_ditolak)) : ?>
 
   muat();
   fokusScan();
+  // Klik menu di sidebar meninggalkan fokus di link dan loader SPA bisa menyusul sesudah script ini jalan,
+  // jadi fokus diulang sebentar; berhenti kalau user sudah memilih kolom lain.
+  var cobaFokus = 0;
+  var ulangFokus = setInterval(function () {
+    var a = document.activeElement;
+    if (!$('#pk-resi').length || ++cobaFokus > 40) { clearInterval(ulangFokus); return; }
+    if (a && a.id === 'pk-resi') { if (cobaFokus > 6) { clearInterval(ulangFokus); } return; }
+    if (!a || a === document.body || $(a).closest('#pk-root').length === 0) { fokusScan(); }
+  }, 150);
 })();
 </script>
 <style>
