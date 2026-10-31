@@ -338,6 +338,94 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+
+      /* ===== Form Tambah/Edit Komplain (kf-*) =====
+         Satu keluarga font (Inter, sudah dimuat lokal) untuk semua teks form; kontrol
+         form diwarisi eksplisit karena bootstrap memaksa Open Sans di sana. */
+      .kf-dialog { width: 96%; max-width: 1180px; margin: 24px auto; }
+      .kf-content { border: none; border-radius: 14px; font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; box-shadow: 0 24px 60px rgba(15,23,42,.25); }
+      .kf-content input, .kf-content select, .kf-content textarea, .kf-content button { font-family: inherit; }
+      .kf-header { padding: 18px 28px 14px; border-bottom: 1px solid var(--border-slate); }
+      .kf-header .close { margin-top: 2px; font-size: 26px; opacity: .45; }
+      .kf-header .modal-title { font-size: 18px; font-weight: 700; color: #0f172a; font-family: inherit; line-height: 1.3; }
+      .kf-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
+      .kf-body { padding: 20px 28px 8px; max-height: calc(100vh - 210px); overflow-y: auto; background: #fff; }
+      .kf-col { padding-left: 14px; padding-right: 14px; }
+      .kf-col-side { border-left: 1px solid var(--border-slate); }
+      .kf-sec { margin-bottom: 22px; }
+      .kf-sec-head { display: flex; justify-content: space-between; align-items: center; }
+      .kf-sec-title { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #0f172a; letter-spacing: .01em; }
+      .kf-step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; }
+      .kf-field { margin-bottom: 14px; }
+      .kf-label { display: block; margin: 0 0 5px; font-size: 12.5px; font-weight: 600; color: var(--text-slate); }
+      .kf-req { color: #dc2626; font-weight: 700; }
+      .kf-input { display: block; width: 100%; height: 40px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size: 14px; line-height: 1.4; color: #0f172a; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
+      textarea.kf-input { height: auto; min-height: 64px; resize: vertical; }
+      .kf-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+      .kf-input::placeholder { color: #94a3b8; }
+      .kf-input-lg { height: 46px; font-size: 16px; font-weight: 600; letter-spacing: .01em; }
+      .kf-resi-group { display: flex; gap: 8px; }
+      .kf-resi-group .kf-input { flex: 1; }
+      .kf-resi-group .btn-modern { height: 46px; white-space: nowrap; padding: 0 16px; }
+      .kf-hint { display: block; margin-top: 5px; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+      .kf-hint-warn { color: #b91c1c; background: #fef2f2; border-radius: 6px; padding: 6px 8px; }
+      .kf-row-tight { margin-left: -6px; margin-right: -6px; }
+      .kf-row-tight > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
+
+      .kf-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 4px 0 6px; background: var(--border-slate); border: 1px solid var(--border-slate); border-radius: 10px; overflow: hidden; }
+      .kf-summary-item { background: var(--bg-slate); padding: 8px 12px; min-width: 0; }
+      .kf-summary-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+      .kf-ro { display: block; width: 100%; padding: 0; margin-top: 2px; border: 0; background: transparent; font-size: 13.5px; font-weight: 600; color: #0f172a; text-overflow: ellipsis; box-shadow: none; cursor: default; }
+      .kf-ro:focus { outline: none; }
+      .kf-ro::placeholder { color: #cbd5e1; font-weight: 400; }
+
+      .kf-alert { margin-bottom: 16px; padding: 10px 14px; border: 1px solid #fcd34d; border-left-width: 4px; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 13px; line-height: 1.5; }
+
+      .kf-link-btn { margin-bottom: 12px; padding: 4px 8px; border: 0; background: transparent; color: var(--primary); font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; }
+      .kf-link-btn:hover { background: var(--primary-light); }
+      .kf-sku-head, .sku-item-row { display: grid; grid-template-columns: minmax(150px, 1fr) 72px 128px 112px 34px; gap: 8px; align-items: start; }
+      .kf-sku-head { padding: 0 10px 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+      .kf-sku-head .kf-sku-c-sub { text-align: right; }
+      .sku-row-container { border: 0; padding: 0; background: transparent; margin-bottom: 8px; }
+      .sku-item-row { padding: 8px 10px; margin-bottom: 8px; background: #fff; border: 1px solid var(--border-slate); border-radius: 10px; }
+      .sku-item-row:focus-within { border-color: #a5b4fc; box-shadow: 0 0 0 3px var(--primary-light); }
+      .sku-item-row .sku-cell { position: relative; min-width: 0; }
+      .sku-item-row .kf-input { height: 38px; }
+      .sku-nama { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sku-sub { display: flex; align-items: center; justify-content: flex-end; height: 38px; text-align: right; font-size: 13.5px; font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+      .sku-item-row .btn-icon { width: 34px; height: 38px; }
+      .kf-rp { position: relative; }
+      .kf-rp > span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 600; color: var(--text-muted); pointer-events: none; }
+      .kf-rp .kf-input { padding-left: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+      .kf-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-top: 2px solid var(--border-slate); }
+      .kf-total-label { font-size: 13px; font-weight: 600; color: var(--text-slate); }
+      .grand-total-val { font-family: inherit; font-size: 20px; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+      .kf-seg { display: flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+      .kf-seg-opt { flex: 1; margin: 0; cursor: pointer; }
+      .kf-seg-opt input { position: absolute; opacity: 0; pointer-events: none; }
+      .kf-seg-opt span { display: block; padding: 9px 6px; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--text-slate); background: #fff; border-right: 1px solid #cbd5e1; transition: background .15s, color .15s; }
+      .kf-seg-opt:last-child span { border-right: 0; }
+      .kf-seg-opt:hover span { background: var(--bg-slate); }
+      .kf-seg-opt input:checked + span { background: var(--primary); color: #fff; }
+      .kf-seg-opt input:focus-visible + span { box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--primary); }
+
+      .kf-footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 14px 28px; border-top: 1px solid var(--border-slate); background: var(--bg-slate); border-radius: 0 0 14px 14px; }
+      .kf-footer .btn-modern { height: 40px; }
+      .kf-footer #role-warning-edit { margin-right: auto; }
+
+      @media (max-width: 991px) {
+        .kf-col-side { border-left: 0; border-top: 1px solid var(--border-slate); padding-top: 18px; }
+        .kf-body { padding: 16px 14px 4px; }
+        .kf-header, .kf-footer { padding-left: 16px; padding-right: 16px; }
+      }
+      @media (max-width: 575px) {
+        .kf-sku-head { display: none; }
+        .sku-item-row { grid-template-columns: 1fr 70px 34px; }
+        .sku-item-row .sku-cell-price { grid-column: 1 / 3; }
+        .sku-item-row .sku-sub { grid-column: 3 / 4; }
+        .kf-summary { grid-template-columns: 1fr; }
+      }
     </style>
 
     <!-- Header Menu -->
@@ -487,8 +575,8 @@
 
 <!-- Modal Form Input/Edit Komplain (Modern Layout) -->
 <div class="modal fade" id="modalFormKomplain" role="dialog" aria-labelledby="modalFormKomplainLabel" aria-hidden="true" style="overflow-y: auto;">
-  <div class="modal-dialog modal-lg" role="document" style="border-radius: 12px; overflow: hidden; width: 96%; max-width: 1280px;">
-    <div class="modal-content" style="border: none; border-radius: 12px;">
+  <div class="modal-dialog modal-lg kf-dialog" role="document">
+    <div class="modal-content kf-content">
       <!-- class "nojs" wajib: tanpa itu handler global di plugins.js membajak submit,
            menimpa isi halaman dengan spinner, dan data tidak pernah terkirim. -->
       <form id="form-save-complain" class="nojs" action="javascript:void(0);" enctype="multipart/form-data">
@@ -496,213 +584,201 @@
         <input type="hidden" name="id_complain" id="id_complain" value="">
         <input type="hidden" name="force_duplikat" id="force_duplikat" value="0">
 
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-slate); padding: 20px 24px;">
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="font-size: 28px; opacity: 0.5;"><span aria-hidden="true">&times;</span></button>
-          <h4 class="modal-title" id="modalFormKomplainLabel" style="font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif;">Form Komplain</h4>
+        <div class="modal-header kf-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="modalFormKomplainLabel">Form Komplain</h4>
+          <p class="kf-subtitle">Cukup isi nomor resi atau pesanan &mdash; data lain terisi otomatis dari iresis.</p>
         </div>
 
-        <div class="modal-body" style="padding: 24px;">
-          <div id="alert-komplain-lain" class="alert alert-warning" style="display: none; border-radius: 8px; font-size: 13px;"></div>
+        <div class="modal-body kf-body">
+          <div id="alert-komplain-lain" class="kf-alert" style="display: none;"></div>
 
           <div class="row">
-            <!-- Sisi Kiri: Informasi Order & Komplain -->
-            <div class="col-md-5">
-              <div class="modern-form-group">
-                <label class="modern-label">No. Resi / Pesanan <span class="text-danger">*</span></label>
-                <div class="input-group">
-                  <input type="text" name="no_resi" id="no_resi" class="modern-input" style="border-top-right-radius:0; border-bottom-right-radius:0;" placeholder="Masukkan Resi atau Nomor Picklist" required />
-                  <span class="input-group-btn">
-                    <button type="button" class="btn btn-primary" id="btn-search-resi" style="height: 38px; border-top-left-radius:0; border-bottom-left-radius:0;" title="Auto-fill data dari resi"><i class="fa fa-magic"></i> Auto-fill</button>
-                  </span>
-                </div>
-                <small class="text-muted" id="resi-search-hint">Scan/ketik <strong>No. Resi</strong>, <strong>No. Pesanan</strong>, atau <strong>No. Picklist</strong> lalu Enter &mdash; nomor pesanan, tanggal pesanan, SKU, qty, harga, marketplace, toko, picker, dan QC terisi otomatis.</small>
-              </div>
+            <!-- Kolom kiri: pesanan + barang -->
+            <div class="col-md-7 kf-col">
+              <section class="kf-sec">
+                <h5 class="kf-sec-title"><span class="kf-step">1</span> Pesanan</h5>
 
-              <!-- Hasil auto-fill: hanya dibaca, tidak diketik manual -->
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">No. Pesanan</label>
-                    <input type="text" name="no_pesanan" id="no_pesanan" class="modern-input" readonly placeholder="terisi dari resi" />
+                <div class="kf-field">
+                  <label class="kf-label" for="no_resi">No. Resi / Pesanan / Picklist <span class="kf-req">*</span></label>
+                  <div class="kf-resi-group">
+                    <input type="text" name="no_resi" id="no_resi" class="kf-input kf-input-lg" placeholder="Scan atau ketik, lalu Enter" autocomplete="off" required />
+                    <button type="button" class="btn-modern" id="btn-search-resi" title="Isi data otomatis dari nomor ini"><i class="fa fa-magic"></i> Isi Otomatis</button>
                   </div>
+                  <small class="kf-hint" id="resi-search-hint">Terisi otomatis: pesanan, tanggal, marketplace, toko, barang, picker, dan QC.</small>
                 </div>
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Tanggal Pesanan</label>
-                    <input type="text" name="tgl_pesanan" id="tgl_pesanan" class="modern-input" readonly placeholder="terisi dari resi" />
-                  </div>
-                </div>
-              </div>
 
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Nilai Pesanan</label>
-                    <input type="text" id="nilai_pesanan_tampil" class="modern-input" readonly placeholder="terisi dari resi" />
+                <div class="kf-summary">
+                  <div class="kf-summary-item">
+                    <span class="kf-summary-label">No. Pesanan</span>
+                    <input type="text" name="no_pesanan" id="no_pesanan" class="kf-ro" readonly placeholder="&ndash;" />
+                  </div>
+                  <div class="kf-summary-item">
+                    <span class="kf-summary-label">Tanggal Pesanan</span>
+                    <input type="text" name="tgl_pesanan" id="tgl_pesanan" class="kf-ro" readonly placeholder="&ndash;" />
+                  </div>
+                  <div class="kf-summary-item">
+                    <span class="kf-summary-label">Nilai Pesanan</span>
+                    <input type="text" id="nilai_pesanan_tampil" class="kf-ro" readonly placeholder="&ndash;" />
                     <input type="hidden" name="nilai_pesanan" id="nilai_pesanan" />
-                    <small class="text-muted" id="hint-nilai-perkiraan" style="display:none;">Harga pesanan kosong di data resi &mdash; dipakai total HPP barang.</small>
+                  </div>
+                  <div class="kf-summary-item">
+                    <span class="kf-summary-label">Diinput</span>
+                    <input type="text" id="info_input" class="kf-ro" readonly />
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Diinput</label>
-                    <input type="text" id="info_input" class="modern-input" readonly />
-                    <small class="text-muted">Terisi otomatis dari waktu input dan akun yang login.</small>
+                <small class="kf-hint" id="hint-nilai-perkiraan" style="display:none;">Harga pesanan kosong di data resi &mdash; nilai dihitung dari total harga barang.</small>
+
+                <div class="row kf-row-tight" style="margin-top: 12px;">
+                  <div class="col-sm-5">
+                    <div class="kf-field">
+                      <label class="kf-label" for="id_marketplace">Marketplace <span class="kf-req">*</span></label>
+                      <select name="id_marketplace" id="id_marketplace" class="kf-input" required>
+                        <option value="" selected disabled>Pilih</option>
+                        <?php foreach ($marketplaces as $m): ?>
+                          <option value="<?= $m['id_marketplace'] ?>"><?= htmlspecialchars($m['nama_marketplace']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-sm-7">
+                    <div class="kf-field">
+                      <label class="kf-label" for="toko">Toko <span class="kf-req">*</span></label>
+                      <select name="toko" id="toko" class="kf-input" required>
+                        <option value="" selected disabled>Pilih</option>
+                        <?php foreach ($stores as $s): ?>
+                          <option value="<?= htmlspecialchars($s['nama_toko']) ?>"><?= htmlspecialchars($s['nama_toko']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div class="modern-form-group">
-                <label class="modern-label">Jenis Komplain</label>
-                <select name="jenis_komplain" id="jenis_komplain" class="modern-select">
-                  <?php foreach ($jenis_list as $j): ?>
-                    <option value="<?= htmlspecialchars($j) ?>"><?= htmlspecialchars($j) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Tanggal Komplain</label>
-                    <input type="date" name="tgl_komplain" id="tgl_komplain" class="modern-input" />
-                  </div>
+              <section class="kf-sec">
+                <div class="kf-sec-head">
+                  <h5 class="kf-sec-title"><span class="kf-step">2</span> Barang Komplain <span class="kf-req">*</span></h5>
+                  <button type="button" class="kf-link-btn" id="btn-add-sku-row"><i class="fa fa-plus"></i> Tambah baris</button>
                 </div>
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Sumber Komplain</label>
-                    <select name="sumber_komplain" id="sumber_komplain" class="modern-select">
-                      <option value="">- Belum ditentukan -</option>
-                      <?php foreach ($sumber_list as $s): ?>
-                        <option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
+                <div class="kf-sku-head">
+                  <span>SKU</span><span>Qty</span><span>Harga satuan</span><span class="kf-sku-c-sub">Subtotal</span><span></span>
                 </div>
-              </div>
-
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Marketplace <span class="text-danger">*</span></label>
-                    <select name="id_marketplace" id="id_marketplace" class="modern-select" required>
-                      <option value="" selected disabled>Pilih Marketplace</option>
-                      <?php foreach ($marketplaces as $m): ?>
-                        <option value="<?= $m['id_marketplace'] ?>"><?= htmlspecialchars($m['nama_marketplace']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Toko <span class="text-danger">*</span></label>
-                    <select name="toko" id="toko" class="modern-select" required>
-                      <option value="" selected disabled>Pilih Toko</option>
-                      <?php foreach ($stores as $s): ?>
-                        <option value="<?= htmlspecialchars($s['nama_toko']) ?>"><?= htmlspecialchars($s['nama_toko']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div class="row">
-                <div class="col-md-5">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Kategori Komplain <span class="text-danger">*</span></label>
-                    <select name="kategori_komplain" id="kategori_komplain" class="modern-select" required>
-                      <option value="" selected disabled>Pilih Kategori</option>
-                      <?php foreach ($kategori_list as $k): ?>
-                        <option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-                <div class="col-md-7">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Keterangan Komplain <span class="text-danger" id="tanda-wajib-keterangan" style="display:none;">*</span></label>
-                    <input type="text" name="detail_lainnya" id="detail_lainnya" class="modern-input" maxlength="500" placeholder="Rincian masalah (wajib bila kategori Lainnya)" />
-                  </div>
-                </div>
-              </div>
-
-              <div class="modern-form-group">
-                <label class="modern-label">Hasil Investigasi (Cek CCTV)</label>
-                <select name="hasil_investigasi" id="hasil_investigasi" class="modern-select">
-                  <option value="">- Belum dicek -</option>
-                  <?php foreach ($hasil_list as $h): ?>
-                    <option value="<?= htmlspecialchars($h) ?>"><?= htmlspecialchars($h) ?></option>
-                  <?php endforeach; ?>
-                </select>
-                <small class="text-muted" id="hint-qc-salah" style="display: none; color: #b91c1c;">
-                  <i class="fa fa-exclamation-triangle"></i>
-                  <strong>QC Salah</strong> akan menambahkan 1 poin kesalahan packer ke rekapan KPI
-                  (resi harus sudah pernah dipacking). Mengubahnya lagi akan mencabut poin itu.
-                </small>
-              </div>
-
-              <div class="modern-form-group">
-                <label class="modern-label">Catatan Hasil Investigasi</label>
-                <textarea name="catatan_penanganan" id="catatan_penanganan" class="modern-input" rows="2" placeholder="Temuan dari pengecekan CCTV / investigasi..."></textarea>
-              </div>
-
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Nama Picker</label>
-                    <select name="nama_picker" id="nama_picker" class="modern-select">
-                      <option value="">Pilih Picker</option>
-                      <?php foreach ($employees as $emp): ?>
-                        <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-                <input type="hidden" name="nama_packer" id="nama_packer" value="" />
-                <div class="col-md-6">
-                  <div class="modern-form-group">
-                    <label class="modern-label">Nama QC</label>
-                    <select name="nama_qc" id="nama_qc" class="modern-select">
-                      <option value="">Pilih QC</option>
-                      <?php foreach ($employees as $emp): ?>
-                        <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sisi Kanan: Input SKU & Qty Dinamis + Lampiran + Proses Banding -->
-            <div class="col-md-7" style="border-left: 1px solid var(--border-slate); padding-left: 24px;">
-
-              <!-- SKU Dynamic Rows -->
-              <div class="modern-form-group">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                  <label class="modern-label" style="margin: 0;">Barang Komplain (SKU & Qty) <span class="text-danger">*</span></label>
-                  <button type="button" class="btn btn-default btn-xs" id="btn-add-sku-row" style="color: var(--primary); font-weight: 600;"><i class="fa fa-plus"></i> Tambah Baris</button>
-                </div>
-
                 <div class="sku-row-container" id="sku-rows-list">
                   <!-- Baris SKU dinamis dimasukkan di sini oleh JS -->
                 </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px;">
-                  <span class="grand-total-label">Total Nominal Barang:</span>
+                <div class="kf-total">
+                  <span class="kf-total-label">Total nominal barang</span>
                   <span class="grand-total-val" id="text-nominal-total">Rp 0</span>
                 </div>
-              </div>
+              </section>
+            </div>
 
-              
+            <!-- Kolom kanan: komplain + investigasi -->
+            <div class="col-md-5 kf-col kf-col-side">
+              <section class="kf-sec">
+                <h5 class="kf-sec-title"><span class="kf-step">3</span> Komplain</h5>
+
+                <div class="kf-field">
+                  <span class="kf-label">Jenis Komplain</span>
+                  <div class="kf-seg" role="radiogroup" aria-label="Jenis komplain">
+                    <?php foreach ($jenis_list as $i => $j): ?>
+                      <label class="kf-seg-opt"><input type="radio" name="jenis_komplain" value="<?= htmlspecialchars($j) ?>" <?= $i === 0 ? 'checked' : '' ?>><span><?= htmlspecialchars($j) ?></span></label>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+
+                <div class="kf-field">
+                  <label class="kf-label" for="kategori_komplain">Kategori Komplain <span class="kf-req">*</span></label>
+                  <select name="kategori_komplain" id="kategori_komplain" class="kf-input" required>
+                    <option value="" selected disabled>Pilih kategori</option>
+                    <?php foreach ($kategori_list as $k): ?>
+                      <option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+
+                <div class="kf-field">
+                  <label class="kf-label" for="detail_lainnya">Keterangan Komplain <span class="kf-req" id="tanda-wajib-keterangan" style="display:none;">*</span></label>
+                  <textarea name="detail_lainnya" id="detail_lainnya" class="kf-input" rows="2" maxlength="500" placeholder="Rincian keluhan (wajib bila kategori Lainnya)"></textarea>
+                </div>
+
+                <div class="row kf-row-tight">
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="tgl_komplain">Tanggal Komplain</label>
+                      <input type="date" name="tgl_komplain" id="tgl_komplain" class="kf-input" />
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="sumber_komplain">Sumber</label>
+                      <select name="sumber_komplain" id="sumber_komplain" class="kf-input">
+                        <option value="">Belum ditentukan</option>
+                        <?php foreach ($sumber_list as $s): ?>
+                          <option value="<?= htmlspecialchars($s) ?>"><?= htmlspecialchars($s) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="kf-sec">
+                <h5 class="kf-sec-title"><span class="kf-step">4</span> Investigasi</h5>
+
+                <div class="kf-field">
+                  <label class="kf-label" for="hasil_investigasi">Hasil Cek CCTV</label>
+                  <select name="hasil_investigasi" id="hasil_investigasi" class="kf-input">
+                    <option value="">Belum dicek</option>
+                    <?php foreach ($hasil_list as $h): ?>
+                      <option value="<?= htmlspecialchars($h) ?>"><?= htmlspecialchars($h) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                  <small class="kf-hint kf-hint-warn" id="hint-qc-salah" style="display: none;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <strong>QC Salah</strong> menambah 1 poin kesalahan packer di KPI (resi harus pernah dipacking). Mengubahnya lagi mencabut poin itu.
+                  </small>
+                </div>
+
+                <div class="kf-field">
+                  <label class="kf-label" for="catatan_penanganan">Catatan Hasil Investigasi</label>
+                  <textarea name="catatan_penanganan" id="catatan_penanganan" class="kf-input" rows="2" placeholder="Temuan dari pengecekan CCTV"></textarea>
+                </div>
+
+                <input type="hidden" name="nama_packer" id="nama_packer" value="" />
+                <div class="row kf-row-tight">
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="nama_qc">QC (Packer)</label>
+                      <select name="nama_qc" id="nama_qc" class="kf-input">
+                        <option value="">Pilih</option>
+                        <?php foreach ($employees as $emp): ?>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="nama_picker">Picker</label>
+                      <select name="nama_picker" id="nama_picker" class="kf-input">
+                        <option value="">Pilih</option>
+                        <?php foreach ($employees as $emp): ?>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>
 
-        <div class="modal-footer" style="border-top: 1px solid var(--border-slate); padding: 20px 24px; background-color: var(--bg-slate); border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+        <div class="modal-footer kf-footer">
           <span id="role-warning-edit" class="text-warning pull-left" style="display: none; padding-top: 8px; font-size:12px; font-weight:600;"><i class="fa fa-lock"></i> Mode Read-only (Edit hanya diizinkan bagi Admin/Supervisor)</span>
           <button type="button" class="btn-modern btn-modern-secondary" data-dismiss="modal">Batal</button>
-          <button type="submit" class="btn-modern" id="btn-save-submit"><i class="fa fa-save"></i> Simpan Data</button>
+          <button type="submit" class="btn-modern" id="btn-save-submit"><i class="fa fa-save"></i> Simpan Komplain</button>
         </div>
       </form>
     </div>
@@ -908,6 +984,8 @@
         $('#role-warning-edit').hide();
         $('#btn-save-submit').show();
         $('#tgl_komplain').val(moment().format('YYYY-MM-DD'));
+        // Hampir semua komplain masuk lewat chat marketplace; ganti hanya bila berbeda
+        $('#sumber_komplain').val('Chat Marketplace');
         // Tanggal input & penginput terisi sendiri, tidak bisa diubah manual
         $('#info_input').val(moment().format('DD/MM/YYYY HH:mm') + ' oleh ' + namaPenggunaLogin);
         $('#nilai_pesanan_tampil').val('');
@@ -919,6 +997,13 @@
 
         $('#modalFormKomplainLabel').text('Tambah Komplain Baru');
         $('#modalFormKomplain').modal('show');
+    });
+
+    // Kursor langsung di kolom resi saat form baru dibuka; setelah edit tidak perlu
+    $('#modalFormKomplain').on('shown.bs.modal', function() {
+        if ($('#is_edit').val() !== '1') {
+            $('#no_resi').trigger('focus');
+        }
     });
 
     // Peringatan dampak KPI saat hasil investigasi = QC Salah
@@ -1046,6 +1131,13 @@
                     calculateNominalTotal();
                     tampilkanKomplainLain(resp.existing);
 
+                    // Pindahkan kursor ke isian pertama yang masih kosong
+                    if (!$('#toko').val()) {
+                        $('#toko').trigger('focus');
+                    } else if (!$('#kategori_komplain').val()) {
+                        $('#kategori_komplain').trigger('focus');
+                    }
+
                     if (resp.catatan) {
                         showNoty(resp.catatan, 'warning');
                     }
@@ -1093,34 +1185,40 @@
     }
 
     // Function to add a dynamic SKU row
+    function escAttr(v) {
+        return String(v === undefined || v === null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
     function addSkuRow(sku, qty, hpp, name) {
         var rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
         var formattedHpp = parseFloat(hpp || 0).toFixed(2);
 
         var html = '<div class="sku-item-row" id="' + rowId + '">' +
-                   '  <div style="flex: 5; position: relative; min-width: 220px;">' +
-                   '    <input type="text" name="sku[]" class="modern-input sku-autocomplete" placeholder="Cari SKU..." value="' + sku + '" required />' +
+                   '  <div class="sku-cell">' +
+                   '    <input type="text" name="sku[]" class="kf-input sku-autocomplete" placeholder="Cari / ketik SKU" autocomplete="off" value="' + escAttr(sku) + '" required />' +
+                   '    <span class="sku-nama">' + escAttr(name) + '</span>' +
                    '  </div>' +
-                   '  <div style="flex: 1.2; min-width: 90px;">' +
-                   '    <input type="number" name="qty[]" class="modern-input item-qty" placeholder="Qty" min="1" value="' + qty + '" required />' +
+                   '  <div class="sku-cell">' +
+                   '    <input type="number" name="qty[]" class="kf-input item-qty" placeholder="Qty" min="1" value="' + escAttr(qty) + '" required />' +
                    '  </div>' +
-                   '  <div style="flex: 2.5; min-width: 170px;">' +
-                   '    <div class="input-group">' +
-                   '      <span class="input-group-addon" style="padding:6px 8px; font-size:12px;">Rp</span>' +
-                   '      <input type="text" name="price[]" class="modern-input item-price" value="' + formattedHpp + '" inputmode="decimal" />' +
+                   '  <div class="sku-cell sku-cell-price">' +
+                   '    <div class="kf-rp"><span>Rp</span>' +
+                   '      <input type="text" name="price[]" class="kf-input item-price" value="' + formattedHpp + '" inputmode="decimal" />' +
                    '    </div>' +
                    '  </div>' +
+                   '  <div class="sku-sub">Rp 0</div>' +
                    '  <div>' +
-                   '    <button type="button" class="btn-icon btn-icon-danger btn-remove-sku-row" title="Hapus Baris"><i class="fa fa-times"></i></button>' +
+                   '    <button type="button" class="btn-icon btn-icon-danger btn-remove-sku-row" title="Hapus baris"><i class="fa fa-times"></i></button>' +
                    '  </div>' +
                    '</div>';
 
         $('#sku-rows-list').append(html);
 
-        // Listener qty; saran SKU ditangani lewat event delegation di bawah
+        // Listener qty/harga; saran SKU ditangani lewat event delegation di bawah
         $('#' + rowId).find('.item-qty, .item-price').on('input change', function() {
             calculateNominalTotal();
         });
+        calculateNominalTotal();
     }
 
     // ---------------- Dropdown saran SKU (tanpa jQuery UI) ----------------
@@ -1136,6 +1234,7 @@
         var $row = $input.closest('.sku-item-row');
         $row.find('.sku-autocomplete').val($li.data('kode'));
         $row.find('.item-price').val(parseFloat($li.data('hpp') || 0).toFixed(2));
+        $row.find('.sku-nama').text($li.data('nama') || '');
         tutupSaran($input);
         calculateNominalTotal();
     }
@@ -1152,6 +1251,7 @@
                 var $li = $('<li></li>')
                     .attr('data-kode', it.label)
                     .attr('data-hpp', it.hpp)
+                    .attr('data-nama', it.value || '')
                     .append($('<span class="sku-suggest-kode"></span>').text(it.label))
                     .append($('<span class="sku-suggest-nama"></span>').text(it.value || ''));
                 $ul.append($li);
@@ -1240,13 +1340,13 @@
         var total = 0;
         $('.sku-item-row').each(function() {
             var qty = parseInt($(this).find('.item-qty').val()) || 0;
-            var price = parseFloat($(this).find('.item-price').val()) || 0;
-            total += (qty * price);
+            var price = parseFloat(String($(this).find('.item-price').val()).replace(',', '.')) || 0;
+            var sub = qty * price;
+            total += sub;
+            $(this).find('.sku-sub').text('Rp ' + sub.toLocaleString('id-ID'));
         });
 
-        // Format Currency
-        var formatted = 'Rp ' + total.toLocaleString('id-ID');
-        $('#text-nominal-total').text(formatted);
+        $('#text-nominal-total').text('Rp ' + total.toLocaleString('id-ID'));
     }
 
     // Submit form action (Save / Edit)
@@ -1325,7 +1425,7 @@
                     $('#no_resi').val(comp.no_resi);
                     $('#tgl_komplain').val(comp.tgl_komplain || '');
                     $('#sumber_komplain').val(comp.sumber_komplain || '');
-                    $('#jenis_komplain').val(comp.jenis_komplain || 'CCTV');
+                    $('input[name="jenis_komplain"][value="' + (comp.jenis_komplain || 'CCTV') + '"]').prop('checked', true);
                     $('#catatan_penanganan').val(comp.catatan_penanganan || '');
                     $('#hasil_investigasi').val(comp.hasil_investigasi || '');
                     if (comp.hasil_investigasi === 'QC Salah') {
