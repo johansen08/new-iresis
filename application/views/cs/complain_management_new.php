@@ -311,14 +311,14 @@
       .kf-header .close { margin-top: 2px; font-size: 26px; opacity: .45; }
       .kf-header .modal-title { font-size: 18px; font-weight: 700; color: #0f172a; font-family: inherit; line-height: 1.3; }
       .kf-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
-      .kf-body { padding: 20px 28px 8px; max-height: calc(100vh - 210px); overflow-y: auto; background: #fff; }
+      .kf-body { padding: 16px 28px 4px; max-height: calc(100vh - 210px); overflow-y: auto; background: #fff; }
       .kf-col { padding-left: 14px; padding-right: 14px; }
       .kf-col-side { border-left: 1px solid var(--border-slate); }
-      .kf-sec { margin-bottom: 22px; }
+      .kf-sec { margin-bottom: 16px; }
       .kf-sec-head { display: flex; justify-content: space-between; align-items: center; }
       .kf-sec-title { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #0f172a; letter-spacing: .01em; }
       .kf-step { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; }
-      .kf-field { margin-bottom: 14px; }
+      .kf-field { margin-bottom: 12px; }
       .kf-label { display: block; margin: 0 0 5px; font-size: 12.5px; font-weight: 600; color: var(--text-slate); }
       .kf-req { color: #dc2626; font-weight: 700; }
       .kf-input { display: block; width: 100%; height: 40px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size: 14px; line-height: 1.4; color: #0f172a; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
@@ -391,6 +391,12 @@
       .kf-pv-table td { padding: 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
       .kf-pv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
+      /* Kolom sama tinggi supaya garis pemisah penuh dari atas ke bawah */
+      @media (min-width: 992px) {
+        .kf-body > .row { display: flex; }
+        .kf-body > .row > .kf-col { float: none; }
+      }
+
       @media (max-width: 991px) {
         .kf-preview .kf-pv-grid { grid-template-columns: 1fr; }
         .kf-col-side { border-left: 0; border-top: 1px solid var(--border-slate); padding-top: 18px; }
@@ -399,9 +405,13 @@
       }
       @media (max-width: 575px) {
         .kf-sku-head { display: none; }
-        .sku-item-row { grid-template-columns: 1fr 70px 34px; }
-        .sku-item-row .sku-cell-price { grid-column: 1 / 3; }
-        .sku-item-row .sku-sub { grid-column: 3 / 4; }
+        /* Baris SKU di HP: SKU | Qty | hapus, lalu harga | subtotal di baris kedua */
+        .sku-item-row { grid-template-columns: 1fr 70px 38px; }
+        .sku-item-row > :nth-child(1) { grid-column: 1; grid-row: 1; }
+        .sku-item-row > :nth-child(2) { grid-column: 2; grid-row: 1; }
+        .sku-item-row > :nth-child(5) { grid-column: 3; grid-row: 1; }
+        .sku-item-row > :nth-child(3) { grid-column: 1; grid-row: 2; }
+        .sku-item-row > :nth-child(4) { grid-column: 2 / 4; grid-row: 2; }
         .kf-summary { grid-template-columns: 1fr; }
       }
 
@@ -505,6 +515,14 @@
       #modalFormKomplain, #drawerKomplain { overflow: hidden !important; }
       .modal-dialog.kf-dialog, .modal-dialog.kp-dr-dialog { position: fixed; top: 0; right: 0; bottom: 0; margin: 0 !important; height: 100vh; max-width: none; }
       .modal-dialog.kf-dialog { width: min(1180px, 96vw); }
+      /* Sidebar aplikasi (280px, z-index 1060) berada di atas modal: sisakan ruang untuknya */
+      @media (min-width: 992px) { .modal-dialog.kf-dialog { width: min(1180px, calc(100vw - 280px)); } }
+      /* Drawer lebih sempit dari 1000px: susun dua kolom ke bawah (breakpoint bootstrap berbasis layar, bukan drawer) */
+      @media (min-width: 992px) and (max-width: 1249px) {
+        .kf-dialog .kf-body > .row { display: block; }
+        .kf-dialog .kf-body > .row > .kf-col { float: none; width: 100%; }
+        .kf-dialog .kf-col-side { border-left: 0; border-top: 1px solid var(--border-slate); padding-top: 18px; }
+      }
       .modal-dialog.kp-dr-dialog { width: min(600px, 96vw); }
       .modal.fade .kf-dialog, .modal.fade .kp-dr-dialog { transform: translateX(100%); transition: transform .28s ease-out; }
       .modal.in .kf-dialog, .modal.in .kp-dr-dialog { transform: none; }
@@ -750,6 +768,31 @@
                     </div>
                   </div>
                 </div>
+                <input type="hidden" name="nama_packer" id="nama_packer" value="" />
+                <div class="row kf-row-tight">
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="nama_picker">Picker</label>
+                      <select name="nama_picker" id="nama_picker" class="kf-input">
+                        <option value="">Pilih</option>
+                        <?php foreach ($employees as $emp): ?>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="kf-field">
+                      <label class="kf-label" for="nama_qc">Packer</label>
+                      <select name="nama_qc" id="nama_qc" class="kf-input">
+                        <option value="">Pilih</option>
+                        <?php foreach ($employees as $emp): ?>
+                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </section>
 
               <section class="kf-sec">
@@ -832,31 +875,6 @@
                   <textarea name="catatan_penanganan" id="catatan_penanganan" class="kf-input" rows="2" placeholder="Temuan dari pengecekan CCTV"></textarea>
                 </div>
 
-                <input type="hidden" name="nama_packer" id="nama_packer" value="" />
-                <div class="row kf-row-tight">
-                  <div class="col-sm-6">
-                    <div class="kf-field">
-                      <label class="kf-label" for="nama_picker">Picker</label>
-                      <select name="nama_picker" id="nama_picker" class="kf-input">
-                        <option value="">Pilih</option>
-                        <?php foreach ($employees as $emp): ?>
-                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="col-sm-6">
-                    <div class="kf-field">
-                      <label class="kf-label" for="nama_qc">Packer</label>
-                      <select name="nama_qc" id="nama_qc" class="kf-input">
-                        <option value="">Pilih</option>
-                        <?php foreach ($employees as $emp): ?>
-                          <option value="<?= htmlspecialchars($emp['nama_pegawai']) ?>"><?= htmlspecialchars($emp['nama_pegawai']) ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                  </div>
-                </div>
               </section>
             </div>
           </div>
@@ -1578,7 +1596,8 @@
             '<div class="kf-pv-sec"><h5>Pesanan</h5>' +
                 barisPv('No. resi', $('#no_resi').val()) + barisPv('No. pesanan', $('#no_pesanan_tampil').val()) +
                 barisPv('Tanggal pesanan', $('#tgl_pesanan').val()) + barisPv('Marketplace', $('#id_marketplace').val() ? mp : '') +
-                barisPv('Toko', $('#toko').val()) + '</div>' +
+                barisPv('Toko', $('#toko').val()) +
+                barisPv('Picker', $('#nama_picker').val()) + barisPv('Packer', $('#nama_qc').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Barang komplain</h5><table class="kf-pv-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
                 barang + '<tr><td colspan="3" class="num"><strong>Total</strong></td><td class="num"><strong>Rp ' + total.toLocaleString('id-ID') + '</strong></td></tr></tbody></table></div>' +
             '</div><div>' +
@@ -1587,8 +1606,7 @@
                 barisPv('Keterangan', $('#detail_lainnya').val()) +
                 barisPv('Sumber', $('#sumber_komplain').val()) + '</div>' +
             '<div class="kf-pv-sec"><h5>Investigasi</h5>' +
-                barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) +
-                barisPv('Picker', $('#nama_picker').val()) + barisPv('Packer', $('#nama_qc').val()) + '</div>' +
+                barisPv('Hasil cek CCTV', $('#hasil_investigasi').val()) + barisPv('Catatan', $('#catatan_penanganan').val()) + '</div>' +
             '</div></div>';
 
         $('#kf-preview').html(html);
@@ -1611,7 +1629,9 @@
         if (form && $('#is_edit').val() === '1' && !isAdminOrSupervisor) { $('#btn-batal-form').show(); }
         $('#btn-preview-back, #btn-preview-save').toggle(!form);
         $('#modalFormKomplainLabel').toggleClass('kf-pv-mode', !form);
-        $('.kf-subtitle').toggle(form);
+        $('.kf-subtitle').text(form
+            ? 'Cukup isi nomor resi atau pesanan — data lain terisi otomatis dari iresis.'
+            : 'Periksa ringkasan berikut, lalu simpan. Pilih Ubah untuk kembali ke form.');
     }
 
     $('#btn-preview-back').on('click', function() { modeFormKomplain(true); });
