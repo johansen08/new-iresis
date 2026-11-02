@@ -664,17 +664,21 @@ class Cs_new extends MY_Controller
         }
 
         // Satu resi boleh punya lebih dari satu komplain, tapi kategori yang sama
-        // pada resi yang sama hampir pasti input dobel -> tolak kecuali dipaksa.
-        if (!$is_edit && $this->input->post('force_duplikat') != '1') {
-            $dobel = $this->db->get_where('tblcs_complain', [
-                'no_resi' => $no_resi,
-                'kategori_komplain' => $kategori_komplain,
-                'is_deleted' => 0
-            ])->row();
+        // pada resi/pesanan yang sama adalah input dobel -> ditolak, tanpa opsi paksa.
+        if (!$is_edit) {
+            $this->db->from('tblcs_complain')->group_start()->where('no_resi', $no_resi);
+            if ($no_pesanan) {
+                $polos = preg_replace('/^SP-/i', '', $no_pesanan);
+                $this->db->or_where_in('no_pesanan', [$no_pesanan, $polos, 'SP-' . $polos]);
+            }
+            $dobel = $this->db->group_end()
+                              ->where('kategori_komplain', $kategori_komplain)
+                              ->where('is_deleted', 0)
+                              ->limit(1)->get()->row();
             if ($dobel) {
                 echo json_encode([
                     'code' => 409,
-                    'message' => 'Resi ini sudah punya komplain berkategori "' . $kategori_komplain . '". Lanjut simpan sebagai komplain terpisah?'
+                    'message' => 'Resi/pesanan ini sudah punya komplain berkategori "' . $kategori_komplain . '" (' . ($dobel->tgl_komplain ?: substr($dobel->created_at, 0, 10)) . '). Data yang sama tidak bisa disimpan dua kali.'
                 ]);
                 exit;
             }
