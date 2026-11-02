@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-10-31.7';
+    const BOOTSTRAP_VERSI = '2026-11-02.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -187,6 +187,7 @@ class MY_Controller extends CI_Controller
         $this->run_stok_aks27_migration();
         $this->run_stok_aks27_kembali_migration();
         $this->run_barang_reject_menu_migration();
+        $this->run_gdbr_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2078,6 +2079,105 @@ class MY_Controller extends CI_Controller
         foreach ($setelan as $kunci => $isi) {
             if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {
                 $this->db->insert('tb_config_operasional', ['kunci' => $kunci, 'nilai' => $isi[0], 'keterangan' => $isi[1]]);
+            }
+        }
+    }
+
+    /**
+     * Cek barang gedung baru (GD-BR): tim resi menandai resi gedung baru, pengecek gedung
+     * baru dan packer mencocokkan barang dengan resi (docs/GDBR.md). Tiga tabel baru
+     * (tblgdbr_resi, tblgdbr_cek, tblgdbr_cek_item) dan dua menu anak TIM MONITORING:
+     * Scan Resi GD-BR dan Rekap Resi GD-BR. Hanya menambah; tidak menyentuh tabel lama.
+     *
+     * Hak akses awal: role 1 (webmaster), 4 (QC/packer, mis. Dewi), dan 5 (HO, mis. Guntur).
+     * Akses diatur per role, jadi semua akun di role 4 dan 5 ikut bisa membuka menu ini;
+     * persempit lewat halaman Access bila perlu.
+     */
+    protected function run_gdbr_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblgdbr_resi` (
+          `id_gdbr` int(10) unsigned NOT NULL AUTO_INCREMENT,
+          `id_resi` bigint(20) unsigned NOT NULL,
+          `noresi` varchar(255) NOT NULL,
+          `ditandai_oleh` int(10) unsigned NOT NULL,
+          `petugas_absen` varchar(10) DEFAULT NULL,
+          `petugas_nama` varchar(100) DEFAULT NULL,
+          `petugas_role` varchar(50) DEFAULT NULL,
+          `ditandai_at` datetime NOT NULL,
+          PRIMARY KEY (`id_gdbr`),
+          UNIQUE KEY `uq_gdbr_resi` (`id_resi`),
+          KEY `idx_gdbr_noresi` (`noresi`),
+          KEY `idx_gdbr_tanggal` (`ditandai_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblgdbr_cek` (
+          `id_cek` int(10) unsigned NOT NULL AUTO_INCREMENT,
+          `id_gdbr` int(10) unsigned NOT NULL,
+          `tahap` enum('GEDUNG_BARU','PACKER') NOT NULL,
+          `id_user` int(10) unsigned NOT NULL,
+          `petugas_absen` varchar(10) DEFAULT NULL,
+          `petugas_nama` varchar(100) DEFAULT NULL,
+          `petugas_role` varchar(50) DEFAULT NULL,
+          `waktu_scan` datetime NOT NULL,
+          `qty_kurang` int(11) NOT NULL DEFAULT 0,
+          `qty_lebih` int(11) NOT NULL DEFAULT 0,
+          `qty_salah` int(11) NOT NULL DEFAULT 0,
+          `lain` tinyint(1) NOT NULL DEFAULT 0,
+          `sesuai` tinyint(1) NOT NULL DEFAULT 1,
+          `catatan` varchar(255) DEFAULT NULL,
+          `nama_komputer` varchar(50) DEFAULT NULL,
+          `created_at` datetime NOT NULL,
+          PRIMARY KEY (`id_cek`),
+          UNIQUE KEY `uq_gdbr_cek_tahap` (`id_gdbr`, `tahap`),
+          KEY `idx_gdbr_cek_waktu` (`waktu_scan`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblgdbr_cek_item` (
+          `id_item` int(10) unsigned NOT NULL AUTO_INCREMENT,
+          `id_cek` int(10) unsigned NOT NULL,
+          `sku` varchar(100) NOT NULL,
+          `qty_resi` int(11) NOT NULL DEFAULT 0,
+          `qty_ada` int(11) NOT NULL DEFAULT 0,
+          `di_luar_resi` tinyint(1) NOT NULL DEFAULT 0,
+          PRIMARY KEY (`id_item`),
+          KEY `idx_gdbr_item_cek` (`id_cek`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Grup induk mengikuti menu saudaranya di TIM MONITORING (bawaan id 83).
+        $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'monitoring/laporan_pesanan_masuk'])->row();
+        $induk   = $saudara ? (int) $saudara->parentid : 83;
+
+        $daftar = [
+            ['Scan Resi GD-BR',  'gdbr/scan',  'fa fa-barcode',  11, 'Tandai resi gedung baru (RESI), cek barang di gedung baru, dan cek ulang packer sebelum dipacking.'],
+            ['Rekap Resi GD-BR', 'gdbr/rekap', 'fa fa-list-alt', 12, 'Rekap resi gedung baru: ditandai tim resi, cek gedung baru, cek packer, dan selisih per SKU.'],
+        ];
+        foreach ($daftar as $m) {
+            $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $m[1]])->row();
+            if (!$menu) {
+                $this->db->insert('menu', [
+                    'name'        => $m[0],
+                    'parentid'    => $induk,
+                    'uri'         => $m[1],
+                    'icon'        => $m[2],
+                    'sortorder'   => $m[3],
+                    'description' => $m[4],
+                    'isactive'    => 1,
+                    'createdby'   => 1,
+                    'created'     => date('Y-m-d H:i:s')
+                ]);
+                $menu_id = $this->db->insert_id();
+            } else {
+                $menu_id = $menu->id;
+            }
+            foreach ([1, 4, 5] as $roleid) {
+                if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row()) {
+                    $this->db->insert('roleaccess', [
+                        'roleid'    => $roleid,
+                        'menuid'    => $menu_id,
+                        'created'   => date('Y-m-d H:i:s'),
+                        'createdby' => 1
+                    ]);
+                }
             }
         }
     }

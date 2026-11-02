@@ -459,6 +459,17 @@ $route['paket-cancel/batal-display'] = 'paket_cancel/batal_display';
 $route['paket-cancel/catat-display'] = 'paket_cancel/catat_display';
 $route['paket-cancel/serah-data'] = 'paket_cancel/serah_data';
 $route['paket-cancel/serah-cetak'] = 'paket_cancel/serah_cetak';
+
+// Cek barang gedung baru (GD-BR): Scan Resi GD-BR & Rekap Resi GD-BR (docs/GDBR.md)
+$route['gdbr/scan'] = 'gdbr/scan';
+$route['gdbr/rekap'] = 'gdbr/rekap';
+$route['gdbr/cek'] = 'gdbr/cek';
+$route['gdbr/simpan'] = 'gdbr/simpan';
+$route['gdbr/sku-saran'] = 'gdbr/sku_saran';
+$route['gdbr/sku-detail'] = 'gdbr/sku_detail';
+$route['gdbr/rekap-data'] = 'gdbr/rekap_data';
+$route['gdbr/rekap-export'] = 'gdbr/rekap_export';
+$route['gdbr/detail'] = 'gdbr/detail';
 $route['report/proses-barang-qc'] = 'Report/proses_barang_qc';
 $route['report/get_proses_barang_qc_data'] = 'Report/get_proses_barang_qc_data';
 
