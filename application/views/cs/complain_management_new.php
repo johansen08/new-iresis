@@ -1492,6 +1492,12 @@
         });
         html += parts.join(', ') + '. Lanjutkan hanya kalau ini memang komplain yang berbeda.';
         $alert.html(html).show();
+
+        // Pop up pemberitahuan hanya saat menambah komplain baru
+        if ($('#is_edit').val() !== '1') {
+            showPeringatan('Sudah Di Input', 'Resi/pesanan <strong>' + $('#no_resi').val() + '</strong> sudah punya komplain tercatat:<br/>' +
+                parts.join('<br/>') + '<br/><small>Komplain dengan kategori yang sama tidak bisa disimpan lagi.</small>');
+        }
     }
 
     // "NADYA - QC - 0107" -> "0107 - NADYA" (kapital); nama tanpa no. absen tetap tampil nama saja
@@ -1806,11 +1812,9 @@
                     $('#modalFormKomplain').modal('hide');
                     table.ajax.reload(null, false);
                 } else if (resp.code === 409) {
-                    // Kategori sama pada resi yang sama -- minta konfirmasi
-                    showConfirmation(resp.message, function() {
-                        $('#force_duplikat').val('1');
-                        kirimFormKomplain();
-                    }, 'Ya, Simpan Terpisah');
+                    // Kategori sama pada resi/pesanan yang sama -- ditolak server
+                    modeFormKomplain(true);
+                    showPeringatan('Tidak Bisa Disimpan', resp.message);
                 } else {
                     showNoty(resp.message || 'Gagal menyimpan data.', 'error');
                 }
@@ -2009,6 +2013,21 @@
                     }
                 }
             ]
+        });
+    }
+
+    // Pop up di tengah layar dengan satu tombol OK (pemberitahuan, bukan konfirmasi)
+    function showPeringatan(judul, htmlIsi) {
+        noty({
+            text: '<strong style="font-size:16px;">' + judul + '</strong><br/><div style="margin-top:6px;">' + htmlIsi + '</div>',
+            type: 'error',
+            layout: 'center',
+            modal: true,
+            buttons: [{
+                addClass: 'btn btn-danger btn-clean',
+                text: 'OK, Mengerti',
+                onClick: function($noty) { $noty.close(); }
+            }]
         });
     }
 
