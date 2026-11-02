@@ -1648,7 +1648,11 @@ class Receipt_fcd extends CI_Model
                     if ($current_status !== $new_status_upper) {
                         // Normalize marketplace
                         $marketplaceRaw = strtolower($row['N'] ?? '');
-                        if (stripos($marketplaceRaw, 'tokopedia') !== false) {
+                        // Jubelio menulis TikTok Shop sebagai "Shop | Tokopedia - <toko>"
+                        if (preg_match('/^\s*shop\s*\|/', $marketplaceRaw) || stripos($marketplaceRaw, 'tiktok') !== false) {
+                            $marketplace = 'tiktok';
+                        }
+                        elseif (stripos($marketplaceRaw, 'tokopedia') !== false) {
                             $marketplace = 'tokopedia';
                         }
                         elseif (stripos($marketplaceRaw, 'internal') !== false) {
@@ -1722,7 +1726,11 @@ class Receipt_fcd extends CI_Model
 
                 // Normalize marketplace
                 $marketplaceRaw = strtolower($row['N'] ?? '');
-                if (stripos($marketplaceRaw, 'tokopedia') !== false) {
+                // Jubelio menulis TikTok Shop sebagai "Shop | Tokopedia - <toko>"
+                if (preg_match('/^\s*shop\s*\|/', $marketplaceRaw) || stripos($marketplaceRaw, 'tiktok') !== false) {
+                    $marketplace = 'tiktok';
+                }
+                elseif (stripos($marketplaceRaw, 'tokopedia') !== false) {
                     $marketplace = 'tokopedia';
                 }
                 elseif (stripos($marketplaceRaw, 'internal') !== false) {
