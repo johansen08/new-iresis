@@ -39,9 +39,9 @@ tidak sesuai. Qty resi selalu dibaca server dari `tbldetailprintresi`, bukan dar
 - Data picker (no absen, nama, role, tanggal diambil) dibaca dari `tblresiambilbarang` dan
   `tblpegawai.nama_pegawai` (`NAMA - ROLE - ABSEN`). Role picker bisa berbeda dari PICKER
   (perbantuan).
-- **Waktu cek = waktu resi discan**: server mengirim `waktu_scan` saat scan, klien
-  mengirimnya kembali saat simpan. Server menolak nilai yang di masa depan atau lebih tua dari
-  6 jam (diganti waktu sekarang). Jam simpan tercatat terpisah di `created_at`.
+- **Waktu cek = saat petugas menekan Simpan** (setelah pratinjau), dari jam server, karena
+  barang dicek dulu di tahap GEDUNG BARU dan PACKER. Tahap RESI tidak punya form: waktunya saat
+  resi discan. Kolom `tblgdbr_cek.waktu_scan` menyimpan waktu ini (nama kolom dibiarkan).
 
 ## 3. Tabel (hanya ditambah, dibuat migrasi `2026-11-02.1`)
 

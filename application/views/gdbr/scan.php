@@ -75,7 +75,7 @@ $petugas = $petugas ?? ['label' => '', 'nama' => ''];
 
     U.ovlBersih();                                   // sisa lapisan dari kunjungan sebelumnya
 
-    var cur = null, extra = [], waktuScan = '', sibuk = false, antre = [];
+    var cur = null, extra = [], sibuk = false, antre = [];
     var KUNCI = 'gdbr_riwayat';
     var RIWAYAT = [];
     try { RIWAYAT = JSON.parse(sessionStorage.getItem(KUNCI) || '[]') || []; } catch (e) { RIWAYAT = []; }
@@ -173,7 +173,7 @@ $petugas = $petugas ?? ['label' => '', 'nama' => ''];
 
     // ───── form cek (GEDUNG BARU / PACKER) ─────
     function tampil(d, s) {
-        cur = { noresi: d.resi.noresi, isi: d.isi, gb: d.gb }; extra = []; waktuScan = d.waktu_scan;
+        cur = { noresi: d.resi.noresi, isi: d.isi, gb: d.gb }; extra = [];
         $('#f-stage').textContent = 'Cek ' + STAGE_NM[s];
         $('#f-resi').innerHTML = esc(d.resi.noresi) + U.cp(d.resi.noresi);
         $('#f-toko').textContent = [d.resi.toko, d.resi.mp].filter(Boolean).join(' · ');
@@ -182,7 +182,7 @@ $petugas = $petugas ?? ['label' => '', 'nama' => ''];
             '<div><span>No. Pesanan</span><b class="num">' + esc(d.resi.pesanan) + U.cp(d.resi.pesanan) + '</b></div>' +
             '<div class="hl"><span>PICKER</span><b>' + esc(d.picker.label) + '</b><small>' + fmtD(d.picker.waktu) + '</small></div>' +
             (s === 'PACKER' ? '<div class="hl"><span>GD-BR</span><b>' + (gb ? esc(gb.label) : 'Belum dicek') + '</b><small>' + (gb ? fmtD(gb.waktu) : '–') + '</small></div>' : '') +
-            '<div class="hl"><span>' + (s === 'GEDUNG_BARU' ? 'GD-BR' : 'PACKER') + '</span><b>' + esc(PETUGAS.label) + '</b><small>' + fmtD(waktuScan) + '</small></div>';
+            '<div class="hl"><span>' + (s === 'GEDUNG_BARU' ? 'GD-BR' : 'PACKER') + '</span><b>' + esc(PETUGAS.label) + '</b><small>Waktu dicatat saat Simpan</small></div>';
         $('#isi-head').innerHTML = '<tr><th>SKU</th><th class="c">Rak</th><th class="c">Qty resi</th>' + (s === 'PACKER' ? '<th class="c">Hasil GD-BR</th>' : '') + '<th class="c">Qty ada</th><th>Status</th></tr>';
         $('#isi').innerHTML = d.isi.map(function (i) {
             var hq = '';
@@ -307,13 +307,13 @@ $petugas = $petugas ?? ['label' => '', 'nama' => ''];
             tot += e.qty;
             return '<tr><td><b>' + esc(e.sku) + '</b></td><td class="c">0</td><td class="c">' + e.qty + '</td><td><span class="b info">SALAH ' + e.qty + '</span></td></tr>';
         })).join('');
-        var resi = cur.noresi, wkt = waktuScan;
-        U.modal('<h3>Simpan pengecekan?</h3><div class="pv"><div><span>No. Resi</span><b>' + esc(resi) + '</b></div><div><span>Tahap</span><b>' + STAGE_NM[s] + '</b></div><div><span>Petugas</span><b>' + esc(PETUGAS.label) + '</b></div><div><span>Waktu cek (saat scan)</span><b>' + fmtD(wkt) + '</b></div><div><span>Total ada</span><b>' + tot + ' pcs</b></div></div>' +
+        var resi = cur.noresi;
+        U.modal('<h3>Simpan pengecekan?</h3><div class="pv"><div><span>No. Resi</span><b>' + esc(resi) + '</b></div><div><span>Tahap</span><b>' + STAGE_NM[s] + '</b></div><div><span>Petugas</span><b>' + esc(PETUGAS.label) + '</b></div><div><span>Waktu cek</span><b>Saat Simpan diklik</b></div><div><span>Total ada</span><b>' + tot + ' pcs</b></div></div>' +
             '<div class="tw"><table class="tx"><thead><tr><th>SKU</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div><div style="margin-top:10px">' +
             (h.sesuai ? '<div class="al ok" style="margin-top:0"><b>ISI SESUAI RESI</b></div>' : '<div class="al warn" style="margin-top:0"><b>ADA YANG TIDAK SESUAI</b> ' + U.badges(h) + '</div>') + '</div>' + (cat ? '<div class="pvc"><b>Catatan:</b> ' + esc(cat) + '</div>' : ''),
             'Ya, simpan', function () {
                 return U.post(U.URL.simpan, {
-                    tahap: s, resi: resi, catatan: cat, lain: c.lain ? 1 : 0, waktu_scan: wkt,
+                    tahap: s, resi: resi, catatan: cat, lain: c.lain ? 1 : 0,
                     items: JSON.stringify(c.items.map(function (i) { return { sku: i.sku, qty_ada: i.qty_ada }; })),
                     extra: JSON.stringify(c.extra)
                 }).then(function (res) {
