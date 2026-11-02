@@ -272,6 +272,8 @@ class Arsip_fcd extends CI_Model
                 $this->catat('cek_skema', $t, 'OK', 'tabel dibuat (LIKE prod)');
             }
 
+            $this->tambah_kolom_baru($t);
+
             $selisih = $this->bandingkan_kolom($t);
             if ($selisih !== '') {
                 $out['beda'][$t] = $selisih;
@@ -306,6 +308,74 @@ class Arsip_fcd extends CI_Model
         $this->log[] = date("H:i:s") . "  " . sprintf('cek_skema: %d tabel siap, %d dibuat, %d view, %d beda, %d dilewati',
             count($out['siap']), count($out['dibuat']), count($out['view']), count($out['beda']), count($out['dilewati']));
         return $out;
+    }
+
+    /**
+     * Prod menambah kolom lewat migrasi bootstrap, arsip tidak ikut → tabel itu
+     * dilewati sinkron dan tarik_balik() gagal ("Column count doesn't match").
+     * Kalau arsip hanya KEKURANGAN kolom (tidak ada kolom lebih), tambahkan kolom
+     * itu persis seperti definisi prod, di posisi yang sama (urutan wajib sama
+     * karena salin memakai SELECT *). Hanya ADD COLUMN, plus pelebaran ENUM
+     * (nilai baru di belakang); tidak pernah DROP. Selisih jenis lain tetap dibiarkan untuk bandingkan_kolom().
+     */
+    private function tambah_kolom_baru($t)
+    {
+        $kolom = function ($db) use ($t) {
+            $r = $this->ambil_semua("SELECT column_name FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position", array($db, $t));
+            return array_map(function ($c) {
+                return $c->column_name;
+            }, $r);
+        };
+        $p = $kolom($this->prod);
+        $a = $kolom($this->arsip);
+        $kurang = array_values(array_diff($p, $a));
+
+        $cr  = $this->q("SHOW CREATE TABLE `{$this->prod}`.`$t`");
+        $row = (is_object($cr) && method_exists($cr, 'row_array')) ? $cr->row_array() : NULL;
+        $ddl = $row ? (string) array_values($row)[1] : '';
+
+        // ENUM yang di prod hanya DITAMBAH nilainya (nilai arsip = awalan nilai prod):
+        // pelebaran ini aman, tidak ada data yang berubah.
+        $tipe = function ($db) use ($t) {
+            $r = $this->ambil_semua("SELECT column_name, column_type FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = ? AND data_type = 'enum'", array($db, $t));
+            $o = array();
+            foreach ($r as $c) {
+                $o[$c->column_name] = $c->column_type;
+            }
+            return $o;
+        };
+        $ep = $tipe($this->prod);
+        $ea = $tipe($this->arsip);
+        foreach ($ep as $k => $tp) {
+            if (isset($ea[$k]) && $ea[$k] !== $tp && strpos($tp, rtrim($ea[$k], ')') . ',') === 0
+                && preg_match('/^\s*`' . preg_quote($k, '/') . '`\s+(.+?),?\s*$/m', $ddl, $m)) {
+                if ($this->kueri("ALTER TABLE `{$this->arsip}`.`$t` MODIFY COLUMN `$k` {$m[1]}", array(), FALSE)) {
+                    $this->catat('cek_skema', $t, 'OK', "enum $k dilebarkan mengikuti prod");
+                } else {
+                    $this->catat('cek_skema', $t, 'FAIL', "lebarkan enum $k: " . $this->pesan_error());
+                }
+            }
+        }
+
+        if (!$kurang || array_diff($a, $p)) {
+            return;
+        }
+
+        foreach ($kurang as $k) {
+            if (!preg_match('/^\s*`' . preg_quote($k, '/') . '`\s+(.+?),?\s*$/m', $ddl, $m)) {
+                $this->catat('cek_skema', $t, 'FAIL', "definisi kolom $k tidak ditemukan");
+                return;
+            }
+            $i     = array_search($k, $p);
+            $posisi = $i > 0 ? 'AFTER `' . $p[$i - 1] . '`' : 'FIRST';
+            if (!$this->kueri("ALTER TABLE `{$this->arsip}`.`$t` ADD COLUMN `$k` {$m[1]} $posisi", array(), FALSE)) {
+                $this->catat('cek_skema', $t, 'FAIL', "tambah kolom $k: " . $this->pesan_error());
+                return;
+            }
+            $this->catat('cek_skema', $t, 'OK', "kolom $k ditambahkan ke arsip (mengikuti prod)");
+        }
     }
 
     /** Buat/ganti view $v di arsip dari definisi prod. '' kalau berhasil, selain itu pesan error. */
