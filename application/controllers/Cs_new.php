@@ -982,9 +982,20 @@ class Cs_new extends MY_Controller
             $res['sumber_harga'] = $harga['ada'] ? 'jubelio' : 'tidak ada';
 
             // Komplain yang sudah tercatat untuk resi ini (boleh lebih dari satu)
-            $existing = $this->db->select('id_complain, kategori_komplain, tgl_komplain, created_at')
-                                 ->from('tblcs_complain')
-                                 ->where('no_resi', $res['noresi'])
+            // Dicocokkan lewat no. resi maupun no. pesanan (dengan/tanpa awalan SP-)
+            $pesanan_cari = array_values(array_filter([
+                $res['no_pesanan'],
+                preg_replace('/^SP-/i', '', (string) $res['no_pesanan']),
+                'SP-' . preg_replace('/^SP-/i', '', (string) $res['no_pesanan']),
+            ]));
+            $this->db->select('id_complain, kategori_komplain, tgl_komplain, created_at')
+                     ->from('tblcs_complain')
+                     ->group_start()
+                         ->where('no_resi', $res['noresi']);
+            if (!empty($res['no_pesanan'])) {
+                $this->db->or_where_in('no_pesanan', $pesanan_cari);
+            }
+            $existing = $this->db->group_end()
                                  ->where('is_deleted', 0)
                                  ->order_by('id_complain', 'desc')
                                  ->get()
