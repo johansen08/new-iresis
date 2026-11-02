@@ -185,6 +185,7 @@ Dipakai untuk putaran sebagian. Satu file bisa muncul di beberapa baris.
 | `models/Cancel_paket_fcd.php` | P-3, K-3, H-4, R-3, lalu query §11.1 |
 | `models/Lost_scan_picker_fcd.php`, `models/Lost_scan_packer_fcd.php`, `controllers/Lost_scan_picker.php` | K-4, K-5, H-5, §10 |
 | `models/Pemenuhan_kirim_fcd.php`, `views/monitoring/pemenuhan_kirim_harian.php`, method `pemenuhan_kirim_harian*` di `controllers/Monitoring.php` | Smoke test bagian "Pemenuhan Kirim Harian" (termasuk daftar popup dan unduh Excel), lalu buka menunya di browser: ganti tanggal, ubah jumlah packer dan batas, buka ikon ⓘ, klik **Lihat detail**, cari + filter, Unduh Excel. Tidak perlu scan resi |
+| `models/Gdbr_fcd.php`, `controllers/Gdbr.php`, `views/gdbr/*`, `assets/css/gdbr.css`, `run_gdbr_migration()` di `core/MY_Controller.php` | Menu **Scan Resi GD-BR**: tahap RESI (scan sukses, lalu dobel ditolak), GEDUNG BARU (isi selisih + catatan, simpan), PACKER (kolom Hasil GD-BR). Menu **Rekap Resi GD-BR**: filter, cari, detail, export. Rincian di `docs/GDBR.md` §6 |
 
 Putaran sebagian tetap memakai persiapan §2 dan penutup §11. Resi yang
 langkahnya tidak dijalankan cukup dilewati di tabel keadaan akhir.
