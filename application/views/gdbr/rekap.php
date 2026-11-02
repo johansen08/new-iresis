@@ -179,7 +179,7 @@
     function langkah(judul, c, tunggu) {
         if (!c) return '<li><span class="nd"></span><div class="tt" style="color:var(--muted)">' + judul + ' <span class="b slate">BELUM</span></div><div class="tp muted">' + tunggu + '</div></li>';
         return '<li class="' + (c.sesuai ? 'done' : 'warn') + '"><span class="nd">' + (c.sesuai ? '✓' : '!') + '</span><div class="tt">' + judul + ' ' + U.badges(c) + '</div><div class="tp">' + esc(c.label) +
-            ' <span style="color:var(--muted)"><br>Waktu scan: ' + fmtD(c.waktu) + '</span></div>' + (c.catatan ? '<div class="tn">' + esc(c.catatan) + '</div>' : '') + '</li>';
+            ' <span style="color:var(--muted)"><br>Waktu cek: ' + fmtD(c.waktu) + '</span></div>' + (c.catatan ? '<div class="tn">' + esc(c.catatan) + '</div>' : '') + '</li>';
     }
     function bukaDrawer(no) {
         U.post(U.URL.detail, { noresi: no }).then(function (res) {

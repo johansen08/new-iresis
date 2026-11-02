@@ -267,7 +267,6 @@ class Gdbr_fcd extends CI_Model
 
         $hasil = [
             'status'     => 'ok',
-            'waktu_scan' => $this->sekarang(),
             'resi'       => $info,
             'picker'     => $picker,
             'tandai'     => $this->orang($tandai->petugas_absen, $tandai->petugas_nama, $tandai->petugas_role) + ['waktu' => $tandai->ditandai_at],
@@ -330,7 +329,7 @@ class Gdbr_fcd extends CI_Model
      * @param array $extra  [['sku' => ..., 'qty' => n], ...] untuk SKU di luar resi
      * @return array ['ok' => bool, 'message' => string, ...]
      */
-    public function simpan($tahap, $noresi, array $items, array $extra, $lain, $catatan, $waktu_scan, array $petugas, $komputer)
+    public function simpan($tahap, $noresi, array $items, array $extra, $lain, $catatan, array $petugas, $komputer)
     {
         if (!in_array($tahap, [self::TAHAP_GB, self::TAHAP_PACKER], true)) {
             return ['ok' => false, 'message' => 'Tahap tidak dikenal.'];
@@ -410,13 +409,8 @@ class Gdbr_fcd extends CI_Model
             $catatan = mb_substr($catatan, 0, 255, 'UTF-8');
         }
 
-        // Waktu cek = waktu resi discan; klien mengirim ulang waktu dari balasan scan.
-        $sekarang = time();
-        $t = strtotime((string) $waktu_scan);
-        if (!$t || $t > $sekarang + 60 || $t < $sekarang - 6 * 3600) {
-            $t = $sekarang;
-        }
-        $waktu = date('Y-m-d H:i:s', $t);
+        // Waktu cek = saat petugas menekan Simpan (setelah pratinjau), diambil dari jam server.
+        $waktu = $this->sekarang();
 
         $debug = $this->db->db_debug;
         $this->db->db_debug = false;

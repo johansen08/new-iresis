@@ -94,7 +94,6 @@ class Gdbr extends MY_Controller
             is_array($extra) ? $extra : array(),
             (int) $this->input->post('lain') === 1,
             $this->input->post('catatan'),
-            $this->input->post('waktu_scan'),
             $this->petugas(),
             $this->komputer()
         );
