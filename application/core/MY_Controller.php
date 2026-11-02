@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-02.1';
+    const BOOTSTRAP_VERSI = '2026-11-02.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2089,9 +2089,10 @@ class MY_Controller extends CI_Controller
      * (tblgdbr_resi, tblgdbr_cek, tblgdbr_cek_item) dan dua menu anak TIM MONITORING:
      * Scan Resi GD-BR dan Rekap Resi GD-BR. Hanya menambah; tidak menyentuh tabel lama.
      *
-     * Hak akses awal: role 1 (webmaster), 4 (QC/packer, mis. Dewi), dan 5 (HO, mis. Guntur).
-     * Akses diatur per role, jadi semua akun di role 4 dan 5 ikut bisa membuka menu ini;
-     * persempit lewat halaman Access bila perlu.
+     * Hak akses: role 1 (webmaster), 2 (admin, termasuk tim resi), 4 (client packer), 5 (HO), dan
+     * 12 (tim restok). Akses diatur per role, jadi semua akun aktif di role itu ikut bisa membuka
+     * menu ini (role 2 juga berisi akun CS); persempit lewat halaman Access bila perlu. Hanya
+     * menambah baris roleaccess; yang sudah ada tidak diubah.
      */
     protected function run_gdbr_migration()
     {
@@ -2169,7 +2170,7 @@ class MY_Controller extends CI_Controller
             } else {
                 $menu_id = $menu->id;
             }
-            foreach ([1, 4, 5] as $roleid) {
+            foreach ([1, 2, 4, 5, 12] as $roleid) {
                 if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row()) {
                     $this->db->insert('roleaccess', [
                         'roleid'    => $roleid,
