@@ -2060,11 +2060,8 @@ class Retur_fcd extends CI_Model
      * Ambil data retur iresis (per no_resi) untuk rekonsiliasi, dalam rentang
      * tanggal terima retur. Termasuk kategori (Terima Retur / Buka Retur).
      */
-    function get_iresis_recon($start_date, $end_date, $id_kurir = null, $is_update = 0, $is_komplain = 0, $use_old = 0)
+    function get_iresis_recon($start_date, $end_date, $id_kurir = null, $is_update = 0, $is_komplain = 0)
     {
-        // Toggle "Data Lama": baca snapshot sebelum restore 2026-07-07 (opsional, default live)
-        $tr_tbl = $use_old ? 'tblresiretur_corrupt_20260707' : 'tblresiretur';
-        $br_tbl = $use_old ? 'tblbukaretur_corrupt_20260707' : 'tblbukaretur';
 
         $this->db->select('
             tr.noresi,
@@ -2083,15 +2080,13 @@ class Retur_fcd extends CI_Model
             br.sku_pergantian,
             br.id_bukaretur
         ', FALSE);
-        $this->db->from("$tr_tbl tr");
+        $this->db->from('tblresiretur tr');
         $this->db->join('tblprintresi pr', 'pr.noresi = tr.noresi', 'left');
         $this->db->join('tbldetailprintresi dp', 'dp.id_resi = pr.id_printresi', 'left');
         // Sertakan is_komplain di kondisi join: baris Buka Retur komplain hanya boleh
         // menempel ke Terima Retur komplain, dan sebaliknya. Tanpa ini 1 baris buka
         // ikut muncul di Laporan Verifikasi Retur DAN Verifikasi Retur Komplain.
-        // Tabel snapshot "Data Lama" belum punya kolom ini, jadi syarat dilewati.
-        $join_kmp = $use_old ? '' : ' AND br.is_komplain = tr.is_komplain';
-        $this->db->join("$br_tbl br", "br.resi_buka = tr.noresi{$join_kmp} AND (br.sku = dp.sku OR (dp.sku IS NULL AND br.sku IS NOT NULL))", 'left');
+        $this->db->join('tblbukaretur br', 'br.resi_buka = tr.noresi AND br.is_komplain = tr.is_komplain AND (br.sku = dp.sku OR (dp.sku IS NULL AND br.sku IS NOT NULL))', 'left');
         $this->db->join('tblmarketplace mp', 'mp.id_marketplace = tr.id_marketplace', 'left');
         $this->db->join('tblkurir kr', 'kr.id_kurir = tr.id_kurir', 'left');
 

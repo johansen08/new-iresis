@@ -2483,9 +2483,9 @@ class Retur extends MY_Controller
 	 * Gabungkan data retur iresis dan Jubelio per no_resi, tentukan kondisi:
 	 * Cocok / Hanya di iresis / Hanya di Jubelio.
 	 */
-	private function _reconcile($start_date, $end_date, $id_kurir = null, $is_update = 0, $is_komplain = 0, $use_old = 0)
+	private function _reconcile($start_date, $end_date, $id_kurir = null, $is_update = 0, $is_komplain = 0)
 	{
-		$iresis  = $this->retur_fcd->get_iresis_recon($start_date, $end_date, $id_kurir, $is_update, $is_komplain, $use_old);
+		$iresis  = $this->retur_fcd->get_iresis_recon($start_date, $end_date, $id_kurir, $is_update, $is_komplain);
 
 		// Tampilkan SEMUA baris hasil scan retur buka apa adanya (satu baris per
 		// SKU / id_bukaretur). Sebelumnya baris KE_DISPLAY disaring saat bercampur
@@ -2623,9 +2623,8 @@ class Retur extends MY_Controller
 		$id_kurir   = $this->input->post('id_kurir');
 		$kondisi    = $this->input->post('kondisi'); // '', COCOK, IRESIS, JUBELIO
 		$is_komplain = $this->input->post('is_komplain') ? 1 : 0;
-		$use_old     = $this->input->post('use_old') ? 1 : 0; // toggle "Data Lama" (snapshot 2026-07-07)
 
-		$merged = $this->_reconcile($start_date, $end_date, $id_kurir, 0, $is_komplain, $use_old);
+		$merged = $this->_reconcile($start_date, $end_date, $id_kurir, 0, $is_komplain);
 
 		$data = [];
 		// Ringkasan dihitung per-RESI (dedup). Jika 1 resi punya beberapa SKU

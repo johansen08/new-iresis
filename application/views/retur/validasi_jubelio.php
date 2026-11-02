@@ -109,9 +109,6 @@
               <button type="button" class="btn btn-warning" id="btn_verifikasi_terpilih" style="margin-left:5px;" disabled>
                 <i class="fa fa-bolt"></i> Verifikasi Terpilih (<span id="verif-selected-count">0</span>)
               </button>
-              <label style="font-weight:normal;margin-left:15px;cursor:pointer;" title="Baca snapshot iresis sebelum restore 2026-07-07 (tblresiretur/tblbukaretur_corrupt_20260707)">
-                <input type="checkbox" id="use_old_jubelio"> Data Lama (07-07)
-              </label>
             </div>
           </div>
         </div>
@@ -388,8 +385,7 @@ $(document).ready(function() {
             start_date: dates[0] || '',
             end_date: dates[1] || '',
             id_kurir: $('#kurir_jubelio').val(),
-            kondisi: $('#kondisi_jubelio').val(),
-            use_old: $('#use_old_jubelio').is(':checked') ? 1 : 0
+            kondisi: $('#kondisi_jubelio').val()
         };
     }
 
