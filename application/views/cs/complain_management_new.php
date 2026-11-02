@@ -330,6 +330,8 @@
       .kf-resi-group .kf-input { flex: 1; }
       .kf-resi-group .btn-modern { height: 46px; white-space: nowrap; padding: 0 16px; }
       .kf-hint { display: block; margin-top: 5px; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+      .kf-input.kf-invalid, .kf-input.kf-invalid:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .15); }
+      .kf-hint-sudah { color: #dc2626; font-size: 11px; font-weight: 600; }
       .kf-hint-warn { color: #b91c1c; background: #fef2f2; border-radius: 6px; padding: 6px 8px; }
       .kf-row-tight { margin-left: -6px; margin-right: -6px; }
       .kf-row-tight > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
@@ -733,6 +735,7 @@
                     <button type="button" class="btn-modern" id="btn-search-resi" title="Isi data otomatis dari nomor ini"><i class="fa fa-magic"></i> Isi Otomatis</button>
                   </div>
                   <small class="kf-hint" id="resi-search-hint">Terisi otomatis: pesanan, tanggal, marketplace, toko, barang, picker, dan QC.</small>
+                  <small class="kf-hint kf-hint-sudah" id="resi-sudah-input" style="display: none;"></small>
                 </div>
 
                 <div class="kf-summary">
@@ -1210,6 +1213,7 @@
         $('#detail_lainnya').prop('required', false).val('');
         $('#hint-qc-salah').hide();
         $('#alert-komplain-lain').hide().html('');
+        tandaiSudahInput(false);
     }
 
     // Show form modal to add new complain
@@ -1354,6 +1358,7 @@
         $('#nama_picker, #nama_qc').val('');
         $('#sku-rows-list').empty();
         $('#alert-komplain-lain').hide().html('');
+        tandaiSudahInput(false);
     }
 
     function searchResiAutoFill(senyap) {
@@ -1460,8 +1465,20 @@
         });
     }
 
+    // Kolom resi merah + keterangan kecil bila nomor ini sudah pernah diinput
+    function tandaiSudahInput(ada) {
+        $('#no_resi').toggleClass('kf-invalid', !!ada);
+        var $k = $('#resi-sudah-input');
+        if (ada) $k.text('Sudah di input').show(); else $k.hide().text('');
+    }
+
+    $('#no_resi').on('input', function() {
+        if ($(this).val().trim() !== terakhirDicari) tandaiSudahInput(false);
+    });
+
     function tampilkanKomplainLain(list) {
         var $alert = $('#alert-komplain-lain');
+        tandaiSudahInput(list && list.length > 0 && $('#is_edit').val() !== '1');
         if (!list || list.length === 0) {
             $alert.hide().html('');
             return;
