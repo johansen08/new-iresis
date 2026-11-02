@@ -55,10 +55,11 @@ Tidak ada `DELETE`/`UPDATE` dari kode ini. Tabel ini **belum** terdaftar di `con
 
 ## 4. Akses
 
-Akses per role lewat `roleaccess`. Migrasi memberi role **1** (webmaster), **4** (QC/packer,
-mis. Dewi) dan **5** (HO, mis. Guntur). Karena per role, semua akun aktif di role 4 dan 5 ikut
-bisa membuka kedua menu. Persempit lewat halaman Access bila perlu. Endpoint POST memeriksa
-`roleaccess` sendiri (sidebar saja tidak cukup).
+Akses per role lewat `roleaccess`. Migrasi (versi `2026-11-02.2`) memberi role **1** (webmaster),
+**2** (admin: berisi tim resi, juga beberapa akun CS), **4** (client packer), **5** (HO), dan **12**
+(tim restok). Karena per role, semua akun aktif di role itu ikut bisa membuka kedua menu.
+Persempit lewat halaman Access bila perlu. Endpoint POST memeriksa `roleaccess` sendiri
+(sidebar saja tidak cukup).
 
 ## 5. Scan beruntun
 
