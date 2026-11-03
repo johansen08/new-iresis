@@ -1140,6 +1140,9 @@
             $('#kp-dr-meta').text('Dibuat ' + (c.created_at ? moment(c.created_at).format('DD MMM YYYY HH:mm:ss') : '-') +
                 ' oleh ' + (c.nama_penginput || '-') + (c.no_absen_input && c.no_absen_input !== '-' ? ' (' + c.no_absen_input + ')' : ''));
 
+            var jj = resp.jejak_resi || { ada: false };
+            var fmtWaktu = function(w) { return w ? moment(w).format('DD MMM YYYY HH:mm:ss') : 'Belum ada'; };
+
             var total = 0, barang = '';
             $.each(resp.items || [], function(i, it) {
                 var sub = (parseInt(it.qty) || 0) * (parseFloat(it.price) || 0);
@@ -1167,7 +1170,12 @@
                     pvRow('fa-video-camera', 'Hasil cek CCTV', c.hasil_investigasi || 'Belum dicek') +
                     pvRow('fa-sticky-note-o', 'Catatan', c.catatan_penanganan) +
                     pvRow('fa-user', 'Picker', labelOrang(c.nama_picker)) +
-                    pvRow('fa-user', 'Packer', labelOrang(c.nama_qc || c.nama_packer)) + '</div>';
+                    (jj.ada ? pvRow('fa-clock-o', 'Waktu ambil barang', fmtWaktu(jj.waktu_picker)) : '') +
+                    pvRow('fa-user', 'Packer', labelOrang(c.nama_qc || c.nama_packer)) +
+                    (jj.ada ? pvRow('fa-clock-o', 'Waktu packing', fmtWaktu(jj.waktu_packer)) +
+                        pvRow('fa-flag', 'Status resi', jj.status) +
+                        pvRow('fa-cube', 'Isi resi', (jj.satu_sku ? '1 SKU' : jj.jml_sku + ' SKU') + ' (' + jj.total_qty + ' pcs)') : '') +
+                    '</div>';
 
             $('#kp-dr-body').html(html).scrollTop(0);
             $('#kp-dr-edit, #kp-dr-hapus').data('id', c.id_complain).data('noresi', c.no_resi).toggle(isAdminOrSupervisor);

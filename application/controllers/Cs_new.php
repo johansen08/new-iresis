@@ -543,9 +543,63 @@ class Cs_new extends MY_Controller
             'complain' => $complain,
             'items' => $items,
             'lampiran' => $lampiran,
-            'komplain_lain' => $komplain_lain
+            'komplain_lain' => $komplain_lain,
+            'jejak_resi' => $this->_jejak_resi($complain['no_resi'])
         ]);
         exit;
+    }
+
+    /**
+     * Jejak resi untuk bagian Investigasi: kapan picker mengambil barang, kapan packer
+     * memacking, status resi sekarang, dan apakah resinya 1 SKU atau lebih.
+     * Bersumber dari tblresiambilbarang, tblpacking, tblprintresi (bukan dari isian komplain).
+     */
+    private function _jejak_resi($no_resi)
+    {
+        $kosong = ['ada' => false];
+        if (empty($no_resi)) {
+            return $kosong;
+        }
+
+        $resi = $this->db->select('id_printresi, status_pesanan, status_wms, batal')
+                         ->get_where('tblprintresi', ['noresi' => $no_resi])
+                         ->row_array();
+        if (!$resi) {
+            return $kosong;
+        }
+
+        $ambil = $this->db->select('rab.tanggal_resiambilbarang AS waktu, peg.nama_pegawai')
+                          ->from('tblresiambilbarang rab')
+                          ->join('tblpegawai peg', 'peg.kode_pegawai = rab.yangambil_pegawai', 'left')
+                          ->where('rab.id_resi', $resi['id_printresi'])
+                          ->get()->row_array();
+
+        $packing = $this->db->select('p.tanggal_packing AS waktu, peg.nama_pegawai')
+                            ->from('tblpacking p')
+                            ->join('tblpegawai peg', 'peg.kode_pegawai = p.packer_pegawai', 'left')
+                            ->where('p.id_resi', $resi['id_printresi'])
+                            ->order_by('p.tanggal_packing', 'DESC')
+                            ->limit(1)
+                            ->get()->row_array();
+
+        $ringkas = $this->db->query(
+            'SELECT COUNT(DISTINCT sku) AS jml_sku, COALESCE(SUM(jumlah), 0) AS total_qty
+             FROM tbldetailprintresi WHERE id_resi = ?', [$resi['id_printresi']]
+        )->row_array();
+        $jml_sku   = (int) ($ringkas['jml_sku'] ?? 0);
+        $total_qty = (int) ($ringkas['total_qty'] ?? 0);
+
+        return [
+            'ada'            => true,
+            'status'         => $resi['status_pesanan'] ?: ($resi['status_wms'] ?: '-'),
+            'jml_sku'        => $jml_sku,
+            'total_qty'      => $total_qty,
+            'satu_sku'       => $jml_sku === 1,
+            'waktu_picker'   => $ambil['waktu'] ?? null,
+            'nama_picker'    => $ambil['nama_pegawai'] ?? null,
+            'waktu_packer'   => $packing['waktu'] ?? null,
+            'nama_packer'    => $packing['nama_pegawai'] ?? null,
+        ];
     }
 
     /**
