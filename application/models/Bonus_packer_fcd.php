@@ -12,9 +12,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    memang mencampur status dalam satu hari, yang bukan NORMAL_PACKER cuma
  *    tidak ikut dihitung).
  *  - Kesalahan: jumlah komplain CS (tblcs_complain, belum dihapus) berhasil
- *    investigasi 'QC Salah' pada resi yang dihitung. Satuannya per komplain.
- *    Dikaitkan ke packer dan hari packing resi itu (komplain datang berhari-hari
- *    kemudian, jadi tidak ada batas jam seperti laporan masalah picker).
+ *    investigasi 'QC Salah'. Satuannya per komplain. Dilacak lewat resinya ke
+ *    scan packing TERAKHIR resi itu, lalu dicatat pada packer dan TANGGAL scan
+ *    tersebut -- apa pun status performa dan jamnya (komplain datang berhari-hari
+ *    kemudian dan packer tetap bertanggung jawab atas resi 1 SKU/payung/dll).
  *    1 kesalahan = 50 poin. Net = total packing - poin kesalahan.
  *  - Bonus per hari: net >= 1.300 -> Rp 50.000, net 1.150-1.299 -> Rp 30.000.
  *  - Packer = pegawai bernama "NAMA - QC - NOABSEN" yang aktif; akun login
@@ -110,13 +111,12 @@ class Bonus_packer_fcd extends CI_Model
              FROM $db.tblcs_complain c
              JOIN $db.tblprintresi pr ON pr.noresi = c.no_resi
              JOIN $db.tblpacking pk ON pk.id_resi = pr.id_printresi
+                  AND pk.id_packing = (SELECT MAX(pk2.id_packing) FROM $db.tblpacking pk2 WHERE pk2.id_resi = pr.id_printresi)
              WHERE pk.tanggal_packing BETWEEN ? AND ?
-               AND pk.status_performa_id = ?
-               AND TIME(pk.tanggal_packing) BETWEEN ? AND ?
                AND c.hasil_investigasi = ?
                AND c.is_deleted = 0
              GROUP BY pk.packer_pegawai, DATE(pk.tanggal_packing)",
-            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR, self::HASIL_QC_SALAH]
+            [$dari, $sampai, self::HASIL_QC_SALAH]
         ) : FALSE;
 
         $this->db->db_debug = $debug;
