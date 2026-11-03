@@ -142,10 +142,15 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   #bk-root .bk-mb th:first-child, #bk-root .bk-mb td:first-child { text-align:left; }
   #bk-root .bk-mb td { padding:9px 14px; border-bottom:1px solid #f0f3f6; text-align:right; font-variant-numeric:tabular-nums; }
   #bk-root .bk-mb td:first-child, #bk-root .bk-mb td:last-child { white-space:nowrap; }
-  #bk-root .bk-salah { border:0; background:#fee2e2; color:#b91c1c; font-weight:700; border-radius:999px; min-width:28px; padding:2px 10px; cursor:pointer; }
-  #bk-root .bk-salah:hover { background:#fecaca; }
-  #bk-root .bk-mb tr.bk-resirow td { background:#fff7f7; text-align:left; white-space:normal; font-size:12px; line-height:1.9; }
-  #bk-root .bk-mb tr.bk-resirow code { margin-right:6px; background:#fff; border:1px solid #fecaca; color:#7f1d1d; white-space:nowrap; }
+  #bk-root .bk-sal { display:inline-block; min-width:34px; padding:2px 0; border:0; border-radius:999px; text-align:center; font:inherit; font-weight:700; line-height:1.4; }
+  #bk-root .bk-sal.nol { background:#eef1f5; color:#9aa5b1; font-weight:500; }
+  #bk-root button.bk-sal { background:#fee2e2; color:#b91c1c; cursor:pointer; }
+  #bk-root button.bk-sal:hover { background:#fecaca; }
+  #bk-root button.bk-sal.buka { background:#b91c1c; color:#fff; }
+  #bk-root .bk-mb tr.bk-resirow td { background:#fff7f7; text-align:left; white-space:normal; padding:10px 14px 12px; border-bottom:1px solid #fbd5d5; }
+  #bk-root .bk-resibox .jd { font-size:12px; font-weight:600; color:#991b1b; margin-bottom:8px; }
+  #bk-root .bk-resibox ul { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px 8px; }
+  #bk-root .bk-resibox li { background:#fff; border:1px solid #fbd5d5; border-radius:6px; padding:3px 10px; font:12px/1.5 Consolas, Menlo, monospace; color:#7f1d1d; user-select:all; white-space:nowrap; }
   #bk-root .bk-mb td .bk-hr { color:var(--bk-muted); font-size:11px; display:block; }
 
   /* tablet */
@@ -512,14 +517,15 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     $('#bk-m-rows').html(p.det.map(function (x) {
       var cls = x.net >= TIER2 ? 'gold' : (x.net >= TARGET ? 'ok' : 'none');
       var salah = x.salah > 0
-        ? '<button type="button" class="bk-salah" data-t="' + esc(x.tgl) + '" title="Lihat daftar resi">' + x.salah + '</button>'
-        : x.salah;
+        ? '<button type="button" class="bk-sal" data-t="' + esc(x.tgl) + '" title="Lihat daftar resi" aria-expanded="false">' + x.salah + '</button>'
+        : '<span class="bk-sal nol">0</span>';
       var baris = '<tr><td>' + tglBaris(x.tgl) + '</td><td>' + num(x.pick) + '</td><td>' + salah + '</td><td>' + x.poin +
         '</td><td><span class="bk-pill ' + cls + '">' + num(x.net) + '</span></td>' +
         '<td>' + (x.bonus ? '<b>' + rp(x.bonus) + '</b>' : '<span style="color:#9aa5b1">-</span>') + '</td></tr>';
       if (x.salah > 0) {
-        baris += '<tr class="bk-resirow" data-t="' + esc(x.tgl) + '" style="display:none"><td colspan="6">' +
-          '<b>Resi kesalahan QC (komplain QC Salah):</b> ' + x.resi.map(function (r) { return '<code>' + esc(r) + '</code>'; }).join(' ') + '</td></tr>';
+        baris += '<tr class="bk-resirow" data-t="' + esc(x.tgl) + '" style="display:none"><td colspan="6"><div class="bk-resibox">' +
+          '<div class="jd">Resi kesalahan QC (komplain QC Salah) &middot; ' + x.salah + ' resi</div><ul>' +
+          x.resi.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul></div></td></tr>';
       }
       return baris;
     }).join(''));
@@ -529,8 +535,10 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   function tutup() { sembunyiTip(); $('#bk-ov').removeClass('on'); }
 
   $root.on('click', '.bk-detail', function () { buka(parseInt($(this).data('k'), 10)); });
-  $root.on('click', '.bk-salah', function () {
-    $('#bk-m-rows tr.bk-resirow[data-t="' + $(this).data('t') + '"]').toggle();
+  $root.on('click', '.bk-sal', function () {
+    var $b = $(this), $r = $('#bk-m-rows tr.bk-resirow[data-t="' + $b.data('t') + '"]');
+    $r.toggle();
+    $b.toggleClass('buka', $r.is(':visible')).attr('aria-expanded', $r.is(':visible'));
   });
   $root.on('click', '#bk-m-x', tutup);
   $root.on('click', '#bk-ov', function (e) { if (e.target === this) { tutup(); } });
