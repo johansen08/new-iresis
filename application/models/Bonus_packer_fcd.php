@@ -7,10 +7,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Murni baca-saja: tidak ada tabel baru dan tidak ada yang ditulis. Kembaran
  * Bonus_picker_fcd dengan sumber data packer. Aturan:
  *  - Resi yang dihitung: baris tblpacking yang di-scan pukul 05.00-18.00 dengan
- *    status performa NORMAL_PACKER. 1_SKU_PACKER, QTY_BANYAK, PAYUNG, dan status
- *    lain tidak dihitung (tidak ada konsep "hari spesial" seperti picker: packer
- *    memang mencampur status dalam satu hari, yang bukan NORMAL_PACKER cuma
- *    tidak ikut dihitung).
+ *    status performa NORMAL_PACKER, QTY_BANYAK, atau PAYUNG (STATUS_DIHITUNG).
+ *    Status lain tidak dihitung.
+ *  - Hari petugas spesial = hari packer itu mengerjakan resi 1_SKU_PACKER
+ *    (satu resi pun, jam berapa pun; keputusan 3 Nov 2026). Hari itu tidak
+ *    dihitung sama sekali: tanpa packing, tanpa kesalahan, tanpa bonus, tidak
+ *    masuk capai target.
  *  - Kesalahan: jumlah komplain CS (tblcs_complain, belum dihapus) berhasil
  *    investigasi 'QC Salah'. Satuannya per komplain. Dilacak lewat resinya ke
  *    scan packing TERAKHIR resi itu, lalu dicatat pada packer dan TANGGAL scan
@@ -31,6 +33,8 @@ class Bonus_packer_fcd extends CI_Model
     const JAM_AWAL           = '05:00:00';
     const JAM_AKHIR          = '18:00:00';
     const HASIL_QC_SALAH     = 'QC Salah';
+    const STATUS_DIHITUNG    = ['NORMAL_PACKER', 'QTY_BANYAK', 'PAYUNG'];
+    const STATUS_SPESIAL     = '1_SKU_PACKER';
 
     public static function bonus_dari_net($net)
     {
@@ -86,22 +90,25 @@ class Bonus_packer_fcd extends CI_Model
      *
      * @return array|FALSE [pack[], salah[]]
      */
-    private function ambil_segmen($nama_db, $dari, $sampai, $id_normal)
+    private function ambil_segmen($nama_db, $dari, $sampai, array $ids_status, $id_1sku)
     {
         $db = $this->db->escape_identifiers($nama_db);
+        $ids_sql = implode(',', array_map('intval', $ids_status));
         $debug = $this->db->db_debug;
         $this->db->db_debug = FALSE;
 
         $q_pack = $this->db->query(
             "SELECT pk.packer_pegawai AS akun,
                     DATE(pk.tanggal_packing) AS tgl,
-                    COUNT(DISTINCT pk.id_resi) AS total_pack
+                    COUNT(DISTINCT CASE WHEN pk.status_performa_id IN ($ids_sql)
+                                         AND TIME(pk.tanggal_packing) BETWEEN ? AND ?
+                                        THEN pk.id_resi END) AS total_pack,
+                    COUNT(DISTINCT CASE WHEN pk.status_performa_id = ? THEN pk.id_resi END) AS resi_1sku
              FROM $db.tblpacking pk
              WHERE pk.tanggal_packing BETWEEN ? AND ?
-               AND pk.status_performa_id = ?
-               AND TIME(pk.tanggal_packing) BETWEEN ? AND ?
+               AND pk.status_performa_id IN ($ids_sql, ?)
              GROUP BY pk.packer_pegawai, DATE(pk.tanggal_packing)",
-            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR]
+            [self::JAM_AWAL, self::JAM_AKHIR, $id_1sku, $dari, $sampai, $id_1sku]
         );
 
         $q_salah = $q_pack ? $this->db->query(
@@ -137,10 +144,17 @@ class Bonus_packer_fcd extends CI_Model
     public function hitung($awal, $akhir)
     {
         $this->sumber_arsip = 'tidak';
-        $id_normal = $this->id_status('NORMAL_PACKER');
-        if (!$id_normal) {
+        $ids_status = [];
+        foreach (self::STATUS_DIHITUNG as $kode) {
+            $id = $this->id_status($kode);
+            if ($id) {
+                $ids_status[] = $id;
+            }
+        }
+        if (!$ids_status) {
             return [];
         }
+        $id_1sku = $this->id_status(self::STATUS_SPESIAL);
 
         // Segmen [db, dari, sampai]: tanggal lama dari arsip, tanggal baru dari prod.
         $pemisah = $this->tanggal_pemisah();
@@ -159,7 +173,7 @@ class Bonus_packer_fcd extends CI_Model
         $pack  = [];
         $salah = [];
         foreach ($segmen as $sg) {
-            $hasil = $this->ambil_segmen($sg[0], $sg[1] . ' 00:00:00', $sg[2] . ' 23:59:59', $id_normal);
+            $hasil = $this->ambil_segmen($sg[0], $sg[1] . ' 00:00:00', $sg[2] . ' 23:59:59', $ids_status, $id_1sku);
             if ($hasil === FALSE) {
                 if ($sg[0] === $this->db->database) {
                     show_error('Bonus Packer: query gagal dijalankan.', 500);
@@ -183,7 +197,7 @@ class Bonus_packer_fcd extends CI_Model
         }
 
         // Hanya "NAMA - QC - NOABSEN" yang aktif; pegawai lain (resi, CS, HO, picker)
-        // yang kebetulan punya baris NORMAL_PACKER tidak ikut dilaporkan.
+        // yang kebetulan punya baris packing tidak ikut dilaporkan.
         $peg_dari_akun = function ($akun) use ($pegawai_akun, $nama) {
             $peg = isset($pegawai_akun[(int) $akun]) ? $pegawai_akun[(int) $akun] : 0;
             if (!$peg || !isset($nama[$peg]) || !preg_match('/-\s*QC\s*-/i', $nama[$peg])) {
@@ -194,6 +208,7 @@ class Bonus_packer_fcd extends CI_Model
 
         // Gabung per pegawai + hari (satu pegawai bisa punya lebih dari satu akun).
         $map_pack = [];
+        $map_spesial = [];
         foreach ($pack as $r) {
             $peg = $peg_dari_akun($r['akun']);
             if (!$peg) {
@@ -201,6 +216,9 @@ class Bonus_packer_fcd extends CI_Model
             }
             $k = $peg . '|' . $r['tgl'];
             $map_pack[$k] = ($map_pack[$k] ?? 0) + (int) $r['total_pack'];
+            if ((int) $r['resi_1sku'] > 0) {
+                $map_spesial[$k] = true;
+            }
         }
         $map_salah = [];
         foreach ($salah as $r) {
@@ -217,7 +235,7 @@ class Bonus_packer_fcd extends CI_Model
             list($peg, $tgl) = explode('|', $k, 2);
             $resi_salah = $map_salah[$k] ?? [];
             $jml_salah  = count($resi_salah);
-            if ($total === 0 && $jml_salah === 0) {
+            if ($total === 0 && $jml_salah === 0 && !isset($map_spesial[$k])) {
                 continue;
             }
             if (!isset($hasil[$peg])) {
@@ -232,6 +250,12 @@ class Bonus_packer_fcd extends CI_Model
                 ];
             }
 
+            // Petugas spesial: hari itu tidak dihitung (packing, kesalahan, bonus).
+            if (isset($map_spesial[$k])) {
+                $hasil[$peg]['det'][] = ['tgl' => $tgl, 'spesial' => true];
+                continue;
+            }
+
             $poin  = $jml_salah * self::POIN_PER_KESALAHAN;
             $net   = $total - $poin;
             $bonus = self::bonus_dari_net($net);
@@ -242,6 +266,7 @@ class Bonus_packer_fcd extends CI_Model
             }
             $hasil[$peg]['det'][] = [
                 'tgl'     => $tgl,
+                'spesial' => false,
                 'pick'    => $total,
                 'salah'   => $jml_salah,
                 'resi'    => $resi_salah,
