@@ -1090,6 +1090,7 @@ class Top_level_fcd extends CI_Model
         // Normalisasi baris; rak yang sama digabung.
         $tujuan = array();
         $asal_set = array();
+        $asal_ke_rak = array();
         $ganti_rak = array();
         foreach ($rows as $x) {
             $asal = self::rapikan_rak(isset($x['asal']) ? $x['asal'] : '');
@@ -1107,6 +1108,7 @@ class Top_level_fcd extends CI_Model
             $tujuan[$rak] = (isset($tujuan[$rak]) ? $tujuan[$rak] : 0) + (int) $qty;
             if ($asal !== '') {
                 $asal_set[$asal] = true;
+                $asal_ke_rak[$asal] = $rak;
                 if ($asal !== $rak) {
                     $ganti_rak[] = $asal . ' → ' . $rak;
                 }
@@ -1148,6 +1150,19 @@ class Top_level_fcd extends CI_Model
             if (array_diff_key($berstok, $asal_set) || array_diff_key($asal_set, $berstok)) {
                 $this->db->trans_rollback();
                 return array('ok' => false, 'pesan' => 'Stok SKU ini sudah berubah. Muat ulang halaman lalu coba lagi.');
+            }
+
+            // Pindah rak murni (SKU sama, seluruh qty satu rak pindah ke rak yang belum berstok): cukup dicatat
+            // dengan keterangan di log, tanpa nomor transfer karena total stok tidak berubah.
+            $pindah = array();
+            if (!$ganti_sku) {
+                foreach ($asal_ke_rak as $asal => $rak) {
+                    if ($asal !== $rak && isset($berstok[$asal]) && !isset($berstok[$rak]) && !isset($asal_ke_rak[$rak])
+                        && isset($tujuan[$rak]) && $tujuan[$rak] === $lama[$asal] && $lama[$asal] > 0) {
+                        $pindah[$asal] = $rak;
+                        unset($tujuan[$rak], $berstok[$asal]);
+                    }
+                }
             }
 
             $ubah = array();
@@ -1193,6 +1208,20 @@ class Top_level_fcd extends CI_Model
                 if ($sesudah > $sebelum) { $masuk[] = $b; } else { $keluar[] = $b; }
                 $berubah++;
             }
+            foreach ($pindah as $asal => $rak) {
+                $q = $lama[$asal];
+                $ket = 'Pindah rak ' . $asal . ' → ' . $rak . ' (' . $alasan . '), tanpa nomor transfer';
+                $this->db->query('UPDATE tbltoplevel SET qty = 0, updated_at = NOW() WHERE sku = ? AND no_rak = ?', array($sku, $asal));
+                $sebelum_tujuan = isset($lama[$rak]) ? $lama[$rak] : 0;
+                $this->db->query(
+                    'INSERT INTO tbltoplevel (sku, no_rak, qty, updated_at) VALUES (?, ?, ?, NOW())
+                     ON DUPLICATE KEY UPDATE qty = VALUES(qty), updated_at = VALUES(updated_at)',
+                    array($sku, $rak, $sebelum_tujuan + $q)
+                );
+                $this->catat('KOREKSI', $sku, $asal, $q, 0, $oleh, null, $ket);
+                $this->catat('KOREKSI', $sku, $rak, $sebelum_tujuan, $sebelum_tujuan + $q, $oleh, null, $ket);
+                $berubah++;
+            }
             if ($berubah === 0) {
                 $this->db->trans_rollback();
                 return array('ok' => false, 'pesan' => 'Tidak ada perubahan.');
@@ -1204,7 +1233,7 @@ class Top_level_fcd extends CI_Model
             if ($this->db->trans_status() === false) {
                 return array('ok' => false, 'pesan' => 'Penyimpanan gagal.');
             }
-            return array('ok' => true, 'berubah' => $berubah, 'nomor' => $nomor);
+            return array('ok' => true, 'berubah' => $berubah, 'nomor' => $nomor, 'pindah' => count($pindah));
         } finally {
             foreach ($kunci as $dipegang) {
                 $this->lepas($dipegang);
