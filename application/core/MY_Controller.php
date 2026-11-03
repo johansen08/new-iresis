@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-03.1';
+    const BOOTSTRAP_VERSI = '2026-11-03.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -279,6 +279,13 @@ class MY_Controller extends CI_Controller
         $this->load->helper('menu_helper');
 
         $list_menu = $this->access_fcd->get_access_menu($peran)->result_array();
+        // Menu bonus khusus webmaster: baris roleaccess lama untuk role lain
+        // (mis. admin di Bonus Picker) tidak boleh memunculkannya di sidebar.
+        if ((int) $peran !== 1) {
+            $list_menu = array_values(array_filter($list_menu, function ($m) {
+                return !in_array($m['uri'], ['bonus-picker', 'bonus-packer'], TRUE);
+            }));
+        }
         if (empty($list_menu)) {
             return $tersimpan;
         }
