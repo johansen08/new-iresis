@@ -190,7 +190,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     <h2>Bonus Packer
       <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">
         <b>Aturan perhitungan</b><br>
-        &bull; Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Kesalahan diambil dari komplain CS dengan hasil investigasi QC Salah, dicatat pada hari packing resi itu.<br>
+        &bull; Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Kesalahan diambil dari komplain CS dengan hasil investigasi QC Salah, dilacak lewat resinya dan dicatat pada tanggal scan packing resi itu (semua status performa dan jam).<br>
         &bull; Net harian = total packing &minus; poin kesalahan.<br>
         &bull; Net <?= $fmt($aturan['target']) ?>&ndash;<?= $fmt($aturan['tier2'] - 1) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus1']) ?>/hari.<br>
         &bull; Net &ge; <?= $fmt($aturan['tier2']) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus2']) ?>/hari.<br>
@@ -281,7 +281,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
             <th>Total Packing</th>
             <th>Jumlah Kesalahan</th>
             <th>Poin Kesalahan
-              <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Kesalahan = komplain CS dengan hasil investigasi QC Salah pada resi yang dipacking hari itu.</span></span></th>
+              <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Setiap 1 kesalahan = <?= (int) $aturan['poin'] ?> poin. Kesalahan = komplain CS dengan hasil investigasi QC Salah pada resi yang scan packing-nya di tanggal itu (semua status performa dan jam).</span></span></th>
             <th>Net
               <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Net = total packing &minus; poin kesalahan.<br>Emas = net &ge; <?= $fmt($aturan['tier2']) ?> (Rp <?= $fmt($aturan['bonus2']) ?>), hijau = <?= $fmt($aturan['target']) ?>&ndash;<?= $fmt($aturan['tier2'] - 1) ?> (Rp <?= $fmt($aturan['bonus1']) ?>), abu = di bawah target (tanpa bonus).</span></span></th>
             <th>Bonus</th>
