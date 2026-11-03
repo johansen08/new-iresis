@@ -13,7 +13,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    tipe Reject Display (id_typemasalah 5) yang tidak dikenai poin, dan
  *    kecuali laporan yang dibuat SETELAH pukul 17.00 pada hari pick (laporan
  *    malam atau hari berikutnya tidak dihitung; keputusan 15 Okt 2026).
- *    Satuannya per baris laporan, bukan per resi. 1 kesalahan = 20 poin.
+ *    Satuannya per baris laporan, bukan per resi. 1 kesalahan = 50 poin.
  *    Net = total pick - poin kesalahan.
  *  - Hari petugas resi spesial = hari picker itu punya LEBIH BANYAK resi
  *    1_SKU_PICKER daripada NORMAL_PICKER (hasil Upload Resi Spesial). Beberapa
@@ -25,7 +25,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Bonus_picker_fcd extends CI_Model
 {
-    const POIN_PER_KESALAHAN = 20;
+    const POIN_PER_KESALAHAN = 50;
     const TARGET_NET         = 1150;
     const TIER2_NET          = 1300;
     const BONUS_TIER1        = 30000;
