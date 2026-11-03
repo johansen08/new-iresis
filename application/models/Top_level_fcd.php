@@ -1189,7 +1189,11 @@ class Top_level_fcd extends CI_Model
                 }
             }
 
-            $catatan = ($ganti_sku ? 'Ganti SKU ' . $sku . ' → ' . $sku_baru . '. ' : '') . ($ganti_rak ? 'Ganti no rak ' . implode(', ', $ganti_rak) . '. ' : '') . '(' . $alasan . ')';
+            // Salah catat SKU murni (alasan "Salah catat", SKU diganti, total qty tidak berubah): stok hanya dipindah ke SKU
+            // yang benar, jadi cukup dicatat dengan keterangan di log, tanpa nomor transfer.
+            $tanpa_nomor = $ganti_sku && $alasan === 'Salah catat' && array_sum($tujuan) === array_sum(array_intersect_key($lama, $berstok));
+            $catatan = ($ganti_sku ? 'Ganti SKU ' . $sku . ' → ' . $sku_baru . '. ' : '') . ($ganti_rak ? 'Ganti no rak ' . implode(', ', $ganti_rak) . '. ' : '') . '(' . $alasan . ')'
+                . ($tanpa_nomor ? ', tanpa nomor transfer' : '');
             $masuk = array();
             $keluar = array();
             $berubah = 0;
@@ -1227,8 +1231,10 @@ class Top_level_fcd extends CI_Model
                 return array('ok' => false, 'pesan' => 'Tidak ada perubahan.');
             }
             $nomor = array();
-            if ($masuk)  { $nomor[] = $this->buat_transfer('MASUK', 'KOREKSI', null, $alasan, $oleh, $masuk); }
-            if ($keluar) { $nomor[] = $this->buat_transfer('KELUAR', 'KOREKSI', null, $alasan, $oleh, $keluar); }
+            if (!$tanpa_nomor) {
+                if ($masuk)  { $nomor[] = $this->buat_transfer('MASUK', 'KOREKSI', null, $alasan, $oleh, $masuk); }
+                if ($keluar) { $nomor[] = $this->buat_transfer('KELUAR', 'KOREKSI', null, $alasan, $oleh, $keluar); }
+            }
             $this->db->trans_complete();
             if ($this->db->trans_status() === false) {
                 return array('ok' => false, 'pesan' => 'Penyimpanan gagal.');
