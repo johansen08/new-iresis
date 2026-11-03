@@ -419,7 +419,8 @@ class Top_level extends MY_Controller
         $this->_wajib(self::URI_STOK);
         $rows = $this->input->post('rows');
         $h = $this->top_level_fcd->ubah_stok(trim((string) $this->input->post('sku')), trim((string) $this->input->post('sku_baru')), is_array($rows) ? array_values($rows) : array(), (string) $this->input->post('alasan'), $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Stok top level diperbarui, transfer ' . implode(', ', $h['nomor']) . '.' : $h['pesan']);
+        $pesan = 'Stok top level diperbarui' . ($h['ok'] && $h['nomor'] ? ', transfer ' . implode(', ', $h['nomor']) : ', tanpa nomor transfer (pindah rak dicatat sebagai keterangan)') . '.';
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? $pesan : $h['pesan']);
     }
 
     // ------------------------------------------------------------ Upload Top Level
