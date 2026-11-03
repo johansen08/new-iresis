@@ -170,7 +170,7 @@ class Bonus_packer extends MY_Controller
         $xls   = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $xls->getActiveSheet();
         $sheet->setTitle('Detail Bonus');
-        $sheet->fromArray(['Tanggal', 'Total Packing', 'Jumlah Kesalahan', 'Poin Kesalahan', 'Net', 'Bonus', 'Keterangan'], NULL, 'A1');
+        $sheet->fromArray(['Tanggal', 'Total Packing', 'Jumlah Kesalahan', 'Poin Kesalahan', 'Net', 'Bonus', 'Resi Kesalahan'], NULL, 'A1');
         $sheet->getStyle('A1:G1')->getFont()->setBold(TRUE);
 
         $baris = 2;
@@ -181,6 +181,7 @@ class Bonus_packer extends MY_Controller
             $sheet->setCellValue('D' . $baris, (int) $d['poin']);
             $sheet->setCellValue('E' . $baris, (int) $d['net']);
             $sheet->setCellValue('F' . $baris, (int) $d['bonus']);
+            $sheet->setCellValue('G' . $baris, implode(', ', $d['resi']));
             $baris++;
         }
         $akhir_data = max($baris - 1, 2);

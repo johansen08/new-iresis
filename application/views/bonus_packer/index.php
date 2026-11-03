@@ -142,6 +142,10 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   #bk-root .bk-mb th:first-child, #bk-root .bk-mb td:first-child { text-align:left; }
   #bk-root .bk-mb td { padding:9px 14px; border-bottom:1px solid #f0f3f6; text-align:right; font-variant-numeric:tabular-nums; }
   #bk-root .bk-mb td:first-child, #bk-root .bk-mb td:last-child { white-space:nowrap; }
+  #bk-root .bk-salah { border:0; background:#fee2e2; color:#b91c1c; font-weight:700; border-radius:999px; min-width:28px; padding:2px 10px; cursor:pointer; }
+  #bk-root .bk-salah:hover { background:#fecaca; }
+  #bk-root .bk-mb tr.bk-resirow td { background:#fff7f7; text-align:left; white-space:normal; font-size:12px; line-height:1.9; }
+  #bk-root .bk-mb tr.bk-resirow code { margin-right:6px; background:#fff; border:1px solid #fecaca; color:#7f1d1d; white-space:nowrap; }
   #bk-root .bk-mb td .bk-hr { color:var(--bk-muted); font-size:11px; display:block; }
 
   /* tablet */
@@ -507,9 +511,17 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       '<div>Kesalahan<b>' + ts + ' <span style="font-weight:500;font-size:12px;color:#6b7a8c">(' + (ts * POIN) + ' poin)</span></b></div>');
     $('#bk-m-rows').html(p.det.map(function (x) {
       var cls = x.net >= TIER2 ? 'gold' : (x.net >= TARGET ? 'ok' : 'none');
-      return '<tr><td>' + tglBaris(x.tgl) + '</td><td>' + num(x.pick) + '</td><td>' + x.salah + '</td><td>' + x.poin +
+      var salah = x.salah > 0
+        ? '<button type="button" class="bk-salah" data-t="' + esc(x.tgl) + '" title="Lihat daftar resi">' + x.salah + '</button>'
+        : x.salah;
+      var baris = '<tr><td>' + tglBaris(x.tgl) + '</td><td>' + num(x.pick) + '</td><td>' + salah + '</td><td>' + x.poin +
         '</td><td><span class="bk-pill ' + cls + '">' + num(x.net) + '</span></td>' +
         '<td>' + (x.bonus ? '<b>' + rp(x.bonus) + '</b>' : '<span style="color:#9aa5b1">-</span>') + '</td></tr>';
+      if (x.salah > 0) {
+        baris += '<tr class="bk-resirow" data-t="' + esc(x.tgl) + '" style="display:none"><td colspan="6">' +
+          '<b>Resi kesalahan QC (komplain QC Salah):</b> ' + x.resi.map(function (r) { return '<code>' + esc(r) + '</code>'; }).join(' ') + '</td></tr>';
+      }
+      return baris;
     }).join(''));
     $('#bk-ov').addClass('on');
     $('#bk-modal').trigger('focus');
@@ -517,6 +529,9 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   function tutup() { sembunyiTip(); $('#bk-ov').removeClass('on'); }
 
   $root.on('click', '.bk-detail', function () { buka(parseInt($(this).data('k'), 10)); });
+  $root.on('click', '.bk-salah', function () {
+    $('#bk-m-rows tr.bk-resirow[data-t="' + $(this).data('t') + '"]').toggle();
+  });
   $root.on('click', '#bk-m-x', tutup);
   $root.on('click', '#bk-ov', function (e) { if (e.target === this) { tutup(); } });
   $root.on('keydown', '#bk-ov', function (e) { if (e.key === 'Escape') { tutup(); } });
