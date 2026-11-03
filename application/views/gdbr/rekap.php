@@ -85,8 +85,8 @@
     var tm; $('#q').addEventListener('input', function () { var v = this.value; clearTimeout(tm); tm = setTimeout(function () { STATE.q = v.trim(); STATE.page = 1; muat(); }, 300); });
     $('#per').addEventListener('change', function () { STATE.per = +this.value; STATE.page = 1; muat(); });
 
-    // ───── periode (daterangepicker, bawaan Bulan Ini seperti menu komplain) ─────
-    STATE.start = moment().startOf('month').format('YYYY-MM-DD'); STATE.end = moment().endOf('month').format('YYYY-MM-DD');
+    // ───── periode (daterangepicker, bawaan Hari Ini) ─────
+    STATE.start = moment().format('YYYY-MM-DD'); STATE.end = moment().format('YYYY-MM-DD');
     function labelPeriode() { return moment(STATE.start).format('DD MMM YYYY') + ' – ' + moment(STATE.end).format('DD MMM YYYY'); }
     $('#reportrange').value = labelPeriode();
     jQuery('#reportrange').daterangepicker({
