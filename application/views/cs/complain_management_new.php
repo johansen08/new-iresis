@@ -1081,9 +1081,9 @@
     });
 
     // ---------------- Drawer detail ----------------
-    function pvRow(ikon, label, nilai, salin) {
+    function pvRow(ikon, label, nilai, salin, lencana) {
         var tombol = (salin && nilai) ? '<button type="button" class="kp-copy" data-copy="' + esc(nilai) + '" title="Salin"><i class="fa fa-files-o"></i></button>' : '';
-        return '<div class="kp-dr-row"><i class="fa ' + ikon + '"></i><dt>' + label + '</dt><dd>' + esc(nilai) + tombol + '</dd></div>';
+        return '<div class="kp-dr-row"><i class="fa ' + ikon + '"></i><dt>' + label + '</dt><dd>' + esc(nilai) + (lencana ? ' <span class="kp-pill kp-pill-slate">' + esc(lencana) + '</span>' : '') + tombol + '</dd></div>';
     }
 
     // Salin ke clipboard. Aplikasi dibuka lewat http di LAN (bukan konteks aman), jadi
@@ -1169,12 +1169,10 @@
                 '<div class="kp-dr-sec"><h5>Investigasi</h5>' +
                     pvRow('fa-video-camera', 'Hasil cek CCTV', c.hasil_investigasi || 'Belum dicek') +
                     pvRow('fa-sticky-note-o', 'Catatan', c.catatan_penanganan) +
-                    pvRow('fa-user', 'Picker', labelOrang(c.nama_picker)) +
-                    (jj.ada ? pvRow('fa-clock-o', 'Waktu ambil barang', fmtWaktu(jj.waktu_picker)) : '') +
-                    pvRow('fa-user', 'Packer', labelOrang(c.nama_qc || c.nama_packer)) +
-                    (jj.ada ? pvRow('fa-clock-o', 'Waktu packing', fmtWaktu(jj.waktu_packer)) +
-                        pvRow('fa-flag', 'Status resi', jj.status) +
-                        pvRow('fa-cube', 'Isi resi', (jj.satu_sku ? '1 SKU' : jj.jml_sku + ' SKU') + ' (' + jj.total_qty + ' pcs)') : '') +
+                    pvRow('fa-user', 'Picker', labelOrang(c.nama_picker), false, jj.status_picker) +
+                    (jj.ada ? pvRow('fa-clock-o', 'Waktu picking', fmtWaktu(jj.waktu_picker)) : '') +
+                    pvRow('fa-user', 'Packer', labelOrang(c.nama_qc || c.nama_packer), false, jj.status_packer) +
+                    (jj.ada ? pvRow('fa-clock-o', 'Waktu packing', fmtWaktu(jj.waktu_packer)) : '') +
                     '</div>';
 
             $('#kp-dr-body').html(html).scrollTop(0);
