@@ -241,8 +241,6 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       </button>
       <input type="hidden" id="bk-awal" value="<?= date('d/m/Y', strtotime($awal)) ?>">
       <input type="hidden" id="bk-akhir" value="<?= date('d/m/Y', strtotime($akhir)) ?>"></div>
-    <div class="bk-f"><label class="kosong">&nbsp;</label>
-      <button type="button" class="bk-btn pri" id="bk-tampilkan"><i class="fa fa-refresh"></i> Muat ulang</button></div>
     <div class="bk-f bk-grow"></div>
     <div class="bk-f"><label for="bk-cari">Cari packer</label>
       <input type="search" id="bk-cari" class="form-control bk-cari" placeholder="Nama atau no. absen"></div>
@@ -402,7 +400,6 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     var mulai = Date.now();
     clearInterval(timerProses);
     $('#bk-load').addClass('on');
-    $('#bk-tampilkan').addClass('busy').html('<i class="fa fa-spinner fa-spin"></i> Memproses...');
     function tik() {
       if (!$.contains(document.documentElement, $root[0])) { clearInterval(timerProses); return; } // pindah menu
       var dt = Math.floor((Date.now() - mulai) / 1000);
@@ -415,7 +412,6 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   function akhiriProses() {
     clearInterval(timerProses);
     $('#bk-load').removeClass('on');
-    $('#bk-tampilkan').removeClass('busy').html('<i class="fa fa-refresh"></i> Muat ulang');
   }
   function muat() {
     clearTimeout(tundaMuat);
@@ -569,7 +565,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     // Pakai rentang yang dimuat di tabel (bukan isi kotak tanggal yang mungkin sudah diubah).
     window.location.href = '<?= base_url('bonus-packer/export-excel-detail') ?>?kode=' + kodeAktif + '&awal=' + awalAktif + '&akhir=' + akhirAktif;
   });
-  $root.on('click', '#bk-tampilkan, #bk-ulang', muat);
+  $root.on('click', '#bk-ulang', muat);
   $root.on('click', '#bk-load-batal', function () {
     if (xhrAktif) { xhrAktif.abort(); }
     akhiriProses();
