@@ -28,7 +28,7 @@ class Bonus_packer_fcd extends CI_Model
     const BONUS_TIER1        = 30000;
     const BONUS_TIER2        = 50000;
     const JAM_AWAL           = '05:00:00';
-    const JAM_AKHIR          = '17:00:00';
+    const JAM_AKHIR          = '18:00:00';
     const HASIL_QC_SALAH     = 'QC Salah';
 
     public static function bonus_dari_net($net)

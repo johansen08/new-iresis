@@ -195,7 +195,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
         &bull; Net <?= $fmt($aturan['target']) ?>&ndash;<?= $fmt($aturan['tier2'] - 1) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus1']) ?>/hari.<br>
         &bull; Net &ge; <?= $fmt($aturan['tier2']) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus2']) ?>/hari.<br>
         &bull; Net &lt; <?= $fmt($aturan['target']) ?> &rarr; tidak ada bonus.<br>
-        &bull; Hanya resi yang di-scan packing pukul 05.00&ndash;17.00.<br>
+        &bull; Hanya resi yang di-scan packing pukul 05.00&ndash;18.00.<br>
         &bull; Hanya NORMAL_PACKER; 1_SKU_PACKER, QTY_BANYAK, dan PAYUNG tidak dihitung.<br>
         &bull; Capai target = jumlah hari dengan net &ge; <?= $fmt($aturan['target']) ?>.<br>
         &bull; Persentase = hari capai target &divide; hari kerja.
