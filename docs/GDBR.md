@@ -61,6 +61,16 @@ Akses per role lewat `roleaccess`. Migrasi (versi `2026-11-02.2`) memberi role *
 Persempit lewat halaman Access bila perlu. Endpoint POST memeriksa `roleaccess` sendiri
 (sidebar saja tidak cukup).
 
+### Edit dan hapus (khusus webmaster, 3 Nov 2026)
+
+Di drawer detail Rekap, hanya akun role **1** (webmaster) yang melihat tombol **Ubah** (per tahap
+cek: qty ada per SKU, kotak masalah lain, catatan; hitungan kurang/lebih/salah dan status sesuai
+dihitung ulang dari qty resi yang tersimpan saat dicek) dan **Hapus resi**. Endpoint
+`gdbr/ubah-cek` dan `gdbr/hapus-resi` memeriksa role di server. Hapus = **soft-delete**
+(`tblgdbr_resi.dihapus_at/dihapus_oleh`; tidak ada `DELETE`): resi hilang dari Rekap dan resi itu
+tidak bisa discan ulang (status `dihapus`). Edit dicatat di `tblgdbr_cek.diubah_at/diubah_oleh`.
+Kolom baru dibuat migrasi `2026-11-03.3`.
+
 ## 5. Scan beruntun
 
 Kolom scan dibersihkan dan difokuskan ulang setelah tiap scan. Scan yang datang saat request

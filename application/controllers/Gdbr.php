@@ -63,7 +63,46 @@ class Gdbr extends MY_Controller
 
     public function rekap()
     {
-        $this->show();
+        $this->show(array('webmaster' => $this->webmaster()));
+    }
+
+    /** Edit/hapus hanya untuk webmaster (role 1). */
+    private function webmaster()
+    {
+        return isset($this->data['user']['hakakses']) && (string) $this->data['user']['hakakses'] === '1';
+    }
+
+    private function wajib_webmaster()
+    {
+        $this->wajib(self::URI_REKAP);
+        if (!$this->webmaster()) {
+            $this->make_ajax_response(403, 'Hanya webmaster yang boleh mengubah atau menghapus.', array('ok' => false));
+        }
+        if ($this->session->userdata('mode_arsip')) {
+            $this->make_ajax_response(200, 'Mode Arsip aktif: data tidak bisa diubah.', array('ok' => false));
+        }
+    }
+
+    public function ubah_cek()
+    {
+        $this->wajib_webmaster();
+        $items = json_decode((string) $this->input->post('items'), true);
+        $hasil = $this->gdbr_fcd->ubah_cek(
+            $this->input->post('noresi'),
+            (string) $this->input->post('tahap'),
+            is_array($items) ? $items : array(),
+            (int) $this->input->post('lain') === 1,
+            $this->input->post('catatan'),
+            $this->petugas()
+        );
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
+    public function hapus_resi()
+    {
+        $this->wajib_webmaster();
+        $hasil = $this->gdbr_fcd->hapus_resi($this->input->post('noresi'), $this->petugas());
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
     // ───────── Scan Resi GD-BR ─────────

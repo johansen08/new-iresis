@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-03.2';
+    const BOOTSTRAP_VERSI = '2026-11-03.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2191,6 +2191,19 @@ class MY_Controller extends CI_Controller
           PRIMARY KEY (`id_item`),
           KEY `idx_gdbr_item_cek` (`id_cek`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Edit/hapus khusus webmaster (2026-11-03.3): hapus = soft-delete (dihapus_at), edit dicatat (diubah_at).
+        $tambah_kolom = [
+            ['tblgdbr_resi', 'dihapus_at',   'datetime DEFAULT NULL'],
+            ['tblgdbr_resi', 'dihapus_oleh', 'varchar(100) DEFAULT NULL'],
+            ['tblgdbr_cek',  'diubah_at',    'datetime DEFAULT NULL'],
+            ['tblgdbr_cek',  'diubah_oleh',  'varchar(100) DEFAULT NULL'],
+        ];
+        foreach ($tambah_kolom as $k) {
+            if (!$this->db->query("SHOW COLUMNS FROM `{$k[0]}` LIKE '{$k[1]}'")->row()) {
+                $this->db->query("ALTER TABLE `{$k[0]}` ADD COLUMN `{$k[1]}` {$k[2]}");
+            }
+        }
 
         // Grup induk mengikuti menu saudaranya di TIM MONITORING (bawaan id 83).
         $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'monitoring/laporan_pesanan_masuk'])->row();

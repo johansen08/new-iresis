@@ -33,6 +33,7 @@
 (function () {
     'use strict';
     var U = window.GDB, esc = U.esc, ic = U.ic, IC = U.IC, fmtD = U.fmtD;
+    var WEBMASTER = <?= !empty($webmaster) ? 'true' : 'false' ?>;   // tombol ubah/hapus; server tetap memeriksa role
     var R = document.getElementById('gdbr_root');
     var $ = function (s, r) { return (r || R).querySelector(s); };
     var $$ = function (s, r) { return Array.prototype.slice.call((r || R).querySelectorAll(s)); };
@@ -43,7 +44,7 @@
         '<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dr-title">' +
         '<div class="dr-h"><span class="ico">' + ic('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"/>') + '</span><div><h4 id="dr-title"></h4><div class="meta" id="dr-meta"></div></div><button class="x" id="dr-x" type="button" aria-label="Tutup">&times;</button></div>' +
         '<div class="dr-b" id="dr-b"></div>' +
-        '<div class="dr-f"><button class="btn sec" id="dr-tutup" type="button">Tutup</button><button class="btn" id="dr-cek" type="button">Cek resi ini</button></div></aside>';
+        '<div class="dr-f">' + (WEBMASTER ? '<button class="btn sec" id="dr-hapus" type="button" style="margin-right:auto;color:var(--bad-fg,#b91c1c)">Hapus resi</button>' : '') + '<button class="btn sec" id="dr-tutup" type="button">Tutup</button><button class="btn" id="dr-cek" type="button">Cek resi ini</button></div></aside>';
     var $o = function (s) { return OV.querySelector(s); };
 
     var STATE = { q: '', f: { progres: [], hasil: [], picker: [], marketplace: [], toko: [] }, page: 1, per: 10, start: '', end: '' };
@@ -176,16 +177,40 @@
 
     // ───── drawer detail ─────
     var drResi = null, drProgres = null;
-    function langkah(judul, c, tunggu) {
+    function langkah(judul, c, tunggu, tahap) {
         if (!c) return '<li><span class="nd"></span><div class="tt" style="color:var(--muted)">' + judul + ' <span class="b slate">BELUM</span></div><div class="tp muted">' + tunggu + '</div></li>';
-        return '<li class="' + (c.sesuai ? 'done' : 'warn') + '"><span class="nd">' + (c.sesuai ? '✓' : '!') + '</span><div class="tt">' + judul + ' ' + U.badges(c) + '</div><div class="tp">' + esc(c.label) +
+        return '<li class="' + (c.sesuai ? 'done' : 'warn') + '"><span class="nd">' + (c.sesuai ? '✓' : '!') + '</span><div class="tt">' + judul + ' ' + U.badges(c) +
+            (WEBMASTER ? ' <button type="button" class="btn sec" data-ubah="' + tahap + '" style="padding:2px 10px;font-size:12px">Ubah</button>' : '') + '</div><div class="tp">' + esc(c.label) +
             ' <span style="color:var(--muted)"><br>Waktu cek: ' + fmtD(c.waktu) + '</span></div>' + (c.catatan ? '<div class="tn">' + esc(c.catatan) + '</div>' : '') + '</li>';
+    }
+    var drDetail = null;
+    // Form ubah hasil cek (webmaster): qty ada per SKU, kotak "masalah lain", catatan
+    function bukaUbah(tahap) {
+        var r = drDetail, k = tahap === 'GEDUNG_BARU' ? 'gb' : 'pk', items = r['edit_' + k], c = r[k];
+        if (!items) return;
+        var baris = items.map(function (it) {
+            return '<tr><td><b>' + esc(it.sku) + '</b>' + (it.luar ? ' <span class="b info">DI LUAR RESI</span>' : '') + '</td><td>' + it.qty_resi + '</td>' +
+                '<td><input type="number" min="' + (it.luar ? 1 : 0) + '" max="99999" value="' + it.qty_ada + '" data-item="' + it.id_item + '" style="width:80px"></td></tr>';
+        }).join('');
+        var no = r.noresi;
+        U.modal('<h4 style="margin:0 0 10px">Ubah cek ' + (k === 'gb' ? 'Gedung Baru' : 'Packer') + ' — ' + esc(no) + '</h4>' +
+            '<div class="tw2"><table class="cmp"><thead><tr><th>SKU</th><th>Resi</th><th>Qty ada</th></tr></thead><tbody>' + baris + '</tbody></table></div>' +
+            '<label style="display:block;margin:10px 0"><input type="checkbox" id="ub-lain"' + (c.lain ? ' checked' : '') + '> Ada masalah lain (rusak, cacat, kemasan)</label>' +
+            '<textarea id="ub-cat" maxlength="255" rows="2" placeholder="Catatan (wajib bila ada yang tidak sesuai)" style="width:100%">' + esc(c.catatan || '') + '</textarea>', 'Simpan perubahan', function () {
+            var o = U.ovl(), data = [];
+            o.querySelectorAll('input[data-item]').forEach(function (i) { data.push({ id_item: +i.dataset.item, qty_ada: i.value }); });
+            return U.post(U.URL.ubah_cek, { noresi: no, tahap: tahap, items: JSON.stringify(data), lain: o.querySelector('#ub-lain').checked ? 1 : 0, catatan: o.querySelector('#ub-cat').value })
+                .then(function (res) {
+                    if (res && res.code === 200) { U.toast('Hasil cek diperbarui.'); bukaDrawer(no); muat(); return ''; }
+                    return esc(res && res.message ? res.message : 'Gagal menyimpan.');
+                }, function (x) { return esc(U.pesanGagal(x)); });
+        });
     }
     function bukaDrawer(no) {
         U.post(U.URL.detail, { noresi: no }).then(function (res) {
             var r = res && res.data && res.data.detail;
             if (!r) { U.toast(res && res.message ? res.message : 'Detail tidak ditemukan.'); return; }
-            drResi = r.noresi; drProgres = r.progres;
+            drResi = r.noresi; drProgres = r.progres; drDetail = r;
             $o('#dr-title').innerHTML = esc(r.noresi) + U.cp(r.noresi);
             $o('#dr-meta').textContent = [r.toko, r.mp, r.progres].filter(Boolean).join(' · ');
             var cell = function (v, q) { if (v == null) return '<td class="muted">–</td>'; return '<td class="' + (v === q ? 'same' : 'diff') + '">' + v + '</td>'; };
@@ -197,7 +222,7 @@
                 '<div class="dr-sec"><h5>Alur pengecekan</h5><ol class="tl">' +
                 '<li class="done"><span class="nd">✓</span><div class="tt">Diambil picker</div><div class="tp">' + (r.picker ? esc(r.picker.label) + ' <span style="color:var(--muted)">· ' + fmtD(r.picker.waktu) + '</span>' : '–') + '</div></li>' +
                 '<li class="done"><span class="nd">✓</span><div class="tt">Ditandai tim resi</div><div class="tp">' + esc(r.tandai.label) + ' <span style="color:var(--muted)">· ' + fmtD(r.tandai.waktu) + '</span></div></li>' +
-                langkah('Cek Gedung Baru', r.gb, 'Menunggu pengecekan di gedung baru') + langkah('Cek Packer', r.pk, 'Menunggu packer sebelum dipacking') + '</ol></div>' +
+                langkah('Cek Gedung Baru', r.gb, 'Menunggu pengecekan di gedung baru', 'GEDUNG_BARU') + langkah('Cek Packer', r.pk, 'Menunggu packer sebelum dipacking', 'PACKER') + '</ol></div>' +
                 '<div class="dr-sec"><h5>Perbandingan qty</h5><div class="tw2"><table class="cmp"><thead><tr><th>SKU</th><th>Resi</th><th>Gedung Baru</th><th>Cek Packer</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
             var next = !r.gb ? 'GEDUNG_BARU' : !r.pk ? 'PACKER' : null;
             var nm = { GEDUNG_BARU: 'GEDUNG BARU', PACKER: 'PACKER' };
@@ -209,6 +234,18 @@
     function tutupDrawer() { $o('#drawer').classList.remove('on'); $o('#scrim').classList.remove('on'); $o('#drawer').setAttribute('aria-hidden', 'true'); }
     $o('#scrim').addEventListener('click', tutupDrawer); $o('#dr-x').addEventListener('click', tutupDrawer); $o('#dr-tutup').addEventListener('click', tutupDrawer);
     jQuery(document).off('keydown.gdbrrk').on('keydown.gdbrrk', function (e) { if (e.key === 'Escape' && document.getElementById('drawer')) tutupDrawer(); });
+    $o('#dr-b').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-ubah]'); if (b) bukaUbah(b.dataset.ubah);
+    });
+    if (WEBMASTER) $o('#dr-hapus').addEventListener('click', function () {
+        var no = drResi;
+        U.modal('<h4 style="margin:0 0 10px">Hapus resi ' + esc(no) + '?</h4><p>Resi dikeluarkan dari data GD-BR (Rekap dan scan). Data tidak dihapus permanen, tetapi resi ini tidak bisa discan ulang.</p>', 'Hapus resi', function () {
+            return U.post(U.URL.hapus_resi, { noresi: no }).then(function (res) {
+                if (res && res.code === 200) { U.toast('Resi dihapus dari data GD-BR.'); tutupDrawer(); muat(); return ''; }
+                return esc(res && res.message ? res.message : 'Gagal menghapus.');
+            }, function (x) { return esc(U.pesanGagal(x)); });
+        });
+    });
     $o('#dr-cek').addEventListener('click', function () {
         var s = this.dataset.s, no = drResi;
         try { sessionStorage.setItem('gdbr_isi', JSON.stringify({ tahap: s, resi: no })); } catch (e) {}

@@ -167,6 +167,7 @@ $petugas = $petugas ?? ['label' => '', 'nama' => ''];
         else if (st === 'belum_tandai') { catat(d.noresi, s, 'tolak'); setMsg('bad', 'Resi <b>' + rs + '</b> belum ditandai tim resi sebagai resi gedung baru. Scan di tahap RESI dulu.'); }
         else if (st === 'belum_gb') { catat(d.noresi, s, 'tolak'); setMsg('bad', 'Resi <b>' + rs + '</b> belum dicek di gedung baru. Cek di tahap GEDUNG BARU dulu.'); }
         else if (st === 'batal') { catat(d.noresi, s, 'tolak'); setMsg('bad', 'Resi <b>' + rs + '</b> berstatus CANCEL, tidak bisa masuk data GD-BR. Tangani lewat Paket Cancel.'); }
+        else if (st === 'dihapus') { catat(d.noresi, s, 'tolak'); setMsg('bad', 'Resi <b>' + rs + '</b> pernah dihapus webmaster dari data GD-BR, tidak bisa discan lagi.'); }
         else if (st === 'arsip') { setMsg('bad', 'Mode Arsip aktif: scan tidak bisa disimpan. Keluar dari Mode Arsip dulu.'); }
         else { setMsg('bad', 'Balasan server tidak dikenal. Coba scan ulang.'); }
     }
