@@ -176,12 +176,16 @@ class Bonus_packer extends MY_Controller
         $baris = 2;
         foreach ($packer['det'] as $d) {
             $sheet->setCellValue('A' . $baris, \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(strtotime($d['tgl'])));
-            $sheet->setCellValue('B' . $baris, (int) $d['pick']);
-            $sheet->setCellValue('C' . $baris, (int) $d['salah']);
-            $sheet->setCellValue('D' . $baris, (int) $d['poin']);
-            $sheet->setCellValue('E' . $baris, (int) $d['net']);
-            $sheet->setCellValue('F' . $baris, (int) $d['bonus']);
-            $sheet->setCellValue('G' . $baris, implode(', ', $d['resi']));
+            if ($d['spesial']) {
+                $sheet->setCellValue('G' . $baris, 'Petugas Spesial 1 SKU (tidak dihitung)');
+            } else {
+                $sheet->setCellValue('B' . $baris, (int) $d['pick']);
+                $sheet->setCellValue('C' . $baris, (int) $d['salah']);
+                $sheet->setCellValue('D' . $baris, (int) $d['poin']);
+                $sheet->setCellValue('E' . $baris, (int) $d['net']);
+                $sheet->setCellValue('F' . $baris, (int) $d['bonus']);
+                $sheet->setCellValue('G' . $baris, implode(', ', $d['resi']));
+            }
             $baris++;
         }
         $akhir_data = max($baris - 1, 2);
