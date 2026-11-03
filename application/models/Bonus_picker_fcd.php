@@ -10,9 +10,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *    dihitung. Baris LOST SCAN PICKER dibuang (dibuat tim picker belakangan,
  *    bukan assign harian, dan tanpa KPI).
  *  - Kesalahan: jumlah baris tblmasalahpicker pada resi yang dihitung, kecuali
- *    tipe Reject Display (id_typemasalah 5) yang tidak dikenai poin, dan
- *    kecuali laporan yang dibuat SETELAH pukul 17.00 pada hari pick (laporan
- *    malam atau hari berikutnya tidak dihitung; keputusan 15 Okt 2026).
+ *    tipe Reject Display (id_typemasalah 5) yang tidak dikenai poin. Waktu
+ *    laporan dibuat TIDAK dibatasi: yang menentukan hanya waktu scan picker
+ *    resi itu (05.00-17.00), jadi laporan malam atau hari berikutnya tetap
+ *    dihitung (keputusan 3 Nov 2026, membalik keputusan 15 Okt 2026).
  *    Satuannya per baris laporan, bukan per resi. 1 kesalahan = 50 poin.
  *    Net = total pick - poin kesalahan.
  *  - Hari petugas resi spesial = hari picker itu punya LEBIH BANYAK resi
@@ -147,9 +148,8 @@ class Bonus_picker_fcd extends CI_Model
                AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
                AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
                AND mp.id_typemasalah <> ?
-               AND mp.created <= TIMESTAMP(DATE(rab.tanggal_resiambilbarang), ?)
              GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)",
-            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR, self::TIPE_TANPA_PENALTI, self::JAM_AKHIR]
+            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR, self::TIPE_TANPA_PENALTI]
         ) : FALSE;
 
         $this->db->db_debug = $debug;
