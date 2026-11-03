@@ -550,9 +550,10 @@ class Cs_new extends MY_Controller
     }
 
     /**
-     * Jejak resi untuk bagian Investigasi: kapan picker mengambil barang, kapan packer
-     * memacking, status resi sekarang, dan apakah resinya 1 SKU atau lebih.
-     * Bersumber dari tblresiambilbarang, tblpacking, tblprintresi (bukan dari isian komplain).
+     * Jejak resi untuk bagian Investigasi: waktu picker mengambil barang dan waktu packer
+     * memacking, beserta status performa masing-masing (1 SKU PICKER / NORMAL PICKER,
+     * 1 SKU / NORMAL / PAYUNG / QTY BANYAK ...). Bersumber dari tblresiambilbarang dan
+     * tblpacking (bukan dari isian komplain), nama status dari tblmasterstatusperforma.
      */
     private function _jejak_resi($no_resi)
     {
@@ -561,45 +562,44 @@ class Cs_new extends MY_Controller
             return $kosong;
         }
 
-        $resi = $this->db->select('id_printresi, status_pesanan, status_wms, batal')
-                         ->get_where('tblprintresi', ['noresi' => $no_resi])
-                         ->row_array();
+        $resi = $this->db->select('id_printresi')->get_where('tblprintresi', ['noresi' => $no_resi])->row_array();
         if (!$resi) {
             return $kosong;
         }
 
-        $ambil = $this->db->select('rab.tanggal_resiambilbarang AS waktu, peg.nama_pegawai')
+        $ambil = $this->db->select('rab.tanggal_resiambilbarang AS waktu, m.kode_status')
                           ->from('tblresiambilbarang rab')
-                          ->join('tblpegawai peg', 'peg.kode_pegawai = rab.yangambil_pegawai', 'left')
+                          ->join('tblmasterstatusperforma m', 'm.id_statusperforma = rab.status_performa_id', 'left')
                           ->where('rab.id_resi', $resi['id_printresi'])
                           ->get()->row_array();
 
-        $packing = $this->db->select('p.tanggal_packing AS waktu, peg.nama_pegawai')
+        $packing = $this->db->select('p.tanggal_packing AS waktu, m.kode_status')
                             ->from('tblpacking p')
-                            ->join('tblpegawai peg', 'peg.kode_pegawai = p.packer_pegawai', 'left')
+                            ->join('tblmasterstatusperforma m', 'm.id_statusperforma = p.status_performa_id', 'left')
                             ->where('p.id_resi', $resi['id_printresi'])
                             ->order_by('p.tanggal_packing', 'DESC')
                             ->limit(1)
                             ->get()->row_array();
 
-        $ringkas = $this->db->query(
-            'SELECT COUNT(DISTINCT sku) AS jml_sku, COALESCE(SUM(jumlah), 0) AS total_qty
-             FROM tbldetailprintresi WHERE id_resi = ?', [$resi['id_printresi']]
-        )->row_array();
-        $jml_sku   = (int) ($ringkas['jml_sku'] ?? 0);
-        $total_qty = (int) ($ringkas['total_qty'] ?? 0);
-
         return [
             'ada'            => true,
-            'status'         => $resi['status_pesanan'] ?: ($resi['status_wms'] ?: '-'),
-            'jml_sku'        => $jml_sku,
-            'total_qty'      => $total_qty,
-            'satu_sku'       => $jml_sku === 1,
             'waktu_picker'   => $ambil['waktu'] ?? null,
-            'nama_picker'    => $ambil['nama_pegawai'] ?? null,
+            'status_picker'  => $this->_label_status_performa($ambil['kode_status'] ?? null, '_PACKER'),
             'waktu_packer'   => $packing['waktu'] ?? null,
-            'nama_packer'    => $packing['nama_pegawai'] ?? null,
+            'status_packer'  => $this->_label_status_performa($packing['kode_status'] ?? null, '_PACKER'),
         ];
+    }
+
+    /** 1_SKU_PACKER -> "1 SKU", NORMAL_PICKER -> "NORMAL PICKER", QTY_BANYAK -> "QTY BANYAK". */
+    private function _label_status_performa($kode, $buang_akhiran)
+    {
+        if (empty($kode)) {
+            return '';
+        }
+        if (substr($kode, -strlen($buang_akhiran)) === $buang_akhiran) {
+            $kode = substr($kode, 0, -strlen($buang_akhiran));
+        }
+        return str_replace('_', ' ', $kode);
     }
 
     /**
