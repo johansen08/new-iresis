@@ -6,7 +6,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *
  * Murni baca-saja: tidak ada tabel baru dan tidak ada yang ditulis. Kembaran
  * Bonus_picker_fcd dengan sumber data packer. Aturan:
- *  - Resi yang dihitung: baris tblpacking yang di-scan pukul 05.00-17.00 dengan
+ *  - Resi yang dihitung: baris tblpacking yang di-scan pukul 05.00-18.00 dengan
  *    status performa NORMAL_PACKER. 1_SKU_PACKER, QTY_BANYAK, PAYUNG, dan status
  *    lain tidak dihitung (tidak ada konsep "hari spesial" seperti picker: packer
  *    memang mencampur status dalam satu hari, yang bukan NORMAL_PACKER cuma
