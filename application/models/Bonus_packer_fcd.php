@@ -107,7 +107,8 @@ class Bonus_packer_fcd extends CI_Model
         $q_salah = $q_pack ? $this->db->query(
             "SELECT pk.packer_pegawai AS akun,
                     DATE(pk.tanggal_packing) AS tgl,
-                    COUNT(DISTINCT c.id_complain) AS jml
+                    c.id_complain,
+                    c.no_resi
              FROM $db.tblcs_complain c
              JOIN $db.tblprintresi pr ON pr.noresi = c.no_resi
              JOIN $db.tblpacking pk ON pk.id_resi = pr.id_printresi
@@ -115,7 +116,7 @@ class Bonus_packer_fcd extends CI_Model
              WHERE pk.tanggal_packing BETWEEN ? AND ?
                AND c.hasil_investigasi = ?
                AND c.is_deleted = 0
-             GROUP BY pk.packer_pegawai, DATE(pk.tanggal_packing)",
+             GROUP BY c.id_complain, pk.packer_pegawai, DATE(pk.tanggal_packing), c.no_resi",
             [$dari, $sampai, self::HASIL_QC_SALAH]
         ) : FALSE;
 
@@ -208,13 +209,14 @@ class Bonus_packer_fcd extends CI_Model
                 continue;
             }
             $k = $peg . '|' . $r['tgl'];
-            $map_salah[$k] = ($map_salah[$k] ?? 0) + (int) $r['jml'];
+            $map_salah[$k][] = $r['no_resi'];
         }
 
         $hasil = [];
         foreach ($map_pack + array_fill_keys(array_keys($map_salah), 0) as $k => $total) {
             list($peg, $tgl) = explode('|', $k, 2);
-            $jml_salah = $map_salah[$k] ?? 0;
+            $resi_salah = $map_salah[$k] ?? [];
+            $jml_salah  = count($resi_salah);
             if ($total === 0 && $jml_salah === 0) {
                 continue;
             }
@@ -242,6 +244,7 @@ class Bonus_packer_fcd extends CI_Model
                 'tgl'     => $tgl,
                 'pick'    => $total,
                 'salah'   => $jml_salah,
+                'resi'    => $resi_salah,
                 'poin'    => $poin,
                 'net'     => $net,
                 'bonus'   => $bonus,
