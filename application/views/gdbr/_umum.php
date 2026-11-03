@@ -11,7 +11,9 @@ window.GDB = (function () {
         sku_saran: '<?= base_url('gdbr/sku-saran') ?>',
         sku_detail: '<?= base_url('gdbr/sku-detail') ?>',
         rekap_data: '<?= base_url('gdbr/rekap-data') ?>',
-        detail: '<?= base_url('gdbr/detail') ?>'
+        detail: '<?= base_url('gdbr/detail') ?>',
+        ubah_cek: '<?= base_url('gdbr/ubah-cek') ?>',
+        hapus_resi: '<?= base_url('gdbr/hapus-resi') ?>'
     };
 
     U.esc = function (s) {

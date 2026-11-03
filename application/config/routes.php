@@ -476,6 +476,8 @@ $route['gdbr/sku-detail'] = 'gdbr/sku_detail';
 $route['gdbr/rekap-data'] = 'gdbr/rekap_data';
 $route['gdbr/rekap-export'] = 'gdbr/rekap_export';
 $route['gdbr/detail'] = 'gdbr/detail';
+$route['gdbr/ubah-cek'] = 'gdbr/ubah_cek';
+$route['gdbr/hapus-resi'] = 'gdbr/hapus_resi';
 $route['report/proses-barang-qc'] = 'Report/proses_barang_qc';
 $route['report/get_proses_barang_qc_data'] = 'Report/get_proses_barang_qc_data';
 

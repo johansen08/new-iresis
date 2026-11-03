@@ -234,6 +234,9 @@ class Gdbr_fcd extends CI_Model
             return ['status' => 'belum_picker', 'noresi' => $resi->noresi];
         }
         $tandai = $this->tandai_row($resi->id_printresi);
+        if ($tandai && $tandai->dihapus_at !== null) {
+            return ['status' => 'dihapus', 'noresi' => $resi->noresi];
+        }
 
         if ($tahap === self::TAHAP_RESI) {
             if ($tandai) {
@@ -341,6 +344,9 @@ class Gdbr_fcd extends CI_Model
         $tandai = $this->tandai_row($resi->id_printresi);
         if (!$tandai) {
             return ['ok' => false, 'message' => 'Resi belum ditandai tim resi. Scan di tahap RESI dulu.'];
+        }
+        if ($tandai->dihapus_at !== null) {
+            return ['ok' => false, 'message' => 'Resi ini sudah dihapus webmaster dari data GD-BR.'];
         }
         if ($this->cek_row($tandai->id_gdbr, $tahap)) {
             return ['ok' => false, 'message' => 'Resi ini sudah dicek di tahap ini.'];
@@ -528,6 +534,7 @@ class Gdbr_fcd extends CI_Model
             ->join('tblprintresi pr', 'pr.id_printresi = g.id_resi', 'inner')
             ->join('tblgdbr_cek gb', "gb.id_gdbr = g.id_gdbr AND gb.tahap = 'GEDUNG_BARU'", 'left')
             ->join('tblgdbr_cek pk', "pk.id_gdbr = g.id_gdbr AND pk.tahap = 'PACKER'", 'left')
+            ->where('g.dihapus_at IS NULL', null, false)
             ->where('g.ditandai_at >=', $start . ' 00:00:00')
             ->where('g.ditandai_at <=', $end . ' 23:59:59')
             ->order_by('g.ditandai_at', 'DESC')
@@ -644,7 +651,7 @@ class Gdbr_fcd extends CI_Model
     /** Detail satu resi untuk drawer Rekap: alur dan perbandingan qty resi / gedung baru / packer. */
     public function detail($noresi)
     {
-        $g = $this->db->get_where('tblgdbr_resi', ['noresi' => trim((string) $noresi)])->row();
+        $g = $this->db->where('dihapus_at IS NULL', null, false)->get_where('tblgdbr_resi', ['noresi' => trim((string) $noresi)])->row();
         if (!$g) {
             return null;
         }
@@ -702,7 +709,103 @@ class Gdbr_fcd extends CI_Model
             'picker' => $this->data_picker($g->id_resi),
             'tandai' => $this->orang($g->petugas_absen, $g->petugas_nama, $g->petugas_role) + ['waktu' => $g->ditandai_at],
             'gb' => $c($gb), 'pk' => $c($pk), 'baris' => $baris];
+        // Bahan form edit webmaster: item tersimpan per tahap (qty resi saat dicek vs qty ada).
+        foreach (['gb' => $gb, 'pk' => $pk] as $k => $row) {
+            $item['edit_' . $k] = null;
+            if ($row) {
+                $item['edit_' . $k] = [];
+                foreach ($this->cek_items($row->id_cek) as $it) {
+                    $item['edit_' . $k][] = ['id_item' => (int) $it['id_item'], 'sku' => $it['sku'], 'qty_resi' => (int) $it['qty_resi'],
+                        'qty_ada' => (int) $it['qty_ada'], 'luar' => (int) $it['di_luar_resi']];
+                }
+            }
+        }
         $item['progres'] = $this->progres($item);
         return $item;
+    }
+
+    // ─────────────────────────────────────────────
+    //  Khusus webmaster: ubah hasil cek, hapus resi (soft-delete)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Ubah hasil cek satu tahap. Qty resi memakai nilai yang tersimpan saat dicek.
+     * @param array $items [['id_item' => n, 'qty_ada' => n], ...] seluruh item tahap itu
+     */
+    public function ubah_cek($noresi, $tahap, array $items, $lain, $catatan, array $petugas)
+    {
+        if (!in_array($tahap, [self::TAHAP_GB, self::TAHAP_PACKER], true)) {
+            return ['ok' => false, 'message' => 'Tahap tidak dikenal.'];
+        }
+        $g = $this->db->where('dihapus_at IS NULL', null, false)->get_where('tblgdbr_resi', ['noresi' => trim((string) $noresi)])->row();
+        $cek = $g ? $this->cek_row($g->id_gdbr, $tahap) : null;
+        if (!$cek) {
+            return ['ok' => false, 'message' => 'Data cek tidak ditemukan.'];
+        }
+        $ada = [];
+        foreach ($items as $it) {
+            $q = isset($it['qty_ada']) ? $it['qty_ada'] : null;
+            if (!isset($it['id_item']) || !is_numeric($q) || (int) $q < 0 || (int) $q > 99999) {
+                return ['ok' => false, 'message' => 'Qty tidak sah.'];
+            }
+            $ada[(int) $it['id_item']] = (int) $q;
+        }
+        $tersimpan = $this->cek_items($cek->id_cek);
+        if (count($ada) !== count($tersimpan)) {
+            return ['ok' => false, 'message' => 'Data berubah. Tutup detail lalu buka lagi.'];
+        }
+        $kurang = $lebih = $salah = 0;
+        foreach ($tersimpan as $it) {
+            if (!isset($ada[(int) $it['id_item']])) {
+                return ['ok' => false, 'message' => 'Data berubah. Tutup detail lalu buka lagi.'];
+            }
+            $q = $ada[(int) $it['id_item']];
+            if ((int) $it['di_luar_resi'] === 1) {
+                $salah += $q;
+            } elseif ($q < (int) $it['qty_resi']) {
+                $kurang += (int) $it['qty_resi'] - $q;
+            } else {
+                $lebih += $q - (int) $it['qty_resi'];
+            }
+        }
+        $lain   = $lain ? 1 : 0;
+        $sesuai = (!$kurang && !$lebih && !$salah && !$lain) ? 1 : 0;
+        $catatan = trim((string) $catatan);
+        if (!$sesuai && $catatan === '') {
+            return ['ok' => false, 'message' => 'Ada yang tidak sesuai: isi catatan penyebabnya.'];
+        }
+        if (mb_strlen($catatan, 'UTF-8') > 255) {
+            $catatan = mb_substr($catatan, 0, 255, 'UTF-8');
+        }
+
+        $debug = $this->db->db_debug;
+        $this->db->db_debug = false;
+        $this->db->trans_start();
+        foreach ($tersimpan as $it) {
+            $this->db->where('id_item', (int) $it['id_item'])->where('id_cek', (int) $cek->id_cek)->update('tblgdbr_cek_item', ['qty_ada' => $ada[(int) $it['id_item']]]);
+        }
+        $this->db->where('id_cek', (int) $cek->id_cek)->update('tblgdbr_cek', [
+            'qty_kurang' => $kurang, 'qty_lebih' => $lebih, 'qty_salah' => $salah, 'lain' => $lain, 'sesuai' => $sesuai,
+            'catatan' => $catatan === '' ? null : $catatan,
+            'diubah_at' => $this->sekarang(), 'diubah_oleh' => $petugas['label'],
+        ]);
+        $this->db->trans_complete();
+        $ok = $this->db->trans_status();
+        $this->db->db_debug = $debug;
+        return $ok ? ['ok' => true, 'message' => 'Hasil cek diperbarui.'] : ['ok' => false, 'message' => 'Gagal menyimpan perubahan.'];
+    }
+
+    /** Hapus resi dari data GD-BR (soft-delete: baris tetap ada, ditandai dihapus). */
+    public function hapus_resi($noresi, array $petugas)
+    {
+        $g = $this->db->where('dihapus_at IS NULL', null, false)->get_where('tblgdbr_resi', ['noresi' => trim((string) $noresi)])->row();
+        if (!$g) {
+            return ['ok' => false, 'message' => 'Resi tidak ditemukan di data GD-BR.'];
+        }
+        $debug = $this->db->db_debug;
+        $this->db->db_debug = false;
+        $ok = $this->db->where('id_gdbr', (int) $g->id_gdbr)->update('tblgdbr_resi', ['dihapus_at' => $this->sekarang(), 'dihapus_oleh' => $petugas['label']]);
+        $this->db->db_debug = $debug;
+        return $ok ? ['ok' => true, 'message' => 'Resi dihapus dari data GD-BR.'] : ['ok' => false, 'message' => 'Gagal menghapus.'];
     }
 }
