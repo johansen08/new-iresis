@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-02.2';
+    const BOOTSTRAP_VERSI = '2026-11-03.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -174,6 +174,7 @@ class MY_Controller extends CI_Controller
         $this->run_upload_resi_spesial_migration();
         $this->run_laporan_resi_spesial_migration();
         $this->run_bonus_picker_migration();
+        $this->run_bonus_packer_migration();
         $this->run_daftar_retur_penjualan_migration();
         $this->run_tanggal_pencairan_mp_migration();
         $this->run_nominal_pencairan_migration();
@@ -1785,6 +1786,46 @@ class MY_Controller extends CI_Controller
                 'uri'       => $uri,
                 'icon'      => 'fa fa-money',
                 'sortorder' => 27, // setelah Laporan Lost Scan Picker (26)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PACKER -> "Bonus Packer" (laporan hasil hitung, baca-saja; tidak
+     * ada tabel baru). Hak akses: hanya webmaster (1) --
+     * harus sejalan dengan Bonus_packer::ROLE_BOLEH.
+     */
+    protected function run_bonus_packer_migration()
+    {
+        $uri = 'bonus-packer';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Bonus Packer',
+                'parentid'  => 24, // TIM PACKER
+                'uri'       => $uri,
+                'icon'      => 'fa fa-money',
+                'sortorder' => 13, // setelah Salah Ambil Special (12)
                 'isactive'  => 1,
                 'createdby' => 1,
                 'created'   => date('Y-m-d H:i:s')

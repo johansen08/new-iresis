@@ -154,6 +154,12 @@ $route['bonus-picker/get-data'] = 'bonus_picker/get_data';
 $route['bonus-picker/export-excel'] = 'bonus_picker/export_excel';
 $route['bonus-picker/export-excel-detail'] = 'bonus_picker/export_excel_detail';
 
+// TIM PACKER -> Bonus Packer (laporan hasil hitung bonus, baca-saja)
+$route['bonus-packer'] = 'bonus_packer/index';
+$route['bonus-packer/get-data'] = 'bonus_packer/get_data';
+$route['bonus-packer/export-excel'] = 'bonus_packer/export_excel';
+$route['bonus-packer/export-excel-detail'] = 'bonus_packer/export_excel_detail';
+
 $route['retur/scan-retur'] = 'retur/scan_retur';
 $route['retur/update-retur'] = 'retur/update_retur';
 $route['retur/update-retur-komplain'] = 'retur/update_retur_komplain';
