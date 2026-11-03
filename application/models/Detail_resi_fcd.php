@@ -38,7 +38,7 @@ class Detail_resi_fcd extends CI_Model
 
         $resi = $this->db->query(
             'SELECT t.id_printresi, t.noresi, t.status_pesanan, t.tanggal_printresi, t.tanggal_bataskirim,
-                    t.tanggal_pesan, t.tanggal_pengiriman, t.tanggal_selesai, t.tanggal_pencairan, t.tanggal_retur,
+                    t.toko, t.tanggal_pesan, t.tanggal_pengiriman, t.tanggal_selesai, t.tanggal_pencairan, t.tanggal_retur,
                     t.nomorpicklist, t.tipe_resi, m.nama_marketplace, k.nama_kurir, u.name AS admin
              FROM tblprintresi t
              LEFT JOIN tblmarketplace m ON m.id_marketplace = t.id_marketplace

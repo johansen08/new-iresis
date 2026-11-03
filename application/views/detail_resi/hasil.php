@@ -124,6 +124,7 @@ foreach ($d['items'] as $it) {
     <div class="meta">
       <span>No. pesanan <b class="mono"><?= $e($d['pesanan'] !== null ? $d['pesanan'] : '-') ?></b> <?= $d['pesanan'] !== null ? $salin($d['pesanan'], 'nomor pesanan') : '' ?></span>
       <span>Marketplace <b><?= $e($r['nama_marketplace'] ?: '-') ?></b></span>
+      <span>Toko <b><?= $e(trim((string) $r['toko']) !== '' ? $r['toko'] : '-') ?></b></span>
       <span>Kurir <b><?= $e($r['nama_kurir'] ?: '-') ?></b></span>
     </div>
   </div>
