@@ -36,6 +36,24 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   #bk-root .bk-filter label { font-size:12px; color:var(--bk-muted); font-weight:600; margin:0; }
   #bk-root .bk-filter .form-control { height:38px; border-radius:8px; box-shadow:none; }
   #bk-root .bk-tgl { width:138px; }
+  #bk-root .bk-range { display:inline-flex; align-items:center; gap:10px; height:38px; min-width:290px; padding:0 12px; background:#fff; border:1px solid var(--bk-line);
+    border-radius:8px; cursor:pointer; font:inherit; color:var(--bk-ink); text-align:left; transition:border-color .15s, box-shadow .15s; }
+  #bk-root .bk-range:hover { border-color:#b9c6d8; }
+  #bk-root .bk-range:focus, #bk-root .bk-range.open { outline:0; border-color:var(--bk-brand); box-shadow:0 0 0 3px var(--bk-brand-soft); }
+  #bk-root .bk-range .fa { color:var(--bk-brand); }
+  #bk-root .bk-range .bk-rt { flex:1 1 auto; font-weight:600; white-space:nowrap; }
+  #bk-root .bk-range .bk-rl { font-size:12px; font-weight:700; color:var(--bk-brand); background:var(--bk-brand-soft); border-radius:999px; padding:1px 8px; white-space:nowrap; }
+  #bk-root .bk-range .bk-rl:empty { display:none; }
+  #bk-root .bk-range .fa-caret-down { color:var(--bk-muted); }
+  .daterangepicker { font-family:inherit; border:1px solid #e4e9ef; border-radius:12px; box-shadow:0 10px 30px rgba(16,24,40,.14); }
+  .daterangepicker .ranges li { border-radius:6px; padding:8px 12px; }
+  .daterangepicker .ranges li:hover { background:#e8effd; }
+  .daterangepicker .ranges li.active, .daterangepicker td.active, .daterangepicker td.active:hover { background:#2563eb; color:#fff; }
+  .daterangepicker td.in-range { background:#e8effd; }
+  .daterangepicker .drp-buttons .btn { border-radius:8px; }
+  .daterangepicker .drp-buttons .applyBtn { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .daterangepicker .drp-buttons .applyBtn:hover { background:#1d4fd8; border-color:#1d4fd8; }
+  .daterangepicker .drp-buttons .cancelBtn { background:#fff; border:1px solid #e4e9ef; color:#6b7a8c; }
   #bk-root .bk-cari { width:220px; }
   #bk-root .bk-seg { display:inline-flex; border:1px solid var(--bk-line); border-radius:8px; overflow:hidden; height:38px; }
   #bk-root .bk-seg button { border:0; background:#fff; padding:0 14px; color:var(--bk-muted); cursor:pointer; border-right:1px solid var(--bk-line); font:inherit; }
@@ -163,7 +181,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     #bk-root .bk-filter { padding:12px; gap:10px; }
     #bk-root .bk-filter .bk-f, #bk-root .bk-tgl, #bk-root .bk-cari { width:100%; flex:1 1 100%; }
     #bk-root .bk-f.dua { flex:1 1 calc(50% - 5px); width:auto; } #bk-root .bk-f.dua .bk-tgl { width:100%; }
-    #bk-root .bk-seg { width:100%; } #bk-root .bk-seg button { flex:1; }
+    #bk-root .bk-range { width:100%; min-width:0; }
     #bk-root .bk-filter .bk-f > label:empty, #bk-root .bk-filter .bk-f > label.kosong { display:none; }
     #bk-root .bk-filter .bk-f > .bk-btn { width:100%; justify-content:center; }
     #bk-root .bk-f.bk-grow { display:none; }
@@ -217,18 +235,14 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   </div>
 
   <div class="bk-card bk-filter">
-    <div class="bk-f dua"><label for="bk-awal">Dari tanggal</label>
-      <input type="text" id="bk-awal" class="form-control bk-tgl" maxlength="10" autocomplete="off" placeholder="dd/mm/yyyy" value="<?= date('d/m/Y', strtotime($awal)) ?>"></div>
-    <div class="bk-f dua"><label for="bk-akhir">Sampai tanggal</label>
-      <input type="text" id="bk-akhir" class="form-control bk-tgl" maxlength="10" autocomplete="off" placeholder="dd/mm/yyyy" value="<?= date('d/m/Y', strtotime($akhir)) ?>"></div>
+    <div class="bk-f"><label for="bk-range">Rentang tanggal</label>
+      <button type="button" id="bk-range" class="bk-range" aria-haspopup="dialog">
+        <i class="fa fa-calendar"></i><span class="bk-rt" id="bk-rt"></span><span class="bk-rl" id="bk-rl"></span><i class="fa fa-caret-down"></i>
+      </button>
+      <input type="hidden" id="bk-awal" value="<?= date('d/m/Y', strtotime($awal)) ?>">
+      <input type="hidden" id="bk-akhir" value="<?= date('d/m/Y', strtotime($akhir)) ?>"></div>
     <div class="bk-f"><label class="kosong">&nbsp;</label>
-      <div class="bk-seg" id="bk-seg">
-        <button type="button" class="bk-cepat" data-r="0">Hari ini</button>
-        <button type="button" class="bk-cepat" data-r="6">7 hari</button>
-        <button type="button" class="bk-cepat on" data-r="bulan">Bulan ini</button>
-      </div></div>
-    <div class="bk-f"><label class="kosong">&nbsp;</label>
-      <button type="button" class="bk-btn pri" id="bk-tampilkan"><i class="fa fa-search"></i> Tampilkan</button></div>
+      <button type="button" class="bk-btn pri" id="bk-tampilkan"><i class="fa fa-refresh"></i> Muat ulang</button></div>
     <div class="bk-f bk-grow"></div>
     <div class="bk-f"><label for="bk-cari">Cari packer</label>
       <input type="search" id="bk-cari" class="form-control bk-cari" placeholder="Nama atau no. absen"></div>
@@ -401,7 +415,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
   function akhiriProses() {
     clearInterval(timerProses);
     $('#bk-load').removeClass('on');
-    $('#bk-tampilkan').removeClass('busy').html('<i class="fa fa-search"></i> Tampilkan');
+    $('#bk-tampilkan').removeClass('busy').html('<i class="fa fa-refresh"></i> Muat ulang');
   }
   function muat() {
     clearTimeout(tundaMuat);
@@ -566,24 +580,46 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     if (!a || !b) { muat(); return; } // munculkan pesan format tanggal
     window.location.href = '<?= base_url('bonus-packer/export-excel') ?>?awal=' + a + '&akhir=' + b;
   });
-  $root.on('change', '#bk-awal, #bk-akhir', function () { $('#bk-seg button').removeClass('on'); muat(); });
   $root.on('input', '#bk-cari', render);
   $root.on('click', 'th.bk-sort', function () {
     var k = $(this).data('k');
     sortDir = (sortK === k) ? -sortDir : ((k === 'nama' || k === 'absen') ? 1 : -1);
     sortK = k; render();
   });
-  $root.on('click', '.bk-cepat', function () {
-    var r = $(this).data('r'), n = new Date();
-    $('#bk-seg button').removeClass('on'); $(this).addClass('on');
-    if (r === 'bulan') { $('#bk-awal').val(idTgl(new Date(n.getFullYear(), n.getMonth(), 1))); }
-    else { var s = new Date(n); s.setDate(s.getDate() - Number(r)); $('#bk-awal').val(idTgl(s)); }
-    $('#bk-akhir').val(idTgl(n)); muat();
-  });
+  // Pemilih rentang: satu pemicu, preset di kiri, kalender dua bulan. Rentang
+  // terpilih disimpan di #bk-awal/#bk-akhir (dd/mm/yyyy) yang dibaca muat().
+  var BLN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  function tulisRentang(a, b, label) {
+    var f = function (m, tahun) { return m.format('DD') + ' ' + BLN[m.month()].slice(0, 3) + (tahun ? ' ' + m.year() : ''); };
+    var teks = a.isSame(b, 'day') ? f(a, true) : f(a, false) + ' – ' + f(b, true);
+    $('#bk-rt').text(teks); $('#bk-rl').text(label || '');
+    $('#bk-awal').val(a.format('DD/MM/YYYY')); $('#bk-akhir').val(b.format('DD/MM/YYYY'));
+  }
+  function labelPreset(drp) { return (drp.chosenLabel && drp.chosenLabel !== 'Pilih tanggal') ? drp.chosenLabel : ''; }
 
-  if ($.fn.datepicker) {
-    $('#bk-awal, #bk-akhir').datepicker({ format: 'dd/mm/yyyy', autoclose: true, todayHighlight: true, weekStart: 1 })
-      .on('changeDate', function () { $('#bk-seg button').removeClass('on'); muat(); });
+  if ($.fn.daterangepicker && window.moment) {
+    var n = moment(), awal0 = moment($('#bk-awal').val(), 'DD/MM/YYYY'), akhir0 = moment($('#bk-akhir').val(), 'DD/MM/YYYY');
+    $('#bk-range').daterangepicker({
+      startDate: awal0, endDate: akhir0, maxDate: n, opens: 'right', autoApply: false, alwaysShowCalendars: true, showCustomRangeLabel: true,
+      ranges: {
+        'Hari ini'  : [moment(), moment()],
+        'Kemarin'   : [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+        '7 hari terakhir' : [moment().subtract(6, 'days'), moment()],
+        '30 hari terakhir': [moment().subtract(29, 'days'), moment()],
+        'Bulan ini' : [moment().startOf('month'), moment()],
+        'Bulan lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+      },
+      locale: { format: 'DD/MM/YYYY', separator: ' – ', applyLabel: 'Terapkan', cancelLabel: 'Batal', customRangeLabel: 'Pilih tanggal',
+        daysOfWeek: ['Min','Sen','Sel','Rab','Kam','Jum','Sab'], monthNames: BLN, firstDay: 1 }
+    }, function (a, b, label) { tulisRentang(a, b, label === 'Pilih tanggal' ? '' : label); });
+    var drp = $('#bk-range').data('daterangepicker');
+    $('#bk-range').on('show.daterangepicker', function () { $(this).addClass('open'); })
+      .on('hide.daterangepicker', function () { $(this).removeClass('open'); })
+      .on('apply.daterangepicker', function (e, p) { tulisRentang(p.startDate, p.endDate, labelPreset(p)); muat(); });
+    // Label awal: cocokkan dengan preset bila rentang bawaan sama persis.
+    var lbl = '';
+    $.each(drp.ranges, function (k, r) { if (r[0].isSame(awal0, 'day') && r[1].isSame(akhir0, 'day')) { lbl = k; } });
+    tulisRentang(awal0, akhir0, lbl);
   }
 
   muat();
