@@ -1730,8 +1730,9 @@ class Receipt_fcd extends CI_Model
                         // Normalize courier
                         $kurirRaw = $row['S'] ?? '';
                         $kurir = $detectCourier($kurirRaw);
-                        // Override: if marketplace is Lazada but detected courier is JNE, Ninja, J&T, or SiCepat, force Lazada courier
-                        if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true)) {
+                        // Override: Lazada dengan kurir kosong/tidak dikenali (Jubelio mengosongkan kurir) tetap kurir Lazada, bukan id 99.
+                // Override: if marketplace is Lazada but detected courier is JNE, Ninja, J&T, or SiCepat, force Lazada courier
+                        if ($marketplace === 'lazada' && ($kurir === '' || in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true))) {
                             $kurir = 'lazada';
                         }
                         if ($kurir === 'jnt') {
@@ -1808,8 +1809,9 @@ class Receipt_fcd extends CI_Model
                 // Normalize courier
                 $kurirRaw = $row['S'] ?? '';
                 $kurir = $detectCourier($kurirRaw);
+                // Override: Lazada dengan kurir kosong/tidak dikenali (Jubelio mengosongkan kurir) tetap kurir Lazada, bukan id 99.
                 // Override: if marketplace is Lazada but detected courier is JNE, Ninja, J&T, or SiCepat, force Lazada courier
-                if ($marketplace === 'lazada' && in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true)) {
+                if ($marketplace === 'lazada' && ($kurir === '' || in_array($kurir, ['jne', 'ninja', 'j&t', 'jnt', 'jnt-fierra', 'jnt-kav-dpr', 'sicepat', 'sicepat - rekom'], true))) {
                     $kurir = 'lazada';
                 }
                 if ($kurir === 'jnt') {
