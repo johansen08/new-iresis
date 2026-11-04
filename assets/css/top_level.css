@@ -157,7 +157,8 @@
 #tl-cek{max-width:1180px}
 .tlc-s-DIAJUKAN{--sc:#d98a00}.tlc-s-DITUGASKAN{--sc:#1d5aa6}.tlc-s-SELESAI{--sc:#157347}
 .tlc-top{display:flex;justify-content:flex-end;margin-bottom:-8px}
-.tlc-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.tlc-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.tlc-grid{grid-template-columns:minmax(0,1fr)}}
 .tlc-panel{overflow:hidden}
 .tlc-scanrow{padding:14px 16px;border-bottom:1px solid var(--tl-line);background:#fafbfc}
 .tlc-scanrow .tl-scanbox{padding:0 12px;gap:10px}
