@@ -143,6 +143,8 @@ Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas. Tata letak (redes
 
 ### Edit transfer
 
+**Status qty.** "Menunggu qty" hanya untuk transfer REQUEST yang qty-nya belum diisi (tanpa baris, tanpa `diinput_at`, request belum SELESAI). Request yang selesai dengan qty 0 tampil **0**, dan tetap bisa diedit (petugas, tanggal, keterangan; tanpa baris).
+
 Dari tombol Edit atau dari popup Detail (`Top_level::transfer_edit` → `Top_level_fcd::edit_transfer`). Yang bisa diubah: nama petugas list dan petugas input, **tanggal list dan tanggal input** (kalender dengan pintasan Hari ini/Kemarin; tidak ke masa depan, tanggal list tidak setelah tanggal input; jam `diinput_at` ikut pindah ke tanggal baru dengan jam tetap; tercatat di riwayat edit), serta baris (SKU, no rak, qty; tambah dan hapus baris). Aturan:
 
 - Alasan wajib (minimal 5 huruf). Satu transaksi; semua SKU yang terlibat dikunci per SKU (`GET_LOCK`).
