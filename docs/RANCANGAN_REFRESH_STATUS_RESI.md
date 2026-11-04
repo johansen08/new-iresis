@@ -128,8 +128,10 @@ Perbedaan dari rancangan awal:
   (daftar order Jubelio hanya bisa dicari per tanggal, bukan per resi).
 - Resi bertanggal `0000-00-00` memakai `tanggal_pesan` untuk menghitung umur.
   Resi `MANUAL*` tidak diikutkan.
-- Resi yang **tidak ketemu di Jubelio** tetap ditandai dicek, kecuali daftar Jubelio
-  gagal sebagian (`LIST_LENGKAP` False) — saat itu tidak ditandai agar dicoba lagi besok.
+- Resi yang **tidak ketemu di Jubelio** hanya ditandai dicek di mode **backlog** (rentang >60 hari
+  bersifat statis) dan bila daftar Jubelio lengkap (`LIST_LENGKAP`). Di harian/mingguan tidak
+  ditandai, karena daftar order Jubelio bergeser saat order baru masuk: uji sungguhan 4 Nov 2026
+  menemukan 13 ribu duplikat dan 20–55% kandidat harian "tidak ketemu" yang sebenarnya ada.
 - Jatah panggilan detail per mode: harian 8000, mingguan 3000, backlog 3000
   (`--maks-detail` menimpa). Yang melebihi jatah tidak ditandai, jadi dicoba besok.
 - Perubahan status ditulis lewat `cron/auto_upload_resi_api` → `insert_receipt()`
