@@ -117,7 +117,7 @@ class Top_level extends MY_Controller
         $d === null ? $this->make_ajax_response(404, 'Transfer tidak ditemukan.') : $this->make_ajax_response(200, 'OK', array('d' => $d));
     }
 
-    /** Simpan edit satu transfer: petugas list/input dan baris (SKU, rak, qty); stok ikut bergeser sesuai selisih. */
+    /** Simpan edit satu transfer: petugas list/input, tanggal list/input, dan baris (SKU, rak, qty); stok ikut bergeser sesuai selisih. */
     public function transfer_edit()
     {
         $this->_wajib(self::URI_TRANSFER);
@@ -125,7 +125,8 @@ class Top_level extends MY_Controller
         $h = $this->top_level_fcd->edit_transfer(
             (int) $this->input->post('id'), (string) $this->input->post('nama_tim'), (string) $this->input->post('nama_input'),
             is_array($baris) ? array_values($baris) : array(), (string) $this->input->post('alasan'), $this->_oleh(),
-            $this->input->post('keterangan') === null ? null : (string) $this->input->post('keterangan')
+            $this->input->post('keterangan') === null ? null : (string) $this->input->post('keterangan'),
+            (string) $this->input->post('tgl_list'), (string) $this->input->post('tgl_input')
         );
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['pesan']);
     }

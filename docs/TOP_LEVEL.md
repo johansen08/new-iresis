@@ -143,7 +143,7 @@ Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas. Tata letak (redes
 
 ### Edit transfer
 
-Dari tombol Edit atau dari popup Detail (`Top_level::transfer_edit` → `Top_level_fcd::edit_transfer`). Yang bisa diubah: nama petugas list dan petugas input, serta baris (SKU, no rak, qty; tambah dan hapus baris). Aturan:
+Dari tombol Edit atau dari popup Detail (`Top_level::transfer_edit` → `Top_level_fcd::edit_transfer`). Yang bisa diubah: nama petugas list dan petugas input, **tanggal list dan tanggal input** (kalender dengan pintasan Hari ini/Kemarin; tidak ke masa depan, tanggal list tidak setelah tanggal input; jam `diinput_at` ikut pindah ke tanggal baru dengan jam tetap; tercatat di riwayat edit), serta baris (SKU, no rak, qty; tambah dan hapus baris). Aturan:
 
 - Alasan wajib (minimal 5 huruf). Satu transaksi; semua SKU yang terlibat dikunci per SKU (`GET_LOCK`).
 - Stok `tbltoplevel` digeser sebesar selisih: efek baris lama dibalik, efek baris baru diterapkan (Masuk menambah, Keluar mengurangi). Ditolak bila stok sebuah rak jadi minus. SKU harus ada di master (`tblsku`), pasangan SKU + rak tidak boleh dobel, minimal satu baris.
