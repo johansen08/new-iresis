@@ -6,8 +6,16 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *
  * Kredensial dari secrets.php: `jubelio_email`, `jubelio_password`; `jubelio_base` opsional (default
  * https://open.jubelio.com/core-api, dipakai juga untuk mengarahkan uji ke server tiruan).
- * Token hasil login disimpan di application/cache/jubelio_token.json dan dipakai ulang sampai hampir
+ * Token hasil login disimpan di application/cache/jubelio/token.json dan dipakai ulang sampai hampir
  * kedaluwarsa; kalau Jubelio menjawab 401, login diulang satu kali.
+ *
+ * Kecepatan (hasil ukur 4 Nov 2026: jaringan <50 ms; server Jubelio ~0,9 dtk untuk stok, ~1 dtk untuk history, tapi
+ * history SKU berstok besar seperti AKS27-RDM sampai ~5 dtk dan tidak bisa dipercepat lewat parameter):
+ *  - stok() dan history() dipisah. Browser memanggil keduanya bersamaan; kartu stok tampil ~1 dtk tanpa menunggu history;
+ *  - item_id SKU (stabil) disimpan di application/cache/jubelio/item_id.json, jadi history() tidak perlu mencari ulang;
+ *  - hasil per SKU dan per bagian di-cache singkat (`jubelio_cache_detik` di secrets.php, default 20 dtk, 0 = mati);
+ *    tombol Muat ulang memakai $segar = true dan melewati cache;
+ *  - timeout 4 dtk sambung / 15 dtk total supaya Jubelio yang macet tidak menahan proses PHP lama.
  *
  * Semua kegagalan dilempar sebagai RuntimeException berpesan Indonesia yang aman ditampilkan ke user
  * (tidak memuat kredensial maupun token).
@@ -25,43 +33,87 @@ class Jubelio_stok
     );
 
     private $base;
+    private $dir;
     private $token_file;
+    private $ttl;
     private $token = null;
 
     public function __construct()
     {
         $this->base = rtrim((string) iresis_secret('jubelio_base', self::BASE_DEFAULT), '/');
-        $this->token_file = APPPATH . 'cache/jubelio_token.json';
+        $this->dir = APPPATH . 'cache/jubelio/';
+        $this->token_file = $this->dir . 'token.json';
+        $this->ttl = max(0, (int) iresis_secret('jubelio_cache_detik', 20));
     }
 
     /**
-     * Stok live dan history transfer (2 tanggal terakhir) untuk satu SKU.
+     * Stok live per gudang untuk satu SKU.
      *
-     * @return array {sku, lokasi: [{id, nama, on_hand, on_order, reserved, available}], history: [{tanggal, diubah, lokasi, qty, sisa, keterangan}]}
+     * @param bool $segar true = lewati cache hasil (tombol Muat ulang)
+     * @return array {sku, item_id, lokasi: [{id, nama, on_hand, on_order, reserved, available}], waktu}
      */
-    public function cek($sku)
+    public function stok($sku, $segar = false)
+    {
+        $sku = $this->bersih($sku);
+        if (!$segar && ($hit = $this->cache_baca('stok', $sku)) !== null) {
+            return $hit;
+        }
+        $s = $this->baca_stok($this->get($this->path_stok($sku)), $sku);
+        $this->item_id_simpan($sku, $s['item_id']);
+        $hasil = array('sku' => $s['sku'], 'item_id' => $s['item_id'], 'lokasi' => $s['lokasi'], 'waktu' => date('H.i.s'));
+        $this->cache_tulis('stok', $sku, $hasil);
+        return $hasil;
+    }
+
+    /**
+     * History transfer (2 tanggal terakhir) untuk satu SKU. item_id diambil dari cache; bila belum ada, dicari lewat stok().
+     *
+     * @return array {item_id, history: [{tanggal, diubah, lokasi, qty, sisa, keterangan}]}
+     */
+    public function history($sku, $segar = false)
+    {
+        $sku = $this->bersih($sku);
+        if (!$segar && ($hit = $this->cache_baca('hist', $sku)) !== null) {
+            return $hit;
+        }
+        $item_id = $this->item_id_cache($sku);
+        if (!$item_id) {
+            $item_id = $this->stok($sku, true)['item_id'];
+        }
+        $hasil = array('item_id' => $item_id, 'history' => $this->baca_history($this->get($this->path_history($item_id))));
+        $this->cache_tulis('hist', $sku, $hasil);
+        return $hasil;
+    }
+
+    private function bersih($sku)
     {
         $sku = trim((string) $sku);
         if ($sku === '') {
             throw new RuntimeException('SKU kosong.');
         }
-        $stok = $this->ambil_stok($sku);
-        return array(
-            'sku'     => $stok['sku'],
-            'lokasi'  => $stok['lokasi'],
-            'history' => $this->ambil_history($stok['item_id']),
-        );
+        return $sku;
     }
 
     // ------------------------------------------------------------ stok & history
 
-    private function ambil_stok($sku)
+    private function path_stok($sku)
     {
-        $q = http_build_query(array(
+        return '/inventory/v2/?' . http_build_query(array(
             'page' => 1, 'page_size' => 25, 'sort_direction' => 'NONE', 'q' => $sku,
             'location_ids' => array_keys(self::$LOKASI),
         ));
-        $j = $this->get('/inventory/v2/?' . $q);
+    }
+
+    private function path_history($item_id)
+    {
+        return '/inventory/activity/?' . http_build_query(array(
+            'page' => 1, 'page_size' => 50, 'sort_by' => 'transaction_date', 'sort_direction' => 'DESC',
+            'itemId' => $item_id, 'source' => 'TRANSFER', 'q' => '',
+        ));
+    }
+
+    private function baca_stok($j, $sku)
+    {
         $item = null;
         foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
             if (isset($d['item_code']) && strcasecmp(trim($d['item_code']), $sku) === 0) {
@@ -93,13 +145,8 @@ class Jubelio_stok
     }
 
     /** Transaksi sumber TRANSFER halaman 1, dipotong ke 2 tanggal (WIB) terbaru. */
-    private function ambil_history($item_id)
+    private function baca_history($j)
     {
-        $q = http_build_query(array(
-            'page' => 1, 'page_size' => 50, 'sort_by' => 'transaction_date', 'sort_direction' => 'DESC',
-            'itemId' => $item_id, 'source' => 'TRANSFER', 'q' => '',
-        ));
-        $j = $this->get('/inventory/activity/?' . $q);
         $out = array();
         $tanggal = array();
         foreach ((isset($j['activities']) && is_array($j['activities'])) ? $j['activities'] : array() as $a) {
@@ -138,8 +185,77 @@ class Jubelio_stok
         return $dengan_jam ? $s . ' ' . gmdate('H.i', $w) : $s . ' ' . gmdate('Y', $w);
     }
 
+    // ------------------------------------------------------------ cache (berkas kecil di application/cache/jubelio/)
+
+    private function siapkan_dir()
+    {
+        if (!is_dir($this->dir)) {
+            @mkdir($this->dir, 0775, true);
+        }
+    }
+
+    private function berkas_hasil($bagian, $sku)
+    {
+        return $this->dir . 'hasil_' . $bagian . '_' . md5(strtoupper($sku)) . '.json';
+    }
+
+    private function cache_baca($bagian, $sku)
+    {
+        if ($this->ttl <= 0) {
+            return null;
+        }
+        $f = @file_get_contents($this->berkas_hasil($bagian, $sku));
+        $c = $f ? json_decode($f, true) : null;
+        return (is_array($c) && isset($c['exp'], $c['data']) && $c['exp'] > time()) ? $c['data'] : null;
+    }
+
+    private function cache_tulis($bagian, $sku, $hasil)
+    {
+        if ($this->ttl <= 0) {
+            return;
+        }
+        $this->siapkan_dir();
+        @file_put_contents($this->berkas_hasil($bagian, $sku), json_encode(array('exp' => time() + $this->ttl, 'data' => $hasil)), LOCK_EX);
+        if (mt_rand(1, 40) === 1) { // sesekali buang berkas hasil yang sudah basi supaya folder tidak menumpuk
+            foreach ((array) glob($this->dir . 'hasil_*.json') as $b) {
+                if (@filemtime($b) < time() - 600) {
+                    @unlink($b);
+                }
+            }
+        }
+    }
+
+    private function item_id_cache($sku)
+    {
+        $f = @file_get_contents($this->dir . 'item_id.json');
+        $m = $f ? json_decode($f, true) : null;
+        $k = strtoupper($sku);
+        return (is_array($m) && !empty($m[$k])) ? (int) $m[$k] : 0;
+    }
+
+    private function item_id_simpan($sku, $item_id)
+    {
+        $this->siapkan_dir();
+        $h = @fopen($this->dir . 'item_id.json', 'c+');
+        if (!$h) {
+            return;
+        }
+        if (flock($h, LOCK_EX)) {
+            $m = json_decode((string) stream_get_contents($h), true);
+            $m = is_array($m) ? $m : array();
+            $m[strtoupper($sku)] = (int) $item_id;
+            ftruncate($h, 0);
+            rewind($h);
+            fwrite($h, json_encode($m));
+            fflush($h);
+            flock($h, LOCK_UN);
+        }
+        fclose($h);
+    }
+
     // ------------------------------------------------------------ HTTP & token
 
+    /** Satu GET ber-token. Bila dijawab 401, token dibuang dan permintaan diulang satu kali dengan login baru. */
     private function get($path, $ulang = true)
     {
         $r = $this->http('GET', $this->base . $path, null, $this->token());
@@ -186,8 +302,9 @@ class Jubelio_stok
             throw new RuntimeException('Akun Jubelio belum diisi di server (jubelio_email dan jubelio_password di secrets.php).');
         }
         $r = $this->http('POST', $this->base . '/login', json_encode(array('email' => $email, 'password' => $sandi)), null);
-        if ($r['kode'] === 401 || $r['kode'] === 400) {
-            throw new RuntimeException('Login Jubelio ditolak. Periksa jubelio_email dan jubelio_password di secrets.php.');
+        if ($r['kode'] >= 400 && $r['kode'] !== 429) {
+            // Jubelio menjawab 500 (bukan 401) untuk password salah, jadi semua galat selain 429 dianggap login ditolak.
+            throw new RuntimeException('Login Jubelio ditolak (kode ' . $r['kode'] . '). Periksa jubelio_email dan jubelio_password di secrets.php.');
         }
         $j = $this->hasil($r);
         if (empty($j['token'])) {
@@ -209,9 +326,7 @@ class Jubelio_stok
                 $exp = (int) $p['exp'];
             }
         }
-        if (!is_dir(dirname($this->token_file))) {
-            @mkdir(dirname($this->token_file), 0775, true);
-        }
+        $this->siapkan_dir();
         @file_put_contents($this->token_file, json_encode(array('token' => $token, 'exp' => $exp)), LOCK_EX);
     }
 
@@ -221,25 +336,31 @@ class Jubelio_stok
         @unlink($this->token_file);
     }
 
-    private function http($metode, $url, $badan, $token)
+    private function opsi($metode, $badan, $token)
     {
-        $c = curl_init($url);
         $h = array('Accept: application/json', 'Origin: https://v2.jubelio.com', 'Referer: https://v2.jubelio.com/');
         if ($token) {
             $h[] = 'Authorization: ' . $token;
         }
+        $o = array(
+            CURLOPT_CUSTOMREQUEST  => $metode,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) iresis',
+        );
         if ($badan !== null) {
             $h[] = 'Content-Type: application/json';
-            curl_setopt($c, CURLOPT_POSTFIELDS, $badan);
+            $o[CURLOPT_POSTFIELDS] = $badan;
         }
-        curl_setopt_array($c, array(
-            CURLOPT_CUSTOMREQUEST  => $metode,
-            CURLOPT_HTTPHEADER     => $h,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT        => 20,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) iresis',
-        ));
+        $o[CURLOPT_HTTPHEADER] = $h;
+        return $o;
+    }
+
+    private function http($metode, $url, $badan, $token)
+    {
+        $c = curl_init($url);
+        curl_setopt_array($c, $this->opsi($metode, $badan, $token));
         $isi = curl_exec($c);
         $kode = (int) curl_getinfo($c, CURLINFO_HTTP_CODE);
         $galat = curl_errno($c);

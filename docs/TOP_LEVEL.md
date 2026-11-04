@@ -163,9 +163,22 @@ yang diambil langsung dari Jubelio core-api (`picker/cek-top-level/jubelio`, han
   Kolom Tanggal (`transaction_date`), Terakhir Diubah (`created_date`), Lokasi, Qty, Sisa (`balance`), Keterangan (`description`).
   No Transaksi dan No Ref sengaja tidak ditampilkan.
 - **Klien**: `application/libraries/Jubelio_stok.php`. Akun dari `secrets.php` (`jubelio_email`, `jubelio_password`);
-  token disimpan di `application/cache/jubelio_token.json`, dipakai ulang sampai hampir kedaluwarsa, dan login diulang
+  token disimpan di `application/cache/jubelio/token.json`, dipakai ulang sampai hampir kedaluwarsa, dan login diulang
   otomatis bila Jubelio menjawab 401. Kegagalan (akun kosong/ditolak, SKU tidak ada di Jubelio, 429, koneksi putus)
   tampil sebagai pesan di blok itu dengan tombol Coba lagi; Request Restok Display tetap bisa dipakai.
+- **Kecepatan** (diukur 4 Nov 2026): jaringan ke Jubelio <50 ms; waktu habis di server Jubelio, ~0,9 dtk untuk stok dan
+  ~1 dtk untuk history, tetapi history SKU berstok besar (mis. AKS27-RDM, ~98 ribu aktivitas) ~5 dtk dan tidak bisa
+  dipercepat lewat parameter. Karena itu:
+  - endpoint `picker/cek-top-level/jubelio` punya dua bagian (`bagian=stok` / `bagian=history`) yang dipanggil browser
+    bersamaan; kartu stok tampil ~1 dtk dengan skeleton di area history sampai history selesai (error tiap bagian terpisah);
+  - `item_id` SKU di Jubelio disimpan di `application/cache/jubelio/item_id.json` (stabil), jadi history tidak mencari ulang;
+    bila `item_id` di stok berbeda dari yang dipakai history, history diambil ulang otomatis;
+  - hasil per SKU dan per bagian di-cache 20 dtk (`jubelio_cache_detik` di secrets.php, 0 = mati); **Muat ulang melewati
+    cache**, dan "Diperbarui" menunjukkan waktu pengambilan sebenarnya;
+  - `session_write_close()` sebelum memanggil Jubelio: tanpa itu berkas session terkunci dan semua request lain dari akun
+    yang sama (scan, polling antrian) ikut menunggu sampai Jubelio selesai (terukur 4,3 dtk vs 0,06 dtk);
+  - timeout 4 dtk sambung / 15 dtk total; `_boleh()` memakai satu query JOIN (dulu dua).
+  Endpoint lokal sendiri sudah cepat (35-60 ms termasuk bootstrap), jadi tidak ada yang perlu dioptimasi di sana.
 - Panel **Request Hari Ini** (tiga kartu status Diajukan / Diproses / Selesai dan antrian di sisi kanan) tetap ada seperti semula.
 
 ## Tabel

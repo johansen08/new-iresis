@@ -42,7 +42,7 @@ class Cek_top_level extends MY_Controller
         $this->make_ajax_response(200, 'OK', $this->top_level_fcd->cek_sku($sku, $noresi, $this->_oleh()));
     }
 
-    /** Stok live per gudang + history transfer dari Jubelio untuk satu SKU. Tidak mengubah data apa pun. */
+    /** Stok live per gudang (bagian=stok) atau history transfer (bagian=history) dari Jubelio untuk satu SKU. Tidak mengubah data apa pun. */
     public function jubelio()
     {
         $this->_wajib();
@@ -50,13 +50,19 @@ class Cek_top_level extends MY_Controller
         if ($sku === '') {
             $this->make_ajax_response(400, 'SKU kosong.');
         }
+        // Berkas session dikunci selama request berjalan; Jubelio bisa makan 1-17 dtk, dan selama itu semua request lain
+        // dari akun yang sama (scan, polling antrian) ikut menunggu. Session tidak ditulis lagi di bawah, jadi aman dilepas.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         $this->load->library('jubelio_stok');
+        $segar = (bool) $this->input->post('segar');
         try {
-            $d = $this->jubelio_stok->cek($sku);
+            // Browser memanggil dua bagian bersamaan: 'stok' (cepat, ~1 dtk) dan 'history' (bisa 5 dtk pada SKU berstok besar).
+            $d = $this->input->post('bagian') === 'history' ? $this->jubelio_stok->history($sku, $segar) : $this->jubelio_stok->stok($sku, $segar);
         } catch (RuntimeException $e) {
             $this->make_ajax_response(502, $e->getMessage());
         }
-        $d['waktu'] = date('H.i.s');
         $this->make_ajax_response(200, 'OK', $d);
     }
 
@@ -103,9 +109,9 @@ class Cek_top_level extends MY_Controller
     {
         $role = isset($this->data['user']['hakakses']) ? $this->data['user']['hakakses'] : null;
         if (empty($role)) return false;
-        $menu = $this->db->get_where('menu', array('uri' => self::URI))->row();
-        if (!$menu) return false;
-        return $this->db->where(array('menuid' => $menu->id, 'roleid' => $role))->count_all_results('roleaccess') > 0;
+        // Satu query (dulu dua: cari menu, lalu hitung roleaccess); dipanggil di setiap endpoint, termasuk polling 20 dtk.
+        $r = $this->db->query('SELECT 1 FROM menu m INNER JOIN roleaccess ra ON ra.menuid = m.id WHERE m.uri = ? AND ra.roleid = ? LIMIT 1', array(self::URI, $role))->row();
+        return (bool) $r;
     }
 
     private function _wajib()
