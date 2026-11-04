@@ -151,6 +151,23 @@ Dari tombol Edit atau dari popup Detail (`Top_level::transfer_edit` → `Top_lev
 - Transfer **Request**: hanya petugas yang bisa diedit, karena hasil request (`tbltoplevel_request.hasil`) ikut berubah. Qty request yang salah dikoreksi lewat menu Stok Top Level. Transfer Request yang qty-nya belum diisi (0 baris) belum bisa diedit.
 - Jejak: `tbltoplevel_transfer_edit` (waktu, oleh, alasan, daftar perubahan JSON) dan `tbltoplevel_log` jenis `EDIT_TRANSFER` (per rak yang stoknya bergeser dan satu baris ringkasan). Hak akses sama dengan menu Daftar Transfer.
 
+## Stok live Jubelio di Cek Top Level
+
+Klik **Cek** pada SKU membuka dua blok di bawah barisnya: status stok top level (lokal) lalu **Stok Jubelio**
+yang diambil langsung dari Jubelio core-api (`picker/cek-top-level/jubelio`, hanya baca, tidak mengubah data).
+
+- **Kartu per gudang** (urutan tetap): Display Barang (F19&F19A) = lokasi `-1`, Gudang Utama (F16) = `1`, Transit = `0`.
+  Empat badge berukuran sama: On Hand (hijau), On Order (merah), On Reserved (ungu), On Available (biru); keterangan
+  muncul saat kursor di atas angka. Transit hanya menampilkan On Available. Nama produk dan Total Stok tidak ditampilkan.
+- **History**: hanya transaksi sumber `TRANSFER` dari `inventory/activity`, dipotong ke 2 tanggal (WIB) terbaru dari halaman 1.
+  Kolom Tanggal (`transaction_date`), Terakhir Diubah (`created_date`), Lokasi, Qty, Sisa (`balance`), Keterangan (`description`).
+  No Transaksi dan No Ref sengaja tidak ditampilkan.
+- **Klien**: `application/libraries/Jubelio_stok.php`. Akun dari `secrets.php` (`jubelio_email`, `jubelio_password`);
+  token disimpan di `application/cache/jubelio_token.json`, dipakai ulang sampai hampir kedaluwarsa, dan login diulang
+  otomatis bila Jubelio menjawab 401. Kegagalan (akun kosong/ditolak, SKU tidak ada di Jubelio, 429, koneksi putus)
+  tampil sebagai pesan di blok itu dengan tombol Coba lagi; Request Restok Display tetap bisa dipakai.
+- Panel **Request Hari Ini** (antrian) sudah dihapus dari menu ini. Endpoint `terbaru` dan `batal` di controller dibiarkan.
+
 ## Tabel
 
 | Tabel | Isi |
@@ -171,3 +188,4 @@ Tidak ada `DELETE` di kode ini (aturan proyek): stok habis = qty 0, request bata
 `application/views/cek_top_level/`, `application/views/top_level/` (`_dasar.php` memuat helper JS `window.TL`);
 `assets/css/top_level.css`; route di `application/config/routes.php` (akhir berkas).
 Prototype UI yang disetujui ada di artifact "Cek Top Level" (alur dan tampilan).
+`application/libraries/Jubelio_stok.php` (klien Jubelio untuk Cek Top Level).

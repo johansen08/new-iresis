@@ -615,6 +615,7 @@ $route['laporan/export-tracking-picker']    = 'laporan/export_tracking_picker';
 $route['picker/cek-top-level']         = 'cek_top_level/index';
 $route['picker/cek-top-level/cari']    = 'cek_top_level/cari';
 $route['picker/cek-top-level/cek']     = 'cek_top_level/cek';
+$route['picker/cek-top-level/jubelio'] = 'cek_top_level/jubelio';
 $route['picker/cek-top-level/ajukan']  = 'cek_top_level/ajukan';
 $route['picker/cek-top-level/gabung']  = 'cek_top_level/gabung';
 $route['picker/cek-top-level/batal']   = 'cek_top_level/batal';

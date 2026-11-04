@@ -42,6 +42,24 @@ class Cek_top_level extends MY_Controller
         $this->make_ajax_response(200, 'OK', $this->top_level_fcd->cek_sku($sku, $noresi, $this->_oleh()));
     }
 
+    /** Stok live per gudang + history transfer dari Jubelio untuk satu SKU. Tidak mengubah data apa pun. */
+    public function jubelio()
+    {
+        $this->_wajib();
+        $sku = trim((string) $this->input->post('sku'));
+        if ($sku === '') {
+            $this->make_ajax_response(400, 'SKU kosong.');
+        }
+        $this->load->library('jubelio_stok');
+        try {
+            $d = $this->jubelio_stok->cek($sku);
+        } catch (RuntimeException $e) {
+            $this->make_ajax_response(502, $e->getMessage());
+        }
+        $d['waktu'] = date('H.i.s');
+        $this->make_ajax_response(200, 'OK', $d);
+    }
+
     public function ajukan()
     {
         $this->_wajib();
