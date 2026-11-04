@@ -15,6 +15,11 @@ defined('BASEPATH') or exit('No direct script access allowed');
  *  - item_id SKU (stabil) disimpan di application/cache/jubelio/item_id.json, jadi history() tidak perlu mencari ulang;
  *  - hasil per SKU dan per bagian di-cache singkat (`jubelio_cache_detik` di secrets.php, default 20 dtk, 0 = mati);
  *    tombol Muat ulang memakai $segar = true dan melewati cache;
+ *  - handshake TLS: dengan bundel CA bawaan XAMPP (135 sertifikat) OpenSSL 3 memakan ~450 ms di SETIAP koneksi baru
+ *    (PHP tidak bisa memakai ulang koneksi antar request); dengan jubelio_ca.pem berisi hanya ISRG Root X1/X2 (akar
+ *    Let's Encrypt, penerbit sertifikat *.jubelio.com) turun jadi ~50 ms. Verifikasi sertifikat tetap penuh. Bila Jubelio
+ *    suatu hari pindah penerbit sertifikat dan verifikasi gagal, otomatis dicoba ulang dengan bundel bawaan (dan dicatat
+ *    di log), jadi fitur tidak mati; perbarui jubelio_ca.pem setelah itu.
  *  - timeout 4 dtk sambung / 15 dtk total supaya Jubelio yang macet tidak menahan proses PHP lama.
  *
  * Semua kegagalan dilempar sebagai RuntimeException berpesan Indonesia yang aman ditampilkan ke user
@@ -37,6 +42,7 @@ class Jubelio_stok
     private $token_file;
     private $ttl;
     private $token = null;
+    private $ca_mini = true; // false setelah verifikasi dengan bundel mini gagal sekali
 
     public function __construct()
     {
@@ -354,6 +360,10 @@ class Jubelio_stok
             $o[CURLOPT_POSTFIELDS] = $badan;
         }
         $o[CURLOPT_HTTPHEADER] = $h;
+        $ca = __DIR__ . '/jubelio_ca.pem';
+        if ($this->ca_mini && is_file($ca)) {
+            $o[CURLOPT_CAINFO] = $ca;
+        }
         return $o;
     }
 
@@ -365,6 +375,12 @@ class Jubelio_stok
         $kode = (int) curl_getinfo($c, CURLINFO_HTTP_CODE);
         $galat = curl_errno($c);
         curl_close($c);
+        // 60/77 = sertifikat tidak dikenali oleh bundel CA yang dipakai: coba sekali lagi dengan bundel bawaan.
+        if (($galat === 60 || $galat === 77) && $this->ca_mini) {
+            $this->ca_mini = false;
+            function_exists('log_message') && log_message('error', 'Jubelio_stok: verifikasi TLS gagal dengan jubelio_ca.pem (errno ' . $galat . '); pakai bundel bawaan. Perbarui jubelio_ca.pem.');
+            return $this->http($metode, $url, $badan, $token);
+        }
         if ($isi === false || $galat) {
             throw new RuntimeException('Tidak bisa terhubung ke Jubelio. Periksa koneksi internet.');
         }
