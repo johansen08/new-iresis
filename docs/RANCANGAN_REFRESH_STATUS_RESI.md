@@ -163,3 +163,19 @@ jatuh tempo, jadi `GET cron/kandidat_refresh_status` aman dipanggil berkali-kali
   lewat jalur upsert, 55 resi ditandai (4 diperbarui + 51 tidak ketemu), sisanya ditunda.
 - **Belum teruji**: panggilan nyata ke Jubelio (kredensial hanya ada di PC produksi).
   Karena itu langkah 3–4 di atas wajib dijalankan dulu sebelum dijadwalkan.
+
+### Penjadwalan (PC produksi)
+
+`scripts/refresh_status_resi_senyap.vbs` menjalankan semua mode tanpa jendela konsol dan
+menulis ke `logs/refresh_status_resi.log`. Alamat IRESIS bisa ditimpa per PC lewat
+`IRESIS_BASE_URL` di `scripts/secrets_local.py` (opsional; bawaan `localhost:8080`).
+Daftarkan sekali (jam 03.00, setelah arsip 01.00 dan backup arsip 02.30):
+
+```bash
+schtasks /create /tn "IRESIS - Refresh status resi" /sc daily /st 03:00 /rl LIMITED /f /tr "wscript.exe C:\xampp\htdocs\new-iresis\scripts\refresh_status_resi_senyap.vbs"
+```
+
+Pantau `logs/refresh_status_resi.log`: tiap mode mencetak ringkasan
+`kandidat / tanpa_perubahan / diperbarui / tidak_ketemu / ditunda`. Backlog selesai
+saat kandidat mode backlog tinggal 0. Hasil uji tulis 4 Nov 2026: mingguan 100 diperbarui
+(99 COMPLETED, 1 RETURNED), backlog 100 diperbarui, tanpa error.
