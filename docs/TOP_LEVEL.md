@@ -177,6 +177,14 @@ yang diambil langsung dari Jubelio core-api (`picker/cek-top-level/jubelio`, han
     cache**, dan "Diperbarui" menunjukkan waktu pengambilan sebenarnya;
   - `session_write_close()` sebelum memanggil Jubelio: tanpa itu berkas session terkunci dan semua request lain dari akun
     yang sama (scan, polling antrian) ikut menunggu sampai Jubelio selesai (terukur 4,3 dtk vs 0,06 dtk);
+  - **handshake TLS** (celah terbesar, ditemukan 4 Nov 2026): dengan bundel CA bawaan XAMPP (135 sertifikat) OpenSSL 3 memakan
+    ~450 ms di setiap koneksi baru ke Jubelio, dan PHP tidak bisa memakai ulang koneksi antar request. `jubelio_ca.pem`
+    (ISRG Root X1/X2, akar Let's Encrypt penerbit `*.jubelio.com`) memangkasnya jadi ~50 ms; verifikasi sertifikat tetap penuh.
+    Bila verifikasi dengan berkas itu gagal (Jubelio pindah penerbit sertifikat), otomatis diulang dengan bundel bawaan dan
+    dicatat di log, jadi fitur tidak mati; ganti isi `jubelio_ca.pem` dengan akar penerbit baru setelah itu;
+  - klik Cek memulai cek lokal dan Jubelio **bersamaan** (dulu Jubelio menunggu cek lokal selesai); status stok top level
+    bisa tampil lebih dulu dari kartu Jubelio;
+  - polling antrian 20 dtk berhenti saat tab di latar belakang dan menyegarkan begitu tab kembali dibuka;
   - timeout 4 dtk sambung / 15 dtk total; `_boleh()` memakai satu query JOIN (dulu dua).
   Endpoint lokal sendiri sudah cepat (35-60 ms termasuk bootstrap), jadi tidak ada yang perlu dioptimasi di sana.
 - Panel **Request Hari Ini** (tiga kartu status Diajukan / Diproses / Selesai dan antrian di sisi kanan) tetap ada seperti semula.

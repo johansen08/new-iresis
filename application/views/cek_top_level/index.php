@@ -82,7 +82,8 @@ $this->load->view('top_level/_dasar'); ?>
 
   function hasilCek(i) {
     var d = cekHasil[i], tp, judul, sub, tombol = '';
-    if (!d) return '';
+    // Stok Jubelio dimuat bersamaan dengan cek lokal, jadi bisa tampil lebih dulu dari status stok top level.
+    if (!d) return '<div class="tlc-ex"><div class="tlj-skl" style="height:56px"></div>' + blokJubelio(i) + '</div>';
     if (!d.ada_stok) { tp = 'bad'; judul = 'Tidak ada stok top level'; sub = 'Lapor ke CS bila perlu.'; }
     else if (d.aktif && d.joined) { tp = 'info'; judul = 'Sudah dalam request · ' + (d.aktif.nomor || d.aktif.kode); sub = 'Resi ini sudah tergabung.'; }
     else if (d.aktif) {
@@ -256,9 +257,17 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '[data-cek]', function () {
     var i = +$(this).data('cek');
     if (buka === i) { buka = null; gambarResi(); return; }
-    T.post('picker/cek-top-level/cek', { sku: resi.items[i].sku, noresi: resi.noresi }, function (d) {
-      cekHasil[i] = d; buka = i; muatJubelio(i);
-    }, T.galat);
+    // Cek lokal dan stok Jubelio dimulai bersamaan (dulu Jubelio menunggu cek lokal selesai dulu).
+    var noresi = resi.noresi;
+    buka = i;
+    muatJubelio(i);
+    T.post('picker/cek-top-level/cek', { sku: resi.items[i].sku, noresi: noresi }, function (d) {
+      if (!resi || resi.noresi !== noresi) return;
+      cekHasil[i] = d; gambarResi();
+    }, function (m) {
+      T.galat(m);
+      if (resi && resi.noresi === noresi && buka === i) { buka = null; gambarResi(); }
+    });
   });
   $r.on('click', '[data-muat-h]', function () {
     var i = +$(this).data('muat-h');
@@ -294,8 +303,11 @@ $this->load->view('top_level/_dasar'); ?>
   clearInterval(window.__tlCekTimer);
   window.__tlCekTimer = tmTerbaru = setInterval(function () {
     if (!$.contains(document, $r[0])) { clearInterval(window.__tlCekTimer); return; }
-    if (!T.adaModal()) terbaru();
+    if (!T.adaModal() && !document.hidden) terbaru();   // tab di latar belakang tidak perlu polling
   }, 20000);
+  $(document).off('visibilitychange.tlcek').on('visibilitychange.tlcek', function () {
+    if (!document.hidden && $.contains(document, $r[0]) && !T.adaModal()) terbaru();   // segarkan begitu tab kembali dibuka
+  });
 
   gambarResi();
   terbaru();
