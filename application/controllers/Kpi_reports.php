@@ -329,7 +329,7 @@ class Kpi_reports extends MY_Controller
                             WHERE r.yangambil_pegawai = rab.yangambil_pegawai
                             AND r.tanggal_resiambilbarang BETWEEN ? AND ?
                             -- Reject Display (tipe 5) dilaporkan lewat menu terpisah, bukan kesalahan picker
-                            AND mp.id_typemasalah != 5
+                            AND mp.id_typemasalah NOT IN (5, 6) -- 6 = Selisih Paket Cancel (tanpa poin)
                         ), 0) as total_kesalahan,
                         
                         -- SKU breakdown by category (using COUNT DISTINCT to prevent double counting due to join)
@@ -410,7 +410,7 @@ class Kpi_reports extends MY_Controller
                             WHERE r.yangambil_pegawai = rab.yangambil_pegawai
                             AND r.tanggal_resiambilbarang BETWEEN ? AND ?
                             -- Reject Display (tipe 5) dilaporkan lewat menu terpisah, bukan kesalahan picker
-                            AND mp.id_typemasalah != 5
+                            AND mp.id_typemasalah NOT IN (5, 6) -- 6 = Selisih Paket Cancel (tanpa poin)
                         ), 0) as total_kesalahan,
                         0 as paket_1_sku,
                         0 as paket_5_sku,

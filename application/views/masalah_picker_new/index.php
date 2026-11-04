@@ -69,7 +69,7 @@ $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
             </div>
             <div class="col-md-4 text-right">
               <small class="text-muted">
-                Picker terdeteksi otomatis dari scan ambil barang. <strong>LEBIH AMBIL</strong> diproses tanpa cetak.
+                Picker terdeteksi otomatis dari scan ambil barang. <strong>LEBIH AMBIL</strong> dan <strong>SELISIH PAKET CANCEL</strong> diproses tanpa cetak.
               </small>
             </div>
           </div>
@@ -362,7 +362,7 @@ $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
     }
     if (tanpaCetak && tanpaCetak.length) {
       html += '<div class="alert alert-info" style="margin-bottom:0;"><i class="fa fa-info-circle"></i> <strong>' + tanpaCetak.length +
-        ' LEBIH AMBIL</strong> ikut ditandai selesai tetapi <u>tidak dicetak</u> (tidak ada barang yang perlu diambil): <small>' +
+        ' LEBIH AMBIL / SELISIH PAKET CANCEL</strong> ikut ditandai selesai tetapi <u>tidak dicetak</u> (tidak ada barang yang perlu diambil): <small>' +
         esc($.map(tanpaCetak, function (it) { return it.sku + ' x' + it.qty_bermasalah + ' (' + it.nama_picker + ')'; }).join(', ')) + '</small></div>';
     }
     return html;
@@ -407,7 +407,7 @@ $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
       muatRiwayat();
 
       var pesan = d.jumlah_item + ' masalah diproses (proses #' + d.id_proses + '): ' + d.slips.length + ' slip picker';
-      if (d.tanpa_cetak.length) pesan += ', ' + d.tanpa_cetak.length + ' LEBIH AMBIL tanpa cetak';
+      if (d.tanpa_cetak.length) pesan += ', ' + d.tanpa_cetak.length + ' LEBIH AMBIL / SELISIH PAKET CANCEL tanpa cetak';
       if (d.reject_ke_qc) pesan += ', ' + d.reject_ke_qc + ' reject masuk QC';
       if (d.jumlah_dilewati) pesan += ', ' + d.jumlah_dilewati + ' dilewati (sudah diproses user lain)';
       notif(pesan + '.', 'success');
@@ -415,7 +415,7 @@ $reportrange = !empty($reportrange) ? $reportrange : $rentang_default;
       if (d.slips.length) {
         cetakSlip(d);
       } else {
-        notif('Tidak ada slip yang dicetak: semua item bertipe LEBIH AMBIL.', 'information');
+        notif('Tidak ada slip yang dicetak: semua item bertipe LEBIH AMBIL / SELISIH PAKET CANCEL.', 'information');
       }
     }, 'json').fail(function (xhr) {
       $btn.prop('disabled', false).html('<i class="fa fa-print"></i> PROSES &amp; CETAK');

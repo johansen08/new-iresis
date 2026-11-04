@@ -44,6 +44,7 @@ class Laporan_fcd extends CI_Model
                 FROM tblmasalahpicker mp
                 JOIN tblresiambilbarang r2 ON r2.id_resi = mp.id_printresi
                 WHERE DATE(r2.tanggal_resiambilbarang) = ?
+                  AND mp.id_typemasalah <> 6
                 GROUP BY r2.yangambil_pegawai
             ) err ON err.peg_id = work.peg_id
             ORDER BY total_resi DESC

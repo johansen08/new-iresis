@@ -246,3 +246,31 @@ yang dibuat menu ini (`jumlah_tolak` = 0) dan tidak menulis apa pun bila sudah d
 
 Belum ada: baris `tblmasalahpicker` untuk selisih (§5), konfirmasi restock di
 sistem (kertas ditandatangani manual).
+
+## 13. Selisih paket cancel ke picker (tipe masalah 6, 4 Nov 2026)
+
+Menutup "Belum ada: baris `tblmasalahpicker` untuk selisih" di §12. Saat
+**Terima Paket Cancel** disimpan / diedit / dihapus, `Cancel_terima_fcd::
+sinkron_masalah_picker()` menyamakan baris `tblmasalahpicker` **tipe 6
+`SELISIH PAKET CANCEL`** untuk resi itu (di dalam transaksi yang sama).
+
+| Aturan | Isi |
+|---|---|
+| Picker | dari `tblresiambilbarang` (tidak disimpan di tabel masalah). Resi tanpa baris itu: **tidak dicatat**, pesan simpan menyebutnya |
+| Satu baris per SKU resi yang selisih | `sku` = SKU resi, `qty` = qty resi, `qty_bermasalah` = &#124;resi − ada&#124; (kurang **dan** lebih digabung; arahnya ada di item paket / Laporan Paket Cancel) |
+| SKU di luar resi | dipasangkan ke SKU resi yang kurang lewat `sku_salah`; yang tidak terpasang jadi baris sendiri (`qty` 0) |
+| Edit | baris tipe 6 yang sudah ada diperbarui; SKU yang selisihnya hilang dinolkan (`qty_bermasalah` 0) |
+| Hapus paket | semua baris tipe 6 resi itu dinolkan; terima ulang mengisinya lagi |
+| Sudah dilaporkan packer | SKU yang sudah punya baris tipe lain di resi itu tidak ditimpa / digandakan |
+| Paket tanpa resi | tidak dicatat (tidak ada picker) |
+
+Tipe 6 sengaja **tanpa dampak** ke hal lain: dikecualikan dari poin Bonus Picker
+dan `total_kesalahan` KPI (`Kpi_reports` ×2), Error Recap, dan Laporan picker;
+masuk Daftar Masalah Picker New sebagai *tanpa cetak* (seperti LEBIH AMBIL, jadi
+tidak ada slip "ambil ulang" untuk pesanan cancel); tidak tampil di laporan
+Restock. Baris yang dinolkan disembunyikan dari Daftar Masalah Picker. Tanpa
+DELETE, jadi koreksi = nol, bukan hapus baris. Menu lama `cs/masalah-picker`
+(cadangan) tidak diubah dan bisa menampilkan baris tipe 6.
+
+Migrasi: `run_tipe_masalah_selisih_paket_cancel` (baris tipe 6 di
+`tbltypemasalah`, `BOOTSTRAP_VERSI` 2026-11-04.2). Tidak ada kolom baru.

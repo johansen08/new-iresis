@@ -36,6 +36,8 @@ class Bonus_picker_fcd extends CI_Model
     // tbltypemasalah.id_typemasalah 5 = Reject Display: bukan kesalahan picker,
     // tidak dikenai poin.
     const TIPE_TANPA_PENALTI = 5;
+    // 6 = Selisih Paket Cancel (tim retur mencatat selisih isi paket cancel): juga tanpa poin.
+    const TIPE_SELISIH_PAKET_CANCEL = 6;
 
     public static function bonus_dari_net($net)
     {
@@ -147,9 +149,9 @@ class Bonus_picker_fcd extends CI_Model
                AND rab.status_performa_id = ?
                AND TIME(rab.tanggal_resiambilbarang) BETWEEN ? AND ?
                AND COALESCE(rab.nama_komputer, '') <> 'LOST SCAN PICKER'
-               AND mp.id_typemasalah <> ?
+               AND mp.id_typemasalah NOT IN (?, ?)
              GROUP BY rab.yangambil_pegawai, DATE(rab.tanggal_resiambilbarang)",
-            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR, self::TIPE_TANPA_PENALTI]
+            [$dari, $sampai, $id_normal, self::JAM_AWAL, self::JAM_AKHIR, self::TIPE_TANPA_PENALTI, self::TIPE_SELISIH_PAKET_CANCEL]
         ) : FALSE;
 
         $this->db->db_debug = $debug;
