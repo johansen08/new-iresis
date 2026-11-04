@@ -166,7 +166,7 @@ yang diambil langsung dari Jubelio core-api (`picker/cek-top-level/jubelio`, han
   token disimpan di `application/cache/jubelio_token.json`, dipakai ulang sampai hampir kedaluwarsa, dan login diulang
   otomatis bila Jubelio menjawab 401. Kegagalan (akun kosong/ditolak, SKU tidak ada di Jubelio, 429, koneksi putus)
   tampil sebagai pesan di blok itu dengan tombol Coba lagi; Request Restok Display tetap bisa dipakai.
-- Panel **Request Hari Ini** (antrian) sudah dihapus dari menu ini. Endpoint `terbaru` dan `batal` di controller dibiarkan.
+- Panel **Request Hari Ini** (tiga kartu status Diajukan / Diproses / Selesai dan antrian di sisi kanan) tetap ada seperti semula.
 
 ## Tabel
 
