@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-04.1';
+    const BOOTSTRAP_VERSI = '2026-11-04.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -170,6 +170,7 @@ class MY_Controller extends CI_Controller
         $this->run_mode_arsip_migration();
         $this->run_paket_cancel_migration();
         $this->run_paket_cancel_terima_migration();
+        $this->run_tipe_masalah_selisih_paket_cancel();
         $this->run_pemenuhan_kirim_harian_migration();
         $this->run_upload_resi_spesial_migration();
         $this->run_laporan_resi_spesial_migration();
@@ -1943,6 +1944,18 @@ class MY_Controller extends CI_Controller
           KEY `idx_cancel_tolak_resi` (`id_resi`, `waktu`),
           KEY `idx_cancel_tolak_waktu` (`waktu`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    }
+
+    /**
+     * Tipe masalah picker 6 "SELISIH PAKET CANCEL" (docs/PAKET_CANCEL.md §13): selisih isi paket cancel
+     * dicatat atas nama picker resi, tanpa poin bonus/KPI, tanpa slip cetak, dan tidak masuk Restock.
+     * Hanya menambah satu baris referensi bila belum ada.
+     */
+    protected function run_tipe_masalah_selisih_paket_cancel()
+    {
+        if (!$this->db->query("SELECT 1 FROM tbltypemasalah WHERE id_typemasalah = 6")->num_rows()) {
+            $this->db->query("INSERT INTO tbltypemasalah (id_typemasalah, type_masalah) VALUES (6, 'SELISIH PAKET CANCEL')");
+        }
     }
 
     /**

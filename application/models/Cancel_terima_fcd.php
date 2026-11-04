@@ -31,6 +31,117 @@ class Cancel_terima_fcd extends CI_Model
         return $qty_ditemukan < $qty_resi ? 'KURANG' : 'LEBIH';
     }
 
+    /** tbltypemasalah 6 = SELISIH PAKET CANCEL: tercatat atas nama picker, tanpa poin bonus/KPI, tanpa cetak slip, tidak ke Restock. */
+    const TIPE_SELISIH_PAKET_CANCEL = 6;
+
+    /**
+     * Baris tblmasalahpicker dari selisih satu paket, per SKU resi:
+     * qty_bermasalah = |qty resi - qty ada|. SKU di luar resi dipasangkan ke SKU resi yang
+     * kurang (kolom sku_salah); yang tidak terpasang jadi baris sendiri (qty 0).
+     * @return array key SKU (upper) => [sku, qty, qty_bermasalah, sku_salah, kurang]
+     */
+    private function susun_masalah_picker(array $baris)
+    {
+        $rows = [];
+        $luar = [];
+        foreach ($baris as $b) {
+            $resi = (int) $b['qty_resi'];
+            $ada  = (int) $b['qty_ditemukan'];
+            if ($resi > 0) {
+                if ($ada !== $resi) {
+                    $rows[strtoupper($b['sku'])] = [
+                        'sku' => $b['sku'], 'qty' => $resi, 'qty_bermasalah' => abs($resi - $ada),
+                        'sku_salah' => null, 'kurang' => $ada < $resi,
+                    ];
+                }
+            } elseif ($ada > 0) {
+                $luar[] = ['sku' => $b['sku'], 'qty' => $ada];
+            }
+        }
+        foreach ($luar as $l) {
+            $terpasang = false;
+            foreach ($rows as &$r) {
+                if ($r['kurang'] && $r['sku_salah'] === null) {
+                    $r['sku_salah'] = $l['sku'];
+                    $terpasang = true;
+                    break;
+                }
+            }
+            unset($r);
+            if (!$terpasang) {
+                $rows[strtoupper($l['sku'])] = [
+                    'sku' => $l['sku'], 'qty' => 0, 'qty_bermasalah' => $l['qty'],
+                    'sku_salah' => null, 'kurang' => false,
+                ];
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * Samakan baris tblmasalahpicker tipe 6 resi ini dengan isi paket (dipanggil di dalam transaksi
+     * terima / edit / hapus). Picker diambil dari tblresiambilbarang (tidak disimpan di tabel itu).
+     * Tanpa DELETE: SKU yang selisihnya hilang setelah koreksi dinolkan (qty_bermasalah = 0) dan
+     * baris itu disembunyikan dari Daftar Masalah Picker. Resi yang sudah dilaporkan packer
+     * (tipe lain, SKU sama) tidak ditimpa/digandakan.
+     * @return int|string jumlah SKU bermasalah yang tercatat, atau 'tanpa_picker' / 'lewati'
+     */
+    private function sinkron_masalah_picker($id_resi, $noresi, array $baris, $id_user)
+    {
+        if ((int) $id_resi <= 0) {
+            return 'lewati';
+        }
+        if (!$this->db->select('id_resiambilbarang')->where('id_resi', (int) $id_resi)->limit(1)->get('tblresiambilbarang')->row()) {
+            return 'tanpa_picker';
+        }
+        $baru = $this->susun_masalah_picker($baris);
+        $lama = [];
+        $ada_rows = $this->db->where('id_printresi', (int) $id_resi)->get('tblmasalahpicker')->result_array();
+        $lain = [];
+        foreach ($ada_rows as $m) {
+            if ((int) $m['id_typemasalah'] === self::TIPE_SELISIH_PAKET_CANCEL) {
+                $lama[strtoupper($m['sku'])] = $m;
+            } else {
+                $lain[strtoupper($m['sku'])] = true;
+            }
+        }
+        $now = date('Y-m-d H:i:s');
+        $tercatat = 0;
+        foreach ($baru as $k => $r) {
+            if (isset($lama[$k])) {
+                $this->db->where('id_masalahpicker', $lama[$k]['id_masalahpicker'])->update('tblmasalahpicker', [
+                    'qty' => $r['qty'], 'qty_bermasalah' => $r['qty_bermasalah'], 'sku_salah' => $r['sku_salah'],
+                    'updated_by' => $id_user, 'updated' => $now,
+                ]);
+                $tercatat++;
+            } elseif (!isset($lain[$k])) {
+                $this->db->insert('tblmasalahpicker', [
+                    'id_printresi' => (int) $id_resi, 'noresi' => $noresi, 'sku' => $r['sku'],
+                    'qty' => $r['qty'], 'id_typemasalah' => self::TIPE_SELISIH_PAKET_CANCEL,
+                    'qty_bermasalah' => $r['qty_bermasalah'], 'sku_salah' => $r['sku_salah'],
+                    'status' => 0, 'created_by' => $id_user, 'created' => $now,
+                ]);
+                $tercatat++;
+            }
+        }
+        foreach ($lama as $k => $m) {
+            if (!isset($baru[$k]) && (int) $m['qty_bermasalah'] > 0) {
+                $this->db->where('id_masalahpicker', $m['id_masalahpicker'])->update('tblmasalahpicker', [
+                    'qty_bermasalah' => 0, 'sku_salah' => null, 'updated_by' => $id_user, 'updated' => $now,
+                ]);
+            }
+        }
+        return $tercatat;
+    }
+
+    private function catatan_picker($hasil)
+    {
+        if ($hasil === 'tanpa_picker') {
+            return '; picker resi tidak terdeteksi, selisih TIDAK dicatat ke picker';
+        }
+        return is_int($hasil) && $hasil > 0 ? '; ' . $hasil . ' SKU selisih dicatat ke picker' : '';
+    }
+
     private function mode_arsip()
     {
         return (bool) $this->session->userdata('mode_arsip');
@@ -270,12 +381,13 @@ class Cancel_terima_fcd extends CI_Model
         $this->tulis_log($id_paket, 'TERIMA', $id_user, null, [
             'dari' => $dari, 'selisih' => $s['selisih'], 'catatan' => $catatan, 'item' => $s['baris'],
         ]);
+        $hasil_picker = $this->sinkron_masalah_picker($cek['id_resi'], $cek['noresi'], $s['baris'], $id_user);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
 
         return $ok
-            ? ['ok' => true, 'selisih' => $s['selisih'], 'message' => $s['selisih'] ? 'Tersimpan, ADA SELISIH tercatat' : 'Tersimpan, isi sesuai resi']
+            ? ['ok' => true, 'selisih' => $s['selisih'], 'message' => ($s['selisih'] ? 'Tersimpan, ADA SELISIH tercatat' : 'Tersimpan, isi sesuai resi') . $this->catatan_picker($hasil_picker)]
             : ['ok' => false, 'message' => 'Gagal menyimpan, coba lagi'];
     }
 
@@ -492,11 +604,12 @@ class Cancel_terima_fcd extends CI_Model
             'updated_at'    => $now,
         ]);
         $this->tulis_log($paket->id_cancel_paket, 'EDIT', $id_user, null, ['perubahan' => $perubahan]);
+        $hasil_picker = $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, $s['baris'], $id_user);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
 
-        return $ok ? ['ok' => true, 'message' => 'Paket ' . ($paket->noresi !== '' ? $paket->noresi : 'tanpa resi #' . $paket->id_cancel_paket) . ' berhasil diperbarui']
+        return $ok ? ['ok' => true, 'message' => 'Paket ' . ($paket->noresi !== '' ? $paket->noresi : 'tanpa resi #' . $paket->id_cancel_paket) . ' berhasil diperbarui' . $this->catatan_picker($hasil_picker)]
                    : ['ok' => false, 'message' => 'Gagal menyimpan perubahan'];
     }
 
@@ -530,6 +643,8 @@ class Cancel_terima_fcd extends CI_Model
             'updated_at'   => $now,
         ]);
         $this->tulis_log($paket->id_cancel_paket, 'HAPUS', $id_user, $alasan, ['dari' => $paket->diterima_dari, 'dicek_at' => $paket->dicek_at]);
+        // Paket dihapus = salah terima: catatan selisih ke picker dinolkan (terima ulang akan mengisinya lagi).
+        $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, [], $id_user);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;

@@ -44,7 +44,7 @@ class Restock_fcd extends CI_Model
         $this->db->where('mp.status', 1);
         
         // Exclude Reject Display (Type 5) from this report
-        $this->db->where('mp.id_typemasalah !=', 5);
+        $this->db->where_not_in('mp.id_typemasalah', [5, 6]); // 6 = Selisih Paket Cancel: tidak ada barang untuk Restock
 
         // Search filter
         if (!empty($params['search'])) {
@@ -98,7 +98,7 @@ class Restock_fcd extends CI_Model
         $this->db->where('mp.status', 1);
 
         // Exclude Reject Display (Type 5) from this report
-        $this->db->where('mp.id_typemasalah !=', 5);
+        $this->db->where_not_in('mp.id_typemasalah', [5, 6]); // 6 = Selisih Paket Cancel: tidak ada barang untuk Restock
 
         // Search filter
         if (!empty($params['search'])) {

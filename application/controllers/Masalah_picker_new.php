@@ -338,7 +338,7 @@ class Masalah_picker_new extends MY_Controller
 
         $slips = $this->masalah_picker_new_fcd->slip_dari_snapshot($id_proses, $kode_picker === '' ? null : $kode_picker);
         if (empty($slips)) {
-            $this->make_ajax_response(404, 'Proses ini tidak punya slip untuk dicetak (semua LEBIH AMBIL).');
+            $this->make_ajax_response(404, 'Proses ini tidak punya slip untuk dicetak (semua LEBIH AMBIL / SELISIH PAKET CANCEL).');
         }
 
         $this->make_ajax_response(200, 'OK', [
@@ -391,9 +391,11 @@ class Masalah_picker_new extends MY_Controller
             Masalah_picker_new_fcd::TIPE_KURANG_AMBIL   => 'label-warning',
             Masalah_picker_new_fcd::TIPE_SALAH_AMBIL    => 'label-primary',
             Masalah_picker_new_fcd::TIPE_REJECT_DISPLAY => 'label-info',
+            Masalah_picker_new_fcd::TIPE_SELISIH_PAKET_CANCEL => 'label-default',
         ];
         $kelas = $warna[$id_tipe] ?? 'label-default';
-        $judul = $id_tipe === Masalah_picker_new_fcd::TIPE_LEBIH_AMBIL ? ' title="Diproses tanpa cetak: tidak ada barang yang perlu diambil"' : '';
+        $judul = in_array($id_tipe, [Masalah_picker_new_fcd::TIPE_LEBIH_AMBIL, Masalah_picker_new_fcd::TIPE_SELISIH_PAKET_CANCEL], true)
+            ? ' title="Diproses tanpa cetak: tidak ada barang yang perlu diambil' . ($id_tipe === Masalah_picker_new_fcd::TIPE_SELISIH_PAKET_CANCEL ? ' (selisih isi paket cancel, tanpa poin bonus)' : '') . '"' : '';
         return '<span class="label ' . $kelas . '"' . $judul . '>' . $this->e($label ?: '-') . '</span>';
     }
 

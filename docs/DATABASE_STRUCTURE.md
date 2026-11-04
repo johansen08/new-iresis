@@ -74,7 +74,7 @@ tidak pernah ada; yang ada dengan awalan itu hanya `tblpacker_sessions` dan
 - noresi
 - sku                    -- SKU di resi (yang seharusnya)
 - qty (DEFAULT 1)        -- qty SKU itu di resi
-- id_typemasalah (FK → tbltypemasalah: 1 TIDAK AMBIL, 2 LEBIH AMBIL, 3 KURANG AMBIL, 4 SALAH AMBIL, 5 REJECT DISPLAY)
+- id_typemasalah (FK → tbltypemasalah: 1 TIDAK AMBIL, 2 LEBIH AMBIL, 3 KURANG AMBIL, 4 SALAH AMBIL, 5 REJECT DISPLAY, 6 SELISIH PAKET CANCEL — tanpa poin/cetak/Restock, lihat PAKET_CANCEL.md §13)
 - qty_bermasalah (DEFAULT 1)
 - sku_salah (NULL)       -- hanya tipe 4: SKU yang keliru terambil, dicetak di slip "(terambil …)"
 - status (DEFAULT 0)     -- 0 pending, 1 sudah diproses CS

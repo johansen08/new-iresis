@@ -26,6 +26,8 @@ class Masalah_picker_new_fcd extends CI_Model
     const TIPE_KURANG_AMBIL  = 3;
     const TIPE_SALAH_AMBIL   = 4;
     const TIPE_REJECT_DISPLAY = 5;
+    // Selisih isi paket cancel (dicatat tim retur, docs/PAKET_CANCEL.md §13): tanpa cetak, tanpa poin.
+    const TIPE_SELISIH_PAKET_CANCEL = 6;
 
     /** Tipe masalah yang perlu barang diambil ulang oleh picker (dicetak di slip). */
     public static $tipe_perlu_ambil = [
@@ -82,6 +84,7 @@ class Masalah_picker_new_fcd extends CI_Model
     private function filter_daftar($start_date, $end_date, $search = '', $tipe = '')
     {
         $this->db->where('mp.status', 0);
+        $this->db->where('NOT (mp.id_typemasalah = 6 AND mp.qty_bermasalah = 0)', NULL, FALSE); // selisih paket cancel yang sudah dikoreksi
         $this->db->where('mp.created >=', $start_date);
         $this->db->where('mp.created <=', $end_date);
 
@@ -145,7 +148,7 @@ class Masalah_picker_new_fcd extends CI_Model
         $row = $this->db->query("
             SELECT COUNT(*) AS jumlah, MIN(created) AS tertua
             FROM tblmasalahpicker
-            WHERE status = 0 AND (created < ? OR created > ?)
+            WHERE status = 0 AND NOT (id_typemasalah = 6 AND qty_bermasalah = 0) AND (created < ? OR created > ?)
         ", [$start_date, $end_date])->row_array();
 
         return [
@@ -208,7 +211,7 @@ class Masalah_picker_new_fcd extends CI_Model
         foreach ($rows as $r) {
             $item = $this->bentuk_item_slip($r);
 
-            if ((int) $r['id_typemasalah'] === self::TIPE_LEBIH_AMBIL) {
+            if (in_array((int) $r['id_typemasalah'], [self::TIPE_LEBIH_AMBIL, self::TIPE_SELISIH_PAKET_CANCEL], true)) {
                 $tanpa_cetak[] = $item;
                 continue;
             }
