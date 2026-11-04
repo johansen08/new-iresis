@@ -530,7 +530,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       (p.hari_spesial ? '<div>Hari petugas spesial<b>' + p.hari_spesial + ' hari</b></div>' : ''));
     $('#bk-m-rows').html(p.det.map(function (x) {
       if (x.spesial) {
-        return '<tr class="bk-spes"><td>' + tglBaris(x.tgl) + '</td><td colspan="5"><span class="bk-pill sp">Petugas Spesial (' + esc(x.jenis) + ')</span> ' +
+        return '<tr class="bk-spes"><td>' + tglBaris(x.tgl) + '</td><td colspan="5">' + String(x.jenis).split(' / ').map(function (j) { return '<span class="bk-pill sp">' + esc(j === '1 SKU' ? 'Petugas Spesial' : 'Petugas ' + j) + '</span> '; }).join('') +
           '<span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Pada hari packer mengerjakan resi 1 SKU, Qty Banyak, atau Payung, hari itu tidak dihitung sama sekali: tanpa bonus, tanpa poin kesalahan, dan tidak masuk persentase capaian.</span></span></td></tr>';
       }
       var cls = x.net >= TIER2 ? 'gold' : (x.net >= TARGET ? 'ok' : 'none');

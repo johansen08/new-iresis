@@ -177,7 +177,7 @@ class Bonus_packer extends MY_Controller
         foreach ($packer['det'] as $d) {
             $sheet->setCellValue('A' . $baris, \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(strtotime($d['tgl'])));
             if ($d['spesial']) {
-                $sheet->setCellValue('G' . $baris, 'Petugas Spesial ' . $d['jenis'] . ' (tidak dihitung)');
+                $sheet->setCellValue('G' . $baris, str_replace(['1 SKU', 'Qty Banyak', 'Payung'], ['Petugas Spesial', 'Petugas Qty Banyak', 'Petugas Payung'], $d['jenis']) . ' (tidak dihitung)');
             } else {
                 $sheet->setCellValue('B' . $baris, (int) $d['pick']);
                 $sheet->setCellValue('C' . $baris, (int) $d['salah']);
