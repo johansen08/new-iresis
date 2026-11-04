@@ -97,7 +97,8 @@ $this->load->view('top_level/_dasar'); ?>
     return '<div class="tl-cell2"><span>' + T.esc(nama || '—') + '</span><small>' + (tgl ? T.tgl(tgl) : '') + '</small></div>';
   }
   function qtyTeks(t) {
-    if (+t.jumlah_baris === 0) return '<span class="muted" data-tip="Nomor sudah dibuat saat pengajuan; qty diisi saat CS input qty dari slip.">menunggu qty</span>';
+    if (+t.menunggu) return '<span class="muted" data-tip="Nomor sudah dibuat saat pengajuan; qty diisi saat CS input qty dari slip.">menunggu qty</span>';
+    if (+t.jumlah_baris === 0) return '<b data-tip="CS sudah mengisi qty: tidak ada barang yang dipindah dari top level.">0</b>';
     return '<b>' + (t.arah === 'MASUK' ? '+' : '−') + Math.abs(+t.jumlah_qty).toLocaleString('id-ID') + '</b>';
   }
   function tabel() {
@@ -112,7 +113,7 @@ $this->load->view('top_level/_dasar'); ?>
         '<button type="button" class="tlt-cp" data-salin="' + T.esc(t.nomor) + '" data-tip="Salin nomor transfer" aria-label="Salin nomor ' + T.esc(t.nomor) + '">' + IC_SALIN + '</button>' +
         (+t.jumlah_edit > 0 ? '<span class="tlt-ed" data-tip="Transfer ini pernah diedit. Riwayat ada di Detail.">diedit</span>' : '') + '</td>' +
         '<td>' + dua(t.nama_tim, t.tgl_list) + '</td><td>' + dua(t.nama_input, t.waktu_input) + '</td><td class="n">' + qtyTeks(t) + '</td>' +
-        '<td class="act"><button type="button" class="tl-btn sm" data-detail="' + t.id + '">Detail</button> <button type="button" class="tl-btn sm" data-edit="' + t.id + '"' + (+t.jumlah_baris === 0 ? ' disabled data-tip="Belum bisa diedit: qty belum diisi dari slip."' : '') + '>' + T.ic('edit', 14) + 'Edit</button></td></tr>';
+        '<td class="act"><button type="button" class="tl-btn sm" data-detail="' + t.id + '">Detail</button> <button type="button" class="tl-btn sm" data-edit="' + t.id + '"' + (+t.menunggu ? ' disabled data-tip="Belum bisa diedit: qty belum diisi dari slip."' : '') + '>' + T.ic('edit', 14) + 'Edit</button></td></tr>';
     });
     $('#tl-tabel').html(h + '</tbody></table></div>');
     var dari1 = (d.halaman - 1) * d.ukuran + 1, sampai1 = dari1 + d.rows.length - 1, maks = Math.max(1, Math.ceil(d.total / d.ukuran));
@@ -171,7 +172,7 @@ $this->load->view('top_level/_dasar'); ?>
       '<dt>Dibuat</dt><dd class="mono">' + T.tgl(t.dibuat_at) + (t.dibuat_by ? ' · ' + T.esc(t.dibuat_by) : '') + '</dd>' +
       '<dt>Total</dt><dd><b>' + (masuk ? '+' : '−') + total.toLocaleString('id-ID') + ' pcs</b> · ' + t.baris.length + ' baris</dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:320px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum</th><th class="n">Stok sesudah</th></tr></thead><tbody>' +
-      (t.baris.length ? '' : '<tr><td colspan="5" class="muted">' + (t.nama_input ? 'Qty 0: TL ini sudah direstok atas inisiatif tim Restok sebelum TL diterbitkan, jadi tidak ada barang diambil dari top level.' : 'Menunggu CS input qty dari slip.') + '</td></tr>') +
+      (t.baris.length ? '' : '<tr><td colspan="5" class="muted">' + (t.menunggu ? 'Menunggu CS input qty dari slip.' : 'Qty 0: tidak ada barang yang dipindah dari top level (mis. sudah direstok atas inisiatif tim Restok sebelum TL diterbitkan).') + '</td></tr>') +
       $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + '</td><td class="n"><b>' + (masuk ? '+' : '−') + x.qty + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
       '</tbody></table></div>' + riwayat(t) + '</div>' +
       '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button>' +
@@ -200,8 +201,8 @@ $this->load->view('top_level/_dasar'); ?>
       '<div class="tlt-grp"><label class="tl-fld">Petugas list<input type="text" id="tle-tim" value="' + T.esc(ed.tim) + '" maxlength="150" autocomplete="off"></label>' + tglField('list', ed.tglList) + '</div>' +
       '<div class="tlt-grp"><label class="tl-fld">Petugas input<input type="text" id="tle-input" value="' + T.esc(ed.input) + '" maxlength="150" autocomplete="off"></label>' + tglField('input', ed.tglInput) + '</div></div>' +
       '<div class="tlt-tgl-err" id="tle-tglerr" role="alert" hidden></div>' +
-      (t.edit_baris ? '' : '<div class="tlt-note">' + T.ic('info', 15) + '<span>Baris transfer Request tidak diedit di sini, karena hasil request ikut berubah. Petugas tetap bisa diedit. Untuk mengoreksi qty, pakai menu Stok Top Level.</span></div>') +
-      '<div class="tl-tw tl-panel tlt-ov"><table class="tl-tbl tlt-etbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum → sesudah</th><th></th></tr></thead><tbody id="tle-baris"></tbody></table></div>' +
+      (t.edit_baris ? '' : !t.baris.length ? '<div class="tlt-note">' + T.ic('info', 15) + '<span>Qty transfer ini 0, jadi tidak ada baris yang diedit. Petugas, tanggal, dan keterangan tetap bisa diubah.</span></div>' : '<div class="tlt-note">' + T.ic('info', 15) + '<span>Baris transfer Request tidak diedit di sini, karena hasil request ikut berubah. Petugas tetap bisa diedit. Untuk mengoreksi qty, pakai menu Stok Top Level.</span></div>') +
+      (t.baris.length ? '<div class="tl-tw tl-panel tlt-ov"><table class="tl-tbl tlt-etbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum → sesudah</th><th></th></tr></thead><tbody id="tle-baris"></tbody></table></div>' : '') +
       (t.edit_baris ? '<div><button type="button" class="tl-btn sm ghost" data-tle-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div>' : '') +
       '<div class="tlt-dampak" id="tle-dampak"></div>' +
       '<label class="tl-fld"><span>Keterangan <span class="muted">(opsional, catatan untuk transfer ini)</span></span><textarea id="tle-ket" rows="2" maxlength="255" placeholder="Contoh: barang diambil untuk display toko">' + T.esc(ed.ket) + '</textarea></label>' +

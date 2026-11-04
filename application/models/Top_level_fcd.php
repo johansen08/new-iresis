@@ -1420,7 +1420,8 @@ class Top_level_fcd extends CI_Model
 
         $saring();
         $rows = $this->db->select('t.id, t.nomor, t.arah, t.sumber, t.nama_tim, t.nama_input, t.ref, t.tgl_list, t.tgl_input, t.diinput_at, t.dibuat_at, t.dibuat_by, t.jumlah_baris, t.jumlah_qty,
-            (SELECT COUNT(*) FROM tbltoplevel_transfer_edit e WHERE e.id_transfer = t.id) AS jumlah_edit', false)
+            (SELECT COUNT(*) FROM tbltoplevel_transfer_edit e WHERE e.id_transfer = t.id) AS jumlah_edit,
+            (t.jumlah_baris = 0 AND t.diinput_at IS NULL AND NOT EXISTS (SELECT 1 FROM tbltoplevel_request rq WHERE t.sumber = \'REQUEST\' AND rq.status = \'SELESAI\' AND t.ref = CONCAT(\'RT-\', LPAD(rq.id, 4, \'0\')))) AS menunggu', false)
             ->from('tbltoplevel_transfer t')->order_by('t.id', 'DESC')->limit($ukuran, ($halaman - 1) * $ukuran)->get()->result_array();
         foreach ($rows as &$r) {
             $r['waktu_input'] = $this->waktu_input($r);
@@ -1498,6 +1499,21 @@ class Top_level_fcd extends CI_Model
         return array('ok' => $this->db->trans_status() !== false, 'pesan' => 'Transfer ' . $nomor . ' dibatalkan.');
     }
 
+    /** True bila transfer belum pernah diisi qty-nya: tanpa baris, tanpa jam input, dan (untuk REQUEST) requestnya belum SELESAI. */
+    private function menunggu_qty(array $t)
+    {
+        if ((int) $t['jumlah_baris'] > 0 || !empty($t['diinput_at'])) {
+            return false;
+        }
+        if ($t['sumber'] === 'REQUEST' && preg_match('/^RT-(\d+)$/', (string) $t['ref'], $m)) {
+            $r = $this->db->query('SELECT status FROM tbltoplevel_request WHERE id = ?', array((int) $m[1]))->row();
+            if ($r && $r->status === 'SELESAI') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Satu transfer beserta baris aktifnya per SKU dan rak dan riwayat editnya. NULL bila tidak ada.
      * bisa_edit: transfer sudah punya baris (request yang belum diisi qty-nya belum bisa diedit).
@@ -1515,8 +1531,11 @@ class Top_level_fcd extends CI_Model
              FROM tbltoplevel_transfer_baris WHERE id_transfer = ? AND dibatalkan = 0 ORDER BY id', array((int) $id)
         )->result_array();
         $t['waktu_input'] = $this->waktu_input($t);
-        $t['bisa_edit'] = count($t['baris']) > 0;
-        $t['edit_baris'] = $t['sumber'] !== 'REQUEST';
+        // Menunggu qty = nomor sudah dibuat saat request diajukan, qty belum diisi. Qty 0 yang sudah diisi (request selesai tanpa
+        // barang diambil dari top level) bukan menunggu: transfernya sah dan boleh diedit (petugas, tanggal, keterangan).
+        $t['menunggu'] = $this->menunggu_qty($t);
+        $t['bisa_edit'] = !$t['menunggu'];
+        $t['edit_baris'] = $t['sumber'] !== 'REQUEST' && count($t['baris']) > 0;
         $t['riwayat'] = array();
         foreach ($this->db->query('SELECT waktu, oleh, alasan, perubahan FROM tbltoplevel_transfer_edit WHERE id_transfer = ? ORDER BY id DESC', array((int) $id))->result_array() as $e) {
             $e['perubahan'] = json_decode($e['perubahan'], true) ?: array();
@@ -1569,7 +1588,10 @@ class Top_level_fcd extends CI_Model
         if (!$t0) {
             return array('ok' => false, 'pesan' => 'Transfer tidak ditemukan atau sudah dibatalkan.');
         }
-        $edit_baris = $t0['sumber'] !== 'REQUEST';
+        if ($this->menunggu_qty($t0)) {
+            return array('ok' => false, 'pesan' => 'Transfer ini belum diisi qty-nya, belum bisa diedit.');
+        }
+        $edit_baris = $t0['sumber'] !== 'REQUEST' && (int) $t0['jumlah_baris'] > 0;
 
         // Normalisasi baris kiriman.
         $baru = array();
@@ -1638,9 +1660,9 @@ class Top_level_fcd extends CI_Model
             foreach ($this->db->query('SELECT * FROM tbltoplevel_transfer_baris WHERE id_transfer = ? AND dibatalkan = 0 ORDER BY id FOR UPDATE', array((int) $id))->result_array() as $b) {
                 $lama[(int) $b['id']] = $b;
             }
-            if (!$lama) {
+            if (!$lama && $edit_baris) {
                 $this->db->trans_rollback();
-                return array('ok' => false, 'pesan' => 'Transfer ini belum punya baris, belum bisa diedit.');
+                return array('ok' => false, 'pesan' => 'Data transfer sudah berubah. Muat ulang lalu coba lagi.');
             }
             $perubahan = array();
 
