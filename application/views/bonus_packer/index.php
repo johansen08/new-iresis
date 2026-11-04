@@ -224,8 +224,8 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
         &bull; Net &ge; <?= $fmt($aturan['tier2']) ?> &rarr; bonus Rp <?= $fmt($aturan['bonus2']) ?>/hari.<br>
         &bull; Net &lt; <?= $fmt($aturan['target']) ?> &rarr; tidak ada bonus.<br>
         &bull; Hanya resi yang di-scan packing pukul 05.00&ndash;18.00.<br>
-        &bull; Hanya NORMAL_PACKER, QTY_BANYAK, dan PAYUNG yang dihitung.<br>
-        &bull; Hari packer mengerjakan resi 1 SKU = petugas spesial hari itu, tidak dihitung sama sekali.<br>
+        &bull; Hanya NORMAL_PACKER yang dihitung.<br>
+        &bull; Hari packer mengerjakan resi 1 SKU, Qty Banyak, atau Payung = petugas spesial hari itu, tidak dihitung sama sekali.<br>
         &bull; Capai target = jumlah hari dengan net &ge; <?= $fmt($aturan['target']) ?>.<br>
         &bull; Persentase = hari capai target &divide; hari kerja (tanpa hari spesial).
       </span></span>
@@ -252,7 +252,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     <div class="bk-card bk-k"><div class="k">Total bonus</div><div class="v" id="bk-s-bonus">-</div><div class="s" id="bk-s-bonus-s">&nbsp;</div></div>
     <div class="bk-card bk-k"><div class="k">Packer berbonus</div><div class="v" id="bk-s-packer">-</div><div class="s" id="bk-s-packer-s">&nbsp;</div></div>
     <div class="bk-card bk-k"><div class="k">Capaian hari kerja
-      <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Hari capai target (net &ge; <?= $fmt($aturan['target']) ?>) dibagi seluruh hari kerja semua packer pada rentang tanggal. Hari petugas spesial (1 SKU) dikeluarkan dari hitungan.</span></span></div>
+      <span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Hari capai target (net &ge; <?= $fmt($aturan['target']) ?>) dibagi seluruh hari kerja semua packer pada rentang tanggal. Hari petugas spesial (1 SKU / Qty Banyak / Payung) dikeluarkan dari hitungan.</span></span></div>
       <div class="v" id="bk-s-hari">-</div>
       <div class="bk-bar" id="bk-s-bar" style="display:none"><i></i></div>
       <div class="s" id="bk-s-hari-s">&nbsp;</div></div>
@@ -504,7 +504,7 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
     $('#bk-s-hari').html(pct === null ? '-' : pct + '% <small>(' + hari + ' / ' + normal + ' hari)</small>');
     if (pct === null) { $('#bk-s-bar').hide(); }
     else { $('#bk-s-bar').show().find('i').attr('class', kelas(pct)).css('width', pct + '%'); }
-    $('#bk-s-hari-s').text(spesial ? spesial + ' hari petugas spesial (1 SKU) tidak dihitung' : ' ');
+    $('#bk-s-hari-s').text(spesial ? spesial + ' hari petugas spesial (1 SKU / Qty Banyak / Payung) tidak dihitung' : ' ');
 
     $root.find('th.bk-sort').each(function () {
       $(this).find('.bk-arr').text($(this).data('k') === sortK ? (sortDir > 0 ? '▲' : '▼') : '');
@@ -530,8 +530,8 @@ $fmt = function ($n) { return number_format((int) $n, 0, ',', '.'); };
       (p.hari_spesial ? '<div>Hari petugas spesial<b>' + p.hari_spesial + ' hari</b></div>' : ''));
     $('#bk-m-rows').html(p.det.map(function (x) {
       if (x.spesial) {
-        return '<tr class="bk-spes"><td>' + tglBaris(x.tgl) + '</td><td colspan="5"><span class="bk-pill sp">Petugas Spesial (1 SKU)</span> ' +
-          '<span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Pada hari packer mengerjakan resi 1 SKU, hari itu tidak dihitung sama sekali: tanpa bonus, tanpa poin kesalahan, dan tidak masuk persentase capaian.</span></span></td></tr>';
+        return '<tr class="bk-spes"><td>' + tglBaris(x.tgl) + '</td><td colspan="5"><span class="bk-pill sp">Petugas Spesial (' + esc(x.jenis) + ')</span> ' +
+          '<span class="bk-info" tabindex="0" onclick="event.stopPropagation()">i<span class="bk-tipsrc">Pada hari packer mengerjakan resi 1 SKU, Qty Banyak, atau Payung, hari itu tidak dihitung sama sekali: tanpa bonus, tanpa poin kesalahan, dan tidak masuk persentase capaian.</span></span></td></tr>';
       }
       var cls = x.net >= TIER2 ? 'gold' : (x.net >= TARGET ? 'ok' : 'none');
       var salah = x.salah > 0
