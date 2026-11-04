@@ -194,10 +194,12 @@ $this->load->view('top_level/_dasar'); ?>
 
   function tampilEdit($m) {
     var t = cur;
-    ed = { tim: t.nama_tim || '', input: t.nama_input || '', alasan: '', ket: t.keterangan || '', baris: $.map(t.baris, function (x) { return { id: x.id, sku: x.sku, rak: x.rak, qty: x.qty, hapus: false }; }), baru: 0 };
+    ed = { tim: t.nama_tim || '', input: t.nama_input || '', tglList: t.tgl_list || '', tglInput: t.tgl_input || '', alasan: '', ket: t.keterangan || '', baris: $.map(t.baris, function (x) { return { id: x.id, sku: x.sku, rak: x.rak, qty: x.qty, hapus: false }; }), baru: 0 };
     var b = '<div class="tl-db">' + kepala(t) +
-      '<div class="tlt-2"><label class="tl-fld">Petugas list<input type="text" id="tle-tim" value="' + T.esc(ed.tim) + '" maxlength="150" autocomplete="off"></label>' +
-      '<label class="tl-fld">Petugas input<input type="text" id="tle-input" value="' + T.esc(ed.input) + '" maxlength="150" autocomplete="off"></label></div>' +
+      '<div class="tlt-2">' +
+      '<div class="tlt-grp"><label class="tl-fld">Petugas list<input type="text" id="tle-tim" value="' + T.esc(ed.tim) + '" maxlength="150" autocomplete="off"></label>' + tglField('list', ed.tglList) + '</div>' +
+      '<div class="tlt-grp"><label class="tl-fld">Petugas input<input type="text" id="tle-input" value="' + T.esc(ed.input) + '" maxlength="150" autocomplete="off"></label>' + tglField('input', ed.tglInput) + '</div></div>' +
+      '<div class="tlt-tgl-err" id="tle-tglerr" role="alert" hidden></div>' +
       (t.edit_baris ? '' : '<div class="tlt-note">' + T.ic('info', 15) + '<span>Baris transfer Request tidak diedit di sini, karena hasil request ikut berubah. Petugas tetap bisa diedit. Untuk mengoreksi qty, pakai menu Stok Top Level.</span></div>') +
       '<div class="tl-tw tl-panel tlt-ov"><table class="tl-tbl tlt-etbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum → sesudah</th><th></th></tr></thead><tbody id="tle-baris"></tbody></table></div>' +
       (t.edit_baris ? '<div><button type="button" class="tl-btn sm ghost" data-tle-tambah>' + T.ic('plus', 14) + 'Tambah baris</button></div>' : '') +
@@ -214,6 +216,12 @@ $this->load->view('top_level/_dasar'); ?>
     $m.off('.tltedit');
     $m.on('input.tltedit', '#tle-tim', function () { ed.tim = this.value; cek($m); });
     $m.on('input.tltedit', '#tle-input', function () { ed.input = this.value; cek($m); });
+    $m.on('input change.tltedit', '#tle-tgl-list', function () { ed.tglList = this.value; cek($m); });
+    $m.on('input change.tltedit', '#tle-tgl-input', function () { ed.tglInput = this.value; cek($m); });
+    $m.on('click.tltedit', '[data-tgl-cepat]', function () {
+      var k = String($(this).data('tgl-cepat')).split(':'), v = k[1] === 'hari' ? HARI_INI : iso(new Date(tglObj(HARI_INI).getTime() - 864e5));
+      $m.find('#tle-tgl-' + k[0]).val(v).trigger('change');
+    });
     $m.on('input.tltedit', '#tle-ket', function () { ed.ket = this.value; cek($m); });
     $m.on('input.tltedit', '#tle-alasan', function () { ed.alasan = this.value; cek($m); });
     $m.on('input.tltedit', '.tle-sku', function () { ed.baris[idx(this)].sku = this.value; cek($m); });
@@ -228,6 +236,12 @@ $this->load->view('top_level/_dasar'); ?>
     $m.on('click.tltedit', '[data-tle-tambah]', function () { ed.baris.push({ id: '', sku: '', rak: '', qty: 1, hapus: false }); gambarBaris($m); cek($m); $m.find('#tle-baris .tle-sku').last().focus(); });
     $m.on('click.tltedit', '[data-tle-batal]', function () { tampilDetail($m); });
     $m.on('click.tltedit', '[data-tle-simpan]', function () { simpan($m, $(this)); });
+  }
+  /** Isian tanggal (kalender bawaan browser, tidak boleh lewat hari ini) dengan pintasan Hari ini / Kemarin. */
+  function tglField(kunci, nilai) {
+    return '<div class="tl-fld tlt-tgl"><label for="tle-tgl-' + kunci + '">Tanggal ' + kunci + '</label><div class="tlt-tgl-in">' + IC_KAL +
+      '<input type="date" id="tle-tgl-' + kunci + '" value="' + T.esc(nilai) + '" max="' + HARI_INI + '"></div>' +
+      '<div class="tlt-cepat"><button type="button" data-tgl-cepat="' + kunci + ':hari">Hari ini</button><button type="button" data-tgl-cepat="' + kunci + ':kemarin">Kemarin</button></div></div>';
   }
   function idx(el) { return +$(el).closest('tr').data('i'); }
   function aktif() { return $.grep(ed.baris, function (b) { return !b.hapus; }); }
@@ -261,6 +275,8 @@ $this->load->view('top_level/_dasar'); ?>
     var t = cur, d = [], tanda = t.arah === 'MASUK' ? '+' : '−';
     if ($.trim(ed.tim) !== (t.nama_tim || '')) d.push('Petugas list: ' + (t.nama_tim || '—') + ' → ' + $.trim(ed.tim));
     if ($.trim(ed.input) !== (t.nama_input || '')) d.push('Petugas input: ' + (t.nama_input || '—') + ' → ' + $.trim(ed.input));
+    if (ed.tglList && ed.tglList !== (t.tgl_list || '')) d.push('Tanggal list: ' + (t.tgl_list ? lbl(t.tgl_list) : '—') + ' → ' + lbl(ed.tglList));
+    if (ed.tglInput && ed.tglInput !== (t.tgl_input || '')) d.push('Tanggal input: ' + (t.tgl_input ? lbl(t.tgl_input) : '—') + ' → ' + lbl(ed.tglInput));
     var ketUbah = $.trim(ed.ket) !== (t.keterangan || '');
     if (!t.edit_baris) { if (ketUbah) d.push('Keterangan: ' + (t.keterangan || '—') + ' → ' + ($.trim(ed.ket) || '—')); return d; }
     $.each(ed.baris, function (i, b) {
@@ -286,17 +302,29 @@ $this->load->view('top_level/_dasar'); ?>
     });
     return ok;
   }
+  /** Pesan kesalahan tanggal (kosong bila sah): tidak ke masa depan, tanggal list tidak setelah tanggal input. */
+  function galatTgl() {
+    var tl = ed.tglList || '', ti = ed.tglInput || '';
+    if (tl > HARI_INI) return 'Tanggal list tidak boleh di masa depan.';
+    if (ti > HARI_INI) return 'Tanggal input tidak boleh di masa depan.';
+    if (tl && ti && tl > ti) return 'Tanggal list tidak boleh setelah tanggal input.';
+    return '';
+  }
   function cek($m) {
-    var d = selisih(), valid = barisValid(), hanyaKet = d.length === 1 && d[0].indexOf('Keterangan:') === 0, alasanOk = hanyaKet || $.trim(ed.alasan).length >= 5;
+    var gt = galatTgl();
+    $m.find('#tle-tglerr').prop('hidden', !gt).html(gt ? T.ic('info', 15) + '<span>' + gt + '</span>' : '');
+    $m.find('#tle-tgl-list').toggleClass('bad', /list/.test(gt) || /setelah/.test(gt));
+    $m.find('#tle-tgl-input').toggleClass('bad', /input/.test(gt) || /setelah/.test(gt));
+    var d = selisih(), valid = barisValid() && !gt, hanyaKet = d.length === 1 && d[0].indexOf('Keterangan:') === 0, alasanOk = hanyaKet || $.trim(ed.alasan).length >= 5;
     $m.find('#tle-wajib').text(hanyaKet ? 'tidak wajib untuk keterangan saja' : 'wajib diisi');
-    $m.find('#tle-dampak').html(d.length ? '<b>Dampak perubahan</b><ul>' + $.map(d, function (x) { return '<li>' + T.esc(x) + '</li>'; }).join('') + '</ul>' + (cur.edit_baris ? '<small>Stok top level digeser sesuai selisih. Ditolak bila stok sebuah rak jadi minus.</small>' : '') : '<span class="muted">Belum ada perubahan.</span>');
-    $m.find('#tle-sum').text(d.length + ' perubahan' + (valid ? '' : ' · ada baris yang belum valid'));
+    $m.find('#tle-dampak').html(d.length ? '<b>Dampak perubahan</b><ul>' + $.map(d, function (x) { return '<li>' + T.esc(x) + '</li>'; }).join('') + '</ul>' + (cur.edit_baris && $.grep(d, function (x) { return !/^(Petugas|Tanggal|Keterangan)/.test(x); }).length ? '<small>Stok top level digeser sesuai selisih. Ditolak bila stok sebuah rak jadi minus.</small>' : '') : '<span class="muted">Belum ada perubahan.</span>');
+    $m.find('#tle-sum').text(d.length + ' perubahan' + (valid ? '' : ' · ada isian yang belum valid'));
     $m.find('[data-tle-simpan]').prop('disabled', !(d.length && valid && alasanOk));
   }
   function simpan($m, $b) {
     $b.prop('disabled', true);
     var rows = $.map(aktif(), function (b) { return { id: b.id, sku: $.trim(b.sku), rak: $.trim(b.rak), qty: b.qty }; });
-    T.post(URL + '/edit', { id: cur.id, nama_tim: $.trim(ed.tim), nama_input: $.trim(ed.input), baris: rows, alasan: $.trim(ed.alasan), keterangan: $.trim(ed.ket) }, function (res, j) {
+    T.post(URL + '/edit', { id: cur.id, nama_tim: $.trim(ed.tim), nama_input: $.trim(ed.input), baris: rows, alasan: $.trim(ed.alasan), keterangan: $.trim(ed.ket), tgl_list: ed.tglList, tgl_input: ed.tglInput }, function (res, j) {
       T.toast(j.message || 'Transfer diperbarui.'); T.closeModal(); muat();
     }, function (pesan) { T.galat(pesan); cek($m); });
   }

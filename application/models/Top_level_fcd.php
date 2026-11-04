@@ -1531,11 +1531,26 @@ class Top_level_fcd extends CI_Model
      * ditolak bila ada rak yang stoknya menjadi negatif. Baris yang dihapus cukup ditandai dibatalkan (tidak ada DELETE).
      * Setiap edit dicatat di tbltoplevel_transfer_edit (alasan wajib) dan tbltoplevel_log. Seluruhnya satu transaksi.
      *
+     * Tanggal list (tgl_list) dan tanggal input (tgl_input) juga boleh diubah (format Y-m-d; kosong = tidak diubah). Aturannya
+     * sama dengan form Input: tidak ke masa depan, dan tanggal list tidak boleh setelah tanggal input. Jam petugas input
+     * (diinput_at) ikut pindah ke tanggal baru dengan jam tetap.
+     *
      * @param array $baris [['id'=>id baris atau '' untuk baris baru, 'sku'=>, 'rak'=>, 'qty'=>], ...]
      * @return array ['ok'=>bool, 'pesan'=>string, 'nomor'=>string]
      */
-    public function edit_transfer($id, $nama_tim, $nama_input, array $baris, $alasan, $oleh, $keterangan = null)
+    public function edit_transfer($id, $nama_tim, $nama_input, array $baris, $alasan, $oleh, $keterangan = null, $tgl_list = '', $tgl_input = '')
     {
+        $tgl_list = trim((string) $tgl_list);
+        $tgl_input = trim((string) $tgl_input);
+        $tgl_ok = function ($t) { $d = \DateTime::createFromFormat('Y-m-d', $t); return $d && $d->format('Y-m-d') === $t; };
+        foreach (array(array($tgl_list, 'Tanggal list'), array($tgl_input, 'Tanggal input')) as $x) {
+            if ($x[0] !== '' && !$tgl_ok($x[0])) {
+                return array('ok' => false, 'pesan' => $x[1] . ' tidak valid.');
+            }
+            if ($x[0] > date('Y-m-d')) {
+                return array('ok' => false, 'pesan' => $x[1] . ' tidak boleh di masa depan.');
+            }
+        }
         $alasan = trim(preg_replace('/\s+/', ' ', (string) $alasan));
         $alasan = mb_substr($alasan, 0, 255);
         if ($keterangan !== null) {
@@ -1639,6 +1654,23 @@ class Top_level_fcd extends CI_Model
                 if ($p[1] !== $sebelum) {
                     $perubahan[] = $p[2] . ': ' . ($sebelum !== '' ? $sebelum : '—') . ' → ' . $p[1];
                 }
+            }
+
+            // Tanggal list dan tanggal input (kosong = tidak diubah). Tanggal list tidak boleh setelah tanggal input yang berlaku.
+            $tgl_list_baru = $tgl_list !== '' ? $tgl_list : (string) $t['tgl_list'];
+            $tgl_input_baru = $tgl_input !== '' ? $tgl_input : (string) $t['tgl_input'];
+            if ($tgl_list_baru !== '' && $tgl_input_baru !== '' && $tgl_list_baru > $tgl_input_baru) {
+                $this->db->trans_rollback();
+                return array('ok' => false, 'pesan' => 'Tanggal list tidak boleh setelah tanggal input.');
+            }
+            $diinput_baru = $t['diinput_at'];
+            foreach (array(array('tgl_list', $tgl_list_baru, 'Tanggal list'), array('tgl_input', $tgl_input_baru, 'Tanggal input')) as $p) {
+                if ($p[1] !== (string) $t[$p[0]]) {
+                    $perubahan[] = $p[2] . ': ' . ((string) $t[$p[0]] !== '' ? $t[$p[0]] : '—') . ' → ' . $p[1];
+                }
+            }
+            if ($tgl_input_baru !== (string) $t['tgl_input'] && !empty($t['diinput_at'])) {
+                $diinput_baru = $tgl_input_baru . substr($t['diinput_at'], 10);
             }
 
             $tanda = $t['arah'] === 'MASUK' ? 1 : -1;
@@ -1754,6 +1786,9 @@ class Top_level_fcd extends CI_Model
                 'nama_tim' => $nama_tim !== '' ? $nama_tim : $t['nama_tim'],
                 'nama_input' => $nama_input !== '' ? $nama_input : $t['nama_input'],
                 'jumlah_baris' => (int) $r->n, 'jumlah_qty' => (int) $r->q,
+                'tgl_list' => $tgl_list_baru !== '' ? $tgl_list_baru : null,
+                'tgl_input' => $tgl_input_baru !== '' ? $tgl_input_baru : null,
+                'diinput_at' => $diinput_baru,
                 'keterangan' => $keterangan !== null ? ($keterangan !== '' ? $keterangan : null) : $t['keterangan'],
             ));
             $this->db->insert('tbltoplevel_transfer_edit', array(
