@@ -38,6 +38,11 @@ import requests
 
 sys.path.insert(0, os.path.dirname(__file__))
 import auto_upload_resi_api as base  # noqa: E402  (login, fetch_all_orders, dst. dipakai ulang)
+try:  # alamat IRESIS khusus PC ini (opsional) di scripts/secrets_local.py
+    from secrets_local import IRESIS_BASE_URL as _URL  # noqa: E402
+    base.IRESIS_BASE_URL = _URL
+except ImportError:
+    pass  # pakai bawaan auto_upload_resi_api.py
 
 MODE_DEFAULT = {
     # mode: (maks_detail, batas_kandidat)
