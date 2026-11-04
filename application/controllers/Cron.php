@@ -164,6 +164,51 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Refresh status berkala: daftar resi non-final yang jatuh tempo dicek ulang ke Jubelio.
+     * Dipanggil scripts/refresh_status_resi.py. GET ?mode=harian|mingguan|backlog&limit=N
+     * Balas: {"success":true,"noresi":[...],"dari":"Y-m-d","sampai":"Y-m-d"}. BACA SAJA.
+     * Lihat docs/RANCANGAN_REFRESH_STATUS_RESI.md.
+     */
+    public function kandidat_refresh_status()
+    {
+        header('Content-Type: application/json');
+        try {
+            $this->load->model('receipt_fcd');
+            $hasil = $this->receipt_fcd->get_kandidat_refresh_status(
+                (string) $this->input->get('mode'),
+                (int) ($this->input->get('limit') ?: 5000)
+            );
+            echo json_encode(['success' => true] + $hasil);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * Refresh status berkala: tandai resi sudah dicek (isi tblprintresi.status_dicek_at).
+     * Body: {"noresi": ["AWB1","AWB2",...]}. Hanya menulis kolom status_dicek_at.
+     */
+    public function tandai_status_dicek()
+    {
+        header('Content-Type: application/json');
+        try {
+            $body = json_decode(file_get_contents('php://input'), true);
+            $daftar = is_array($body) && isset($body['noresi']) && is_array($body['noresi']) ? $body['noresi'] : [];
+            if (empty($daftar)) {
+                echo json_encode(['success' => true, 'ditandai' => 0]);
+                exit;
+            }
+            $this->load->model('receipt_fcd');
+            $n = $this->receipt_fcd->tandai_status_dicek($daftar);
+            echo json_encode(['success' => true, 'ditandai' => $n]);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
      * Pencairan Dana: dari daftar nomor pesanan Jubelio, balikin yang resinya sudah COMPLETED di
      * Iresis tapi nilai_pesanan-nya masih kosong (perlu diambil detailnya).
      * Dipanggil scripts/sinkron_nominal_mp.py. Body: {"no_pesanan": ["TT-...-48087", ...]}

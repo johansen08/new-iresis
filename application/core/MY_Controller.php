@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-03.3';
+    const BOOTSTRAP_VERSI = '2026-11-04.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -177,6 +177,7 @@ class MY_Controller extends CI_Controller
         $this->run_bonus_packer_migration();
         $this->run_daftar_retur_penjualan_migration();
         $this->run_tanggal_pencairan_mp_migration();
+        $this->run_status_dicek_migration();
         $this->run_nominal_pencairan_migration();
         $this->run_pencairan_dana_menu_migration();
         $this->run_indeks_pencairan_dana_migration();
@@ -2329,6 +2330,30 @@ class MY_Controller extends CI_Controller
             $ada_kol = $this->db->query('SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?', array($arsip, 'tblprintresi', 'tanggal_pencairan'))->row();
             if ($ada_db && !$ada_kol) {
                 $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
+            }
+        }
+    }
+
+    /**
+     * Penanda kapan status_pesanan sebuah resi terakhir dicek ulang ke Jubelio oleh
+     * job refresh berkala (scripts/refresh_status_resi.py, docs/RANCANGAN_REFRESH_STATUS_RESI.md).
+     * NULL = belum pernah dicek job itu. Di ujung tabel dan NULL agar ALTER bersifat INSTANT;
+     * skema arsip disamakan (lihat catatan di run_tanggal_pencairan_mp_migration).
+     */
+    protected function run_status_dicek_migration()
+    {
+        if (!$this->db->field_exists('status_dicek_at', 'tblprintresi')) {
+            $this->db->query("ALTER TABLE `tblprintresi`
+                ADD COLUMN `status_dicek_at` DATETIME DEFAULT NULL");
+        }
+
+        $this->config->load('arsip', TRUE, TRUE);
+        $arsip = (string) $this->config->item('db_arsip', 'arsip');
+        if (preg_match('/^[A-Za-z0-9_]+$/', $arsip)) {
+            $ada_db = $this->db->query('SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?', array($arsip, 'tblprintresi'))->row();
+            $ada_kol = $this->db->query('SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?', array($arsip, 'tblprintresi', 'status_dicek_at'))->row();
+            if ($ada_db && !$ada_kol) {
+                $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `status_dicek_at` DATETIME DEFAULT NULL");
             }
         }
     }

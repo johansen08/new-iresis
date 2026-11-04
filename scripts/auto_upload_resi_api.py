@@ -129,6 +129,7 @@ def get_with_backoff(s, url, params, tries=DETAIL_MAX_RETRY, wait_base=5):
 
 # List cuma perlu ~125 panggilan total (page_size=200 utk ~25rb order) jadi
 # aman dibuat jauh lebih sabar - beda dgn detail yg dipanggil ribuan kali.
+LIST_LENGKAP = True    # diset ulang tiap fetch_all_orders()
 LIST_MAX_RETRY = 6
 LIST_WAIT_BASE = 10
 
@@ -142,6 +143,8 @@ def fetch_all_orders(s, date_from, date_to):
     Kalau tidak di-dedupe, order kebaca 2x -> insert_receipt MENJUMLAHKAN qty
     (detail_key sama) -> qty jadi 2x lipat. Maka WAJIB dedupe by salesorder_id.
     """
+    global LIST_LENGKAP
+    LIST_LENGKAP = True   # jadi False kalau ada halaman gagal (dibaca refresh_status_resi.py)
     seen_ids = set()
     orders = []
     dup_count = 0
@@ -156,6 +159,7 @@ def fetch_all_orders(s, date_from, date_to):
             status = r.status_code if r is not None else 'no response (exception)'
             log(f'  List GAGAL TOTAL di page {page} (status {status}) setelah {LIST_MAX_RETRY} retry — '
                 f'berhenti, data setelah halaman ini TIDAK terambil di run ini.')
+            LIST_LENGKAP = False
             break
 
         body = r.json()
