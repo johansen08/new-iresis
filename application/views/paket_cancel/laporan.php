@@ -14,7 +14,7 @@
    <button type="button" class="a w" id="pc_bsr" data-act="serah">&#128424; Serah Terima</button>
    <span class="inf" title="Info" data-act="info">&#9432;</span>
   </div>
-  <div id="pc_infolap" class="infotxt hide"><b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Kertas dibuat langsung dari paket yang diterima pada tanggal itu; hanya barang yang sesuai resi yang dihitung, selisih tidak.</div>
+  <div id="pc_infolap" class="infotxt hide"><b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Kertas dibuat langsung dari paket yang diterima pada tanggal itu; isinya mengikuti barang yang benar-benar ada secara fisik (kurang ambil = yang ada saja; lebih ambil dan barang di luar resi ikut dicetak).</div>
  </div>
  <div id="pc_cards" class="cards"></div>
  <div id="pc_msg2"></div>
@@ -263,7 +263,7 @@
         var det = d.det || [];
         var baris = det.length ? det.map(function (x, k) {
             return '<tr><td class="f c">' + (k + 1) + '</td><td class="f c">' + esc(x.rak) + '</td><td class="f">' + esc(x.sku) + '</td><td class="f c">' + x.qty + '</td><td class="f"></td><td></td></tr>';
-        }).join('') : '<tr><td colspan="6" style="text-align:center;color:#555">Tidak ada barang sesuai resi pada tanggal ini.</td></tr>';
+        }).join('') : '<tr><td colspan="6" style="text-align:center;color:#555">Tidak ada barang pada tanggal ini.</td></tr>';
         var nama = (d.petugas || []).map(function (n) { return '<b>' + esc(n) + '</b>'; }).join('<br>') || '&nbsp;';
         var c = g('cetak');
         c.className = 'pcd';

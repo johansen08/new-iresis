@@ -947,8 +947,9 @@ class Cancel_terima_fcd extends CI_Model
     // ─────────────────────────────────────────────
 
     /**
-     * Isi kertas serah terima satu tanggal: per SKU, hanya qty yang cocok dengan resi
-     * (yang lebih kecil antara qty resi & qty ada) -- selisih tidak dihitung.
+     * Isi kertas serah terima satu tanggal: per SKU, qty = barang yang BENAR-BENAR ada secara
+     * fisik (qty_ditemukan) -- kurang ambil hanya yang ada, lebih ambil dan SKU di luar resi
+     * (salah ambil) ikut penuh. Yang sudah dikembalikan ke display dikurangkan.
      * @return array ['det' => [['sku','rak','qty'], ...], 'jumlah_paket' => int, 'petugas' => [..]]
      */
     public function serah_harian($tanggal)
@@ -965,14 +966,8 @@ class Cancel_terima_fcd extends CI_Model
             return ['det' => [], 'jumlah_paket' => 0, 'petugas' => []];
         }
         $ids = array_column($paket, 'id_cancel_paket');
-        $tanpa_resi = [];
-        foreach ($paket as $pk) {
-            if ((int) $pk['id_resi'] < 0) {
-                $tanpa_resi[(int) $pk['id_cancel_paket']] = true;
-            }
-        }
 
-        // Per paket & SKU: yang sesuai resi dikurangi barang yang sudah kembali ke display.
+        // Per paket & SKU: fisik yang ada dikurangi barang yang sudah kembali ke display.
         $tampung = [];
         $items = $this->db
             ->select('id_cancel_paket, sku, no_rak, qty_resi, qty_ditemukan')
@@ -991,8 +986,7 @@ class Cancel_terima_fcd extends CI_Model
         }
         foreach ($items as $i) {
             $ada = (int) $i['qty_ditemukan'] - ($disp[$i['id_cancel_paket'] . '|' . strtoupper($i['sku'])] ?? 0);
-            // paket tanpa resi: semua barang yang ada ikut serah terima (tidak ada qty resi pembanding)
-            $qty = isset($tanpa_resi[(int) $i['id_cancel_paket']]) ? max(0, $ada) : max(0, min($ada, (int) $i['qty_resi']));
+            $qty = max(0, $ada); // ikut fisik, tidak dibatasi qty resi
             if ($qty <= 0) {
                 continue;
             }

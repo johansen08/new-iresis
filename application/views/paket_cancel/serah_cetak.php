@@ -1,6 +1,6 @@
 <?php
 // Halaman cetak A4 serah terima paket cancel (Retur -> Restok) untuk satu tanggal terima.
-// Standalone (bukan JSON/SPA), dibuka di tab baru. Hanya barang yang sesuai resi yang dihitung.
+// Standalone (bukan JSON/SPA), dibuka di tab baru. Qty = barang yang benar-benar ada secara fisik (termasuk lebih ambil & di luar resi).
 $bulan = array('', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember');
 $t = strtotime($tanggal);
 $tgl_indo = date('d', $t) . ' ' . $bulan[(int) date('n', $t)] . ' ' . date('Y', $t);
@@ -43,7 +43,7 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
     <b><?= html_escape($tgl_indo) ?></b>
 </div>
 <?php if (empty($det)): ?>
-    <div class="kosong">Tidak ada barang sesuai resi pada tanggal ini.</div>
+    <div class="kosong">Tidak ada barang pada tanggal ini.</div>
 <?php else: ?>
 <table>
     <thead>
