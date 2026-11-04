@@ -230,8 +230,10 @@ Packer / HO / Kurir menyerahkan paket cancel (dipisah dari balikan retur & kesal
   → popup pratinjau → "Ya, simpan" → tblcancel_paket (dicek_at terisi) + item + log
   → Laporan: filter tanggal / asal, cari, pagination; edit & hapus (popup konfirmasi)
   → Serah Terima (satu tanggal = satu kertas, boleh dicetak hari berikutnya):
-      semua paket diterima tanggal itu, per SKU, qty = yang lebih kecil antara
-      qty resi & qty ada (selisih TIDAK dihitung); RETUR = petugas penerima hari itu
+      semua paket diterima tanggal itu, per SKU, qty = barang yang benar-benar ADA
+      secara fisik (qty ada; sejak 4 Nov 2026): kurang ambil hanya yang ada, lebih
+      ambil dan SKU di luar resi (salah ambil) ikut penuh, yang sudah kembali ke
+      display dikurangkan; RETUR = petugas penerima hari itu
 ```
 
 Data: `tblcancel_paket` (kolom `diterima_dari` PACKER/HO/KURIR, `diedit_at/oleh`,
