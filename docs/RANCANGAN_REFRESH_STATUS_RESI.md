@@ -1,7 +1,7 @@
 # Rancangan: refresh status resi berkala (status final vs non-final)
 
-> **Status: RANCANGAN — belum diimplementasi.** Dibuat 4 Nov 2026 dari temuan
-> pengecekan data resi. Tidak ada kode atau data yang diubah oleh dokumen ini.
+> **Status: DIIMPLEMENTASI 4 Nov 2026 (belum dijadwalkan).** Rancangan dari temuan
+> pengecekan data resi; kode di bagian 9. Putaran pertama di produksi belum dijalankan.
 
 ## 1. Masalah
 
@@ -113,3 +113,51 @@ dengan Jubelio sebelum menjadwalkan.
 - Syntax check `php -l` untuk endpoint baru; uji 100 resi dulu, bandingkan manual.
 - Pastikan resi `COMPLETED` tidak ikut berubah dan tidak terkena panggilan Jubelio.
 - Cek kolom `status_dicek_at` terisi dan resi tidak diambil ulang di hari yang sama.
+
+## 9. Implementasi (4 Nov 2026)
+
+| Bagian | Berkas |
+|---|---|
+| Kolom penanda `tblprintresi.status_dicek_at` (DATETIME NULL, di prod **dan** arsip) | `MY_Controller::run_status_dicek_migration()`, `BOOTSTRAP_VERSI` 2026-11-04.1 |
+| Pemilihan kandidat (baca saja) + penandaan | `Receipt_fcd::get_kandidat_refresh_status()`, `tandai_status_dicek()` |
+| Endpoint (token cron) | `Cron::kandidat_refresh_status` (GET `?mode=&limit=`), `Cron::tandai_status_dicek` (POST) |
+| Skrip | `scripts/refresh_status_resi.py` (memakai ulang fungsi `auto_upload_resi_api.py`) |
+
+Perbedaan dari rancangan awal:
+- Kandidat dipilih **terbaru dulu** lalu rentang tanggalnya dipakai menarik daftar Jubelio
+  (daftar order Jubelio hanya bisa dicari per tanggal, bukan per resi).
+- Resi bertanggal `0000-00-00` memakai `tanggal_pesan` untuk menghitung umur.
+  Resi `MANUAL*` tidak diikutkan.
+- Resi yang **tidak ketemu di Jubelio** tetap ditandai dicek, kecuali daftar Jubelio
+  gagal sebagian (`LIST_LENGKAP` False) — saat itu tidak ditandai agar dicoba lagi besok.
+- Jatah panggilan detail per mode: harian 8000, mingguan 3000, backlog 3000
+  (`--maks-detail` menimpa). Yang melebihi jatah tidak ditandai, jadi dicoba besok.
+- Perubahan status ditulis lewat `cron/auto_upload_resi_api` → `insert_receipt()`
+  (aturan skip `COMPLETED` tetap satu pintu). Jalur update hanya menyentuh header
+  resi (status, tanggal, kurir, marketplace, toko), **tidak** menyentuh detail/qty.
+
+### Menjalankan
+
+```bash
+# 1. Setelah git pull di produksi: buka aplikasi sekali (login) agar migrasi kolom jalan.
+# 2. BACKUP tblprintresi dulu (CREATE TABLE ... SELECT / mysqldump) — job ini meng-UPDATE massal.
+# 3. Uji tanpa menulis apa pun (tetap membaca Jubelio):
+python scripts/refresh_status_resi.py --mode harian --maks-detail 20 --kering
+# 4. Uji kecil sungguhan lalu bandingkan beberapa resi dengan Jubelio:
+python scripts/refresh_status_resi.py --mode harian --maks-detail 100
+# 5. Jadwal malam (semua mode), mis. Task Scheduler 02.00:
+python scripts/refresh_status_resi.py
+```
+
+Catatan: kandidat yang dikembalikan hanya yang `status_dicek_at` kosong / sudah lewat
+jatuh tempo, jadi `GET cron/kandidat_refresh_status` aman dipanggil berkali-kali
+(tidak menulis). Cron endpoint ini error "Unknown column" kalau migrasi kolom belum jalan.
+
+### Hasil uji (4 Nov 2026, DB salinan `iresis_prod_uji`, Jubelio dipalsukan)
+
+- Endpoint kandidat: 3 mode + mode salah + tanpa token (403) sesuai harapan;
+  resi yang sudah ditandai hilang dari kandidat.
+- `--kering`: tidak ada yang tertulis. Mode normal: 4 resi berubah PROCESSING→SHIPPED
+  lewat jalur upsert, 55 resi ditandai (4 diperbarui + 51 tidak ketemu), sisanya ditunda.
+- **Belum teruji**: panggilan nyata ke Jubelio (kredensial hanya ada di PC produksi).
+  Karena itu langkah 3–4 di atas wajib dijalankan dulu sebelum dijadwalkan.

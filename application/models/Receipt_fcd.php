@@ -1290,6 +1290,72 @@ class Receipt_fcd extends CI_Model
     }
 
     /**
+     * Kandidat refresh status berkala (docs/RANCANGAN_REFRESH_STATUS_RESI.md).
+     * Hanya resi NON-FINAL (final = CANCELED, COMPLETED, RETURNED) yang jatuh tempo dicek:
+     *   harian   : umur 4-14 hari, jatuh tempo bila belum dicek hari ini
+     *   mingguan : umur 15-60 hari, jatuh tempo bila terakhir dicek >= 7 hari lalu
+     *   backlog  : umur > 60 hari, jatuh tempo SEKALI (status_dicek_at masih NULL)
+     * Umur dihitung dari tanggal_printresi; kalau tanggal itu tidak valid (0000-00-00)
+     * dipakai tanggal_pesan. Resi MANUAL* (bukan dari Jubelio) tidak ikut.
+     * BACA SAJA. Balas: ['noresi'=>[...], 'dari'=>'Y-m-d'|null, 'sampai'=>'Y-m-d'|null]
+     */
+    function get_kandidat_refresh_status($mode, $limit = 5000)
+    {
+        $limit = max(1, min(100000, (int) $limit));
+        $tgl   = "IF(tanggal_printresi < '2000-01-01', tanggal_pesan, tanggal_printresi)";
+
+        switch ($mode) {
+            case 'harian':
+                $umur  = "$tgl >= CURDATE() - INTERVAL 14 DAY AND $tgl < CURDATE() - INTERVAL 3 DAY";
+                $tempo = "(status_dicek_at IS NULL OR status_dicek_at < CURDATE())";
+                break;
+            case 'mingguan':
+                $umur  = "$tgl >= CURDATE() - INTERVAL 60 DAY AND $tgl < CURDATE() - INTERVAL 14 DAY";
+                $tempo = "(status_dicek_at IS NULL OR status_dicek_at < NOW() - INTERVAL 7 DAY)";
+                break;
+            case 'backlog':
+                $umur  = "$tgl < CURDATE() - INTERVAL 60 DAY";
+                $tempo = "status_dicek_at IS NULL";
+                break;
+            default:
+                throw new \InvalidArgumentException('mode harus harian, mingguan, atau backlog');
+        }
+
+        $sql = "SELECT noresi, DATE($tgl) AS tgl FROM tblprintresi
+                WHERE (status_pesanan IS NULL OR status_pesanan NOT IN ('CANCELED','COMPLETED','RETURNED'))
+                  AND noresi NOT LIKE 'MANUAL%'
+                  AND $tgl > '2000-01-01'
+                  AND $umur AND $tempo
+                ORDER BY $tgl DESC
+                LIMIT $limit";
+
+        $noresi = [];
+        $dari = $sampai = null;
+        foreach ($this->db->query($sql)->result() as $row) {
+            $noresi[] = $row->noresi;
+            if ($dari === null || $row->tgl < $dari) $dari = $row->tgl;
+            if ($sampai === null || $row->tgl > $sampai) $sampai = $row->tgl;
+        }
+
+        return ['noresi' => $noresi, 'dari' => $dari, 'sampai' => $sampai];
+    }
+
+    /**
+     * Tandai resi sudah dicek ulang (hanya mengisi status_dicek_at; kolom lain tidak disentuh).
+     * Mengembalikan jumlah baris yang ditandai.
+     */
+    function tandai_status_dicek(array $noresi_list)
+    {
+        $total = 0;
+        foreach (array_chunk(array_values(array_unique($noresi_list)), 1000) as $chunk) {
+            $this->db->where_in('noresi', $chunk);
+            $this->db->update('tblprintresi', ['status_dicek_at' => date('Y-m-d H:i:s')]);
+            $total += $this->db->affected_rows();
+        }
+        return $total;
+    }
+
+    /**
      * PERBAIKAN SEKALI-JALAN untuk data rusak akibat bug run auto_upload_resi_api
      * tanggal 2026-07-04 (qty ter-gandakan karena order dobel di pagination, dan
      * no_rak kosong). NON-DESTRUKTIF: hanya UPDATE kolom jumlah & no_rak pada
