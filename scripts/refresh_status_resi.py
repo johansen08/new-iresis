@@ -104,13 +104,17 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering):
     orders = [o for o in orders if o.get('tracking_no') in due]
     ada_di_jubelio = {o['tracking_no'] for o in orders}
     tidak_ketemu = due - ada_di_jubelio
-    if not base.LIST_LENGKAP:
-        # Ada halaman daftar yang gagal -> "tidak ketemu" belum tentu benar-benar tidak ada.
-        base.log('PERINGATAN: daftar Jubelio tidak lengkap; resi "tidak ketemu" TIDAK ditandai (dicoba lagi besok).')
-        tidak_ditandai = tidak_ketemu
-        tidak_ketemu = set()
+    # Daftar order Jubelio dibaca per halaman (offset) dan bergeser kalau ada order baru masuk,
+    # sehingga di rentang yang masih "hidup" (mode harian/mingguan) sebagian order terlewat
+    # (uji 4 Nov 2026: 13 ribu duplikat, 20-55% kandidat "tidak ketemu" padahal ada).
+    # Maka resi tidak ketemu HANYA ditandai di mode backlog (rentang > 60 hari, data statis)
+    # dan hanya bila daftar lengkap. Di mode lain dibiarkan -> dicoba lagi di run berikutnya.
+    if mode != 'backlog' or not base.LIST_LENGKAP:
+        if mode == 'backlog':
+            base.log('PERINGATAN: daftar Jubelio tidak lengkap; resi "tidak ketemu" TIDAK ditandai (dicoba lagi besok).')
+        tidak_ketemu_ditandai = set()
     else:
-        tidak_ditandai = set()
+        tidak_ketemu_ditandai = tidak_ketemu
     base.log(f'Ketemu di Jubelio: {len(ada_di_jubelio)} | tidak ketemu: {len(tidak_ketemu)}')
 
     status_map = base.check_status_map([o['tracking_no'] for o in orders])
@@ -161,7 +165,7 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering):
 
     # Tandai dicek: yang statusnya sama, yang sudah diperbarui, dan yang tidak ada di Jubelio
     # (supaya tidak diulang terus; resi seperti itu tetap kembali lewat jadwal harian/mingguan).
-    ditandai = tandai_dicek(sorted(set(tanpa_perubahan) | set(berhasil) | tidak_ketemu))
+    ditandai = tandai_dicek(sorted(set(tanpa_perubahan) | set(berhasil) | tidak_ketemu_ditandai))
     base.log(f'Ditandai dicek: {ditandai}. Ringkas: {ringkas}')
     return ringkas
 
