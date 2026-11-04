@@ -100,11 +100,30 @@ $this->load->view('top_level/_dasar'); ?>
 
   function angka(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
+  var SKL_KARTU = '<div class="tlj-g"><div class="tlj-skl"></div><div class="tlj-skl"></div><div class="tlj-skl"></div></div>';
+  var SKL_HIST = '<div class="tlj-skl" style="height:110px"></div>';
+
+  function errJubelio(pesan, atribut) {
+    return '<div class="tlj-err"><span>' + T.esc(pesan || 'Stok Jubelio belum bisa dimuat. Coba lagi.') + '</span><button type="button" class="tl-btn sm" ' + atribut + '>Coba lagi</button></div>';
+  }
+
+  function tabelHistory(rows) {
+    if (!rows.length) return '<div class="tlj-mut">Belum ada transfer untuk SKU ini.</div>';
+    var h = '<div class="tlj-tw"><table class="tlj-t"><thead><tr><th>Tanggal</th><th>Terakhir Diubah</th><th>Lokasi</th><th class="n">Qty</th><th class="n">Sisa</th><th>Keterangan</th></tr></thead><tbody>';
+    $.each(rows, function (n, r) {
+      h += '<tr><td>' + T.esc(r.tanggal) + '</td><td>' + T.esc(r.diubah) + '</td><td>' + T.esc(r.lokasi) + '</td>' +
+        '<td class="n ' + (r.qty > 0 ? 'pl' : 'mi') + '">' + (r.qty > 0 ? '+' : '') + angka(r.qty) + '</td><td class="n">' + angka(r.sisa) + '</td>' +
+        '<td>' + (r.keterangan ? T.esc(r.keterangan) : '<span class="tlj-mut">-</span>') + '</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  /** Dua bagian dimuat terpisah: kartu stok (cepat) tampil tanpa menunggu history (bisa 5 dtk pada SKU berstok besar). */
   function blokJubelio(i) {
-    var j = jub[i], h = '<div class="tlj"><div class="tlj-hd"><b>Stok Jubelio</b>';
-    if (!j || j.st === 'load') return h + '</div><div class="tlj-g"><div class="tlj-skl"></div><div class="tlj-skl"></div><div class="tlj-skl"></div></div><div class="tlj-skl" style="margin-top:12px;height:110px"></div></div>';
-    if (j.st === 'err') return h + '</div><div class="tlj-err"><span>' + T.esc(j.pesan) + '</span><button type="button" class="tl-btn sm" data-muat="' + i + '">Coba lagi</button></div></div>';
-    var d = j.d;
+    var j = jub[i] || {}, s = j.stok, hs = j.hist, h = '<div class="tlj"><div class="tlj-hd"><b>Stok Jubelio</b>';
+    if (!s || s.st === 'load') return h + '</div>' + SKL_KARTU + '<h4 class="tlj-h4">History</h4>' + SKL_HIST + '</div>';
+    if (s.st === 'err') return h + '</div>' + errJubelio(s.pesan, 'data-muat="' + i + '"') + '</div>';
+    var d = s.d;
     h += '<span class="tlj-live"><i></i>Live dari Jubelio</span><span class="tlj-mut">Arahkan kursor ke angka untuk melihat keterangan</span><span class="tlj-sp"></span>' +
       '<span class="tlj-mut">Diperbarui ' + T.esc(d.waktu) + '</span><button type="button" class="tl-btn sm" data-muat="' + i + '">Muat ulang</button></div><div class="tlj-g">';
     $.each(d.lokasi, function (n, l) {
@@ -116,30 +135,35 @@ $this->load->view('top_level/_dasar'); ?>
       h += '<div class="tlj-c"><small>' + T.esc(l.nama) + '</small><div class="tlj-bg">' + b + '</div></div>';
     });
     h += '</div><h4 class="tlj-h4">History</h4>';
-    if (!d.history.length) return h + '<div class="tlj-mut">Belum ada transfer untuk SKU ini.</div></div>';
-    h += '<div class="tlj-tw"><table class="tlj-t"><thead><tr><th>Tanggal</th><th>Terakhir Diubah</th><th>Lokasi</th><th class="n">Qty</th><th class="n">Sisa</th><th>Keterangan</th></tr></thead><tbody>';
-    $.each(d.history, function (n, r) {
-      h += '<tr><td>' + T.esc(r.tanggal) + '</td><td>' + T.esc(r.diubah) + '</td><td>' + T.esc(r.lokasi) + '</td>' +
-        '<td class="n ' + (r.qty > 0 ? 'pl' : 'mi') + '">' + (r.qty > 0 ? '+' : '') + angka(r.qty) + '</td><td class="n">' + angka(r.sisa) + '</td>' +
-        '<td>' + (r.keterangan ? T.esc(r.keterangan) : '<span class="tlj-mut">-</span>') + '</td></tr>';
-    });
-    return h + '</tbody></table></div></div>';
+    if (!hs || hs.st === 'load') h += SKL_HIST;
+    else if (hs.st === 'err') h += errJubelio(hs.pesan, 'data-muat-h="' + i + '"');
+    else h += tabelHistory(hs.d.history);
+    return h + '</div>';
   }
 
-  /** Ambil stok live Jubelio untuk baris i; balasan lama (resi/baris sudah berganti) diabaikan. */
-  function muatJubelio(i) {
-    var sku = resi.items[i].sku, noresi = resi.noresi;
-    jub[i] = { st: 'load' };
-    gambarResi();
-    T.post('picker/cek-top-level/jubelio', { sku: sku }, function (d) {
-      if (!resi || resi.noresi !== noresi || !jub[i]) return;
-      jub[i] = { st: 'ok', d: d };
+  /** Muat satu bagian (stok/history) baris i. Balasan lama (resi, baris, atau muatan sudah berganti) diabaikan. */
+  function ambilBagian(i, j, bagian, segar) {
+    var sku = resi.items[i].sku, noresi = resi.noresi, kunci = bagian === 'stok' ? 'stok' : 'hist';
+    j[kunci] = { st: 'load' };
+    T.post('picker/cek-top-level/jubelio', { sku: sku, bagian: bagian, segar: segar ? 1 : 0 }, function (d) {
+      if (!resi || resi.noresi !== noresi || jub[i] !== j) return;
+      j[kunci] = { st: 'ok', d: d };
+      // item di Jubelio berganti (SKU dipakai ulang): history yang terambil milik item lama, ambil lagi.
+      if (j.stok && j.stok.st === 'ok' && j.hist && j.hist.st === 'ok' && j.stok.d.item_id !== j.hist.d.item_id) { ambilBagian(i, j, 'history', true); }
       gambarResi();
     }, function (m) {
-      if (!resi || resi.noresi !== noresi || !jub[i]) return;
-      jub[i] = { st: 'err', pesan: m || 'Stok Jubelio belum bisa dimuat. Coba lagi.' };
+      if (!resi || resi.noresi !== noresi || jub[i] !== j) return;
+      j[kunci] = { st: 'err', pesan: m };
       gambarResi();
     });
+  }
+
+  /** Muat stok dan history bersamaan. segar = lewati cache server (Muat ulang). */
+  function muatJubelio(i, segar) {
+    var j = jub[i] = {};
+    ambilBagian(i, j, 'stok', segar);
+    ambilBagian(i, j, 'history', segar);
+    gambarResi();
   }
 
   // ---------- popup konfirmasi ----------
@@ -236,9 +260,13 @@ $this->load->view('top_level/_dasar'); ?>
       cekHasil[i] = d; buka = i; muatJubelio(i);
     }, T.galat);
   });
+  $r.on('click', '[data-muat-h]', function () {
+    var i = +$(this).data('muat-h');
+    if (buka === i && jub[i]) { ambilBagian(i, jub[i], 'history', true); gambarResi(); }
+  });
   $r.on('click', '[data-muat]', function () {
     var i = +$(this).data('muat');
-    if (buka === i) muatJubelio(i);
+    if (buka === i) muatJubelio(i, true);
   });
   $r.on('click', '[data-ajukan]', function () { konfirmAjukan(+$(this).data('ajukan')); });
   $r.on('click', '[data-gabung]', function () {
