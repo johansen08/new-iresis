@@ -214,11 +214,27 @@
         g('grups').previousElementSibling.hidden = false;
         var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 }, sesuai = 0;
         grup.forEach(function (k) { tot[k.j] += k.q; });
+        var adaLuar = function (sku) { return b.some(function (x) { return x.r === 0 && x.s.toUpperCase() === String(sku).toUpperCase(); }); };
         b.forEach(function (i) {
-            var h = grup.filter(function (k) { return k.s.toUpperCase() === i.s.toUpperCase() || (k.p && k.p.toUpperCase() === i.s.toUpperCase()); })[0];
-            var st = i.tr.querySelector('.st');
             if (i.r > 0 && i.a === i.r) sesuai++;
-            if (st) st.innerHTML = h ? tagJenis(h.j, Math.abs(i.a - i.r), h.j === 'SALAH_AMBIL' ? (h.s.toUpperCase() === i.s.toUpperCase() ? h.p : h.s) : '') : (i.r > 0 ? tagJenis('SESUAI', 0) : '');
+            var st = i.tr.querySelector('.st');
+            var sku = i.s.toUpperCase();
+            var mine = grup.filter(function (k) { return k.s.toUpperCase() === sku; });
+            var asPair = grup.filter(function (k) { return k.p && k.p.toUpperCase() === sku; });
+            var paired = asPair.reduce(function (n, k) { return n + k.q; }, 0);
+            // SKU salah yang seluruh qty-nya terpakai di salah ambil disembunyikan: tampil di baris SKU resi
+            var sembunyi = i.r === 0 && paired > 0 && paired === i.a;
+            i.tr.hidden = sembunyi;
+            var h = [];
+            mine.forEach(function (k) {
+                if (k.j === 'SALAH_AMBIL') {
+                    h.push('<span class="b warn">SALAH AMBIL</span> <b>' + esc(k.p) + '</b> &times; ' + k.q +
+                        (adaLuar(k.p) ? ' <button type="button" class="a x s" data-act="pmin" data-sku="' + esc(k.p) + '" aria-label="Kurangi qty ' + esc(k.p) + '">&minus;</button><button type="button" class="a x s" data-act="pplus" data-sku="' + esc(k.p) + '" aria-label="Tambah qty ' + esc(k.p) + '">+</button>' : ''));
+                } else h.push(tagJenis(k.j, k.q));
+            });
+            if (!mine.length && !sembunyi) asPair.forEach(function (k) { h.push(tagJenis('LEBIH', k.q) + ' <small class="note">dipakai ganti ' + esc(k.s) + '</small>'); });
+            if (!h.length && i.r > 0) h.push(tagJenis('SESUAI', 0));
+            if (st) st.innerHTML = h.join('<br>');
         });
         var kartu = [['o', 'Baris sesuai', sesuai], ['k', 'Kurang', tot.KURANG], ['l', 'Lebih', tot.LEBIH], ['s', 'Salah ambil', tot.SALAH_AMBIL], ['x', 'Di luar resi', tot.DI_LUAR_RESI]];
         g('ban').innerHTML = '<div class="sum">' + kartu.map(function (k) { return '<div class="' + k[0] + (k[2] > 0 ? ' on' : '') + '"><b>' + k[2] + '</b><small>' + k[1] + '</small></div>'; }).join('') + '</div>';
@@ -339,6 +355,10 @@
             var inp = t.closest('td').querySelector('input.q');
             inp.value = a === 'qnol' ? 0 : Math.max(0, (+inp.value || 0) + (a === 'qplus' ? 1 : -1));
             hit();
+        }
+        else if (a === 'pmin' || a === 'pplus') {
+            var br = [].filter.call(g('ex').querySelectorAll('tr'), function (tr) { return tr.dataset.s.toUpperCase() === t.dataset.sku.toUpperCase(); })[0];
+            if (br) { var pi = br.querySelector('input.q'); pi.value = Math.max(0, (+pi.value || 0) + (a === 'pplus' ? 1 : -1)); hit(); }
         }
         else if (a === 'hapus-x') { t.closest('tr').remove(); if (!g('ex').children.length) g('xt').className = 'txw hide'; hit(); }
         else if (a === 'simpan') { if (cur && cur.tanpa) simpanTanpa(); else simpanLangsung(); }

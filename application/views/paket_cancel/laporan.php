@@ -384,17 +384,37 @@
         pool.forEach(function (o) { if (o.q > 0) grup.push({ j: o.j, s: o.s, p: '', q: o.q }); });
         return grup;
     }
+    // Status satu baris: SKU yang sebenarnya (resi) memuat "SALAH AMBIL <SKU yang salah> x qty"; baris SKU salah
+    // yang seluruh qty-nya terpakai di salah ambil disembunyikan (qty-nya diubah lewat tombol - / + di baris SKU resi).
+    function statusSelisih(x, grup, awalan, adaBarisLuar) {
+        var sku = x.s.toUpperCase();
+        var mine = grup.filter(function (k) { return k.s.toUpperCase() === sku; });
+        var asPair = grup.filter(function (k) { return k.p && k.p.toUpperCase() === sku; });
+        var paired = asPair.reduce(function (n, k) { return n + k.q; }, 0);
+        var sembunyi = x.r === 0 && paired > 0 && paired === x.a;
+        var h = [];
+        mine.forEach(function (k) {
+            if (k.j === 'SALAH_AMBIL') {
+                h.push('<span class="b warn">SALAH AMBIL</span> <b class="mono">' + esc(k.p) + '</b> &times; ' + k.q +
+                    (adaBarisLuar(k.p) ? ' <button type="button" class="a x s" data-act="' + awalan + 'min" data-sku="' + esc(k.p) + '" aria-label="Kurangi qty ' + esc(k.p) + '">&minus;</button><button type="button" class="a x s" data-act="' + awalan + 'plus" data-sku="' + esc(k.p) + '" aria-label="Tambah qty ' + esc(k.p) + '">+</button>' : ''));
+            } else h.push('<span class="b ' + CLSJ[k.j] + '">' + NMJ[k.j] + ' ' + k.q + '</span>');
+        });
+        if (!mine.length) {
+            asPair.forEach(function (k) { if (!sembunyi) h.push('<span class="b info">LEBIH ' + k.q + '</span> <small class="note">dipakai ganti ' + esc(k.s) + '</small>'); });
+        }
+        if (!h.length && x.r > 0) h.push('<span class="b ok">SESUAI</span>');
+        return { html: h.join('<br>'), sembunyi: sembunyi };
+    }
     function edHit() {
         var b = [], trs = g('edb').querySelectorAll('tr');
         trs.forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0 }); });
         var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 };
         grup.forEach(function (k) { tot[k.j] += k.q; });
+        var adaLuar = function (sku) { return b.some(function (x) { return x.r === 0 && x.s.toUpperCase() === String(sku).toUpperCase(); }); };
         trs.forEach(function (tr, i) {
-            var x = b[i], d = x.a - x.r, sku = x.s.toUpperCase();
-            var h = grup.filter(function (k) { return k.s.toUpperCase() === sku || (k.p && k.p.toUpperCase() === sku); })[0];
-            var pas = h && h.j === 'SALAH_AMBIL' ? (h.s.toUpperCase() === sku ? h.p : h.s) : '';
-            tr.querySelector('.st').innerHTML = h ? '<span class="b ' + CLSJ[h.j] + '">' + NMJ[h.j] + ' ' + Math.abs(d) + '</span>' + (pas ? ' <small class="note">&harr; ' + esc(pas) + '</small>' : '')
-                : (x.r > 0 ? U.bd('SESUAI', 0) : '');
+            var st = statusSelisih(b[i], grup, 'ed-p', adaLuar);
+            tr.querySelector('.st').innerHTML = st.html;
+            tr.hidden = st.sembunyi;
         });
         var s = tot.KURANG + tot.LEBIH + tot.SALAH_AMBIL + tot.DI_LUAR_RESI;
         g('edban').innerHTML = s ? '<div class="al warn" style="margin:0"><b>ADA SELISIH:</b> ' + [tot.KURANG && 'kurang ' + tot.KURANG, tot.LEBIH && 'lebih ' + tot.LEBIH, tot.SALAH_AMBIL && 'salah ambil ' + tot.SALAH_AMBIL, tot.DI_LUAR_RESI && 'di luar resi ' + tot.DI_LUAR_RESI].filter(Boolean).join(', ') + ' pcs</div>' : '<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b></div>';
@@ -599,6 +619,10 @@
             case 'tg': U.tg(t); break;
             case 'ed-tambah': edTambah(); break;
             case 'ed-hapus-x': t.closest('tr').remove(); edHit(); break;
+            case 'ed-pmin': case 'ed-pplus':
+                var br = [].filter.call(g('edb').querySelectorAll('tr'), function (tr) { return tr.dataset.s.toUpperCase() === t.dataset.sku.toUpperCase() && +tr.dataset.r === 0; })[0];
+                if (br) { var pi = br.querySelector('input'); pi.value = Math.max(0, (+pi.value || 0) + (a === 'ed-pplus' ? 1 : -1)); edHit(); }
+                break;
             case 'ed-batal': U.mdTutup(edO); break;
             case 'ed-simpan': edSimpan(t.dataset.id); break;
         }
