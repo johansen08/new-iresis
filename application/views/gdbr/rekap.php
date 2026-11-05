@@ -21,8 +21,8 @@
       <button class="reset hide" id="f-reset" type="button">× Reset filter</button>
     </div>
     <div class="tw2"><table class="kt">
-      <thead><tr><th>Resi / Pesanan</th><th>Diambil picker</th><th>Ditandai tim resi</th><th>Cek Gedung Baru</th><th>Cek Packer</th><th>Progres</th><th></th></tr></thead>
-      <tbody id="rows"><tr><td colspan="7"><div class="empty">Memuat...</div></td></tr></tbody>
+      <thead><tr><th style="width:36px"><input type="checkbox" id="cb-all" aria-label="Pilih semua di halaman ini"></th><th>Resi / Pesanan</th><th>Diambil picker</th><th>Ditandai tim resi</th><th>Cek Gedung Baru</th><th>Cek Packer</th><th>Progres</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8"><div class="empty">Memuat...</div></td></tr></tbody>
     </table></div>
     <div class="foot"><div id="info"></div><div class="pager"><label>Baris per halaman <select id="per"><option>10</option><option>25</option><option>50</option></select></label><div class="pg" id="pg"></div></div></div>
   </div>
@@ -122,10 +122,10 @@
         jQuery.each(STATE.f, function (k, v) { d['f_' + k] = v; });
         U.post(U.URL.rekap_data, d).then(function (res) {
             if (mine !== seq) return;
-            if (!res || res.code !== 200 || !res.data) { $('#rows').innerHTML = '<tr><td colspan="7"><div class="empty">' + esc(res && res.message ? res.message : 'Gagal memuat data.') + '</div></td></tr>'; return; }
+            if (!res || res.code !== 200 || !res.data) { $('#rows').innerHTML = '<tr><td colspan="8"><div class="empty">' + esc(res && res.message ? res.message : 'Gagal memuat data.') + '</div></td></tr>'; return; }
             tampilData(res.data);
         }).catch(function (x) {
-            if (mine === seq) $('#rows').innerHTML = '<tr><td colspan="7"><div class="empty">' + esc(U.pesanGagal(x)) + '</div></td></tr>';
+            if (mine === seq) $('#rows').innerHTML = '<tr><td colspan="8"><div class="empty">' + esc(U.pesanGagal(x)) + '</div></td></tr>';
         });
     }
 
@@ -154,13 +154,14 @@
         $('#f-reset').classList.toggle('hide', !adaFilter);
 
         $('#rows').innerHTML = D.rows.length ? D.rows.map(function (r) {
-            return '<tr data-resi="' + esc(r.noresi) + '"><td><span class="resi">' + esc(r.noresi) + U.cp(r.noresi) + '</span><span class="sub">Pesanan ' + esc(r.pesanan) + U.cp(r.pesanan) + '</span><span class="sub">' + [r.toko, r.mp].filter(Boolean).map(esc).join(' · ') + '</span><span class="sub">' + r.n_sku + ' SKU · ' + r.qty + ' pcs</span></td>' +
+            return '<tr data-resi="' + esc(r.noresi) + '"><td class="cb-cell"><input type="checkbox" class="cb-row" value="' + esc(r.noresi) + '"' + (PILIH[r.noresi] ? ' checked' : '') + ' aria-label="Pilih resi"></td><td><span class="resi">' + esc(r.noresi) + U.cp(r.noresi) + '</span><span class="sub">Pesanan ' + esc(r.pesanan) + U.cp(r.pesanan) + '</span><span class="sub">' + [r.toko, r.mp].filter(Boolean).map(esc).join(' · ') + '</span><span class="sub">' + r.n_sku + ' SKU · ' + r.qty + ' pcs</span></td>' +
                 '<td>' + (r.picker ? '<span class="person"><i class="av">' + esc(U.ini(r.picker.nama)) + '</i>' + esc(r.picker.label) + '</span><span class="sub">' + fmtD(r.picker.waktu) + '</span>' : '<span class="muted">–</span>') + '</td>' +
                 '<td><span class="person"><i class="av">' + esc(U.ini(r.tandai.nama)) + '</i>' + esc(r.tandai.label) + '</span><span class="sub">' + fmtD(r.tandai.waktu) + '</span></td>' +
                 '<td>' + cekCell(r.gb) + '</td><td>' + cekCell(r.pk) + '</td><td><span class="pill ' + PCL[r.progres] + '">' + esc(r.progres) + '</span></td>' +
                 '<td><button type="button" class="icon-btn" aria-label="Lihat detail">' + ic(IC.eye) + '</button></td></tr>';
-        }).join('') : '<tr><td colspan="7"><div class="empty">Tidak ada resi pada periode &amp; filter ini</div></td></tr>';
+        }).join('') : '<tr><td colspan="8"><div class="empty">Tidak ada resi pada periode &amp; filter ini</div></td></tr>';
 
+        syncCbAll();
         var st = (D.halaman - 1) * D.per, pages = Math.max(1, Math.ceil(D.total / D.per));
         $('#info').textContent = D.total ? 'Menampilkan ' + (st + 1) + '–' + Math.min(st + D.per, D.total) + ' dari ' + D.total + ' resi' : 'Menampilkan 0 resi';
         var b = '<button type="button" data-p="' + (D.halaman - 1) + '"' + (D.halaman === 1 ? ' disabled' : '') + ' aria-label="Sebelumnya">&lsaquo;</button>';
@@ -170,8 +171,25 @@
         $('#pg').innerHTML = b;
     }
     $('#pg').addEventListener('click', function (e) { var b = e.target.closest('[data-p]'); if (b && !b.disabled) { STATE.page = +b.dataset.p; muat(); } });
+    // ───── checkbox pilih baris (pilihan bertahan antar halaman) ─────
+    var PILIH = {};
+    function syncCbAll() {
+        var cbs = $$('.cb-row'), all = $('#cb-all'), n = cbs.filter(function (c) { return c.checked; }).length;
+        all.checked = cbs.length > 0 && n === cbs.length;
+        all.indeterminate = n > 0 && n < cbs.length;
+    }
+    $('#cb-all').addEventListener('change', function () {
+        var on = this.checked;
+        $$('.cb-row').forEach(function (c) { c.checked = on; if (on) PILIH[c.value] = 1; else delete PILIH[c.value]; });
+        syncCbAll();
+    });
+    $('#rows').addEventListener('change', function (e) {
+        var c = e.target.closest('.cb-row'); if (!c) return;
+        if (c.checked) PILIH[c.value] = 1; else delete PILIH[c.value];
+        syncCbAll();
+    });
     $('#rows').addEventListener('click', function (e) {
-        if (e.target.closest('[data-copy]')) return;
+        if (e.target.closest('[data-copy]') || e.target.closest('.cb-cell')) return;
         var tr = e.target.closest('tr[data-resi]'); if (tr) bukaDrawer(tr.dataset.resi);
     });
 
