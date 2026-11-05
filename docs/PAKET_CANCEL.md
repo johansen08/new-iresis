@@ -281,12 +281,17 @@ Migrasi: `run_tipe_masalah_selisih_paket_cancel` (baris tipe 6 di
 
 Kolom **Pengembalian** di Laporan Paket Cancel, untuk saat ini 2 status berurutan:
 
-1. **DICETAK** — otomatis saat halaman cetak serah terima (`paket-cancel/serah-cetak`) dibuka;
-   semua paket diterima pada tanggal itu yang belum bertanda diberi `serah_cetak_at`
-   (cetak ulang tidak menimpa waktu pertama).
-2. **SELESAI** — petugas mencentang checkbox di laporan (`paket-cancel/tandai-selesai`).
-   Checkbox terkunci sebelum dicetak (dicek juga di server); centang bisa dibatalkan.
-   Tiap perubahan masuk `tblcancel_paket_log` (aksi `SELESAI` / `BATAL_SELESAI`).
+Kolom paling kiri laporan = **checkbox pilih** (kotak di judul kolom = pilih semua sesuai
+filter; pilihan bertahan antar halaman). Yang dicentang menentukan paket mana yang diproses:
+
+1. **Serah Terima** — mencetak kertas hanya dari paket yang dicentang (boleh lintas tanggal
+   terima; dikirim POST `ids` ke `paket-cancel/serah-cetak`). Tanpa centang, perilaku lama:
+   semua paket satu tanggal terima. Membuka halaman cetak menandai paket jadi **DICETAK**
+   (`serah_cetak_at`; cetak ulang tidak menimpa waktu pertama).
+2. **Tandai Selesai** — menandai paket yang dicentang jadi **SELESAI** (`paket-cancel/tandai-selesai`,
+   param `ids`). Paket yang belum dicetak dilewati (dicek di server). Batal selesai per paket
+   lewat tombol ↩ di kolom Pengembalian. Tiap perubahan masuk `tblcancel_paket_log`
+   (aksi `SELESAI` / `BATAL_SELESAI`).
 
 Kolom baru `tblcancel_paket`: `serah_cetak_at/oleh`, `selesai_at/oleh`. Migrasi di
 `run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI` 2026-11-05.1). Status lain

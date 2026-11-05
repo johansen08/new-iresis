@@ -22,6 +22,18 @@ class Paket_cancel extends MY_Controller
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $nilai) ? $nilai : $default;
     }
 
+    // "1,2,3" -> [1,2,3] (id paket yang dicentang di laporan); kosong -> []
+    private function daftar_id($nilai)
+    {
+        $hasil = [];
+        foreach (explode(',', (string) $nilai) as $x) {
+            if ((int) $x > 0) {
+                $hasil[(int) $x] = (int) $x;
+            }
+        }
+        return array_values($hasil);
+    }
+
     // ───────── Terima Paket Cancel ─────────
 
     public function terima()
@@ -154,7 +166,10 @@ class Paket_cancel extends MY_Controller
     // Centang "selesai" pada laporan (tahap 2 status pengembalian)
     public function tandai_selesai()
     {
-        $hasil = $this->cancel_terima_fcd->tandai_selesai((int) $this->input->post('id'), (int) $this->input->post('selesai') === 1, $this->id_user());
+        $selesai = (int) $this->input->post('selesai') === 1;
+        $ids = $this->daftar_id($this->input->post('ids'));
+        $hasil = $ids ? $this->cancel_terima_fcd->tandai_selesai_banyak($ids, $selesai, $this->id_user())
+                      : $this->cancel_terima_fcd->tandai_selesai((int) $this->input->post('id'), $selesai, $this->id_user());
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
@@ -162,18 +177,20 @@ class Paket_cancel extends MY_Controller
     public function serah_data()
     {
         $tanggal = $this->tanggal($this->input->post('tanggal'), date('Y-m-d'));
-        $this->make_ajax_response(200, 'ok', ['tanggal' => $tanggal, 'ok' => true] + $this->cancel_terima_fcd->serah_harian($tanggal));
+        $ids = $this->daftar_id($this->input->post('ids'));
+        $this->make_ajax_response(200, 'ok', ['tanggal' => $tanggal, 'ok' => true] + $this->cancel_terima_fcd->serah_harian($tanggal, $ids ?: null));
     }
 
     // Halaman cetak A4 (tab baru, bukan JSON)
     public function serah_cetak()
     {
-        $tanggal = $this->tanggal($this->input->get('tanggal'), date('Y-m-d'));
-        $data = $this->cancel_terima_fcd->serah_harian($tanggal);
+        $tanggal = $this->tanggal($this->input->get_post('tanggal'), date('Y-m-d'));
+        $ids = $this->daftar_id($this->input->get_post('ids'));
+        $data = $this->cancel_terima_fcd->serah_harian($tanggal, $ids ?: null);
         $data['tanggal'] = $tanggal;
         // Membuka halaman cetak = serah terima dicetak (status pengembalian tahap 1)
         if ($data['jumlah_paket'] > 0) {
-            $this->cancel_terima_fcd->tandai_serah_dicetak($tanggal, $this->id_user());
+            $this->cancel_terima_fcd->tandai_serah_dicetak($tanggal, $this->id_user(), $ids ?: null);
         }
         $this->load->view('paket_cancel/serah_cetak', $data);
     }

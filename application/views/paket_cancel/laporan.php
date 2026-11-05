@@ -11,10 +11,12 @@
   <div class="tbr">
    <button type="button" id="pc_cardtg" class="eye ic" data-act="card-tog"></button>
    <button type="button" id="pc_dsptg" class="eye ic" data-act="dsp-tog"></button>
+   <span class="note" id="pc_selinfo"></span>
+   <button type="button" class="a g" id="pc_bsl" data-act="selesai-banyak" title="Tandai selesai paket yang dicentang (harus sudah dicetak serah terimanya)">&#10004; Tandai Selesai</button>
    <button type="button" class="a w" id="pc_bsr" data-act="serah">&#128424; Serah Terima</button>
    <span class="inf" title="Info" data-act="info">&#9432;</span>
   </div>
-  <div id="pc_infolap" class="infotxt hide"><b>Serah terima hanya satu per hari</b>: pilih satu tanggal paket diterima, lalu klik Serah Terima &mdash; boleh dicetak di hari berikutnya (mis. paket 28 Okt dicetak 29 Okt). Kertas dibuat langsung dari paket yang diterima pada tanggal itu; isinya mengikuti barang yang benar-benar ada secara fisik (kurang ambil = yang ada saja; lebih ambil dan barang di luar resi ikut dicetak).</div>
+  <div id="pc_infolap" class="infotxt hide"><b>Centang paket</b> di kolom paling kiri (kotak di judul kolom = pilih semua sesuai filter), lalu klik <b>Serah Terima</b> untuk mencetak kertas hanya dari paket yang dicentang, dan <b>Tandai Selesai</b> setelah barang dikembalikan ke restok (hanya paket yang sudah dicetak). Tanpa centang, Serah Terima mencetak semua paket satu tanggal terima (pilih satu tanggal dulu). Kertas dibuat langsung dari paket; isinya mengikuti barang yang benar-benar ada secara fisik (kurang ambil = yang ada saja; lebih ambil dan barang di luar resi ikut dicetak).</div>
  </div>
  <div id="pc_cards" class="cards"></div>
  <div id="pc_msg2"></div>
@@ -27,7 +29,7 @@
   </div>
  </div>
  <div class="pcd tc">
-  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:120px" title="Status pengembalian ke restok: dicetak serah terima, lalu selesai">Pengembalian</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th style="width:34px" class="c"><input type="checkbox" id="pc_all" data-act="pilih-semua" title="Pilih semua paket (sesuai filter) untuk dicetak serah terima / ditandai selesai"></th><th style="width:30px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:120px" title="Status pengembalian ke restok: dicetak serah terima, lalu selesai">Pengembalian</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
   <div class="tf">
    <span id="pc_pgi" class="note"></span>
    <div class="pr"><label class="note">Tampilkan <select id="pc_ps"><option>10</option><option>20</option><option>50</option><option>100</option></select> baris</label><span id="pc_pgn" class="pr" style="gap:4px"></span></div>
@@ -57,6 +59,7 @@
     var pg = 1, muat = 0;   // halaman aktif; nomor permintaan terakhir (abaikan balasan basi)
     var MS = { fd: [] };    // filter asal (kosong = semua)
     var edO = null;         // popup edit yang terbuka
+    var sel = {};           // id paket yang dicentang (cetak serah terima / tandai selesai)
 
     function pesan(tipe, html) { U.al('msg2', tipe, html); }
     var rg = { a: '', b: '' };
@@ -74,7 +77,7 @@
     }
     function load() {
         var mine = ++muat;
-        g('pk').innerHTML = '<tr><td colspan="10" class="c" style="color:var(--mut)">Memuat...</td></tr>';
+        g('pk').innerHTML = '<tr><td colspan="11" class="c" style="color:var(--mut)">Memuat...</td></tr>';
         return U.post(URL.data, { start: rg.a, end: rg.b }).then(function (res) {
             if (mine !== muat) return;
             if (!res || !res.data || !res.data.ok) {
@@ -82,6 +85,8 @@
                 pesan('bad', esc(res && res.message ? res.message : 'Gagal memuat data.'));
             } else {
                 rows = res.data.rows || [];
+                var ada = {}; rows.forEach(function (p) { ada[p.id] = true; });
+                Object.keys(sel).forEach(function (k) { if (!ada[k]) delete sel[k]; });
                 disp = res.data.display || [];
             }
             r2(1);
@@ -116,9 +121,7 @@
         g('cards').innerHTML = [['Diterima', all.length], ['Ada selisih', c(function (p) { return p.selisih; })], ['Di display', c(function (p) { return jmlDisp(p) > 0; })], ['Selesai', c(function (p) { return !!p.selesai; })], ['Dari Packer', c(function (p) { return p.dari === 'PACKER'; })],
             ['Dari HO', c(function (p) { return p.dari === 'HO'; })], ['Dari Kurir', c(function (p) { return p.dari === 'KURIR'; })]]
             .map(function (x) { return '<div><b>' + x[1] + '</b><small>' + x[0] + '</small></div>'; }).join('');
-        var bs = g('bsr');
-        bs.disabled = !satuHariNilai();
-        bs.title = satuHariNilai() ? 'Cetak serah terima ' + U.tglIndo(rg.a) : 'Pilih satu tanggal untuk mencetak serah terima (satu hari satu serah terima)';
+        selUpdate();
 
         var st = (pg - 1) * per, ps = tampil.slice(st, st + per);
         g('pk').innerHTML = ps.map(function (p, i) {
@@ -127,7 +130,7 @@
                 return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi)) +
                     (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
             }).join('');
-            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
+            return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td class="c"><input type="checkbox" data-act="pilih" data-id="' + p.id + '"' + (sel[p.id] ? ' checked' : '') + '></td><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
                 '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
@@ -135,9 +138,9 @@
                 '</td><td class="c aksi"><button type="button" class="eye" title="Catat barang kembali ke display" aria-label="Catat barang kembali ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>' +
                 '<button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
                 '<button type="button" class="eye del" title="Hapus" aria-label="Hapus" data-act="hapus" data-id="' + p.id + '">&#128465;</button></td></tr>' +
-                '<tr id="pc_d' + i + '" class="hide"><td></td><td colspan="9">' + det + (p.catatan ? '<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> ' + esc(p.catatan) + '</div>' : '') +
+                '<tr id="pc_d' + i + '" class="hide"><td></td><td></td><td colspan="9">' + det + (p.catatan ? '<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> ' + esc(p.catatan) + '</div>' : '') +
                 (p.petugas ? '<div class="note" style="margin:4px 0 0">Diterima oleh ' + esc(p.petugas) + (p.toko ? ' &middot; ' + esc(p.toko) : '') + '</div>' : '') + '</td></tr>';
-        }).join('') || '<tr><td colspan="10" class="c" style="color:var(--mut)">Tidak ada data.</td></tr>';
+        }).join('') || '<tr><td colspan="11" class="c" style="color:var(--mut)">Tidak ada data.</td></tr>';
         g('pgi').textContent = tot ? 'Menampilkan ' + (st + 1) + '-' + Math.min(st + per, tot) + ' dari ' + tot : 'Menampilkan 0 dari 0';
         var b = [], a = Math.max(1, pg - 2), z = Math.min(pages, pg + 2), k;
         b.push('<button type="button" class="a x s"' + (pg <= 1 ? ' disabled' : '') + ' data-act="hal" data-p="' + (pg - 1) + '">&laquo;</button>');
@@ -149,22 +152,34 @@
 
     // Status pengembalian 2 tahap: serah terima dicetak -> selesai (centang)
     function kolomKembali(p) {
-        var cetak = !!p.dicetak;
-        var ket = p.selesai ? '<span class="b ok">SELESAI</span><br><small class="note" title="' + esc(p.petugas_selesai || '') + '">' + esc(p.selesai) + '</small>'
-            : cetak ? '<span class="b info">DICETAK</span><br><small class="note">' + esc(p.dicetak) + '</small>'
-            : '<span class="b gray">BELUM DICETAK</span>';
-        return '<label style="display:inline-flex;gap:6px;align-items:center;cursor:' + (cetak ? 'pointer' : 'not-allowed') + '" title="' + (cetak ? 'Centang bila barang sudah selesai dikembalikan ke restok' : 'Cetak serah terima dulu') + '">' +
-            '<input type="checkbox" data-act="selesai" data-id="' + p.id + '"' + (p.selesai ? ' checked' : '') + (cetak ? '' : ' disabled') + '></label><div>' + ket + '</div>';
+        if (p.selesai) return '<span class="b ok">SELESAI</span> <button type="button" class="eye" style="width:22px;height:22px" title="Batalkan tanda selesai" aria-label="Batalkan tanda selesai" data-act="batal-selesai" data-id="' + p.id + '">&#8617;</button><br><small class="note" title="' + esc(p.petugas_selesai || '') + '">' + esc(p.selesai) + '</small>';
+        if (p.dicetak) return '<span class="b info">DICETAK</span><br><small class="note">' + esc(p.dicetak) + '</small>';
+        return '<span class="b gray">BELUM DICETAK</span>';
     }
-    function selesai(cb) {
-        var p = cariPaket(cb.dataset.id), v = cb.checked;
-        if (!p) return;
-        cb.disabled = true;
-        U.post(URL.selesai, { id: p.id, selesai: v ? 1 : 0 }).then(function (res) {
-            if (!(res && res.data && res.data.ok)) { pesan('bad', esc(res && res.message ? res.message : 'Gagal menyimpan status')); return; }
-            p.selesai = res.data.selesai;
-            pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b>: ' + esc(res.message) + '.');
-        }).catch(function (x) { pesan('bad', esc(U.pesanGagal(x))); }).then(function () { r2(0); });
+    function idTerpilih() { return Object.keys(sel).map(Number); }
+    function selUpdate() {
+        var n = idTerpilih().length, f = filt(), k = f.filter(function (p) { return sel[p.id]; }).length, a = g('all');
+        a.checked = f.length > 0 && k === f.length;
+        a.indeterminate = k > 0 && k < f.length;
+        g('selinfo').textContent = n ? n + ' paket dipilih' : '';
+        g('bsl').disabled = n === 0;
+        g('bsr').disabled = n === 0 && !satuHariNilai();
+        g('bsr').title = n ? 'Cetak serah terima ' + n + ' paket yang dicentang' : satuHariNilai() ? 'Cetak serah terima semua paket ' + U.tglIndo(rg.a) : 'Centang paket, atau pilih satu tanggal untuk mencetak semua paket tanggal itu';
+    }
+    function postSelesai(ids, nilai) {
+        return U.post(URL.selesai, { ids: ids.join(','), selesai: nilai ? 1 : 0 }).then(function (res) {
+            var d = (res && res.data) || {};
+            pesan(d.ok ? (d.dilewati || d.gagal ? 'warn' : 'ok') : 'bad', esc(res && res.message ? res.message : 'Gagal menyimpan status'));
+            return load();
+        }).catch(function (x) { pesan('bad', esc(U.pesanGagal(x))); });
+    }
+    function selesaiBanyak() {
+        var ids = idTerpilih();
+        if (!ids.length) { pesan('warn', 'Centang paket yang mau ditandai selesai dulu.'); return; }
+        var belum = rows.filter(function (p) { return sel[p.id] && !p.dicetak; }).length, sudah = rows.filter(function (p) { return sel[p.id] && p.selesai; }).length;
+        U.konfirm('Tandai selesai?', ids.length + ' paket dicentang akan ditandai <b>selesai</b> dikembalikan ke restok.' + (belum ? '<br><span style="color:var(--bad)">' + belum + ' paket belum dicetak serah terimanya dan akan dilewati.</span>' : '') + (sudah ? '<br>' + sudah + ' paket sudah selesai sebelumnya.' : ''), 'Ya, tandai selesai', 'g', function () {
+            return postSelesai(ids, true).then(function () { return null; });
+        });
     }
 
     function rDisp(reset) {
@@ -268,20 +283,28 @@
 
     // ───── serah terima (satu per hari) ─────
     function serah() {
-        if (!satuHariNilai()) {
-            pesan('warn', 'Serah terima dibuat <b>satu per hari</b>. Pilih satu tanggal di filter tanggal, mis. tanggal paket diterima.');
+        var ids = idTerpilih();
+        if (!ids.length && !satuHariNilai()) {
+            pesan('warn', 'Centang paket yang mau dicetak, atau pilih <b>satu tanggal</b> di filter tanggal untuk mencetak semua paket tanggal itu.');
             return;
         }
-        var t = rg.a;
+        var t = ids.length ? U.hari(0) : rg.a;
         g('msg2').innerHTML = '';
-        U.post(URL.serah, { tanggal: t }).then(function (res) {
+        U.post(URL.serah, { tanggal: t, ids: ids.join(',') }).then(function (res) {
             var d = (res && res.data) || {};
             if (!d.ok) { pesan('bad', esc(res && res.message ? res.message : 'Gagal memuat serah terima.')); return; }
-            if (!d.jumlah_paket) { pesan('warn', 'Tidak ada paket cancel diterima pada ' + U.tglIndo(t) + '.'); return; }
-            pratinjau(t, d);
+            if (!d.jumlah_paket) { pesan('warn', ids.length ? 'Paket yang dicentang tidak ditemukan.' : 'Tidak ada paket cancel diterima pada ' + U.tglIndo(t) + '.'); return; }
+            pratinjau(t, d, ids);
         }).catch(function (x) { pesan('bad', esc(U.pesanGagal(x))); });
     }
-    function pratinjau(t, d) {
+    // Cetak lewat form POST ke tab baru (daftar id bisa panjang, tidak muat di URL)
+    function cetakPost(t, ids) {
+        var f = document.createElement('form');
+        f.method = 'POST'; f.action = URL.cetak; f.target = '_blank'; f.style.display = 'none';
+        [['tanggal', t], ['ids', ids || '']].forEach(function (x) { var i = document.createElement('input'); i.type = 'hidden'; i.name = x[0]; i.value = x[1]; f.appendChild(i); });
+        document.body.appendChild(f); f.submit(); document.body.removeChild(f);
+    }
+    function pratinjau(t, d, ids) {
         var det = d.det || [];
         var baris = det.length ? det.map(function (x, k) {
             return '<tr><td class="f c">' + (k + 1) + '</td><td class="f c">' + esc(x.rak) + '</td><td class="f">' + esc(x.sku) + '</td><td class="f c">' + x.qty + '</td><td class="f"></td><td></td></tr>';
@@ -289,7 +312,7 @@
         var nama = (d.petugas || []).map(function (n) { return '<b>' + esc(n) + '</b>'; }).join('<br>') || '&nbsp;';
         var c = g('cetak');
         c.className = 'pcd';
-        c.innerHTML = '<div class="pr"><h2 class="grow">Pratinjau kertas serah terima</h2><button type="button" class="a w s" data-act="cetak" data-t="' + esc(t) + '">&#128424; Cetak</button><button type="button" class="a x s" data-act="cetak-tutup">Tutup</button></div>' +
+        c.innerHTML = '<div class="pr"><h2 class="grow">Pratinjau kertas serah terima' + (ids && ids.length ? ' <small class="note">(' + ids.length + ' paket dipilih)</small>' : '') + '</h2><button type="button" class="a w s" data-act="cetak" data-t="' + esc(t) + '" data-ids="' + esc((ids || []).join(',')) + '">&#128424; Cetak</button><button type="button" class="a x s" data-act="cetak-tutup">Tutup</button></div>' +
             '<div class="paper"><div style="display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:6px"><b style="font-size:16px">PENGEMBALIAN BARANG (PAKET CANCEL DARI RETUR KE RESTOK)</b><b>' + U.tglIndo(t) + '</b></div>' +
             '<table><thead><tr><th class="f">No</th><th class="f">No. Rak</th><th class="f">SKU</th><th class="f">Qty</th><th class="f">Qty Real</th><th>Ket</th></tr></thead><tbody>' + baris + '</tbody></table>' +
             '<div class="ttd"><div>RETUR<div class="sp"></div>' + nama + '</div><div>RESTOK<div class="sp"></div>&nbsp;</div></div></div>';
@@ -497,7 +520,11 @@
             case 'dsp-max': dspMax(t); break;
             case 'display-batal': displayBatal(t.dataset.id); break;
             case 'serah': serah(); break;
-            case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); setTimeout(load, 1500); break;
+            case 'cetak': cetakPost(t.dataset.t, t.dataset.ids); setTimeout(load, 1500); break;
+            case 'pilih': if (t.checked) sel[t.dataset.id] = true; else delete sel[t.dataset.id]; selUpdate(); break;
+            case 'pilih-semua': filt().forEach(function (p) { if (t.checked) sel[p.id] = true; else delete sel[p.id]; }); r2(0); break;
+            case 'selesai-banyak': selesaiBanyak(); break;
+            case 'batal-selesai': postSelesai([+t.dataset.id], false); break;
             case 'cetak-tutup': g('cetak').className = 'pcd hide'; break;
             case 'info': g('infolap').classList.toggle('hide'); break;
             case 'dsp-tog': dspSet(!g('dspw').classList.contains('hide')); break;
@@ -529,7 +556,6 @@
         }
     });
     R.addEventListener('change', function (e) {
-        if (e.target.dataset && e.target.dataset.act === 'selesai') { selesai(e.target); return; }
         if (e.target.dataset && e.target.dataset.act === 'ms-chg') {
             var v = [];
             e.target.closest('.msl').querySelectorAll('input:checked').forEach(function (i) { v.push(i.value); });
