@@ -27,7 +27,7 @@
   </div>
  </div>
  <div class="pcd tc">
-  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th style="width:36px"></th><th>No. Resi</th><th>Tanggal</th><th>Asal</th><th>Jam</th><th class="c">Qty Resi</th><th class="c">Qty Ada</th><th>Isi</th><th class="c" style="width:120px" title="Status pengembalian ke restok: dicetak serah terima, lalu selesai">Pengembalian</th><th class="c" style="width:130px">Aksi</th></tr></thead><tbody id="pc_pk"></tbody></table></div>
   <div class="tf">
    <span id="pc_pgi" class="note"></span>
    <div class="pr"><label class="note">Tampilkan <select id="pc_ps"><option>10</option><option>20</option><option>50</option><option>100</option></select> baris</label><span id="pc_pgn" class="pr" style="gap:4px"></span></div>
@@ -45,6 +45,7 @@
         edit: '<?= base_url('paket-cancel/edit-simpan') ?>',
         hapus: '<?= base_url('paket-cancel/hapus') ?>',
         tandai: '<?= base_url('paket-cancel/tandai-display') ?>',
+        selesai: '<?= base_url('paket-cancel/tandai-selesai') ?>',
         batalTandai: '<?= base_url('paket-cancel/batal-display') ?>',
         catat: '<?= base_url('paket-cancel/catat-display') ?>',
         serah: '<?= base_url('paket-cancel/serah-data') ?>',
@@ -73,7 +74,7 @@
     }
     function load() {
         var mine = ++muat;
-        g('pk').innerHTML = '<tr><td colspan="9" class="c" style="color:var(--mut)">Memuat...</td></tr>';
+        g('pk').innerHTML = '<tr><td colspan="10" class="c" style="color:var(--mut)">Memuat...</td></tr>';
         return U.post(URL.data, { start: rg.a, end: rg.b }).then(function (res) {
             if (mine !== muat) return;
             if (!res || !res.data || !res.data.ok) {
@@ -112,7 +113,7 @@
         var all = rows, tampil = filt(), per = +g('ps').value, tot = tampil.length, pages = Math.max(1, Math.ceil(tot / per));
         if (pg > pages) pg = pages;
         var c = function (f) { return all.filter(f).length; };
-        g('cards').innerHTML = [['Diterima', all.length], ['Ada selisih', c(function (p) { return p.selisih; })], ['Di display', c(function (p) { return jmlDisp(p) > 0; })], ['Dari Packer', c(function (p) { return p.dari === 'PACKER'; })],
+        g('cards').innerHTML = [['Diterima', all.length], ['Ada selisih', c(function (p) { return p.selisih; })], ['Di display', c(function (p) { return jmlDisp(p) > 0; })], ['Selesai', c(function (p) { return !!p.selesai; })], ['Dari Packer', c(function (p) { return p.dari === 'PACKER'; })],
             ['Dari HO', c(function (p) { return p.dari === 'HO'; })], ['Dari Kurir', c(function (p) { return p.dari === 'KURIR'; })]]
             .map(function (x) { return '<div><b>' + x[1] + '</b><small>' + x[0] + '</small></div>'; }).join('');
         var bs = g('bsr');
@@ -130,12 +131,13 @@
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
                 '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
+                '</td><td class="c">' + kolomKembali(p) +
                 '</td><td class="c aksi"><button type="button" class="eye" title="Catat barang kembali ke display" aria-label="Catat barang kembali ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>' +
                 '<button type="button" class="eye" title="Edit" aria-label="Edit" data-act="edit" data-id="' + p.id + '">&#9998;</button>' +
                 '<button type="button" class="eye del" title="Hapus" aria-label="Hapus" data-act="hapus" data-id="' + p.id + '">&#128465;</button></td></tr>' +
-                '<tr id="pc_d' + i + '" class="hide"><td></td><td colspan="8">' + det + (p.catatan ? '<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> ' + esc(p.catatan) + '</div>' : '') +
+                '<tr id="pc_d' + i + '" class="hide"><td></td><td colspan="9">' + det + (p.catatan ? '<div style="color:var(--bad);margin-top:4px"><b>Catatan:</b> ' + esc(p.catatan) + '</div>' : '') +
                 (p.petugas ? '<div class="note" style="margin:4px 0 0">Diterima oleh ' + esc(p.petugas) + (p.toko ? ' &middot; ' + esc(p.toko) : '') + '</div>' : '') + '</td></tr>';
-        }).join('') || '<tr><td colspan="9" class="c" style="color:var(--mut)">Tidak ada data.</td></tr>';
+        }).join('') || '<tr><td colspan="10" class="c" style="color:var(--mut)">Tidak ada data.</td></tr>';
         g('pgi').textContent = tot ? 'Menampilkan ' + (st + 1) + '-' + Math.min(st + per, tot) + ' dari ' + tot : 'Menampilkan 0 dari 0';
         var b = [], a = Math.max(1, pg - 2), z = Math.min(pages, pg + 2), k;
         b.push('<button type="button" class="a x s"' + (pg <= 1 ? ' disabled' : '') + ' data-act="hal" data-p="' + (pg - 1) + '">&laquo;</button>');
@@ -143,6 +145,26 @@
         b.push('<button type="button" class="a x s"' + (pg >= pages ? ' disabled' : '') + ' data-act="hal" data-p="' + (pg + 1) + '">&raquo;</button>');
         g('pgn').innerHTML = b.join('');
         rDisp(reset);
+    }
+
+    // Status pengembalian 2 tahap: serah terima dicetak -> selesai (centang)
+    function kolomKembali(p) {
+        var cetak = !!p.dicetak;
+        var ket = p.selesai ? '<span class="b ok">SELESAI</span><br><small class="note" title="' + esc(p.petugas_selesai || '') + '">' + esc(p.selesai) + '</small>'
+            : cetak ? '<span class="b info">DICETAK</span><br><small class="note">' + esc(p.dicetak) + '</small>'
+            : '<span class="b gray">BELUM DICETAK</span>';
+        return '<label style="display:inline-flex;gap:6px;align-items:center;cursor:' + (cetak ? 'pointer' : 'not-allowed') + '" title="' + (cetak ? 'Centang bila barang sudah selesai dikembalikan ke restok' : 'Cetak serah terima dulu') + '">' +
+            '<input type="checkbox" data-act="selesai" data-id="' + p.id + '"' + (p.selesai ? ' checked' : '') + (cetak ? '' : ' disabled') + '></label><div>' + ket + '</div>';
+    }
+    function selesai(cb) {
+        var p = cariPaket(cb.dataset.id), v = cb.checked;
+        if (!p) return;
+        cb.disabled = true;
+        U.post(URL.selesai, { id: p.id, selesai: v ? 1 : 0 }).then(function (res) {
+            if (!(res && res.data && res.data.ok)) { pesan('bad', esc(res && res.message ? res.message : 'Gagal menyimpan status')); return; }
+            p.selesai = res.data.selesai;
+            pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b>: ' + esc(res.message) + '.');
+        }).catch(function (x) { pesan('bad', esc(U.pesanGagal(x))); }).then(function () { r2(0); });
     }
 
     function rDisp(reset) {
@@ -475,7 +497,7 @@
             case 'dsp-max': dspMax(t); break;
             case 'display-batal': displayBatal(t.dataset.id); break;
             case 'serah': serah(); break;
-            case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); break;
+            case 'cetak': window.open(URL.cetak + '?tanggal=' + encodeURIComponent(t.dataset.t), '_blank'); setTimeout(load, 1500); break;
             case 'cetak-tutup': g('cetak').className = 'pcd hide'; break;
             case 'info': g('infolap').classList.toggle('hide'); break;
             case 'dsp-tog': dspSet(!g('dspw').classList.contains('hide')); break;
@@ -507,6 +529,7 @@
         }
     });
     R.addEventListener('change', function (e) {
+        if (e.target.dataset && e.target.dataset.act === 'selesai') { selesai(e.target); return; }
         if (e.target.dataset && e.target.dataset.act === 'ms-chg') {
             var v = [];
             e.target.closest('.msl').querySelectorAll('input:checked').forEach(function (i) { v.push(i.value); });

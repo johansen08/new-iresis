@@ -151,6 +151,13 @@ class Paket_cancel extends MY_Controller
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
 
+    // Centang "selesai" pada laporan (tahap 2 status pengembalian)
+    public function tandai_selesai()
+    {
+        $hasil = $this->cancel_terima_fcd->tandai_selesai((int) $this->input->post('id'), (int) $this->input->post('selesai') === 1, $this->id_user());
+        $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
+    }
+
     // Isi kertas serah terima satu tanggal (pratinjau di halaman laporan)
     public function serah_data()
     {
@@ -164,6 +171,10 @@ class Paket_cancel extends MY_Controller
         $tanggal = $this->tanggal($this->input->get('tanggal'), date('Y-m-d'));
         $data = $this->cancel_terima_fcd->serah_harian($tanggal);
         $data['tanggal'] = $tanggal;
+        // Membuka halaman cetak = serah terima dicetak (status pengembalian tahap 1)
+        if ($data['jumlah_paket'] > 0) {
+            $this->cancel_terima_fcd->tandai_serah_dicetak($tanggal, $this->id_user());
+        }
         $this->load->view('paket_cancel/serah_cetak', $data);
     }
 }

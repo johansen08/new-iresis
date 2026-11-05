@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-04.2';
+    const BOOTSTRAP_VERSI = '2026-11-05.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2037,9 +2037,21 @@ class MY_Controller extends CI_Controller
                 $this->db->query("ALTER TABLE tblcancel_paket $ddl");
             }
         }
+        // Status pengembalian paket ke restock, 2 tahap: serah terima dicetak -> selesai (centang di laporan).
+        $kolom_kembali = [
+            'serah_cetak_at'   => "ADD COLUMN serah_cetak_at datetime DEFAULT NULL AFTER display_catatan",
+            'serah_cetak_oleh' => "ADD COLUMN serah_cetak_oleh int(11) DEFAULT NULL AFTER serah_cetak_at",
+            'selesai_at'       => "ADD COLUMN selesai_at datetime DEFAULT NULL AFTER serah_cetak_oleh",
+            'selesai_oleh'     => "ADD COLUMN selesai_oleh int(11) DEFAULT NULL AFTER selesai_at",
+        ];
+        foreach ($kolom_kembali as $nama => $ddl) {
+            if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE '$nama'")->num_rows()) {
+                $this->db->query("ALTER TABLE tblcancel_paket $ddl");
+            }
+        }
         $tipe = $this->db->query("SHOW COLUMNS FROM tblcancel_paket_log LIKE 'aksi'")->row_array();
-        if ($tipe && stripos($tipe['Type'], 'DISPLAY') === false) {
-            $this->db->query("ALTER TABLE tblcancel_paket_log MODIFY aksi enum('TERIMA','EDIT','HAPUS','DISPLAY','BATAL_DISPLAY') NOT NULL");
+        if ($tipe && stripos($tipe['Type'], 'BATAL_SELESAI') === false) {
+            $this->db->query("ALTER TABLE tblcancel_paket_log MODIFY aksi enum('TERIMA','EDIT','HAPUS','DISPLAY','BATAL_DISPLAY','SELESAI','BATAL_SELESAI') NOT NULL");
         }
 
         // Catatan barang kembali ke display per SKU & qty (dari paket diterima, atau tanpa resi).

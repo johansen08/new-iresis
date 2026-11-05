@@ -444,9 +444,10 @@ class Cancel_terima_fcd extends CI_Model
     {
         $rows = $this->db
             ->select("p.id_cancel_paket AS id, p.id_resi, p.noresi, p.diterima_dari AS dari, p.catatan, p.dicek_at, p.diedit_at,
-                u.name AS petugas, r.toko", false)
+                p.serah_cetak_at, p.selesai_at, u.name AS petugas, us.name AS petugas_selesai, r.toko", false)
             ->from('tblcancel_paket p')
             ->join('tbluser u', 'u.id_user = p.dicek_oleh', 'left')
+            ->join('tbluser us', 'us.id_user = p.selesai_oleh', 'left')
             ->join('tblprintresi r', 'r.id_printresi = p.id_resi', 'left')
             ->where('p.dicek_at IS NOT NULL', null, false)
             ->where('p.dihapus_at IS NULL', null, false)
@@ -486,6 +487,9 @@ class Cancel_terima_fcd extends CI_Model
             $r['tgl'] = substr($r['dicek_at'], 0, 10);
             $r['jam'] = substr($r['dicek_at'], 11, 8);
             $r['diedit'] = $r['diedit_at'] ? substr($r['diedit_at'], 11, 8) : null;
+            $r['dicetak'] = $r['serah_cetak_at'] ? substr($r['serah_cetak_at'], 0, 16) : null;
+            $r['selesai'] = $r['selesai_at'] ? substr($r['selesai_at'], 0, 16) : null;
+            unset($r['serah_cetak_at'], $r['selesai_at']);
             $r['items'] = $per[$r['id']] ?? [];
             $r['tanpa_resi'] = (int) $r['id_resi'] < 0;
             unset($r['id_resi']);
@@ -499,6 +503,64 @@ class Cancel_terima_fcd extends CI_Model
             unset($r['dicek_at'], $r['diedit_at']);
         }
         return $rows;
+    }
+
+    /**
+     * Status pengembalian tahap 1: paket yang diterima pada $tanggal ditandai "serah terima
+     * dicetak" (hanya yang belum bertanda, jadi cetak ulang tidak menimpa waktu pertama).
+     */
+    public function tandai_serah_dicetak($tanggal, $id_user)
+    {
+        if ($this->mode_arsip()) {
+            return 0;
+        }
+        $now = date('Y-m-d H:i:s');
+        $this->db->where('dicek_at IS NOT NULL', null, false)
+            ->where('dihapus_at IS NULL', null, false)
+            ->where('serah_cetak_at IS NULL', null, false)
+            ->where('dicek_at >=', $tanggal . ' 00:00:00')
+            ->where('dicek_at <=', $tanggal . ' 23:59:59')
+            ->update('tblcancel_paket', ['serah_cetak_at' => $now, 'serah_cetak_oleh' => $id_user]);
+        return $this->db->affected_rows();
+    }
+
+    /**
+     * Status pengembalian tahap 2: centang selesai (atau batalkan centang). Hanya boleh
+     * setelah serah terima dicetak.
+     */
+    public function tandai_selesai($id_paket, $selesai, $id_user)
+    {
+        if ($this->mode_arsip()) {
+            return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa diubah'];
+        }
+        $db_debug_asli = $this->db->db_debug;
+        $this->db->db_debug = false;
+        $this->db->trans_start();
+
+        $paket = $this->paket_untuk_ubah($id_paket);
+        if (!$paket) {
+            $this->db->trans_complete();
+            $this->db->db_debug = $db_debug_asli;
+            return ['ok' => false, 'message' => 'Paket tidak ditemukan atau sudah dihapus'];
+        }
+        if ($selesai && $paket->serah_cetak_at === null) {
+            $this->db->trans_complete();
+            $this->db->db_debug = $db_debug_asli;
+            return ['ok' => false, 'message' => 'Cetak serah terima dulu, baru paket bisa ditandai selesai'];
+        }
+        $now = date('Y-m-d H:i:s');
+        $this->db->where('id_cancel_paket', $paket->id_cancel_paket)->update('tblcancel_paket', [
+            'selesai_at'   => $selesai ? $now : null,
+            'selesai_oleh' => $selesai ? $id_user : null,
+            'updated_at'   => $now,
+        ]);
+        $this->tulis_log($paket->id_cancel_paket, $selesai ? 'SELESAI' : 'BATAL_SELESAI', $id_user, null, null);
+        $this->db->trans_complete();
+        $ok = $this->db->trans_status();
+        $this->db->db_debug = $db_debug_asli;
+
+        return $ok ? ['ok' => true, 'message' => $selesai ? 'Paket ditandai selesai' : 'Tanda selesai dibatalkan', 'selesai' => $selesai ? substr($now, 0, 16) : null]
+                   : ['ok' => false, 'message' => 'Gagal menyimpan status'];
     }
 
     private function paket_untuk_ubah($id_paket)
