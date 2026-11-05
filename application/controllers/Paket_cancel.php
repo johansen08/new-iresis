@@ -60,6 +60,17 @@ class Paket_cancel extends MY_Controller
         $this->make_ajax_response(200, 'ok', $this->cancel_terima_fcd->cari_sku($this->input->post('sku')));
     }
 
+    // Pilihan Kurang / Salah dari petugas: [{sku, pasangan, qty}]; tidak dikirim (klien lama) = null (aturan lama)
+    private function daftar_salah()
+    {
+        $mentah = $this->input->post('salah');
+        if ($mentah === null) {
+            return null;
+        }
+        $x = json_decode((string) $mentah, true);
+        return is_array($x) ? $x : [];
+    }
+
     public function simpan()
     {
         $items = json_decode((string) $this->input->post('items'), true);
@@ -71,7 +82,8 @@ class Paket_cancel extends MY_Controller
             $this->input->post('catatan'),
             $this->id_user(),
             isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : null,
-            is_array($alasan) ? $alasan : []
+            is_array($alasan) ? $alasan : [],
+            $this->daftar_salah()
         );
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }
@@ -106,7 +118,8 @@ class Paket_cancel extends MY_Controller
             $this->input->post('dari'),
             is_array($items) ? $items : [],
             $this->input->post('catatan'),
-            $this->id_user()
+            $this->id_user(),
+            $this->daftar_salah()
         );
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }

@@ -46,8 +46,11 @@ class Cancel_terima_fcd extends CI_Model
      * @param array $baris [['sku','qty_resi','qty_ditemukan'], ...]
      * @return array ['grup' => [['jenis','sku','pasangan','qty','key'], ...], 'total' => ['KURANG','LEBIH','SALAH_AMBIL','DI_LUAR_RESI']]
      */
-    public static function klasifikasi(array $baris)
+    public static function klasifikasi(array $baris, array $salah = null)
     {
+        if ($salah !== null) {
+            return self::klasifikasi_eksplisit($baris, $salah);
+        }
         $kur = $pool = $leb = $luar = [];
         foreach ($baris as $b) {
             $r = (int) $b['qty_resi'];
@@ -97,17 +100,108 @@ class Cancel_terima_fcd extends CI_Model
     }
 
     /**
+     * Kejadian selisih menurut pilihan petugas (Kurang / Salah), bukan tebakan. Salah ambil hanya terjadi bila
+     * petugas mengisinya: SKU resi yang kurang diganti SKU di luar resi. Selisih yang tidak dialokasikan ke
+     * salah ambil = KURANG. Barang yang ada lebih dari resi = LEBIH, SKU di luar resi yang tidak dipakai
+     * salah ambil = DI_LUAR_RESI.
+     * @param array $salah [['sku' => SKU resi, 'pasangan' => SKU yang terambil, 'qty' => n], ...]
+     * @return array sama dengan klasifikasi(), atau ['error' => pesan]
+     */
+    public static function klasifikasi_eksplisit(array $baris, array $salah)
+    {
+        $info = [];
+        foreach ($baris as $b) {
+            $info[strtoupper($b['sku'])] = ['sku' => $b['sku'], 'r' => (int) $b['qty_resi'], 'a' => (int) $b['qty_ditemukan']];
+        }
+        $kurang = $pool = [];
+        foreach ($info as $k => $i) {
+            $kurang[$k] = $i['r'] > 0 ? max(0, $i['r'] - $i['a']) : 0;
+            $pool[$k] = $i['r'] > 0 ? max(0, $i['a'] - $i['r']) : $i['a'];
+        }
+        $alok = [];
+        $pakai_salah = $pakai_pool = [];
+        foreach ($salah as $x) {
+            $sku = strtoupper(trim((string) ($x['sku'] ?? '')));
+            $pas = strtoupper(trim((string) ($x['pasangan'] ?? '')));
+            $q = (int) ($x['qty'] ?? 0);
+            if ($q < 1) {
+                return ['error' => 'Qty salah ambil minimal 1'];
+            }
+            if (!isset($info[$sku]) || $info[$sku]['r'] <= 0) {
+                return ['error' => 'Salah ambil: SKU ' . $sku . ' bukan SKU di resi'];
+            }
+            if (!isset($info[$pas]) || $info[$pas]['r'] > 0 || $pas === $sku) {
+                return ['error' => 'Salah ambil: SKU yang terambil (' . $pas . ') harus SKU di luar resi'];
+            }
+            $pakai_salah[$sku] = ($pakai_salah[$sku] ?? 0) + $q;
+            $pakai_pool[$pas] = ($pakai_pool[$pas] ?? 0) + $q;
+            $alok[$sku . '|' . $pas] = ($alok[$sku . '|' . $pas] ?? 0) + $q;
+        }
+        foreach ($pakai_salah as $k => $q) {
+            if ($q > $kurang[$k]) {
+                return ['error' => 'Salah ambil ' . $info[$k]['sku'] . ' (' . $q . ') melebihi selisihnya (' . $kurang[$k] . ')'];
+            }
+        }
+        foreach ($pakai_pool as $k => $q) {
+            if ($q > $pool[$k]) {
+                return ['error' => 'Qty ' . $info[$k]['sku'] . ' yang terambil (' . $q . ') melebihi barang yang ada (' . $pool[$k] . ')'];
+            }
+        }
+        $grup = [];
+        foreach ($info as $k => $i) {
+            if ($i['r'] <= 0) {
+                continue;
+            }
+            foreach ($alok as $kk => $q) {
+                list($a, $pas) = explode('|', $kk, 2);
+                if ($a === $k) {
+                    $grup[] = ['jenis' => 'SALAH_AMBIL', 'sku' => $i['sku'], 'pasangan' => $info[$pas]['sku'], 'qty' => $q];
+                }
+            }
+            $sisa = $kurang[$k] - ($pakai_salah[$k] ?? 0);
+            if ($sisa > 0) {
+                $grup[] = ['jenis' => 'KURANG', 'sku' => $i['sku'], 'pasangan' => null, 'qty' => $sisa];
+            }
+        }
+        foreach ([0, 1] as $resi_ada) { // di luar resi dulu, lalu lebih di resi (urutan sama dengan klasifikasi lama)
+            foreach ($info as $k => $i) {
+                if (($i['r'] > 0) !== (bool) $resi_ada) {
+                    continue;
+                }
+                $sisa = $pool[$k] - ($pakai_pool[$k] ?? 0);
+                if ($sisa > 0) {
+                    $grup[] = ['jenis' => $resi_ada ? 'LEBIH' : 'DI_LUAR_RESI', 'sku' => $i['sku'], 'pasangan' => null, 'qty' => $sisa];
+                }
+            }
+        }
+        $total = ['KURANG' => 0, 'LEBIH' => 0, 'SALAH_AMBIL' => 0, 'DI_LUAR_RESI' => 0];
+        foreach ($grup as &$g) {
+            $g['key'] = $g['jenis'] . '|' . strtoupper($g['sku']) . '|' . strtoupper((string) $g['pasangan']);
+            $total[$g['jenis']] += $g['qty'];
+        }
+        unset($g);
+        return ['grup' => $grup, 'total' => $total];
+    }
+
+    /**
      * Beri tiap baris item jenis / kode_alasan / pasangan_sku dan hitung total per jenis.
      * @param array $alasan key kejadian (jenis|SKU|PASANGAN) => kode alasan
      * @param bool  $isi_lainnya kejadian tanpa alasan diisi LAINNYA (dipakai bila ada catatan)
      * @return array ['baris' => [...], 'total' => [...], 'kosong' => jumlah kejadian tanpa alasan]
      */
-    private function labeli(array $baris, array $alasan, $isi_lainnya)
+    private function labeli(array $baris, array $alasan, $isi_lainnya, array $salah = null)
     {
-        $k = self::klasifikasi($baris);
+        $k = self::klasifikasi($baris, $salah);
+        if (isset($k['error'])) {
+            return ['error' => $k['error']];
+        }
         $kode = [];
         $kosong = 0;
         foreach ($k['grup'] as $g) {
+            if ($salah !== null) { // pilihan Kurang / Salah dari petugas: tanpa kode alasan
+                $kode[$g['key']] = null;
+                continue;
+            }
             $v = isset($alasan[$g['key']]) ? (string) $alasan[$g['key']] : '';
             if (!isset(self::ALASAN[$g['jenis']][$v])) {
                 $v = $isi_lainnya ? 'LAINNYA' : null;
@@ -132,7 +226,7 @@ class Cancel_terima_fcd extends CI_Model
             }
         }
         unset($b);
-        return ['baris' => $baris, 'total' => $k['total'], 'kosong' => $kosong];
+        return ['baris' => $baris, 'total' => $k['total'], 'kosong' => $kosong, 'grup' => $k['grup']];
     }
 
     private function kolom_total(array $total)
@@ -154,10 +248,32 @@ class Cancel_terima_fcd extends CI_Model
      * kurang (kolom sku_salah); yang tidak terpasang jadi baris sendiri (qty 0).
      * @return array key SKU (upper) => [sku, qty, qty_bermasalah, sku_salah, kurang]
      */
-    private function susun_masalah_picker(array $baris)
+    private function susun_masalah_picker(array $baris, array $grup = null)
     {
         $rows = [];
         $luar = [];
+        if ($grup !== null) {
+            // Pilihan petugas (kejadian eksplisit): KURANG / SALAH jadi qty bermasalah SKU resi, SALAH memuat SKU yang terambil.
+            $resi_qty = [];
+            foreach ($baris as $b) {
+                $resi_qty[strtoupper($b['sku'])] = (int) $b['qty_resi'];
+            }
+            foreach ($grup as $g) {
+                $k = strtoupper($g['sku']);
+                if ($g['jenis'] === 'DI_LUAR_RESI') {
+                    $rows[$k] = ['sku' => $g['sku'], 'qty' => 0, 'qty_bermasalah' => (int) $g['qty'], 'sku_salah' => null, 'kurang' => false];
+                    continue;
+                }
+                if (!isset($rows[$k])) {
+                    $rows[$k] = ['sku' => $g['sku'], 'qty' => $resi_qty[$k] ?? 0, 'qty_bermasalah' => 0, 'sku_salah' => null, 'kurang' => $g['jenis'] !== 'LEBIH'];
+                }
+                $rows[$k]['qty_bermasalah'] += (int) $g['qty'];
+                if ($g['jenis'] === 'SALAH_AMBIL' && $rows[$k]['sku_salah'] === null) {
+                    $rows[$k]['sku_salah'] = $g['pasangan'];
+                }
+            }
+            return $rows;
+        }
         foreach ($baris as $b) {
             $resi = (int) $b['qty_resi'];
             $ada  = (int) $b['qty_ditemukan'];
@@ -200,7 +316,7 @@ class Cancel_terima_fcd extends CI_Model
      * (tipe lain, SKU sama) tidak ditimpa/digandakan.
      * @return int|string jumlah SKU bermasalah yang tercatat, atau 'tanpa_picker' / 'lewati'
      */
-    private function sinkron_masalah_picker($id_resi, $noresi, array $baris, $id_user)
+    private function sinkron_masalah_picker($id_resi, $noresi, array $baris, $id_user, array $grup = null)
     {
         if ((int) $id_resi <= 0) {
             return 'lewati';
@@ -208,7 +324,7 @@ class Cancel_terima_fcd extends CI_Model
         if (!$this->db->select('id_resiambilbarang')->where('id_resi', (int) $id_resi)->limit(1)->get('tblresiambilbarang')->row()) {
             return 'tanpa_picker';
         }
-        $baru = $this->susun_masalah_picker($baris);
+        $baru = $this->susun_masalah_picker($baris, $grup);
         $lama = [];
         $ada_rows = $this->db->where('id_printresi', (int) $id_resi)->get('tblmasalahpicker')->result_array();
         $lain = [];
@@ -407,12 +523,30 @@ class Cancel_terima_fcd extends CI_Model
         ]);
     }
 
+    /** Kejadian selisih paket: baris lama dinonaktifkan (tanpa DELETE), kejadian baru ditulis. */
+    private function tulis_selisih($id_paket, $id_resi, array $grup, $now)
+    {
+        $this->db->where('id_cancel_paket', (int) $id_paket)->update('tblcancel_paket_selisih', ['aktif' => 0]);
+        foreach ($grup as $g) {
+            $this->db->insert('tblcancel_paket_selisih', [
+                'id_cancel_paket' => (int) $id_paket,
+                'id_resi'         => $id_resi,
+                'jenis'           => $g['jenis'],
+                'sku'             => $g['sku'],
+                'pasangan_sku'    => $g['pasangan'],
+                'qty'             => (int) $g['qty'],
+                'aktif'           => 1,
+                'created_at'      => $now,
+            ]);
+        }
+    }
+
     /**
      * Simpan penerimaan satu paket cancel.
      * @param array $items [['sku' => ..., 'qty' => ...], ...] qty yang ADA secara fisik (isi resi + barang di luar resi)
      * @return array ['ok' => bool, 'message' => string, 'selisih' => bool]
      */
-    public function simpan($noresi, $dari, array $items, $catatan, $id_user, $nama_komputer, array $alasan = [])
+    public function simpan($noresi, $dari, array $items, $catatan, $id_user, $nama_komputer, array $alasan = [], array $salah = null)
     {
         if ($this->mode_arsip()) {
             return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa disimpan'];
@@ -438,7 +572,10 @@ class Cancel_terima_fcd extends CI_Model
         }
         $catatan = trim((string) $catatan);
         // Tiap kejadian selisih wajib punya alasan; klien lama yang hanya mengirim catatan diterima (alasan = LAINNYA).
-        $lb = $this->labeli($s['baris'], $alasan, $catatan !== '');
+        $lb = $this->labeli($s['baris'], $alasan, $catatan !== '', $salah);
+        if (isset($lb['error'])) {
+            return ['ok' => false, 'message' => $lb['error']];
+        }
         if ($lb['kosong'] > 0) {
             return ['ok' => false, 'message' => 'Pilih alasan untuk ' . $lb['kosong'] . ' kejadian selisih'];
         }
@@ -495,10 +632,11 @@ class Cancel_terima_fcd extends CI_Model
                 'created_at'      => $now,
             ]);
         }
+        $this->tulis_selisih($id_paket, $cek['id_resi'], $lb['grup'], $now);
         $this->tulis_log($id_paket, 'TERIMA', $id_user, null, [
-            'dari' => $dari, 'selisih' => $s['selisih'], 'catatan' => $catatan, 'item' => $s['baris'],
+            'dari' => $dari, 'selisih' => $s['selisih'], 'catatan' => $catatan, 'item' => $s['baris'], 'kejadian' => $lb['grup'],
         ]);
-        $hasil_picker = $this->sinkron_masalah_picker($cek['id_resi'], $cek['noresi'], $s['baris'], $id_user);
+        $hasil_picker = $this->sinkron_masalah_picker($cek['id_resi'], $cek['noresi'], $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
@@ -591,6 +729,11 @@ class Cancel_terima_fcd extends CI_Model
             ->where('batal_at IS NULL', null, false)->group_by(['id_cancel_paket', 'sku'])->get('tblcancel_display')->result_array() as $d) {
             $disp[$d['id_cancel_paket'] . '|' . strtoupper($d['sku'])] = (int) $d['q'];
         }
+        $kej = [];
+        foreach ($this->db->select('id_cancel_paket, jenis, sku, pasangan_sku, qty')->where_in('id_cancel_paket', $ids)->where('aktif', 1)
+            ->order_by('id_selisih', 'ASC')->get('tblcancel_paket_selisih')->result_array() as $k) {
+            $kej[$k['id_cancel_paket']][] = ['jenis' => $k['jenis'], 'sku' => $k['sku'], 'pasangan' => $k['pasangan_sku'], 'qty' => (int) $k['qty']];
+        }
         foreach ($items as $it) {
             $key = $it['id_cancel_paket'];
             unset($it['id_cancel_paket']);
@@ -611,12 +754,25 @@ class Cancel_terima_fcd extends CI_Model
             $r['tanpa_resi'] = (int) $r['id_resi'] < 0;
             unset($r['id_resi']);
             $r['selisih'] = false;
+            $r['grup'] = [];
             $r['jenis_total'] = ['KURANG' => 0, 'LEBIH' => 0, 'SALAH_AMBIL' => 0, 'DI_LUAR_RESI' => 0];
             if (!$r['tanpa_resi']) {
-                // Dihitung dari qty supaya paket lama (kolom jenis masih kosong) ikut benar.
-                $kl = self::klasifikasi($r['items']);
-                $r['jenis_total'] = $kl['total'];
-                $r['selisih'] = count($kl['grup']) > 0;
+                if (isset($kej[$r['id']])) {
+                    // Kejadian tersimpan (pilihan petugas Kurang / Salah).
+                    $r['grup'] = $kej[$r['id']];
+                    foreach ($r['grup'] as $g) {
+                        $r['jenis_total'][$g['jenis']] += $g['qty'];
+                    }
+                    $r['selisih'] = count($r['grup']) > 0;
+                } else {
+                    // Paket lama (belum ada kejadian tersimpan): dihitung dari qty dengan aturan lama.
+                    $kl = self::klasifikasi($r['items']);
+                    $r['jenis_total'] = $kl['total'];
+                    $r['selisih'] = count($kl['grup']) > 0;
+                    foreach ($kl['grup'] as $g) {
+                        $r['grup'][] = ['jenis' => $g['jenis'], 'sku' => $g['sku'], 'pasangan' => $g['pasangan'], 'qty' => $g['qty']];
+                    }
+                }
                 // Paket lama: jenis per SKU belum tersimpan -> isi dari qty (kode alasan tetap kosong, tidak ditebak).
                 $legacy = false;
                 foreach ($r['items'] as $it) {
@@ -728,7 +884,7 @@ class Cancel_terima_fcd extends CI_Model
      * Edit paket yang sudah diterima: asal, qty ada per SKU, barang di luar resi, catatan.
      * Qty resi tetap (diambil dari item aktif), tidak bisa diubah dari klien.
      */
-    public function edit($id_paket, $dari, array $items, $catatan, $id_user)
+    public function edit($id_paket, $dari, array $items, $catatan, $id_user, array $salah = null)
     {
         if ($this->mode_arsip()) {
             return ['ok' => false, 'message' => 'Mode Arsip aktif: data tidak bisa disimpan'];
@@ -761,7 +917,7 @@ class Cancel_terima_fcd extends CI_Model
         $s = $this->susun_item($isi_resi, $items);
         $catatan = trim((string) $catatan);
         $pesan = null;
-        $lb = ['total' => ['KURANG' => 0, 'LEBIH' => 0, 'SALAH_AMBIL' => 0, 'DI_LUAR_RESI' => 0]];
+        $lb = ['total' => ['KURANG' => 0, 'LEBIH' => 0, 'SALAH_AMBIL' => 0, 'DI_LUAR_RESI' => 0], 'grup' => []];
         if (!isset($s['error'])) {
             // Alasan lama dibawa ke kejadian yang sama (jenis|SKU|pasangan); kejadian baru dibiarkan tanpa alasan.
             $alasan_lama = [];
@@ -770,13 +926,17 @@ class Cancel_terima_fcd extends CI_Model
                     $alasan_lama[$l['jenis'] . '|' . strtoupper($l['sku']) . '|' . strtoupper((string) $l['pasangan_sku'])] = $l['kode_alasan'];
                 }
             }
-            $lb = $this->labeli($s['baris'], $alasan_lama, false);
-            $s['baris'] = $lb['baris'];
+            $lb = $this->labeli($s['baris'], $alasan_lama, false, $salah);
+            if (isset($lb['error'])) {
+                $s['error'] = $lb['error'];
+            } else {
+                $s['baris'] = $lb['baris'];
+            }
         }
         if (isset($s['error'])) {
             $pesan = $s['error'];
-        } elseif ($s['selisih'] && $catatan === '') {
-            $pesan = 'Ada selisih SKU / qty: isi catatan penyebabnya';
+        } elseif ($catatan === '' && (((int) $paket->id_resi < 0) || ($s['selisih'] && $salah === null))) {
+            $pesan = (int) $paket->id_resi < 0 ? 'Isi catatan: ciri zip / keranjang asal paket tanpa resi' : 'Ada selisih SKU / qty: isi catatan penyebabnya';
         }
 
         // Ringkasan perubahan (untuk log); tanpa perubahan = ditolak.
@@ -802,6 +962,22 @@ class Cancel_terima_fcd extends CI_Model
             }
             if ($catatan !== (string) $paket->catatan) {
                 $perubahan[] = 'Catatan diubah';
+            }
+            if (!$perubahan && $salah !== null) {
+                // Qty sama tetapi pilihan Kurang / Salah berbeda
+                $ttd = function (array $g) {
+                    $h = array_map(function ($x) { return $x['jenis'] . '|' . strtoupper($x['sku']) . '|' . strtoupper((string) $x['pasangan']) . '|' . (int) $x['qty']; }, $g);
+                    sort($h);
+                    return implode(';', $h);
+                };
+                $lama_kej = [];
+                foreach ($this->db->select('jenis, sku, pasangan_sku, qty')->where('id_cancel_paket', $paket->id_cancel_paket)->where('aktif', 1)
+                    ->get('tblcancel_paket_selisih')->result_array() as $k) {
+                    $lama_kej[] = ['jenis' => $k['jenis'], 'sku' => $k['sku'], 'pasangan' => $k['pasangan_sku'], 'qty' => $k['qty']];
+                }
+                if ($ttd($lama_kej) !== $ttd($lb['grup'])) {
+                    $perubahan[] = 'Pilihan Kurang / Salah diubah';
+                }
             }
             if (!$perubahan) {
                 $pesan = 'Tidak ada perubahan untuk disimpan';
@@ -830,8 +1006,9 @@ class Cancel_terima_fcd extends CI_Model
             'diedit_oleh'   => $id_user,
             'updated_at'    => $now,
         ] + $this->kolom_total($lb['total']));
+        $this->tulis_selisih($paket->id_cancel_paket, $paket->id_resi, $lb['grup'], $now);
         $this->tulis_log($paket->id_cancel_paket, 'EDIT', $id_user, null, ['perubahan' => $perubahan]);
-        $hasil_picker = $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, $s['baris'], $id_user);
+        $hasil_picker = $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;

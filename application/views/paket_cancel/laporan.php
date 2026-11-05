@@ -54,15 +54,35 @@
         cetak: '<?= base_url('paket-cancel/serah-cetak') ?>'
     };
     var ALASAN = <?= json_encode(Cancel_terima_fcd::ALASAN, JSON_UNESCAPED_UNICODE) ?>;
-    var NMJ = { KURANG: 'KURANG', LEBIH: 'LEBIH', SALAH_AMBIL: 'SALAH AMBIL', DI_LUAR_RESI: 'DI LUAR RESI' };
-    var CLSJ = { KURANG: 'bad', LEBIH: 'info', SALAH_AMBIL: 'warn', DI_LUAR_RESI: 'lur' };
+    var NMJ = U.NMJ, CLSJ = U.CLSJ;
+    // Ringkasan kejadian per paket: hanya KURANG / SALAH / LEBIH (SKU di luar resi dihitung LEBIH)
     function tagSelisih(p) {
         var t = p.jenis_total || {};
-        return ['KURANG', 'LEBIH', 'SALAH_AMBIL', 'DI_LUAR_RESI'].filter(function (j) { return t[j] > 0; }).map(function (j) { return '<span class="b ' + CLSJ[j] + '">' + NMJ[j] + ' ' + t[j] + '</span>'; }).join(' ');
+        return [['KURANG', t.KURANG || 0], ['LEBIH', (t.LEBIH || 0) + (t.DI_LUAR_RESI || 0)], ['SALAH_AMBIL', t.SALAH_AMBIL || 0]]
+            .filter(function (x) { return x[1] > 0; }).map(function (x) { return U.tag(x[0], x[1]); }).join(' ');
     }
+    // Paket lama menyimpan kode alasan; paket baru tidak (pilihan Kurang / Salah saja)
     function infoAlasan(it) {
         var a = it.kode_alasan && ALASAN[it.jenis] ? ALASAN[it.jenis][it.kode_alasan] : '';
-        return (it.pasangan_sku ? ' <small class="note">&harr; ' + esc(it.pasangan_sku) + '</small>' : '') + (a ? ' <small class="note">(' + esc(a) + ')</small>' : '');
+        return a ? ' <small class="note">(' + esc(a) + ')</small>' : '';
+    }
+    // Rincian per SKU dari kejadian selisih paket (p.grup). SKU yang terambil (salah ambil) yang seluruh qty-nya
+    // terpakai tampil di baris SKU resi ("SALAH 2 terambil AB-8"), bukan baris sendiri.
+    function rincian(p) {
+        var grup = p.grup || [], pakai = {};
+        grup.forEach(function (k) { if (k.pasangan) pakai[k.pasangan.toUpperCase()] = (pakai[k.pasangan.toUpperCase()] || 0) + k.qty; });
+        return p.items.filter(function (it) {
+            var u = it.sku.toUpperCase();
+            return !(it.qty_resi === 0 && pakai[u] && pakai[u] >= it.qty_ditemukan);
+        }).map(function (it) {
+            var u = it.sku.toUpperCase();
+            var tags = grup.filter(function (k) { return k.sku.toUpperCase() === u; }).map(function (k) {
+                return U.tag(k.jenis, k.qty) + (k.pasangan ? ' <small class="note">terambil <b>' + esc(k.pasangan) + '</b></small>' : '');
+            });
+            if (!tags.length && it.qty_resi > 0) tags.push(U.tag('SESUAI'));
+            return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + tags.join(' ') + infoAlasan(it) +
+                (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
+        }).join('');
     }
     var rows = [];          // semua paket diterima pada rentang tanggal terpilih
     var disp = [];          // catatan barang kembali ke display pada rentang tanggal
@@ -136,14 +156,7 @@
 
         var st = (pg - 1) * per, ps = tampil.slice(st, st + per);
         g('pk').innerHTML = ps.map(function (p, i) {
-            // Salah ambil tampil satu baris: sisi resi yang kurang memuat pasangannya (↔ SKU yang ada), baris pasangan disembunyikan.
-            var pasangan = {};
-            p.items.forEach(function (x) { if (x.jenis === 'SALAH_AMBIL' && x.pasangan_sku && x.qty_ditemukan < x.qty_resi) pasangan[x.pasangan_sku.toUpperCase()] = true; });
-            var det = p.items.filter(function (it) { return !(it.jenis === 'SALAH_AMBIL' && it.qty_ditemukan > it.qty_resi && pasangan[it.sku.toUpperCase()]); }).map(function (it) {
-                var j = U.jenis(it.qty_resi, it.qty_ditemukan);
-                return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + (CLSJ[it.jenis] ? '<span class="b ' + CLSJ[it.jenis] + '">' + NMJ[it.jenis] + ' ' + Math.abs(it.qty_ditemukan - it.qty_resi) + '</span>' : U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi))) +
-                    infoAlasan(it) + (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
-            }).join('');
+            var det = rincian(p);
             return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td class="c"><input type="checkbox" data-act="pilih" data-id="' + p.id + '"' + (sel[p.id] ? ' checked' : '') + '></td><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
                 '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? tagSelisih(p) : '<span class="b ok">SESUAI</span>') +
@@ -341,95 +354,45 @@
     }
 
     // ───── edit ─────
+    var edK = null;         // pemeriksa isi popup edit (modul bersama U.periksa)
     function cariPaket(id) { return rows.filter(function (p) { return p.id === +id; })[0]; }
-    function edRow(i) {
-        var ex = i.qty_resi === 0;
-        return '<tr data-s="' + esc(i.sku) + '" data-r="' + i.qty_resi + '"><td><b>' + esc(i.sku) + '</b></td><td>' + U.foto(i) + '</td><td class="c">' + esc(i.no_rak) + '</td><td class="c">' + i.qty_resi +
-            '</td><td><input class="q" type="number" min="0" value="' + i.qty_ditemukan + '"></td><td class="st"></td><td>' + (ex ? '<button type="button" class="a x s" data-act="ed-hapus-x">&times;</button>' : '') + '</td></tr>';
-    }
     function edBuka(id) {
         var p = cariPaket(id);
         if (!p) return;
         var as = ['PACKER', 'HO', 'KURIR'].map(function (a) {
             return '<label class="asl-o"><input type="radio" name="edari" value="' + a + '"' + (p.dari === a ? ' checked' : '') + '><span class="asl-c"><span class="asl-i">' + U.IKON[a] + '</span><span><b>' + NM[a] + '</b></span></span></label>';
         }).join('');
+        var kepala = '<thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead>';
         edO = U.mdBuka('<h3 style="margin:0 0 2px">Edit paket cancel</h3><div class="note" style="margin-bottom:12px">' + esc(nr(p)) + ' &middot; diterima ' + esc(p.tgl) + ' ' + esc(p.jam) + '</div>' +
             '<div class="stp"><b>Asal paket</b></div><div class="asl"><div class="asl-g">' + as + '</div></div>' +
-            '<div class="stp" style="margin-top:16px"><b>Isi paket</b></div><div class="txw"><table class="tx edtbl"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="pc_edb">' + p.items.map(edRow).join('') + '</tbody></table></div>' +
+            '<div id="pc_edisi"><div class="stp" style="margin-top:16px"><b>Isi resi</b></div><div id="pc_edban"></div><div class="txw"><table class="tx edtbl">' + kepala + '<tbody id="pc_edb"></tbody></table></div></div>' +
+            '<div class="stp" style="margin-top:16px"><b>' + (p.tanpa_resi ? 'Barang di paket' : 'Barang di luar resi') + '</b></div>' +
+            '<div id="pc_edxt" class="txw hide"><table class="tx edtbl"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="pc_edx"></tbody></table></div>' +
             '<div class="addx"><div class="ac"><input id="pc_edsku" placeholder="Tambah SKU di luar resi" autocomplete="off"><div id="pc_eddd" class="dd hide"></div></div><input id="pc_edq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="ed-tambah">+ Tambah</button></div><div id="pc_edmsg"></div>' +
-            '<div id="pc_edban" style="margin-top:12px"></div><div class="sect" style="margin-top:8px"><b>Catatan</b><small class="note">wajib bila ada selisih</small></div><textarea id="pc_edcat" rows="2" maxlength="255">' + esc(p.catatan || '') + '</textarea>' +
-            '<div class="pr" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-act="ed-batal">Batal</button><button type="button" class="a g" data-act="ed-simpan" data-id="' + p.id + '">&#10003; Simpan perubahan</button></div>', 60, 720);
+            '<div class="sect" style="margin-top:12px"><b>Catatan</b><small class="note">' + (p.tanpa_resi ? 'wajib: ciri zip / keranjang asal' : 'opsional') + '</small></div><textarea id="pc_edcat" rows="2" maxlength="255">' + esc(p.catatan || '') + '</textarea>' +
+            '<div class="pr" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-act="ed-batal">Batal</button><button type="button" class="a g" data-act="ed-simpan" data-id="' + p.id + '">&#10003; Simpan perubahan</button></div>', 60, 760);
+        edK = U.periksa({ root: edO, isi: g('edb'), luar: g('edx'), luarWrap: g('edxt'), ban: g('edban') });
         U.skuPasang({ input: g('edsku'), dd: g('eddd'), qty: g('edq'), tambah: edTambah });
-        edHit();
-    }
-    // Kelompokkan selisih jadi kejadian (sama dengan Cancel_terima_fcd::klasifikasi() dan terima.php)
-    function klas(b) {
-        var kur = [], luar = [], leb = [], grup = [];
-        b.forEach(function (x) {
-            if (x.r > 0) {
-                if (x.a < x.r) kur.push({ s: x.s, q: x.r - x.a });
-                else if (x.a > x.r) leb.push({ s: x.s, q: x.a - x.r, j: 'LEBIH' });
-            } else if (x.a > 0) luar.push({ s: x.s, q: x.a, j: 'DI_LUAR_RESI' });
-        });
-        var pool = luar.concat(leb);
-        kur.forEach(function (k) {
-            pool.forEach(function (o) {
-                if (k.q <= 0 || o.q <= 0) return;
-                var t = Math.min(k.q, o.q);
-                grup.push({ j: 'SALAH_AMBIL', s: k.s, p: o.s, q: t });
-                k.q -= t; o.q -= t;
+        // Keadaan awal dari kejadian tersimpan: SALAH -> SKU terambil + qty, KURANG -> pilihan Kurang
+        var isiResi = p.items.filter(function (i) { return i.qty_resi > 0; });
+        var luarItem = p.items.filter(function (i) { return i.qty_resi === 0; });
+        var salah = [], kurang = [], pakai = {};
+        if (!p.tanpa_resi) {
+            (p.grup || []).forEach(function (k) {
+                if (k.jenis === 'KURANG') { kurang.push(k.sku); return; }
+                if (k.jenis !== 'SALAH_AMBIL') return;
+                var pi = luarItem.filter(function (x) { return x.sku.toUpperCase() === String(k.pasangan || '').toUpperCase(); })[0];
+                if (!pi) { kurang.push(k.sku); return; } // pasangan di dalam resi (aturan lama): jadi Kurang + Lebih
+                salah.push({ sku: k.sku, pasangan: { sku: pi.sku, no_rak: pi.no_rak, foto: pi.foto, foto_lokal: pi.foto_lokal }, qty: k.qty });
+                pakai[pi.sku.toUpperCase()] = (pakai[pi.sku.toUpperCase()] || 0) + k.qty;
             });
-            if (k.q > 0) grup.push({ j: 'KURANG', s: k.s, p: '', q: k.q });
-        });
-        pool.forEach(function (o) { if (o.q > 0) grup.push({ j: o.j, s: o.s, p: '', q: o.q }); });
-        return grup;
-    }
-    // Blok "salah ambil" di kolom Status: SKU yang ada, rak-nya, dan qty dengan tombol - / +.
-    function blokSalah(k, awalan, br) {
-        var sku = esc(k.p);
-        return '<div class="sa"><span class="b warn">SALAH AMBIL</span>' +
-            '<div class="sa-r"><small>yang ada</small><b>' + sku + '</b>' + (br && br.rak ? '<small>rak ' + esc(br.rak) + '</small>' : '') + '</div>' +
-            (br ? '<div class="stp3"><button type="button" data-act="' + awalan + 'min" data-sku="' + sku + '" aria-label="Kurangi qty ' + sku + '">&minus;</button><span class="n">' + br.qty + '</span>' +
-                '<button type="button" data-act="' + awalan + 'plus" data-sku="' + sku + '" aria-label="Tambah qty ' + sku + '">+</button><small>pcs</small></div>'
-                : '<div class="sa-r"><small>' + k.q + ' pcs</small></div>') + '</div>';
-    }
-    // Status satu baris: SKU yang sebenarnya (resi) memuat "SALAH AMBIL <SKU yang salah> x qty"; baris SKU salah
-    // yang seluruh qty-nya terpakai di salah ambil disembunyikan (qty-nya diubah lewat tombol - / + di baris SKU resi).
-    function statusSelisih(x, grup, awalan, adaBarisLuar) {
-        var sku = x.s.toUpperCase();
-        var mine = grup.filter(function (k) { return k.s.toUpperCase() === sku; });
-        var asPair = grup.filter(function (k) { return k.p && k.p.toUpperCase() === sku; });
-        var paired = asPair.reduce(function (n, k) { return n + k.q; }, 0);
-        var sembunyi = x.r === 0 && paired > 0 && paired === x.a;
-        var h = [];
-        mine.forEach(function (k) {
-            if (k.j === 'SALAH_AMBIL') {
-                h.push(blokSalah(k, awalan, adaBarisLuar(k.p)));
-            } else h.push('<span class="b ' + CLSJ[k.j] + '">' + NMJ[k.j] + ' ' + k.q + '</span>');
-        });
-        if (!mine.length) {
-            asPair.forEach(function (k) { if (!sembunyi) h.push('<span class="b info">LEBIH ' + k.q + '</span> <small class="note">dipakai ganti ' + esc(k.s) + '</small>'); });
         }
-        if (!h.length && x.r > 0) h.push('<span class="b ok">SESUAI</span>');
-        return { html: h.join('<br>'), sembunyi: sembunyi };
-    }
-    function edHit() {
-        var b = [], trs = g('edb').querySelectorAll('tr');
-        trs.forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0, tr: tr }); });
-        var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 };
-        grup.forEach(function (k) { tot[k.j] += k.q; });
-        var adaLuar = function (sku) {
-            var x = b.filter(function (y) { return y.r === 0 && y.s.toUpperCase() === String(sku).toUpperCase(); })[0];
-            return x ? { qty: x.a, rak: x.tr.cells[2].textContent.trim() } : null;
-        };
-        trs.forEach(function (tr, i) {
-            var st = statusSelisih(b[i], grup, 'ed-p', adaLuar);
-            tr.querySelector('.st').innerHTML = st.html;
-            tr.hidden = st.sembunyi;
-        });
-        var s = tot.KURANG + tot.LEBIH + tot.SALAH_AMBIL + tot.DI_LUAR_RESI;
-        g('edban').innerHTML = s ? '<div class="al warn" style="margin:0"><b>ADA SELISIH:</b> ' + [tot.KURANG && 'kurang ' + tot.KURANG, tot.LEBIH && 'lebih ' + tot.LEBIH, tot.SALAH_AMBIL && 'salah ambil ' + tot.SALAH_AMBIL, tot.DI_LUAR_RESI && 'di luar resi ' + tot.DI_LUAR_RESI].filter(Boolean).join(', ') + ' pcs</div>' : '<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b></div>';
-        return !!s;
+        var luar = luarItem.map(function (x) {
+            return { sku: x.sku, no_rak: x.no_rak, foto: x.foto, foto_lokal: x.foto_lokal, ada: x.qty_ditemukan - (pakai[x.sku.toUpperCase()] || 0) };
+        }).filter(function (x) { return x.ada > 0; });
+        edK.tanpa = !!p.tanpa_resi;
+        if (p.tanpa_resi) g('edisi').style.display = 'none';
+        edK.muat(isiResi.map(function (i) { return { sku: i.sku, no_rak: i.no_rak, qty: i.qty_resi, ada: i.qty_ditemukan, foto: i.foto, foto_lokal: i.foto_lokal }; }), luar, salah, kurang);
     }
     function edTambah() {
         var teks = g('edsku').value.trim(), q = +g('edq').value;
@@ -439,17 +402,9 @@
         U.cariSku(teks).then(function (d) {
             if (d.status === 'ambigu') { U.al('edmsg', 'warn', 'Beberapa SKU cocok: ' + d.kandidat.map(function (k) { return esc(k.id_sku); }).join(', ') + '. Ketik lebih lengkap.'); return; }
             if (d.status !== 'ok') { U.al('edmsg', 'bad', 'SKU <b>' + esc(teks) + '</b> tidak ditemukan.'); return; }
-            var kode = d.sku.id_sku, ada = null;
-            g('edb').querySelectorAll('tr').forEach(function (tr) { if (tr.dataset.s.toUpperCase() === kode.toUpperCase()) ada = tr; });
-            if (ada) {
-                if (+ada.dataset.r > 0) { U.al('edmsg', 'warn', 'SKU <b>' + esc(kode) + '</b> ada di resi: ubah Qty ada di tabel.'); return; }
-                var i = ada.querySelector('input');
-                i.value = (+i.value || 0) + q;
-            } else {
-                g('edb').insertAdjacentHTML('beforeend', edRow({ sku: kode, no_rak: d.sku.no_rak, qty_resi: 0, qty_ditemukan: q, foto: d.sku.foto, foto_lokal: d.sku.foto_lokal }));
-            }
+            var gagal = edK.tambahLuar(d.sku, q);
+            if (gagal) { U.al('edmsg', gagal.tipe, gagal.pesan); return; }
             g('edsku').value = ''; g('edq').value = 1;
-            edHit();
         }).catch(function (x) { U.al('edmsg', 'bad', esc(U.pesanGagal(x))); });
     }
     function edSimpan(id) {
@@ -458,25 +413,34 @@
         var rd = m.querySelector('[name=edari]:checked'), dari = rd ? rd.value : null;
         g('edmsg').innerHTML = '';
         if (!dari) { U.al('edmsg', 'bad', 'Pilih asal paket.'); return; }
-        var it = [];
-        m.querySelectorAll('#pc_edb tr').forEach(function (tr) { it.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0 }); });
-        var sel = edHit(), cat = g('edcat').value.trim();
-        if (sel && !cat) { U.al('edmsg', 'bad', 'Ada selisih: isi catatan penyebabnya.'); g('edcat').focus(); return; }
+        var bp = edK.belumPutus();
+        if (bp.length) {
+            edK.render();
+            U.al('edmsg', 'bad', 'Pilih <b>Kurang</b> atau <b>Salah</b> untuk ' + bp.map(function (b) { return '<b>' + esc(b.sku) + '</b>'; }).join(', ') + ' (qty ada kurang dari qty resi).');
+            return;
+        }
+        var pay = edK.payload(), cat = g('edcat').value.trim();
+        if (p.tanpa_resi && !cat) { U.al('edmsg', 'bad', 'Isi catatan: ciri zip / keranjang asal paket tanpa resi.'); g('edcat').focus(); return; }
+        var baru = {};
+        pay.items.forEach(function (i) { var k = i.sku.toUpperCase(); baru[k] = baru[k] || { s: i.sku, a: 0 }; baru[k].a += i.qty; });
         var ch = [];
         if (dari !== p.dari) ch.push('Asal: <b>' + NM[p.dari] + '</b> &rarr; <b>' + NM[dari] + '</b>');
-        var lama = {}, baru = {};
+        var lama = {};
         p.items.forEach(function (i) { lama[i.sku.toUpperCase()] = i; });
-        it.forEach(function (i) {
-            baru[i.s.toUpperCase()] = i;
-            var o = lama[i.s.toUpperCase()];
-            if (!o) ch.push('+ <b>' + esc(i.s) + '</b>: ' + i.a + ' pcs (di luar resi)');
+        Object.keys(baru).forEach(function (k) {
+            var o = lama[k], i = baru[k];
+            if (!o) { if (i.a > 0) ch.push('+ <b>' + esc(i.s) + '</b>: ' + i.a + ' pcs (di luar resi)'); }
             else if (o.qty_ditemukan !== i.a) ch.push('<b>' + esc(i.s) + '</b>: ' + o.qty_ditemukan + ' &rarr; ' + i.a + ' pcs');
         });
-        p.items.forEach(function (o) { if (!baru[o.sku.toUpperCase()]) ch.push('- <b>' + esc(o.sku) + '</b> dihapus dari paket'); });
+        p.items.forEach(function (o) { if (!baru[o.sku.toUpperCase()] && o.qty_ditemukan > 0) ch.push('- <b>' + esc(o.sku) + '</b> dihapus dari paket'); });
         if (cat !== (p.catatan || '')) ch.push('Catatan diubah');
+        // Pilihan Kurang / Salah yang berubah dengan qty tetap: ikut ringkasan
+        var ttd = function (g2) { return g2.map(function (k) { return k.j + '|' + k.s.toUpperCase() + '|' + (k.p || '').toUpperCase() + '|' + k.q; }).sort().join(';'); };
+        var kejLama = (p.grup || []).map(function (k) { return { j: k.jenis, s: k.sku, p: k.pasangan || '', q: k.qty }; });
+        if (!ch.length && !p.tanpa_resi && ttd(kejLama) !== ttd(edK.grup())) ch.push('Pilihan Kurang / Salah diubah');
         if (!ch.length) { U.al('edmsg', 'warn', 'Tidak ada perubahan untuk disimpan.'); return; }
         U.konfirm('Simpan perubahan?', 'Perubahan pada paket <b>' + esc(nr(p)) + '</b>:<ul style="margin:8px 0 0;padding-left:20px">' + ch.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>', 'Ya, simpan', 'g', function () {
-            return U.post(URL.edit, { id: p.id, dari: dari, catatan: cat, items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; })) }).then(function (res) {
+            return U.post(URL.edit, { id: p.id, dari: dari, catatan: cat, items: JSON.stringify(pay.items), salah: JSON.stringify(pay.salah) }).then(function (res) {
                 if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal menyimpan perubahan');
                 U.mdTutup(edO);
                 pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b> berhasil diperbarui.');
@@ -629,11 +593,6 @@
             case 'ms-tutup': msClose(); break;
             case 'tg': U.tg(t); break;
             case 'ed-tambah': edTambah(); break;
-            case 'ed-hapus-x': t.closest('tr').remove(); edHit(); break;
-            case 'ed-pmin': case 'ed-pplus':
-                var br = [].filter.call(g('edb').querySelectorAll('tr'), function (tr) { return tr.dataset.s.toUpperCase() === t.dataset.sku.toUpperCase() && +tr.dataset.r === 0; })[0];
-                if (br) { var pi = br.querySelector('input'); pi.value = Math.max(0, (+pi.value || 0) + (a === 'ed-pplus' ? 1 : -1)); edHit(); }
-                break;
             case 'ed-batal': U.mdTutup(edO); break;
             case 'ed-simpan': edSimpan(t.dataset.id); break;
         }
@@ -651,7 +610,6 @@
     });
     R.addEventListener('input', function (e) {
         if (e.target.id === 'pc_qs') r2(1);
-        else if (e.target.matches('#pc_edb input')) edHit();
         else if (e.target.matches('.dsp input.q')) dspHit();
     });
     // klik di luar popover filter -> tutup (satu listener, dilepas bila halaman sudah diganti)
