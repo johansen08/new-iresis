@@ -217,3 +217,20 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .btn-tanpa{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:44px;margin-top:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
 .pc .btn-tanpa:hover{border-color:var(--pri);color:var(--pri);background:#2d4fd60d}
 .pc .btn-tanpa:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+
+/* Jenis selisih (terima paket cancel): kartu ringkasan, stepper qty, kejadian + alasan */
+.pc .b.lur{background:#6941c6}
+.pc .sum{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+.pc .sum div{flex:1 1 90px;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;color:var(--mut)}
+.pc .sum b{display:block;font-size:20px;line-height:1.1;font-variant-numeric:tabular-nums}
+.pc .sum small{font-size:11.5px;color:var(--mut)}
+.pc .sum .on{border-color:currentColor}
+.pc .sum .k.on{color:var(--bad)} .pc .sum .l.on{color:var(--info)} .pc .sum .s.on{color:var(--warn)} .pc .sum .x.on{color:#6941c6} .pc .sum .o.on{color:var(--ok)}
+.pc .stp3{display:inline-flex;align-items:center;gap:4px}
+.pc .stp3 button{width:30px;height:30px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:8px;font-size:17px;line-height:1;cursor:pointer;padding:0}
+.pc .stp3 button:hover{border-color:var(--pri);color:var(--pri)}
+.pc .stp3 input.q{width:56px;height:30px;padding:0 4px;text-align:center}
+.pc .stp3 button.nol{width:auto;padding:0 10px;font-size:13px;font-weight:600;margin-left:4px}
+.pc .grp{border:1px solid var(--bd);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,230px);gap:8px 12px;align-items:center;margin-bottom:8px}
+.pc .grp.need{border-color:var(--bad)}
+@media(max-width:560px){.pc .grp{grid-template-columns:minmax(0,1fr)}}

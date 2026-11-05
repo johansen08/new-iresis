@@ -20,24 +20,26 @@
   </div>
 
   <div class="sec" id="pc_secisi">
-   <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada. Salah ambil: nolkan SKU resi yang tidak ada, lalu tambahkan SKU yang ada di bagian bawah.</div></div>
+   <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada (tombol &minus; / + atau ketik). Tombol <b>0</b> = barang itu tidak ada di paket. Salah ambil: nolkan SKU resi yang tidak ada, lalu scan SKU yang ada di bagian bawah &mdash; otomatis terbaca sebagai salah ambil.</div></div>
    <div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody id="pc_isi"></tbody></table></div>
   </div>
 
   <div class="sec">
-   <div class="sect"><b id="pc_xjudul">Barang di luar resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">SKU / qty yang ada di paket tetapi tidak tertulis di resi.</div></div>
-   <div id="pc_xt" class="txw hide"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty ada</th><th style="width:50px"></th></tr></thead><tbody id="pc_ex"></tbody></table></div>
+   <div class="sect"><b id="pc_xjudul">Barang di luar resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">SKU / qty yang ada di paket tetapi tidak tertulis di resi. Scan SKU: tiap scan menambah 1 (tidak perlu mengetik qty).</div></div>
+   <div id="pc_xt" class="txw hide"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty ada</th><th>Status</th><th style="width:50px"></th></tr></thead><tbody id="pc_ex"></tbody></table></div>
    <div class="addx"><div class="ac"><input id="pc_xsku" placeholder="Ketik SKU, rekomendasi muncul..." autocomplete="off"><div id="pc_dd" class="dd hide"></div></div><input id="pc_xq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="tambah-x">+ Tambah</button></div>
    <div id="pc_xmsg"></div>
   </div>
 
   <div class="sec">
    <div id="pc_ban"></div>
-   <div class="sect"><b>Catatan</b><small class="note" id="pc_catn">wajib bila ada selisih</small></div>
-   <textarea id="pc_cat" rows="2" maxlength="255" placeholder="mis. picker salah ambil ZU-2, qty kurang 1"></textarea>
+   <div class="sect"><b>Kejadian selisih &amp; alasan</b><small class="note">pilih alasan untuk tiap kejadian</small></div>
+   <div id="pc_grups"></div>
+   <div class="sect" style="margin-top:10px"><b>Catatan</b><small class="note" id="pc_catn">opsional</small></div>
+   <textarea id="pc_cat" rows="2" maxlength="255" placeholder="mis. picker baru, belum hafal rak"></textarea>
   </div>
 
-  <div class="fa"><button type="button" class="a x" data-act="batal">Batal</button><button type="button" class="a g" data-act="simpan">&#10003; Simpan Penerimaan</button></div>
+  <div class="fa"><button type="button" class="a x" data-act="batal">Batal</button><button type="button" class="a g" data-act="simpan">&#10003; Simpan sekarang (atau scan resi ini lagi)</button></div>
  </div>
 </div>
 </div>
@@ -52,6 +54,11 @@
         simpan: '<?= base_url('paket-cancel/simpan') ?>',
         simpanTanpa: '<?= base_url('paket-cancel/simpan-tanpa-resi') ?>'
     };
+    var ALASAN = <?= json_encode(Cancel_terima_fcd::ALASAN, JSON_UNESCAPED_UNICODE) ?>;
+    var NMJ = { KURANG: 'KURANG', LEBIH: 'LEBIH', SALAH_AMBIL: 'SALAH AMBIL', DI_LUAR_RESI: 'DI LUAR RESI' };
+    var CLSJ = { SESUAI: 'ok', KURANG: 'bad', LEBIH: 'info', SALAH_AMBIL: 'warn', DI_LUAR_RESI: 'lur' };
+    var alasan = {};     // key kejadian (jenis|SKU|PASANGAN) -> kode alasan
+    var grupCur = [];    // kejadian selisih saat ini
     var cur = null;      // resi yang sedang diisi: {noresi, toko}
     var sibuk = false;   // ada request scan yang belum selesai
 
@@ -74,13 +81,16 @@
         g('resi').value = '';
         g('form').className = 'pcd hide';
         cur = null;
+        alasan = {}; grupCur = [];
+        g('grups').innerHTML = '';
         modeTanpa(false);
     }
     function modeTanpa(on) {
         g('secisi').classList.toggle('hide', on);
         g('fk').textContent = on ? 'Paket' : 'No. Resi';
         g('xjudul').textContent = on ? 'Barang di paket' : 'Barang di luar resi';
-        g('catn').textContent = on ? 'wajib: ciri zip / keranjang asal' : 'wajib bila ada selisih';
+        g('catn').textContent = on ? 'wajib: ciri zip / keranjang asal' : 'opsional';
+        g('grups').previousElementSibling.hidden = false;
     }
 
     // ───── paket tanpa kertas resi ─────
@@ -138,12 +148,13 @@
         g('isi').innerHTML = (d.isi || []).map(function (x) {
             var q = parseInt(x.qty, 10);
             return '<tr data-s="' + esc(x.sku) + '" data-q="' + q + '"><td><b>' + esc(x.sku) + '</b></td><td>' + U.foto(x) + '</td><td class="c">' + esc(x.no_rak) + '</td><td class="c">' + q +
-                '</td><td><input class="q" type="number" min="0" value="' + q + '"></td><td class="st"></td></tr>';
+                '</td><td>' + stepper(q, 'isi') + '</td><td class="st"></td></tr>';
         }).join('') || '<tr><td colspan="6" class="c" style="color:var(--mut)">Resi tidak punya detail SKU</td></tr>';
         g('ex').innerHTML = '';
         g('xt').className = 'txw hide';
         g('xmsg').innerHTML = '';
         g('cat').value = '';
+        alasan = {};
         g('form').className = 'pcd';
         hit();
         // Fokus tetap di kolom resi: periksa isi (ubah qty bila perlu), lalu scan resi yang sama sekali lagi untuk menyimpan.
@@ -152,24 +163,76 @@
         g('resi').select();
     }
 
-    // Hitung ulang status baris + banner selisih. Mengembalikan true bila ada selisih.
-    function hit() {
-        var k = 0, l = 0, x = 0;
-        g('isi').querySelectorAll('tr[data-s]').forEach(function (tr) {
-            var q = +tr.dataset.q, v = +tr.querySelector('input').value || 0, d = v - q;
-            tr.querySelector('.st').innerHTML = U.bd(d === 0 ? 'SESUAI' : d < 0 ? 'KURANG' : 'LEBIH', Math.abs(d));
-            if (d < 0) k -= d; else l += d;
+    function stepper(v, tipe) {
+        return '<span class="stp3"><button type="button" data-act="qmin" aria-label="Kurangi">&minus;</button><input class="q" type="number" min="0" value="' + v + '"><button type="button" data-act="qplus" aria-label="Tambah">+</button>' +
+            (tipe === 'isi' ? '<button type="button" class="nol" data-act="qnol" title="Barang ini tidak ada di paket">0</button>' : '') + '</span>';
+    }
+
+    // Kelompokkan selisih jadi kejadian: kurang, lebih, salah ambil (kurang dipasangkan dengan SKU yang
+    // muncul di luar resi / lebih di resi yang sama), di luar resi. Aturan sama dengan Cancel_terima_fcd::klasifikasi().
+    function klas(b) {
+        var kur = [], luar = [], leb = [], grup = [];
+        b.forEach(function (x) {
+            if (x.r > 0) {
+                if (x.a < x.r) kur.push({ s: x.s, q: x.r - x.a });
+                else if (x.a > x.r) leb.push({ s: x.s, q: x.a - x.r, j: 'LEBIH' });
+            } else if (x.a > 0) luar.push({ s: x.s, q: x.a, j: 'DI_LUAR_RESI' });
         });
-        g('ex').querySelectorAll('input').forEach(function (i) { x += +i.value || 0; });
-        var s = k || l || x;
+        var pool = luar.concat(leb);
+        kur.forEach(function (k) {
+            pool.forEach(function (o) {
+                if (k.q <= 0 || o.q <= 0) return;
+                var t = Math.min(k.q, o.q);
+                grup.push({ j: 'SALAH_AMBIL', s: k.s, p: o.s, q: t });
+                k.q -= t; o.q -= t;
+            });
+            if (k.q > 0) grup.push({ j: 'KURANG', s: k.s, p: '', q: k.q });
+        });
+        pool.forEach(function (o) { if (o.q > 0) grup.push({ j: o.j, s: o.s, p: '', q: o.q }); });
+        grup.forEach(function (g) { g.key = g.j + '|' + g.s.toUpperCase() + '|' + g.p.toUpperCase(); });
+        return grup;
+    }
+    function ambilBaris() {
+        var b = [];
+        g('isi').querySelectorAll('tr[data-s]').forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.q, a: +tr.querySelector('input').value || 0, tr: tr }); });
+        g('ex').querySelectorAll('tr').forEach(function (tr) { b.push({ s: tr.dataset.s, r: 0, a: +tr.querySelector('input').value || 0, tr: tr }); });
+        return b;
+    }
+    function tagJenis(j, n, p) {
+        return '<span class="b ' + CLSJ[j] + '">' + (NMJ[j] || j) + (n ? ' ' + n : '') + '</span>' + (p ? ' <small class="note">&rarr; ' + esc(p) + '</small>' : '');
+    }
+
+    // Hitung ulang status baris, kartu ringkasan, dan daftar kejadian selisih. Mengembalikan true bila ada selisih.
+    function hit() {
+        var b = ambilBaris(), x = 0;
         if (cur && cur.tanpa) {
+            b.forEach(function (i) { x += i.a; });
             g('ban').innerHTML = '<div class="al ok"><b>PAKET TANPA RESI:</b> ' + x + ' pcs, ikut serah terima ke restock</div>';
+            g('grups').innerHTML = ''; g('grups').previousElementSibling.hidden = true;
             return false;
         }
-        g('ban').innerHTML = s
-            ? '<div class="al warn"><b>ADA SELISIH:</b> ' + [k && 'kurang ' + k, l && 'lebih ' + l, x && 'di luar resi ' + x].filter(Boolean).join(', ') + ' pcs</div>'
-            : '<div class="al ok"><b>ISI SESUAI RESI</b></div>';
-        return !!s;
+        g('grups').previousElementSibling.hidden = false;
+        var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 }, sesuai = 0;
+        grup.forEach(function (k) { tot[k.j] += k.q; });
+        b.forEach(function (i) {
+            var h = grup.filter(function (k) { return k.s.toUpperCase() === i.s.toUpperCase() || (k.p && k.p.toUpperCase() === i.s.toUpperCase()); })[0];
+            var st = i.tr.querySelector('.st');
+            if (i.r > 0 && i.a === i.r) sesuai++;
+            if (st) st.innerHTML = h ? tagJenis(h.j, Math.abs(i.a - i.r), h.j === 'SALAH_AMBIL' ? (h.s.toUpperCase() === i.s.toUpperCase() ? h.p : h.s) : '') : (i.r > 0 ? tagJenis('SESUAI', 0) : '');
+        });
+        var kartu = [['o', 'Baris sesuai', sesuai], ['k', 'Kurang', tot.KURANG], ['l', 'Lebih', tot.LEBIH], ['s', 'Salah ambil', tot.SALAH_AMBIL], ['x', 'Di luar resi', tot.DI_LUAR_RESI]];
+        g('ban').innerHTML = '<div class="sum">' + kartu.map(function (k) { return '<div class="' + k[0] + (k[2] > 0 ? ' on' : '') + '"><b>' + k[2] + '</b><small>' + k[1] + '</small></div>'; }).join('') + '</div>';
+        grupCur = grup;
+        grup.forEach(function (k) { if (k.j === 'SALAH_AMBIL' && !alasan[k.key]) alasan[k.key] = 'PICKER_SALAH'; });
+        g('grups').innerHTML = grup.length ? grup.map(function (k) {
+            var judul = k.j === 'SALAH_AMBIL' ? 'tertulis <b>' + esc(k.s) + '</b> &rarr; yang ada <b>' + esc(k.p) + '</b> &times; ' + k.q
+                : k.j === 'KURANG' ? '<b>' + esc(k.s) + '</b> kurang ' + k.q
+                : k.j === 'LEBIH' ? '<b>' + esc(k.s) + '</b> lebih ' + k.q
+                : '<b>' + esc(k.s) + '</b> di luar resi &times; ' + k.q;
+            var opt = '<option value="">Pilih alasan...</option>' + Object.keys(ALASAN[k.j]).map(function (kd) { return '<option value="' + kd + '"' + (alasan[k.key] === kd ? ' selected' : '') + '>' + esc(ALASAN[k.j][kd]) + '</option>'; }).join('');
+            return '<div class="grp' + (alasan[k.key] ? '' : ' need') + '"><div>' + tagJenis(k.j, 0) + ' ' + judul + '</div><select data-key="' + esc(k.key) + '" aria-label="Alasan">' + opt + '</select></div>';
+        }).join('') : '<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b> &mdash; tidak ada alasan yang perlu diisi.</div>';
+        return grup.length > 0;
     }
 
     // ───── barang di luar resi ─────
@@ -187,7 +250,7 @@
             i.value = (+i.value || 0) + qty;
         } else {
             g('ex').insertAdjacentHTML('beforeend', '<tr data-s="' + esc(kode) + '"><td><b>' + esc(kode) + '</b></td><td>' + U.foto(sku) + '</td><td class="c">' + esc(sku.no_rak) +
-                '</td><td class="c"><input class="q" type="number" min="1" value="' + qty + '"></td><td><button type="button" class="a x s" data-act="hapus-x">&times;</button></td></tr>');
+                '</td><td class="c">' + stepper(qty, 'ex') + '</td><td class="st"></td><td><button type="button" class="a x s" data-act="hapus-x">&times;</button></td></tr>');
         }
         g('xt').className = 'txw';
         g('xsku').value = '';
@@ -211,12 +274,16 @@
     function simpanLangsung() {
         if (!cur) return;
         if (!asalWajib()) return;
-        var s = hit();
-        if (s && !g('cat').value.trim()) {
-            U.al('msg', 'bad', 'Ada selisih: isi catatan penyebabnya.');
-            g('cat').focus();
+        hit();
+        var kosong = grupCur.filter(function (k) { return !alasan[k.key]; });
+        if (kosong.length) {
+            U.al('msg', 'bad', 'Pilih alasan untuk <b>' + kosong.length + '</b> kejadian selisih dulu, lalu scan resi ini lagi.');
+            var sl = g('grups').querySelector('.grp.need select');
+            if (sl) sl.focus();
             return;
         }
+        var am = {};
+        grupCur.forEach(function (k) { am[k.key] = alasan[k.key]; });
         var it = [];
         g('isi').querySelectorAll('tr[data-s]').forEach(function (tr) { it.push({ s: tr.dataset.s, r: +tr.dataset.q, a: +tr.querySelector('input').value || 0 }); });
         g('ex').querySelectorAll('tr').forEach(function (tr) { it.push({ s: tr.dataset.s, r: 0, a: +tr.querySelector('input').value || 0 }); });
@@ -224,7 +291,7 @@
         if (sibuk) return;
         sibuk = true;
         U.post(URL.simpan, {
-            noresi: resi.noresi, dari: dari, catatan: cat,
+            noresi: resi.noresi, dari: dari, catatan: cat, alasan: JSON.stringify(am),
             items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; }))
         }).then(function (res) {
             var d = (res && res.data) || {};
@@ -268,6 +335,11 @@
         if (a === 'lihat') U.lihat(t);
         else if (a === 'tg') U.tg(t);
         else if (a === 'tambah-x') tambahX();
+        else if (a === 'qmin' || a === 'qplus' || a === 'qnol') {
+            var inp = t.closest('td').querySelector('input.q');
+            inp.value = a === 'qnol' ? 0 : Math.max(0, (+inp.value || 0) + (a === 'qplus' ? 1 : -1));
+            hit();
+        }
         else if (a === 'hapus-x') { t.closest('tr').remove(); if (!g('ex').children.length) g('xt').className = 'txw hide'; hit(); }
         else if (a === 'simpan') { if (cur && cur.tanpa) simpanTanpa(); else simpanLangsung(); }
         else if (a === 'tanpa') tanpaResi();
@@ -277,9 +349,23 @@
         if (e.target.matches('#pc_isi input, #pc_ex input')) hit();
     });
     R.addEventListener('change', function (e) {
+        if (e.target.matches('#pc_grups select')) {
+            alasan[e.target.dataset.key] = e.target.value;
+            e.target.closest('.grp').classList.toggle('need', !e.target.value);
+            return;
+        }
         if (e.target.name === 'dari') { asalPilih(); g('resi').focus(); }
     });
     g('resi').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); scan(); } });
+    // Esc = batal (hanya bila halaman ini masih tampil)
+    if (window.__pcTerimaEsc) document.removeEventListener('keydown', window.__pcTerimaEsc);
+    window.__pcTerimaEsc = function (e) {
+        if (e.key !== 'Escape' || !R.isConnected || !cur) return;
+        g('msg').innerHTML = '';
+        clr();
+        g('resi').focus();
+    };
+    document.addEventListener('keydown', window.__pcTerimaEsc);
     U.autoBersih(g('resi'));
     U.skuPasang({ input: g('xsku'), dd: g('dd'), qty: g('xq'), tambah: tambahX });
     g('resi').focus();

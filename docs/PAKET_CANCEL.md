@@ -296,3 +296,26 @@ filter; pilihan bertahan antar halaman). Yang dicentang menentukan paket mana ya
 Kolom baru `tblcancel_paket`: `serah_cetak_at/oleh`, `selesai_at/oleh`. Migrasi di
 `run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI` 2026-11-05.1). Status lain
 (mis. diterima restok) belum ada; tambahkan sebagai tahap baru bila diperlukan.
+
+## 15. Jenis selisih & alasan di Terima Paket Cancel (5 Nov 2026)
+
+Selisih satu paket dibaca sebagai **kejadian**, bukan angka mentah
+(`Cancel_terima_fcd::klasifikasi()`, algoritma yang sama di `terima.php`):
+
+- **KURANG** — SKU resi, qty ada < qty resi, tanpa pengganti.
+- **LEBIH** — SKU resi, qty ada > qty resi.
+- **SALAH AMBIL** — SKU resi yang kurang dipasangkan dengan SKU yang muncul di luar resi
+  (atau yang lebih di resi yang sama); qty pasangan = yang terkecil dari keduanya.
+- **DI LUAR RESI** — SKU tidak tertulis di resi dan tidak punya pasangan kurang.
+
+Tiap kejadian wajib punya **kode alasan** (`Cancel_terima_fcd::ALASAN`; salah ambil default
+`PICKER_SALAH`). Catatan jadi opsional. Server menghitung ulang jenis dari qty (tidak percaya
+klien); klien lama yang hanya mengirim catatan diterima dengan alasan `LAINNYA`.
+
+Kolom baru: `tblcancel_paket_item.jenis / kode_alasan / pasangan_sku`;
+`tblcancel_paket.total_kurang / total_lebih / total_salah_ambil / total_luar_resi`
+(migrasi di `run_paket_cancel_terima_migration`, `BOOTSTRAP_VERSI` 2026-11-05.2).
+Paket yang diterima sebelum perubahan ini kolomnya masih kosong; laporan menghitungnya dari qty
+(tidak ada UPDATE massal). Edit paket di laporan membawa alasan lama ke kejadian yang sama,
+kejadian baru dibiarkan tanpa alasan. Paket tanpa resi tidak diklasifikasi.
+Penyimpanan ke Daftar Masalah Picker (`sinkron_masalah_picker`) tidak diubah.
