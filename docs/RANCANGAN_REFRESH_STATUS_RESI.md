@@ -179,3 +179,18 @@ Pantau `logs/refresh_status_resi.log`: tiap mode mencetak ringkasan
 `kandidat / tanpa_perubahan / diperbarui / tidak_ketemu / ditunda`. Backlog selesai
 saat kandidat mode backlog tinggal 0. Hasil uji tulis 4 Nov 2026: mingguan 100 diperbarui
 (99 COMPLETED, 1 RETURNED), backlog 100 diperbarui, tanpa error.
+
+### Pembaruan 5 Nov 2026 (setelah run malam pertama)
+
+- Sebaran nyata: SHIPPED umur 15-60 hari ada ±415 ribu dan 4-14 hari ±83 ribu (prod hanya menyimpan
+  ±150 hari; sisanya dipindah purna). Antrean mingguan bukan "ratusan ribu menunggu" tapi
+  "±9 ribu masuk tiap hari", jadi jatah 3.000/malam tidak mengejar.
+- Panggilan detail kini **paralel** (`--pekerja`, bawaan 4). Ukur 5 Nov: 1 pekerja 1,4 order/dtk,
+  3 pekerja 3,9/dtk, 5 pekerja 6,8/dtk, tanpa 429. Jatah per malam naik: harian 12.000,
+  mingguan 15.000, backlog 6.000.
+- Upload + penandaan dilakukan **per 1.000 order**, jadi kalau job berhenti di tengah, hasil
+  yang sudah diproses tidak hilang.
+- Error jaringan Jubelio dicoba ulang (sebelumnya satu putus koneksi membatalkan satu mode).
+- Daftar order Jubelio tidak memuat `completed_date` (hanya ada di detail), jadi panggilan
+  detail tetap perlu untuk resi yang berubah menjadi COMPLETED; update "hanya dari daftar"
+  tidak dipakai agar `tanggal_selesai` tetap akurat.

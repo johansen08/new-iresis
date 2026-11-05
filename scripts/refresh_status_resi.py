@@ -35,6 +35,7 @@ import time
 from datetime import datetime, timedelta
 
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(__file__))
 import auto_upload_resi_api as base  # noqa: E402  (login, fetch_all_orders, dst. dipakai ulang)
@@ -70,10 +71,14 @@ base.get_with_backoff = get_tangguh  # dipakai fetch_all_orders() dan fetch_orde
 
 MODE_DEFAULT = {
     # mode: (maks_detail, batas_kandidat)
-    'harian':   (8000, 20000),
-    'mingguan': (3000, 10000),
-    'backlog':  (3000, 5000),
+    # Anggaran dinaikkan 5 Nov 2026: ~9 ribu resi/hari masuk umur 15-60 hari, jadi jatah mingguan
+    # harus > itu supaya antrean menyusut (resi terhapus dari prod oleh purna setelah ~150 hari).
+    'harian':   (12000, 25000),
+    'mingguan': (15000, 30000),
+    'backlog':  (6000, 10000),
 }
+PEKERJA_DEFAULT = 4    # panggilan detail paralel; uji 5 Nov: 1=1,4/dtk, 3=3,9/dtk, 5=6,8/dtk, tanpa 429
+CHUNK_DETAIL = 1000    # upload + tandai tiap sekian order, supaya kerja tidak hilang kalau berhenti di tengah
 PAD_DARI_HARI = 5      # transaction_date Jubelio bisa mendahului tanggal cetak resi
 PAD_SAMPAI_HARI = 1
 TANDAI_BATCH = 2000
@@ -116,9 +121,9 @@ def tandai_dicek(noresi_list):
     return total
 
 
-def proses_mode(s, mode, maks_detail, batas_kandidat, kering):
+def proses_mode(s, mode, maks_detail, batas_kandidat, kering, pekerja=PEKERJA_DEFAULT):
     base.log(f'=== MODE {mode.upper()} (maks detail {maks_detail}, batas kandidat {batas_kandidat}'
-             f'{", KERING" if kering else ""}) ===')
+             f'{", KERING" if kering else ""}, {pekerja} pekerja) ===')
 
     kand = ambil_kandidat(mode, batas_kandidat)
     due = set(kand['noresi'])
@@ -163,43 +168,51 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering):
     if sisa > 0:
         base.log(f'Melebihi jatah detail: {sisa} resi ditunda ke run berikutnya (tidak ditandai).')
 
-    rows = []
-    berhasil = []
-    t0 = time.time()
-    for i, order in enumerate(antre, 1):
+    if not kering:
+        # Yang statusnya sudah sama / tidak ada (backlog) langsung ditandai, tidak perlu menunggu detail.
+        awal = sorted(set(tanpa_perubahan) | tidak_ketemu_ditandai)
+        base.log(f'Ditandai dicek (tanpa perubahan / tidak ketemu backlog): {tandai_dicek(awal)}')
+
+    def ambil_satu(order):
         try:
             detail = base.fetch_order_detail(s, order['salesorder_id'])
-        except Exception as e:  # satu order bermasalah tidak boleh membuang yang sudah terkumpul
-            base.log(f'  [{i}/{len(antre)}] id={order["salesorder_id"]} error {type(e).__name__}: {e}')
-            detail = None
-        if detail is None:
-            base.log(f'  [{i}/{len(antre)}] id={order["salesorder_id"]} GAGAL ambil detail, dilewati (tidak ditandai)')
-            continue
-        r = base.build_rows_for_order(order, detail)
-        if r:
-            rows.extend(r)
-            berhasil.append(order['tracking_no'])
-        if i % 50 == 0 or i == len(antre):
-            base.log(f'  [{i}/{len(antre)}] ({time.time() - t0:.0f}s, {len(rows)} baris)')
+        except Exception as e:  # satu order bermasalah tidak boleh membuang yang lain
+            base.log(f'  id={order["salesorder_id"]} error {type(e).__name__}: {e}')
+            return order, None
         time.sleep(base.DETAIL_DELAY)
+        if detail is None:
+            return order, None
+        return order, base.build_rows_for_order(order, detail)
+
+    berhasil_total = 0
+    gagal_detail = 0
+    t0 = time.time()
+    for awal_i in range(0, len(antre), CHUNK_DETAIL):
+        potong = antre[awal_i:awal_i + CHUNK_DETAIL]
+        rows = []
+        berhasil = []
+        with ThreadPoolExecutor(max_workers=pekerja) as ex:
+            for order, r in ex.map(ambil_satu, potong):
+                if r:
+                    rows.extend(r)
+                    berhasil.append(order['tracking_no'])
+                else:
+                    gagal_detail += 1
+        berhasil_total += len(berhasil)
+        base.log(f'  [{awal_i + len(potong)}/{len(antre)}] ({time.time() - t0:.0f}s, {len(rows)} baris, gagal detail {gagal_detail})')
+
+        if kering:
+            continue
+        if rows:
+            base.log(f'  Upload {len(rows)} baris: {base.upload_rows(rows)}')
+        tandai_dicek(sorted(berhasil))
 
     ringkas = {
         'kandidat': len(due), 'tanpa_perubahan': len(tanpa_perubahan),
-        'diperbarui': len(berhasil), 'tidak_ketemu': len(tidak_ketemu), 'ditunda': sisa,
+        'diperbarui': berhasil_total, 'gagal_detail': gagal_detail,
+        'tidak_ketemu': len(tidak_ketemu), 'ditunda': sisa,
     }
-
-    if kering:
-        base.log(f'KERING: tidak upload, tidak menandai. Ringkas: {ringkas}')
-        return ringkas
-
-    if rows:
-        base.log(f'Upload {len(rows)} baris...')
-        base.log(f'Upload selesai: {base.upload_rows(rows)}')
-
-    # Tandai dicek: yang statusnya sama, yang sudah diperbarui, dan yang tidak ada di Jubelio
-    # (supaya tidak diulang terus; resi seperti itu tetap kembali lewat jadwal harian/mingguan).
-    ditandai = tandai_dicek(sorted(set(tanpa_perubahan) | set(berhasil) | tidak_ketemu_ditandai))
-    base.log(f'Ditandai dicek: {ditandai}. Ringkas: {ringkas}')
+    base.log(f'{"KERING: tidak upload, tidak menandai. " if kering else ""}Ringkas: {ringkas}')
     return ringkas
 
 
@@ -207,6 +220,7 @@ def main():
     ap = argparse.ArgumentParser(description='Refresh status resi non-final berkala')
     ap.add_argument('--mode', choices=['harian', 'mingguan', 'backlog', 'semua'], default='semua')
     ap.add_argument('--maks-detail', type=int, default=None, help='jatah panggilan detail Jubelio per mode')
+    ap.add_argument('--pekerja', type=int, default=PEKERJA_DEFAULT, help='jumlah panggilan detail paralel')
     ap.add_argument('--kering', action='store_true', help='baca saja: tidak upload, tidak menandai')
     args = ap.parse_args()
 
@@ -222,7 +236,7 @@ def main():
             maks = args.maks_detail
             batas = min(batas, max(maks * 3, 100))
         try:
-            proses_mode(s, mode, maks, batas, args.kering)
+            proses_mode(s, mode, maks, batas, args.kering, max(1, args.pekerja))
         except Exception as e:  # satu mode gagal tidak boleh menggagalkan mode lain
             gagal += 1
             base.log(f'ERROR mode {mode}: {e}')
