@@ -44,6 +44,30 @@ try:  # alamat IRESIS khusus PC ini (opsional) di scripts/secrets_local.py
 except ImportError:
     pass  # pakai bawaan auto_upload_resi_api.py
 
+def get_tangguh(s, url, params, tries=base.DETAIL_MAX_RETRY, wait_base=5):
+    """Pengganti base.get_with_backoff: selain 429, error jaringan (koneksi diputus Jubelio,
+    timeout baca) juga dicoba ulang. Tanpa ini satu putus koneksi di halaman ke-287 membatalkan
+    seluruh mode dan membuang puluhan menit kerja (log 5 Nov 2026). Gagal total -> None,
+    jadi resi itu dilewati dan dicoba lagi besok (tidak ditandai)."""
+    coba = max(tries, 5)
+    for i in range(coba):
+        try:
+            r = s.get(url, params=params, timeout=60)
+        except requests.RequestException as e:
+            tunggu = wait_base * (i + 1)
+            base.log(f'    error jaringan ({type(e).__name__}), tunggu {tunggu}s (coba {i + 1}/{coba})...')
+            time.sleep(tunggu)
+            continue
+        if r.status_code != 429:
+            return r
+        tunggu = wait_base * (i + 1)
+        base.log(f'    429, tunggu {tunggu}s (coba {i + 1}/{coba})...')
+        time.sleep(tunggu)
+    return None
+
+
+base.get_with_backoff = get_tangguh  # dipakai fetch_all_orders() dan fetch_order_detail()
+
 MODE_DEFAULT = {
     # mode: (maks_detail, batas_kandidat)
     'harian':   (8000, 20000),
@@ -143,7 +167,11 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering):
     berhasil = []
     t0 = time.time()
     for i, order in enumerate(antre, 1):
-        detail = base.fetch_order_detail(s, order['salesorder_id'])
+        try:
+            detail = base.fetch_order_detail(s, order['salesorder_id'])
+        except Exception as e:  # satu order bermasalah tidak boleh membuang yang sudah terkumpul
+            base.log(f'  [{i}/{len(antre)}] id={order["salesorder_id"]} error {type(e).__name__}: {e}')
+            detail = None
         if detail is None:
             base.log(f'  [{i}/{len(antre)}] id={order["salesorder_id"]} GAGAL ambil detail, dilewati (tidak ditandai)')
             continue
