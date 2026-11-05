@@ -617,6 +617,17 @@ class Cancel_terima_fcd extends CI_Model
                 $kl = self::klasifikasi($r['items']);
                 $r['jenis_total'] = $kl['total'];
                 $r['selisih'] = count($kl['grup']) > 0;
+                // Paket lama: jenis per SKU belum tersimpan -> isi dari qty (kode alasan tetap kosong, tidak ditebak).
+                $legacy = false;
+                foreach ($r['items'] as $it) {
+                    if ($it['jenis'] === null) {
+                        $legacy = true;
+                        break;
+                    }
+                }
+                if ($legacy && $r['items']) {
+                    $r['items'] = $this->labeli($r['items'], [], false)['baris'];
+                }
             }
             unset($r['dicek_at'], $r['diedit_at']);
         }
