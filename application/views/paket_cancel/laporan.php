@@ -355,10 +355,10 @@
         }).join('');
         edO = U.mdBuka('<h3 style="margin:0 0 2px">Edit paket cancel</h3><div class="note" style="margin-bottom:12px">' + esc(nr(p)) + ' &middot; diterima ' + esc(p.tgl) + ' ' + esc(p.jam) + '</div>' +
             '<div class="stp"><b>Asal paket</b></div><div class="asl"><div class="asl-g">' + as + '</div></div>' +
-            '<div class="stp" style="margin-top:16px"><b>Isi paket</b></div><div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="pc_edb">' + p.items.map(edRow).join('') + '</tbody></table></div>' +
+            '<div class="stp" style="margin-top:16px"><b>Isi paket</b></div><div class="txw"><table class="tx edtbl"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th><th style="width:44px"></th></tr></thead><tbody id="pc_edb">' + p.items.map(edRow).join('') + '</tbody></table></div>' +
             '<div class="addx"><div class="ac"><input id="pc_edsku" placeholder="Tambah SKU di luar resi" autocomplete="off"><div id="pc_eddd" class="dd hide"></div></div><input id="pc_edq" class="q" type="number" min="1" value="1"><button type="button" class="a" data-act="ed-tambah">+ Tambah</button></div><div id="pc_edmsg"></div>' +
             '<div id="pc_edban" style="margin-top:12px"></div><div class="sect" style="margin-top:8px"><b>Catatan</b><small class="note">wajib bila ada selisih</small></div><textarea id="pc_edcat" rows="2" maxlength="255">' + esc(p.catatan || '') + '</textarea>' +
-            '<div class="pr" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-act="ed-batal">Batal</button><button type="button" class="a g" data-act="ed-simpan" data-id="' + p.id + '">&#10003; Simpan perubahan</button></div>', 60, 640);
+            '<div class="pr" style="justify-content:flex-end;margin-top:16px"><button type="button" class="a x" data-act="ed-batal">Batal</button><button type="button" class="a g" data-act="ed-simpan" data-id="' + p.id + '">&#10003; Simpan perubahan</button></div>', 60, 720);
         U.skuPasang({ input: g('edsku'), dd: g('eddd'), qty: g('edq'), tambah: edTambah });
         edHit();
     }
@@ -384,6 +384,15 @@
         pool.forEach(function (o) { if (o.q > 0) grup.push({ j: o.j, s: o.s, p: '', q: o.q }); });
         return grup;
     }
+    // Blok "salah ambil" di kolom Status: SKU yang ada, rak-nya, dan qty dengan tombol - / +.
+    function blokSalah(k, awalan, br) {
+        var sku = esc(k.p);
+        return '<div class="sa"><span class="b warn">SALAH AMBIL</span>' +
+            '<div class="sa-r"><small>yang ada</small><b>' + sku + '</b>' + (br && br.rak ? '<small>rak ' + esc(br.rak) + '</small>' : '') + '</div>' +
+            (br ? '<div class="stp3"><button type="button" data-act="' + awalan + 'min" data-sku="' + sku + '" aria-label="Kurangi qty ' + sku + '">&minus;</button><span class="n">' + br.qty + '</span>' +
+                '<button type="button" data-act="' + awalan + 'plus" data-sku="' + sku + '" aria-label="Tambah qty ' + sku + '">+</button><small>pcs</small></div>'
+                : '<div class="sa-r"><small>' + k.q + ' pcs</small></div>') + '</div>';
+    }
     // Status satu baris: SKU yang sebenarnya (resi) memuat "SALAH AMBIL <SKU yang salah> x qty"; baris SKU salah
     // yang seluruh qty-nya terpakai di salah ambil disembunyikan (qty-nya diubah lewat tombol - / + di baris SKU resi).
     function statusSelisih(x, grup, awalan, adaBarisLuar) {
@@ -395,8 +404,7 @@
         var h = [];
         mine.forEach(function (k) {
             if (k.j === 'SALAH_AMBIL') {
-                h.push('<span class="b warn">SALAH AMBIL</span> <b class="mono">' + esc(k.p) + '</b> &times; ' + k.q +
-                    (adaBarisLuar(k.p) ? ' <button type="button" class="a x s" data-act="' + awalan + 'min" data-sku="' + esc(k.p) + '" aria-label="Kurangi qty ' + esc(k.p) + '">&minus;</button><button type="button" class="a x s" data-act="' + awalan + 'plus" data-sku="' + esc(k.p) + '" aria-label="Tambah qty ' + esc(k.p) + '">+</button>' : ''));
+                h.push(blokSalah(k, awalan, adaBarisLuar(k.p)));
             } else h.push('<span class="b ' + CLSJ[k.j] + '">' + NMJ[k.j] + ' ' + k.q + '</span>');
         });
         if (!mine.length) {
@@ -407,10 +415,13 @@
     }
     function edHit() {
         var b = [], trs = g('edb').querySelectorAll('tr');
-        trs.forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0 }); });
+        trs.forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0, tr: tr }); });
         var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 };
         grup.forEach(function (k) { tot[k.j] += k.q; });
-        var adaLuar = function (sku) { return b.some(function (x) { return x.r === 0 && x.s.toUpperCase() === String(sku).toUpperCase(); }); };
+        var adaLuar = function (sku) {
+            var x = b.filter(function (y) { return y.r === 0 && y.s.toUpperCase() === String(sku).toUpperCase(); })[0];
+            return x ? { qty: x.a, rak: x.tr.cells[2].textContent.trim() } : null;
+        };
         trs.forEach(function (tr, i) {
             var st = statusSelisih(b[i], grup, 'ed-p', adaLuar);
             tr.querySelector('.st').innerHTML = st.html;

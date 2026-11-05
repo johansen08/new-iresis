@@ -234,3 +234,25 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .grp{border:1px solid var(--bd);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,230px);gap:8px 12px;align-items:center;margin-bottom:8px}
 .pc .grp.need{border-color:var(--bad)}
 @media(max-width:560px){.pc .grp{grid-template-columns:minmax(0,1fr)}}
+
+/* Blok salah ambil di kolom Status (popup edit & terima paket) */
+.pc .sa{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:150px;padding:2px 0}
+.pc .sa + .b,.pc .sa + .sa{margin-top:6px}
+.pc .sa-r{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.pc .sa-r b{font-size:14px}
+.pc .sa-r small,.pc .sa .stp3 small{color:var(--mut);font-size:12px}
+.pc .sa .stp3 .n{min-width:30px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.pc .tx td.st{vertical-align:middle}
+
+/* Popup di layar sempit: asal paket 3 kolom ringkas, tabel edit tanpa kolom Foto & Rak supaya Status terlihat */
+@media(max-width:640px){
+.pc .mdb{padding:14px}
+.pc .mdb .asl-g{grid-template-columns:repeat(3,1fr);gap:6px}
+.pc .mdb .asl-c{flex-direction:column;padding:8px 4px;gap:4px;text-align:center}
+.pc .mdb .asl-o input:checked+.asl-c:after{display:none}
+.pc .mdb .asl-i{width:34px;height:34px;font-size:20px}
+.pc .mdb .edtbl th:nth-child(2),.pc .mdb .edtbl td:nth-child(2),.pc .mdb .edtbl th:nth-child(3),.pc .mdb .edtbl td:nth-child(3){display:none}
+.pc .mdb .edtbl th,.pc .mdb .edtbl td{padding:6px 4px}
+.pc .sa{min-width:0}
+}
+.pc .sa small{white-space:nowrap}
