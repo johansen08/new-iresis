@@ -509,7 +509,7 @@ class Cancel_terima_fcd extends CI_Model
      * Status pengembalian tahap 1: paket yang diterima pada $tanggal ditandai "serah terima
      * dicetak" (hanya yang belum bertanda, jadi cetak ulang tidak menimpa waktu pertama).
      */
-    public function tandai_serah_dicetak($tanggal, $id_user)
+    public function tandai_serah_dicetak($tanggal, $id_user, array $ids_pilih = null)
     {
         if ($this->mode_arsip()) {
             return 0;
@@ -517,11 +517,35 @@ class Cancel_terima_fcd extends CI_Model
         $now = date('Y-m-d H:i:s');
         $this->db->where('dicek_at IS NOT NULL', null, false)
             ->where('dihapus_at IS NULL', null, false)
-            ->where('serah_cetak_at IS NULL', null, false)
-            ->where('dicek_at >=', $tanggal . ' 00:00:00')
-            ->where('dicek_at <=', $tanggal . ' 23:59:59')
-            ->update('tblcancel_paket', ['serah_cetak_at' => $now, 'serah_cetak_oleh' => $id_user]);
+            ->where('serah_cetak_at IS NULL', null, false);
+        if ($ids_pilih !== null) {
+            $this->db->where_in('id_cancel_paket', $ids_pilih ?: [0]);
+        } else {
+            $this->db->where('dicek_at >=', $tanggal . ' 00:00:00')
+                ->where('dicek_at <=', $tanggal . ' 23:59:59');
+        }
+        $this->db->update('tblcancel_paket', ['serah_cetak_at' => $now, 'serah_cetak_oleh' => $id_user]);
         return $this->db->affected_rows();
+    }
+
+    /**
+     * Tandai selesai / batal selesai untuk banyak paket sekaligus (yang dicentang di laporan).
+     * Paket yang belum dicetak dilewati dan dihitung di 'dilewati'.
+     */
+    public function tandai_selesai_banyak(array $ids, $selesai, $id_user)
+    {
+        $ok = 0; $lewat = 0; $gagal = 0;
+        foreach (array_unique(array_filter(array_map('intval', $ids))) as $id) {
+            $h = $this->tandai_selesai($id, $selesai, $id_user);
+            if ($h['ok']) { $ok++; }
+            elseif (strpos($h['message'], 'Cetak serah terima dulu') === 0) { $lewat++; }
+            else { $gagal++; }
+        }
+        $pesan = $ok . ' paket ' . ($selesai ? 'ditandai selesai' : 'dibatalkan tanda selesainya')
+            . ($lewat ? ', ' . $lewat . ' dilewati karena belum dicetak serah terimanya' : '')
+            . ($gagal ? ', ' . $gagal . ' gagal' : '');
+        return ['ok' => $ok > 0, 'message' => $ok > 0 ? $pesan : ($lewat ? 'Belum ada yang bisa ditandai: ' . $lewat . ' paket belum dicetak serah terimanya' : 'Tidak ada paket yang diubah'),
+                'jumlah' => $ok, 'dilewati' => $lewat, 'gagal' => $gagal];
     }
 
     /**
@@ -1014,16 +1038,21 @@ class Cancel_terima_fcd extends CI_Model
      * (salah ambil) ikut penuh. Yang sudah dikembalikan ke display dikurangkan.
      * @return array ['det' => [['sku','rak','qty'], ...], 'jumlah_paket' => int, 'petugas' => [..]]
      */
-    public function serah_harian($tanggal)
+    public function serah_harian($tanggal, array $ids_pilih = null)
     {
-        $paket = $this->db
+        $q = $this->db
             ->select('p.id_cancel_paket, p.id_resi, p.dicek_oleh')
             ->from('tblcancel_paket p')
             ->where('p.dicek_at IS NOT NULL', null, false)
-            ->where('p.dihapus_at IS NULL', null, false)
-            ->where('p.dicek_at >=', $tanggal . ' 00:00:00')
-            ->where('p.dicek_at <=', $tanggal . ' 23:59:59')
-            ->get()->result_array();
+            ->where('p.dihapus_at IS NULL', null, false);
+        if ($ids_pilih !== null) {
+            // Paket yang dicentang di laporan (boleh lintas tanggal terima)
+            $q->where_in('p.id_cancel_paket', $ids_pilih ?: [0]);
+        } else {
+            $q->where('p.dicek_at >=', $tanggal . ' 00:00:00')
+              ->where('p.dicek_at <=', $tanggal . ' 23:59:59');
+        }
+        $paket = $q->get()->result_array();
         if (!$paket) {
             return ['det' => [], 'jumlah_paket' => 0, 'petugas' => []];
         }
