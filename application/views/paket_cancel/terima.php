@@ -163,6 +163,15 @@
         g('resi').select();
     }
 
+    // Blok "salah ambil" di kolom Status: SKU yang ada, rak-nya, dan qty dengan tombol - / +.
+    function blokSalah(k, awalan, br) {
+        var sku = esc(k.p);
+        return '<div class="sa"><span class="b warn">SALAH AMBIL</span>' +
+            '<div class="sa-r"><small>yang ada</small><b>' + sku + '</b>' + (br && br.rak ? '<small>rak ' + esc(br.rak) + '</small>' : '') + '</div>' +
+            (br ? '<div class="stp3"><button type="button" data-act="' + awalan + 'min" data-sku="' + sku + '" aria-label="Kurangi qty ' + sku + '">&minus;</button><span class="n">' + br.qty + '</span>' +
+                '<button type="button" data-act="' + awalan + 'plus" data-sku="' + sku + '" aria-label="Tambah qty ' + sku + '">+</button><small>pcs</small></div>'
+                : '<div class="sa-r"><small>' + k.q + ' pcs</small></div>') + '</div>';
+    }
     function stepper(v, tipe) {
         return '<span class="stp3"><button type="button" data-act="qmin" aria-label="Kurangi">&minus;</button><input class="q" type="number" min="0" value="' + v + '"><button type="button" data-act="qplus" aria-label="Tambah">+</button>' +
             (tipe === 'isi' ? '<button type="button" class="nol" data-act="qnol" title="Barang ini tidak ada di paket">0</button>' : '') + '</span>';
@@ -214,7 +223,10 @@
         g('grups').previousElementSibling.hidden = false;
         var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 }, sesuai = 0;
         grup.forEach(function (k) { tot[k.j] += k.q; });
-        var adaLuar = function (sku) { return b.some(function (x) { return x.r === 0 && x.s.toUpperCase() === String(sku).toUpperCase(); }); };
+        var adaLuar = function (sku) {
+            var x = b.filter(function (y) { return y.r === 0 && y.s.toUpperCase() === String(sku).toUpperCase(); })[0];
+            return x ? { qty: x.a, rak: x.tr.cells[2].textContent.trim() } : null;
+        };
         b.forEach(function (i) {
             if (i.r > 0 && i.a === i.r) sesuai++;
             var st = i.tr.querySelector('.st');
@@ -228,8 +240,7 @@
             var h = [];
             mine.forEach(function (k) {
                 if (k.j === 'SALAH_AMBIL') {
-                    h.push('<span class="b warn">SALAH AMBIL</span> <b>' + esc(k.p) + '</b> &times; ' + k.q +
-                        (adaLuar(k.p) ? ' <button type="button" class="a x s" data-act="pmin" data-sku="' + esc(k.p) + '" aria-label="Kurangi qty ' + esc(k.p) + '">&minus;</button><button type="button" class="a x s" data-act="pplus" data-sku="' + esc(k.p) + '" aria-label="Tambah qty ' + esc(k.p) + '">+</button>' : ''));
+                    h.push(blokSalah(k, 'p', adaLuar(k.p)));
                 } else h.push(tagJenis(k.j, k.q));
             });
             if (!mine.length && !sembunyi) asPair.forEach(function (k) { h.push(tagJenis('LEBIH', k.q) + ' <small class="note">dipakai ganti ' + esc(k.s) + '</small>'); });
