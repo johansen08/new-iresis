@@ -12,11 +12,11 @@
    <button type="button" id="pc_cardtg" class="eye ic" data-act="card-tog"></button>
    <button type="button" id="pc_dsptg" class="eye ic" data-act="dsp-tog"></button>
    <span class="note" id="pc_selinfo"></span>
-   <button type="button" class="a g" id="pc_bsl" data-act="selesai-banyak" title="Tandai selesai paket yang dicentang (harus sudah dicetak serah terimanya)">&#10004; Tandai Selesai</button>
    <button type="button" class="a w" id="pc_bsr" data-act="serah">&#128424; Serah Terima</button>
+   <button type="button" class="a g" id="pc_bsl" data-act="selesai-banyak">&#10004; Tandai Selesai</button>
    <span class="inf" title="Info" data-act="info">&#9432;</span>
   </div>
-  <div id="pc_infolap" class="infotxt hide"><b>Centang paket</b> di kolom paling kiri (kotak di judul kolom = pilih semua sesuai filter), lalu klik <b>Serah Terima</b> untuk mencetak kertas hanya dari paket yang dicentang, dan <b>Tandai Selesai</b> setelah barang dikembalikan ke restok (hanya paket yang sudah dicetak). Tanpa centang, Serah Terima mencetak semua paket satu tanggal terima (pilih satu tanggal dulu). Kertas dibuat langsung dari paket; isinya mengikuti barang yang benar-benar ada secara fisik (kurang ambil = yang ada saja; lebih ambil dan barang di luar resi ikut dicetak).</div>
+  <div id="pc_infolap" class="infotxt hide"><b>Centang paket</b> di kolom paling kiri (kotak di judul kolom = pilih semua sesuai filter), lalu klik <b>Serah Terima</b>: kertas hanya berisi paket yang dicentang. Setelah dicetak, baru tombol <b>Tandai Selesai</b> aktif untuk paket yang dicentang (paket yang belum dicetak tidak bisa ditandai selesai). Kertas dibuat langsung dari paket; isinya mengikuti barang yang benar-benar ada secara fisik (kurang ambil = yang ada saja; lebih ambil dan barang di luar resi ikut dicetak).</div>
  </div>
  <div id="pc_cards" class="cards"></div>
  <div id="pc_msg2"></div>
@@ -167,15 +167,21 @@
         if (p.dicetak) return '<span class="b info">DICETAK</span><br><small class="note">' + esc(p.dicetak) + '</small>';
         return '<span class="b gray">BELUM DICETAK</span>';
     }
-    function idTerpilih() { return Object.keys(sel).map(Number); }
+    // Hanya paket yang dicentang dan masih tampil di filter (yang dicetak / ditandai = yang terlihat tercentang)
+    function idTerpilih() { return filt().filter(function (p) { return sel[p.id]; }).map(function (p) { return p.id; }); }
     function selUpdate() {
         var n = idTerpilih().length, f = filt(), k = f.filter(function (p) { return sel[p.id]; }).length, a = g('all');
         a.checked = f.length > 0 && k === f.length;
         a.indeterminate = k > 0 && k < f.length;
         g('selinfo').textContent = n ? n + ' paket dipilih' : '';
-        g('bsl').disabled = n === 0;
-        g('bsr').disabled = n === 0 && !satuHariNilai();
-        g('bsr').title = n ? 'Cetak serah terima ' + n + ' paket yang dicentang' : satuHariNilai() ? 'Cetak serah terima semua paket ' + U.tglIndo(rg.a) : 'Centang paket, atau pilih satu tanggal untuk mencetak semua paket tanggal itu';
+        var pilih = rows.filter(function (p) { return sel[p.id]; }), belum = pilih.filter(function (p) { return !p.dicetak; }).length;
+        g('bsr').disabled = n === 0;
+        g('bsr').title = n ? 'Cetak serah terima ' + n + ' paket yang dicentang' : 'Centang paket yang mau dicetak dulu';
+        g('bsl').disabled = n === 0 || belum > 0;
+        g('bsl').title = n === 0 ? 'Centang paket dulu' : belum > 0 ? belum + ' paket yang dicentang belum dicetak serah terimanya: klik Serah Terima dulu' : 'Tandai selesai ' + n + ' paket yang dicentang';
+        // pratinjau lama tidak berlaku lagi bila pilihan berubah
+        var pv = g('cetak').querySelector('[data-act=cetak]');
+        if (pv && pv.dataset.ids !== idTerpilih().join(',')) g('cetak').className = 'pcd hide';
     }
     function postSelesai(ids, nilai) {
         return U.post(URL.selesai, { ids: ids.join(','), selesai: nilai ? 1 : 0 }).then(function (res) {
@@ -188,6 +194,7 @@
         var ids = idTerpilih();
         if (!ids.length) { pesan('warn', 'Centang paket yang mau ditandai selesai dulu.'); return; }
         var belum = rows.filter(function (p) { return sel[p.id] && !p.dicetak; }).length, sudah = rows.filter(function (p) { return sel[p.id] && p.selesai; }).length;
+        if (belum) { pesan('warn', belum + ' paket yang dicentang belum dicetak serah terimanya. Klik <b>Serah Terima</b> dulu.'); return; }
         U.konfirm('Tandai selesai?', ids.length + ' paket dicentang akan ditandai <b>selesai</b> dikembalikan ke restok.' + (belum ? '<br><span style="color:var(--bad)">' + belum + ' paket belum dicetak serah terimanya dan akan dilewati.</span>' : '') + (sudah ? '<br>' + sudah + ' paket sudah selesai sebelumnya.' : ''), 'Ya, tandai selesai', 'g', function () {
             return postSelesai(ids, true).then(function () { return null; });
         });
@@ -295,16 +302,16 @@
     // ───── serah terima (satu per hari) ─────
     function serah() {
         var ids = idTerpilih();
-        if (!ids.length && !satuHariNilai()) {
-            pesan('warn', 'Centang paket yang mau dicetak, atau pilih <b>satu tanggal</b> di filter tanggal untuk mencetak semua paket tanggal itu.');
+        if (!ids.length) {
+            pesan('warn', 'Centang paket yang mau dicetak serah terimanya dulu.');
             return;
         }
-        var t = ids.length ? U.hari(0) : rg.a;
+        var t = U.hari(0);
         g('msg2').innerHTML = '';
         U.post(URL.serah, { tanggal: t, ids: ids.join(',') }).then(function (res) {
             var d = (res && res.data) || {};
             if (!d.ok) { pesan('bad', esc(res && res.message ? res.message : 'Gagal memuat serah terima.')); return; }
-            if (!d.jumlah_paket) { pesan('warn', ids.length ? 'Paket yang dicentang tidak ditemukan.' : 'Tidak ada paket cancel diterima pada ' + U.tglIndo(t) + '.'); return; }
+            if (!d.jumlah_paket) { pesan('warn', 'Paket yang dicentang tidak ditemukan.'); return; }
             pratinjau(t, d, ids);
         }).catch(function (x) { pesan('bad', esc(U.pesanGagal(x))); });
     }
