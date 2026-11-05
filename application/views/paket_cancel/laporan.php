@@ -136,7 +136,10 @@
 
         var st = (pg - 1) * per, ps = tampil.slice(st, st + per);
         g('pk').innerHTML = ps.map(function (p, i) {
-            var det = p.items.map(function (it) {
+            // Salah ambil tampil satu baris: sisi resi yang kurang memuat pasangannya (↔ SKU yang ada), baris pasangan disembunyikan.
+            var pasangan = {};
+            p.items.forEach(function (x) { if (x.jenis === 'SALAH_AMBIL' && x.pasangan_sku && x.qty_ditemukan < x.qty_resi) pasangan[x.pasangan_sku.toUpperCase()] = true; });
+            var det = p.items.filter(function (it) { return !(it.jenis === 'SALAH_AMBIL' && it.qty_ditemukan > it.qty_resi && pasangan[it.sku.toUpperCase()]); }).map(function (it) {
                 var j = U.jenis(it.qty_resi, it.qty_ditemukan);
                 return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + (CLSJ[it.jenis] ? '<span class="b ' + CLSJ[it.jenis] + '">' + NMJ[it.jenis] + ' ' + Math.abs(it.qty_ditemukan - it.qty_resi) + '</span>' : U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi))) +
                     infoAlasan(it) + (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
