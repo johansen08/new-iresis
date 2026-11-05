@@ -63,13 +63,15 @@ class Paket_cancel extends MY_Controller
     public function simpan()
     {
         $items = json_decode((string) $this->input->post('items'), true);
+        $alasan = json_decode((string) $this->input->post('alasan'), true);
         $hasil = $this->cancel_terima_fcd->simpan(
             $this->input->post('noresi'),
             $this->input->post('dari'),
             is_array($items) ? $items : [],
             $this->input->post('catatan'),
             $this->id_user(),
-            isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : null
+            isset($this->data['user']['nama_komputer']) ? $this->data['user']['nama_komputer'] : null,
+            is_array($alasan) ? $alasan : []
         );
         $this->make_ajax_response($hasil['ok'] ? 200 : 400, $hasil['message'], $hasil);
     }

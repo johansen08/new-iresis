@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-05.1';
+    const BOOTSTRAP_VERSI = '2026-11-05.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2045,6 +2045,29 @@ class MY_Controller extends CI_Controller
             'selesai_oleh'     => "ADD COLUMN selesai_oleh int(11) DEFAULT NULL AFTER selesai_at",
         ];
         foreach ($kolom_kembali as $nama => $ddl) {
+            if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE '$nama'")->num_rows()) {
+                $this->db->query("ALTER TABLE tblcancel_paket $ddl");
+            }
+        }
+        // Jenis selisih per baris item (SESUAI / KURANG / LEBIH / SALAH_AMBIL / DI_LUAR_RESI), kode alasan,
+        // SKU pasangan (salah ambil), dan ringkasan qty per jenis di paket. Dihitung ulang di server dari qty.
+        $kolom_jenis_item = [
+            'jenis'        => "ADD COLUMN jenis varchar(16) DEFAULT NULL AFTER qty_ditemukan",
+            'kode_alasan'  => "ADD COLUMN kode_alasan varchar(24) DEFAULT NULL AFTER jenis",
+            'pasangan_sku' => "ADD COLUMN pasangan_sku varchar(100) DEFAULT NULL AFTER kode_alasan",
+        ];
+        foreach ($kolom_jenis_item as $nama => $ddl) {
+            if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket_item LIKE '$nama'")->num_rows()) {
+                $this->db->query("ALTER TABLE tblcancel_paket_item $ddl");
+            }
+        }
+        $kolom_total = [
+            'total_kurang'      => "ADD COLUMN total_kurang int(11) NOT NULL DEFAULT 0 AFTER selesai_oleh",
+            'total_lebih'       => "ADD COLUMN total_lebih int(11) NOT NULL DEFAULT 0 AFTER total_kurang",
+            'total_salah_ambil' => "ADD COLUMN total_salah_ambil int(11) NOT NULL DEFAULT 0 AFTER total_lebih",
+            'total_luar_resi'   => "ADD COLUMN total_luar_resi int(11) NOT NULL DEFAULT 0 AFTER total_salah_ambil",
+        ];
+        foreach ($kolom_total as $nama => $ddl) {
             if (!$this->db->query("SHOW COLUMNS FROM tblcancel_paket LIKE '$nama'")->num_rows()) {
                 $this->db->query("ALTER TABLE tblcancel_paket $ddl");
             }

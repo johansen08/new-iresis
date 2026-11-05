@@ -53,6 +53,17 @@
         serah: '<?= base_url('paket-cancel/serah-data') ?>',
         cetak: '<?= base_url('paket-cancel/serah-cetak') ?>'
     };
+    var ALASAN = <?= json_encode(Cancel_terima_fcd::ALASAN, JSON_UNESCAPED_UNICODE) ?>;
+    var NMJ = { KURANG: 'KURANG', LEBIH: 'LEBIH', SALAH_AMBIL: 'SALAH AMBIL', DI_LUAR_RESI: 'DI LUAR RESI' };
+    var CLSJ = { KURANG: 'bad', LEBIH: 'info', SALAH_AMBIL: 'warn', DI_LUAR_RESI: 'lur' };
+    function tagSelisih(p) {
+        var t = p.jenis_total || {};
+        return ['KURANG', 'LEBIH', 'SALAH_AMBIL', 'DI_LUAR_RESI'].filter(function (j) { return t[j] > 0; }).map(function (j) { return '<span class="b ' + CLSJ[j] + '">' + NMJ[j] + ' ' + t[j] + '</span>'; }).join(' ');
+    }
+    function infoAlasan(it) {
+        var a = it.kode_alasan && ALASAN[it.jenis] ? ALASAN[it.jenis][it.kode_alasan] : '';
+        return (it.pasangan_sku ? ' <small class="note">&harr; ' + esc(it.pasangan_sku) + '</small>' : '') + (a ? ' <small class="note">(' + esc(a) + ')</small>' : '');
+    }
     var rows = [];          // semua paket diterima pada rentang tanggal terpilih
     var disp = [];          // catatan barang kembali ke display pada rentang tanggal
     var dpg = 1;            // halaman tabel display
@@ -127,12 +138,12 @@
         g('pk').innerHTML = ps.map(function (p, i) {
             var det = p.items.map(function (it) {
                 var j = U.jenis(it.qty_resi, it.qty_ditemukan);
-                return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi)) +
-                    (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
+                return '<div><b>' + esc(it.sku) + '</b> ' + it.qty_ditemukan + '/' + it.qty_resi + ' ' + (CLSJ[it.jenis] ? '<span class="b ' + CLSJ[it.jenis] + '">' + NMJ[it.jenis] + ' ' + Math.abs(it.qty_ditemukan - it.qty_resi) + '</span>' : U.bd(j, Math.abs(it.qty_ditemukan - it.qty_resi))) +
+                    infoAlasan(it) + (it.qty_display ? ' <span class="b info">' + it.qty_display + ' di display</span>' : '') + '</div>';
             }).join('');
             return '<tr' + (p.selisih ? ' style="background:#d98e0418"' : '') + '><td class="c"><input type="checkbox" data-act="pilih" data-id="' + p.id + '"' + (sel[p.id] ? ' checked' : '') + '></td><td><a href="#" data-act="buka" data-i="' + i + '">&#65291;</a></td><td><b>' + esc(p.noresi) + '</b>' +
                 (p.diedit ? '<br><small class="note">diedit ' + esc(p.diedit) + '</small>' : '') + '</td><td>' + esc(p.tgl) + '</td><td>' + esc(NM[p.dari] || p.dari) + '</td><td>' + esc(p.jam) +
-                '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? '<span class="b bad">SELISIH</span>' : '<span class="b ok">SESUAI</span>') +
+                '</td><td class="c">' + (p.tanpa_resi ? '-' : jmlResi(p)) + '</td><td class="c">' + jml(p) + '</td><td>' + (p.tanpa_resi ? '<span class="b gray">TANPA RESI</span>' : p.selisih ? tagSelisih(p) : '<span class="b ok">SESUAI</span>') +
                 (jmlDisp(p) ? ' <span class="b info" title="Barang sudah dikembalikan ke display">DISPLAY ' + jmlDisp(p) + ' pcs</span>' : '') +
                 '</td><td class="c">' + kolomKembali(p) +
                 '</td><td class="c aksi"><button type="button" class="eye" title="Catat barang kembali ke display" aria-label="Catat barang kembali ke display" data-act="display" data-id="' + p.id + '">&#127978;</button>' +
