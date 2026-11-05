@@ -2229,54 +2229,50 @@ class Receipt_fcd extends CI_Model
 
     function get_data_production_team_tab1($data, $start_date, $end_date)
     {
-        // Build search conditions for the subquery
+        // Filter pencarian dipasang di luar agregasi (nama pegawai baru ada setelah join user)
         $search_where = '';
         if (!empty($data['search'])) {
             $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t3.name LIKE '%{$search}%' OR DATE(c.tanggal_packing) LIKE '%{$search}%')";
+            $search_where = " WHERE (t3.name LIKE '%{$search}%' OR x.tanggal_packing LIKE '%{$search}%')";
         }
-        
-        // OPTIMIZED V9: Group hanya per tanggal & packer, ambil status dari scan PERTAMA
+
+        // OPTIMASI V10: satu kali agregasi tblpacking per (tanggal, packer) memakai indeks
+        // idx_packing_date_user, lalu status scan PERTAMA diambil lewat subquery per baris hasil
+        // (hanya puluhan baris). Versi V9 menjoin self-join tblpacking lewat DATE(...) tanpa
+        // indeks -> rentang sebulan ~25 detik, sekarang < 1 detik.
         $sql = "
-        SELECT 
-            DATE(c.tanggal_packing) as tanggal_packing,
-            c.packer_pegawai,
-            MAX(t3.name) as pegawai,
-            MAX(COALESCE(first_status.status_name, 'Tanpa Status')) as status_performa,
-            COUNT(DISTINCT a.id_printresi) as total,
-            MIN(c.tanggal_packing) as waktu_scan_packer,
-            MAX(c.tanggal_packing) as waktu_scan_selesai,
-            MAX(t_hak.akses) as role
-        FROM tblprintresi a
-        INNER JOIN tblpacking c ON a.id_printresi = c.id_resi
-        LEFT JOIN tbluser t3 ON t3.id_user = c.packer_pegawai
+        SELECT
+            x.tanggal_packing,
+            x.packer_pegawai,
+            t3.name AS pegawai,
+            COALESCE((
+                SELECT sp.status_name
+                FROM tblpacking f
+                LEFT JOIN tblmasterstatusperforma sp ON sp.id_statusperforma = f.status_performa_id
+                WHERE f.packer_pegawai = x.packer_pegawai
+                AND f.tanggal_packing = x.waktu_scan_packer
+                LIMIT 1
+            ), 'Tanpa Status') AS status_performa,
+            x.total,
+            x.waktu_scan_packer,
+            x.waktu_scan_selesai,
+            t_hak.akses AS role
+        FROM (
+            SELECT
+                DATE(c.tanggal_packing) AS tanggal_packing,
+                c.packer_pegawai,
+                COUNT(DISTINCT c.id_resi) AS total,
+                MIN(c.tanggal_packing) AS waktu_scan_packer,
+                MAX(c.tanggal_packing) AS waktu_scan_selesai
+            FROM tblpacking c
+            INNER JOIN tblprintresi a ON a.id_printresi = c.id_resi
+            WHERE c.tanggal_packing >= " . $this->db->escape($start_date) . "
+            AND c.tanggal_packing <= " . $this->db->escape($end_date) . "
+            GROUP BY DATE(c.tanggal_packing), c.packer_pegawai
+        ) x
+        LEFT JOIN tbluser t3 ON t3.id_user = x.packer_pegawai
         LEFT JOIN tblhakakses t_hak ON t_hak.id_hakakses = t3.hakakses
-        -- JOIN ke subquery untuk ambil status PERTAMA per packer per hari
-        LEFT JOIN (
-            SELECT 
-                c3.packer_pegawai,
-                DATE(c3.tanggal_packing) as tanggal_date,
-                sp3.status_name
-            FROM tblpacking c3
-            LEFT JOIN tblmasterstatusperforma sp3 ON sp3.id_statusperforma = c3.status_performa_id
-            INNER JOIN (
-                SELECT 
-                    packer_pegawai,
-                    DATE(tanggal_packing) as tanggal_date,
-                    MIN(tanggal_packing) as first_scan_time
-                FROM tblpacking
-                WHERE tanggal_packing >= " . $this->db->escape($start_date) . "
-                AND tanggal_packing <= " . $this->db->escape($end_date) . "
-                GROUP BY packer_pegawai, DATE(tanggal_packing)
-            ) first_scan ON c3.packer_pegawai = first_scan.packer_pegawai
-                AND DATE(c3.tanggal_packing) = first_scan.tanggal_date
-                AND c3.tanggal_packing = first_scan.first_scan_time
-        ) first_status ON first_status.packer_pegawai = c.packer_pegawai
-            AND first_status.tanggal_date = DATE(c.tanggal_packing)
-        WHERE c.tanggal_packing >= " . $this->db->escape($start_date) . "
-        AND c.tanggal_packing <= " . $this->db->escape($end_date) . "
         {$search_where}
-        GROUP BY DATE(c.tanggal_packing), c.packer_pegawai
         ";
         
         // Add ORDER BY
@@ -2285,7 +2281,8 @@ class Receipt_fcd extends CI_Model
             $order_clauses = [];
             foreach ($data['order'] as $order) {
                 if (isset($order_col[$order['column']])) {
-                    $order_clauses[] = $order_col[$order['column']] . ' ' . strtoupper($order['dir']);
+                    $dir = strtoupper($order['dir']) === 'DESC' ? 'DESC' : 'ASC';
+                    $order_clauses[] = $order_col[$order['column']] . ' ' . $dir;
                 }
             }
             if (!empty($order_clauses)) {
