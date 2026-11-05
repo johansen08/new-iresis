@@ -107,6 +107,14 @@
         var no = g('resi').value.trim();
         if (!no || sibuk) return;
         if (!asalWajib()) return;
+        // Scan kedua: resi yang sama dengan yang sedang diperiksa -> simpan langsung
+        if (cur && !cur.tanpa) {
+            if (no.toUpperCase() === String(cur.noresi).toUpperCase()) { simpanLangsung(); return; }
+            U.al('msg', 'warn', 'Resi <b>' + esc(cur.noresi) + '</b> masih diperiksa. Scan resi itu sekali lagi untuk menyimpan, atau tekan Batal dulu.');
+            g('resi').value = cur.noresi;
+            g('resi').select();
+            return;
+        }
         g('msg').innerHTML = '';
         sibuk = true;
         U.post(URL.cek, { noresi: no }).then(function (res) {
@@ -138,8 +146,10 @@
         g('cat').value = '';
         g('form').className = 'pcd';
         hit();
-        var p = g('isi').querySelector('input');
-        if (p) { p.focus(); p.select(); }
+        // Fokus tetap di kolom resi: periksa isi (ubah qty bila perlu), lalu scan resi yang sama sekali lagi untuk menyimpan.
+        U.al('msg', 'ok', 'Periksa isi paket. Setelah semua beres (kurang / salah / lebih), <b>scan resi ini sekali lagi</b> untuk menyimpan.');
+        g('resi').focus();
+        g('resi').select();
     }
 
     // Hitung ulang status baris + banner selisih. Mengembalikan true bila ada selisih.
@@ -197,12 +207,11 @@
         }).catch(function (x) { U.al('xmsg', 'bad', esc(U.pesanGagal(x))); });
     }
 
-    // ───── simpan: pratinjau + konfirmasi ─────
-    function simpan() {
+    // ───── simpan langsung (scan resi kedua / tombol Simpan), tanpa pop up ─────
+    function simpanLangsung() {
         if (!cur) return;
         if (!asalWajib()) return;
         var s = hit();
-        if (cur.tanpa) { simpanTanpa(); return; }
         if (s && !g('cat').value.trim()) {
             U.al('msg', 'bad', 'Ada selisih: isi catatan penyebabnya.');
             g('cat').focus();
@@ -211,28 +220,22 @@
         var it = [];
         g('isi').querySelectorAll('tr[data-s]').forEach(function (tr) { it.push({ s: tr.dataset.s, r: +tr.dataset.q, a: +tr.querySelector('input').value || 0 }); });
         g('ex').querySelectorAll('tr').forEach(function (tr) { it.push({ s: tr.dataset.s, r: 0, a: +tr.querySelector('input').value || 0 }); });
-        var dari = asalDipilih(), cat = g('cat').value.trim(), resi = cur, tot = 0;
-        var rows = it.map(function (i) {
-            tot += i.a;
-            return '<tr><td><b>' + esc(i.s) + '</b></td><td class="c">' + i.r + '</td><td class="c">' + i.a + '</td><td>' + U.bd(U.jenis(i.r, i.a), Math.abs(i.a - i.r)) + '</td></tr>';
-        }).join('');
-        var isi = '<div class="pv"><div><span>No. Resi</span><b>' + esc(resi.noresi) + '</b></div><div><span>Toko</span><b>' + esc(resi.toko) + '</b></div><div><span>Asal</span><b>' + U.NM[dari] + '</b></div><div><span>Total ada</span><b>' + tot + ' pcs</b></div></div>' +
-            '<div class="txw"><table class="tx"><thead><tr><th>SKU</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-            '<div style="margin-top:10px">' + g('ban').innerHTML + '</div>' + (cat ? '<div class="pvc"><b>Catatan:</b> ' + esc(cat) + '</div>' : '');
-        U.konfirm('Simpan penerimaan?', isi, 'Ya, simpan', 'g', function () {
-            return U.post(URL.simpan, {
-                noresi: resi.noresi, dari: dari, catatan: cat,
-                items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; }))
-            }).then(function (res) {
-                var d = (res && res.data) || {};
-                if (!d.ok) return esc(res && res.message ? res.message : 'Gagal menyimpan');
-                clr();
-                asalReset();
-                U.al('msg', d.selisih ? 'warn' : 'ok', 'Resi <b>' + esc(resi.noresi) + '</b> tersimpan' + (d.selisih ? ', ADA SELISIH tercatat.' : ', isi sesuai resi.'));
-                g('resi').focus();
-                return null;
-            }).catch(function (x) { return esc(U.pesanGagal(x)); });
-        }, 520);
+        var dari = asalDipilih(), cat = g('cat').value.trim(), resi = cur;
+        if (sibuk) return;
+        sibuk = true;
+        U.post(URL.simpan, {
+            noresi: resi.noresi, dari: dari, catatan: cat,
+            items: JSON.stringify(it.map(function (i) { return { sku: i.s, qty: i.a }; }))
+        }).then(function (res) {
+            var d = (res && res.data) || {};
+            if (!d.ok) { U.al('msg', 'bad', esc(res && res.message ? res.message : 'Gagal menyimpan')); g('resi').select(); return; }
+            clr();
+            asalReset();
+            U.al('msg', d.selisih ? 'warn' : 'ok', 'Resi <b>' + esc(resi.noresi) + '</b> tersimpan' + (d.selisih ? ', ADA SELISIH tercatat.' : ', isi sesuai resi.'));
+            g('resi').focus();
+        }).catch(function (x) {
+            U.al('msg', 'bad', esc(U.pesanGagal(x)));
+        }).then(function () { sibuk = false; });
     }
 
     function simpanTanpa() {
@@ -266,7 +269,7 @@
         else if (a === 'tg') U.tg(t);
         else if (a === 'tambah-x') tambahX();
         else if (a === 'hapus-x') { t.closest('tr').remove(); if (!g('ex').children.length) g('xt').className = 'txw hide'; hit(); }
-        else if (a === 'simpan') simpan();
+        else if (a === 'simpan') { if (cur && cur.tanpa) simpanTanpa(); else simpanLangsung(); }
         else if (a === 'tanpa') tanpaResi();
         else if (a === 'batal') { g('msg').innerHTML = ''; clr(); }
     });
