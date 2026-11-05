@@ -256,3 +256,7 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .sa{min-width:0}
 }
 .pc .sa small{white-space:nowrap}
+
+/* Kotak centang kunci kursor di kolom scan resi (Terima Paket Cancel) */
+.pc .kunci{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--mut);cursor:pointer}
+.pc .kunci input{width:auto;margin:0}
