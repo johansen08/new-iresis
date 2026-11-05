@@ -320,3 +320,30 @@ Paket yang diterima sebelum perubahan ini kolomnya masih kosong; laporan menghit
 (tidak ada UPDATE massal). Edit paket di laporan membawa alasan lama ke kejadian yang sama,
 kejadian baru dibiarkan tanpa alasan. Paket tanpa resi tidak diklasifikasi.
 Penyimpanan ke Daftar Masalah Picker (`sinkron_masalah_picker`) tidak diubah.
+
+## 16. Pilihan Kurang / Salah di Terima Paket Cancel (5 Nov 2026)
+
+Menggantikan tebakan salah ambil (§15) dan pilihan alasan: bila **Qty ada < qty resi**, petugas
+**wajib memilih** di baris itu:
+
+- **Kurang**: qty kurang langsung dihitung (qty resi - qty ada).
+- **Salah**: isi SKU yang terambil dan qty-nya (boleh beberapa SKU); sisa selisih otomatis Kurang.
+  Contoh A x5 -> A x2 + B x2 = SALAH 2 (A -> B) + KURANG 1. SKU yang terambil harus SKU di luar resi.
+
+Selisih tidak bisa disimpan sebelum semua baris dipilih (kartu "Belum dipilih"). Label tampil hanya
+**KURANG / SALAH / LEBIH** (SKU di luar resi tampil LEBIH; di data tetap `DI_LUAR_RESI`). Pilihan
+alasan dihapus: `kode_alasan` tidak diisi lagi untuk paket baru (data lama tetap tampil).
+
+**Penyimpanan.** Tabel baru `tblcancel_paket_selisih` (satu baris per kejadian: `jenis`, `sku`,
+`pasangan_sku`, `qty`, `aktif`; migrasi di `run_paket_cancel_terima_migration`, `BOOTSTRAP_VERSI`
+2026-11-05.3). Edit paket menonaktifkan kejadian lama (`aktif=0`) lalu menulis yang baru, tanpa DELETE.
+Klien mengirim `items` (qty fisik per SKU) dan `salah` ([{sku, pasangan, qty}]); server menghitung kejadian
+lewat `Cancel_terima_fcd::klasifikasi_eksplisit()` dan menolak alokasi yang melebihi selisih / barang
+yang ada. Klien lama tanpa `salah` tetap memakai aturan lama (`klasifikasi()` + alasan). Laporan membaca
+kejadian dari tabel; paket lama tanpa kejadian dihitung dari qty seperti sebelumnya (tidak ada UPDATE massal).
+`sinkron_masalah_picker` memakai kejadian eksplisit (SALAH mengisi `sku_salah`; KURANG tidak dipasangkan).
+
+**Kode klien.** Modul bersama `U.periksa()` di `views/paket_cancel/_umum.php` dipakai Terima Paket Cancel
+dan popup Edit di Laporan (status, kartu ringkasan, kotak SKU yang terambil, payload). Terima Paket Cancel
+juga punya kotak centang "Kunci kursor di kolom scan resi" (default aktif, disimpan di browser).
+

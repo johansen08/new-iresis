@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-05.2';
+    const BOOTSTRAP_VERSI = '2026-11-05.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2072,6 +2072,21 @@ class MY_Controller extends CI_Controller
                 $this->db->query("ALTER TABLE tblcancel_paket $ddl");
             }
         }
+        // Kejadian selisih per paket (satu baris per kejadian: KURANG / SALAH_AMBIL / LEBIH / DI_LUAR_RESI). Satu SKU bisa
+        // punya beberapa kejadian (mis. A 5 -> A 2 + B 2 = salah ambil 2 + kurang 1), jadi tidak cukup satu kolom jenis per item.
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblcancel_paket_selisih` (
+          `id_selisih` int(11) NOT NULL AUTO_INCREMENT,
+          `id_cancel_paket` int(11) NOT NULL,
+          `id_resi` bigint(20) NOT NULL,
+          `jenis` varchar(16) NOT NULL,
+          `sku` varchar(100) NOT NULL,
+          `pasangan_sku` varchar(100) DEFAULT NULL,
+          `qty` int(11) NOT NULL DEFAULT 0,
+          `aktif` tinyint(1) NOT NULL DEFAULT 1,
+          `created_at` datetime NOT NULL,
+          PRIMARY KEY (`id_selisih`),
+          KEY `idx_cancel_selisih_paket` (`id_cancel_paket`, `aktif`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
         $tipe = $this->db->query("SHOW COLUMNS FROM tblcancel_paket_log LIKE 'aksi'")->row_array();
         if ($tipe && stripos($tipe['Type'], 'BATAL_SELESAI') === false) {
             $this->db->query("ALTER TABLE tblcancel_paket_log MODIFY aksi enum('TERIMA','EDIT','HAPUS','DISPLAY','BATAL_DISPLAY','SELESAI','BATAL_SELESAI') NOT NULL");
