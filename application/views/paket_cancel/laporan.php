@@ -362,15 +362,42 @@
         U.skuPasang({ input: g('edsku'), dd: g('eddd'), qty: g('edq'), tambah: edTambah });
         edHit();
     }
-    function edHit() {
-        var k = 0, l = 0, x = 0;
-        g('edb').querySelectorAll('tr').forEach(function (tr) {
-            var r = +tr.dataset.r, v = +tr.querySelector('input').value || 0, d = v - r;
-            tr.querySelector('.st').innerHTML = U.bd(U.jenis(r, v), Math.abs(d));
-            if (r === 0) x += v; else if (d < 0) k -= d; else l += d;
+    // Kelompokkan selisih jadi kejadian (sama dengan Cancel_terima_fcd::klasifikasi() dan terima.php)
+    function klas(b) {
+        var kur = [], luar = [], leb = [], grup = [];
+        b.forEach(function (x) {
+            if (x.r > 0) {
+                if (x.a < x.r) kur.push({ s: x.s, q: x.r - x.a });
+                else if (x.a > x.r) leb.push({ s: x.s, q: x.a - x.r, j: 'LEBIH' });
+            } else if (x.a > 0) luar.push({ s: x.s, q: x.a, j: 'DI_LUAR_RESI' });
         });
-        var s = k || l || x;
-        g('edban').innerHTML = s ? '<div class="al warn" style="margin:0"><b>ADA SELISIH:</b> ' + [k && 'kurang ' + k, l && 'lebih ' + l, x && 'di luar resi ' + x].filter(Boolean).join(', ') + ' pcs</div>' : '<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b></div>';
+        var pool = luar.concat(leb);
+        kur.forEach(function (k) {
+            pool.forEach(function (o) {
+                if (k.q <= 0 || o.q <= 0) return;
+                var t = Math.min(k.q, o.q);
+                grup.push({ j: 'SALAH_AMBIL', s: k.s, p: o.s, q: t });
+                k.q -= t; o.q -= t;
+            });
+            if (k.q > 0) grup.push({ j: 'KURANG', s: k.s, p: '', q: k.q });
+        });
+        pool.forEach(function (o) { if (o.q > 0) grup.push({ j: o.j, s: o.s, p: '', q: o.q }); });
+        return grup;
+    }
+    function edHit() {
+        var b = [], trs = g('edb').querySelectorAll('tr');
+        trs.forEach(function (tr) { b.push({ s: tr.dataset.s, r: +tr.dataset.r, a: +tr.querySelector('input').value || 0 }); });
+        var grup = klas(b), tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 };
+        grup.forEach(function (k) { tot[k.j] += k.q; });
+        trs.forEach(function (tr, i) {
+            var x = b[i], d = x.a - x.r, sku = x.s.toUpperCase();
+            var h = grup.filter(function (k) { return k.s.toUpperCase() === sku || (k.p && k.p.toUpperCase() === sku); })[0];
+            var pas = h && h.j === 'SALAH_AMBIL' ? (h.s.toUpperCase() === sku ? h.p : h.s) : '';
+            tr.querySelector('.st').innerHTML = h ? '<span class="b ' + CLSJ[h.j] + '">' + NMJ[h.j] + ' ' + Math.abs(d) + '</span>' + (pas ? ' <small class="note">&harr; ' + esc(pas) + '</small>' : '')
+                : (x.r > 0 ? U.bd('SESUAI', 0) : '');
+        });
+        var s = tot.KURANG + tot.LEBIH + tot.SALAH_AMBIL + tot.DI_LUAR_RESI;
+        g('edban').innerHTML = s ? '<div class="al warn" style="margin:0"><b>ADA SELISIH:</b> ' + [tot.KURANG && 'kurang ' + tot.KURANG, tot.LEBIH && 'lebih ' + tot.LEBIH, tot.SALAH_AMBIL && 'salah ambil ' + tot.SALAH_AMBIL, tot.DI_LUAR_RESI && 'di luar resi ' + tot.DI_LUAR_RESI].filter(Boolean).join(', ') + ' pcs</div>' : '<div class="al ok" style="margin:0"><b>ISI SESUAI RESI</b></div>';
         return !!s;
     }
     function edTambah() {
