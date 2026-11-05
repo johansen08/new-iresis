@@ -276,3 +276,18 @@ DELETE, jadi koreksi = nol, bukan hapus baris. Menu lama `cs/masalah-picker`
 
 Migrasi: `run_tipe_masalah_selisih_paket_cancel` (baris tipe 6 di
 `tbltypemasalah`, `BOOTSTRAP_VERSI` 2026-11-04.2). Tidak ada kolom baru.
+
+## 14. Status pengembalian paket cancel (5 Nov 2026)
+
+Kolom **Pengembalian** di Laporan Paket Cancel, untuk saat ini 2 status berurutan:
+
+1. **DICETAK** — otomatis saat halaman cetak serah terima (`paket-cancel/serah-cetak`) dibuka;
+   semua paket diterima pada tanggal itu yang belum bertanda diberi `serah_cetak_at`
+   (cetak ulang tidak menimpa waktu pertama).
+2. **SELESAI** — petugas mencentang checkbox di laporan (`paket-cancel/tandai-selesai`).
+   Checkbox terkunci sebelum dicetak (dicek juga di server); centang bisa dibatalkan.
+   Tiap perubahan masuk `tblcancel_paket_log` (aksi `SELESAI` / `BATAL_SELESAI`).
+
+Kolom baru `tblcancel_paket`: `serah_cetak_at/oleh`, `selesai_at/oleh`. Migrasi di
+`run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI` 2026-11-05.1). Status lain
+(mis. diterima restok) belum ada; tambahkan sebagai tahap baru bila diperlukan.
