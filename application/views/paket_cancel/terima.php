@@ -10,6 +10,7 @@
   <div class="stp" style="margin-top:16px"><span class="stn">2</span><b>Scan no. resi</b></div>
   <input id="pc_resi" class="scan" placeholder="Scan atau ketik no. resi, lalu Enter" autocomplete="off">
   <button type="button" class="btn-tanpa" data-act="tanpa">&#128196; Tidak Ada Resi</button>
+  <label class="kunci"><input type="checkbox" id="pc_kunci" checked><span>Kunci kursor di kolom scan resi</span></label>
   <div id="pc_msg"></div>
  </div>
 
@@ -397,6 +398,32 @@
         g('resi').focus();
     };
     document.addEventListener('keydown', window.__pcTerimaEsc);
+    // ───── kunci kursor di kolom scan resi ─────
+    // Aktif (default): setelah klik tombol / area kosong / selesai mengisi kolom lain, kursor kembali ke kolom scan resi
+    // supaya scanner tidak mengetik ke tempat lain. Kolom ketik (qty, SKU luar resi, catatan) dan pilihan alasan tetap bisa
+    // diklik langsung. Berhenti sementara saat mode Tanpa Resi atau ada popup / pembesar foto terbuka.
+    var KUNCI_KEY = 'pc_kunci_scan';
+    var cbKunci = g('kunci');
+    try { if (localStorage.getItem(KUNCI_KEY) === '0') cbKunci.checked = false; } catch (er) { /* abaikan: tanpa penyimpanan */ }
+    cbKunci.addEventListener('change', function () {
+        try { localStorage.setItem(KUNCI_KEY, cbKunci.checked ? '1' : '0'); } catch (er) { /* abaikan */ }
+        if (cbKunci.checked) g('resi').focus();
+    });
+    var BOLEH_FOKUS = 'input[type=text],input[type=number],input:not([type]),textarea,select';
+    function fokusScan(paksa) {
+        if (!R.isConnected || !cbKunci.checked || (cur && cur.tanpa)) return;
+        if (R.querySelector('.pclb, .mdo')) return;
+        var a = document.activeElement, r = g('resi');
+        if (a === r) return;
+        if (!paksa && a && a !== document.body && a.matches && a.matches(BOLEH_FOKUS) && a.offsetParent !== null) return;
+        if (a && a.id === 'pc_kunci') return;
+        r.focus();
+    }
+    R.addEventListener('focusin', function (e) { if (e.target !== g('resi')) setTimeout(fokusScan, 0); });
+    R.addEventListener('focusout', function () { setTimeout(fokusScan, 0); });
+    R.addEventListener('click', function (e) { if (!e.target.closest(BOLEH_FOKUS + ',#pc_kunci,.kunci')) setTimeout(fokusScan, 0); });
+    // Selesai memilih alasan: kursor kembali ke scan walau kotak pilihan masih terfokus
+    R.addEventListener('change', function (e) { if (e.target.matches('select')) setTimeout(function () { fokusScan(true); }, 0); });
     U.autoBersih(g('resi'));
     U.skuPasang({ input: g('xsku'), dd: g('dd'), qty: g('xq'), tambah: tambahX });
     g('resi').focus();
