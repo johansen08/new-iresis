@@ -284,11 +284,12 @@ Kolom **Pengembalian** di Laporan Paket Cancel, untuk saat ini 2 status beruruta
 Kolom paling kiri laporan = **checkbox pilih** (kotak di judul kolom = pilih semua sesuai
 filter; pilihan bertahan antar halaman). Yang dicentang menentukan paket mana yang diproses:
 
-1. **Serah Terima** — mencetak kertas hanya dari paket yang dicentang (boleh lintas tanggal
-   terima; dikirim POST `ids` ke `paket-cancel/serah-cetak`). Tanpa centang, perilaku lama:
-   semua paket satu tanggal terima. Membuka halaman cetak menandai paket jadi **DICETAK**
+1. **Serah Terima** — tombol pertama; aktif hanya bila ada paket tercentang. Kertas hanya berisi
+   paket yang dicentang dan masih tampil di filter (boleh lintas tanggal terima; dikirim POST
+   `ids` ke `paket-cancel/serah-cetak`). Pratinjau ditutup bila pilihan berubah. Membuka halaman cetak menandai paket jadi **DICETAK**
    (`serah_cetak_at`; cetak ulang tidak menimpa waktu pertama).
-2. **Tandai Selesai** — menandai paket yang dicentang jadi **SELESAI** (`paket-cancel/tandai-selesai`,
+2. **Tandai Selesai** — tombol kedua; terkunci selama ada paket tercentang yang belum dicetak.
+   Menandai paket yang dicentang jadi **SELESAI** (`paket-cancel/tandai-selesai`,
    param `ids`). Paket yang belum dicetak dilewati (dicek di server). Batal selesai per paket
    lewat tombol ↩ di kolom Pengembalian. Tiap perubahan masuk `tblcancel_paket_log`
    (aksi `SELESAI` / `BATAL_SELESAI`).
