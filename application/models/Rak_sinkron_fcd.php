@@ -218,6 +218,8 @@ class Rak_sinkron_fcd extends CI_Model
             throw new Exception('Batch tidak punya riwayat perubahan.');
         }
 
+        $cadangan = (!empty($batch['tabel_cadangan']) && preg_match('/^tblsku_rak_bak_\d{8}_\d{6}$/', $batch['tabel_cadangan']))
+            ? $batch['tabel_cadangan'] : null;
         $now = date('Y-m-d H:i:s');
         $db_debug = $this->db->db_debug;
         $this->db->db_debug = false;
@@ -238,9 +240,17 @@ class Rak_sinkron_fcd extends CI_Model
         foreach ($baris as $h) {
             $lama = (string) $h['rak_lama'];
             $baru = (string) $h['rak_baru'];
+            $nilai = $lama === '' ? null : $lama;
+            if ($lama === '' && $cadangan !== null) {
+                // Riwayat menyimpan kosong sebagai NULL; pulihkan persis NULL/'' aslinya dari tabel cadangan.
+                $asli = $this->db->query("SELECT no_rak FROM `$cadangan` WHERE id_sku = ?", array($h['id_sku']))->row_array();
+                if ($asli) {
+                    $nilai = $asli['no_rak'];
+                }
+            }
             $this->db->query(
                 'UPDATE tblsku SET no_rak = ? WHERE id_sku = ? AND TRIM(IFNULL(no_rak, \'\')) = ?',
-                array($lama === '' ? null : $lama, $h['id_sku'], $baru)
+                array($nilai, $h['id_sku'], $baru)
             );
             if ($this->db->affected_rows() < 1) {
                 $lewati++;
