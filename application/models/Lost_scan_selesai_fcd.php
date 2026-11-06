@@ -87,7 +87,7 @@ class Lost_scan_selesai_fcd extends CI_Model
                 'nama_komputer'           => self::PENANDA_PICKING,
                 'pending'                 => '',
                 'is_preorder'             => 0,
-                'status_performa_id'      => null,
+                'status_performa_id'      => $this->id_status('NORMAL_PICKER'),
             ]);
             $id_rab = (int) $this->db->insert_id();
             if ($id_rab <= 0) {
@@ -195,10 +195,24 @@ class Lost_scan_selesai_fcd extends CI_Model
             'tanggal_packing'    => $now,
             'packer_pegawai'     => (int) $packer->id_user,
             'keterangan'         => self::PENANDA_PICKING . ' (no absen ' . sprintf('%04d', $no_absen_packer) . ')',
-            'status_performa_id' => null,
+            'status_performa_id' => $this->id_status('NORMAL_PACKER'),
         ]);
 
         return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * id status performa dari master berdasarkan kode_status. Lost scan HO
+     * otomatis NORMAL_PICKER (picker) / NORMAL_PACKER (packer) supaya tidak
+     * muncul "Tanpa Status" di Laporan Tim Produksi. NULL kalau master tidak ada.
+     */
+    private function id_status($kode_status)
+    {
+        $row = $this->db->select('id_statusperforma')
+            ->get_where('tblmasterstatusperforma', ['kode_status' => $kode_status, 'isactive' => 1])
+            ->row();
+
+        return $row ? (int) $row->id_statusperforma : null;
     }
 
     /**
