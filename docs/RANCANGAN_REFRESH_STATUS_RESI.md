@@ -194,3 +194,11 @@ saat kandidat mode backlog tinggal 0. Hasil uji tulis 4 Nov 2026: mingguan 100 d
 - Daftar order Jubelio tidak memuat `completed_date` (hanya ada di detail), jadi panggilan
   detail tetap perlu untuk resi yang berubah menjadi COMPLETED; update "hanya dari daftar"
   tidak dipakai agar `tanggal_selesai` tetap akurat.
+
+### Pembaruan 6 Nov 2026 (jatah dinaikkan)
+
+- Run 6 Nov: 03.00-05.07, 0 error, 0 gagal detail, tanpa 429. Antrean umur 15-60 hari masih ±397 ribu
+  (masuk ±9 ribu/hari, jatah 15.000 hanya menyusut ±6 ribu/malam → ±2 bulan).
+- Jatah mingguan dinaikkan ke 25.000 (batas kandidat 45.000) dan pekerja bawaan ke 5. Perkiraan run
+  selesai ±06.15 (jam kerja mulai ±07.00); antrean habis ±3 minggu. Pantau log pagi: kalau muncul 429
+  atau run melewati 07.00, turunkan lagi.

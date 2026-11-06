@@ -74,10 +74,10 @@ MODE_DEFAULT = {
     # Anggaran dinaikkan 5 Nov 2026: ~9 ribu resi/hari masuk umur 15-60 hari, jadi jatah mingguan
     # harus > itu supaya antrean menyusut (resi terhapus dari prod oleh purna setelah ~150 hari).
     'harian':   (12000, 25000),
-    'mingguan': (15000, 30000),
+    'mingguan': (25000, 45000),
     'backlog':  (6000, 10000),
 }
-PEKERJA_DEFAULT = 4    # panggilan detail paralel; uji 5 Nov: 1=1,4/dtk, 3=3,9/dtk, 5=6,8/dtk, tanpa 429
+PEKERJA_DEFAULT = 5    # panggilan detail paralel; uji 5 Nov: 1=1,4/dtk, 3=3,9/dtk, 5=6,8/dtk, tanpa 429
 CHUNK_DETAIL = 1000    # upload + tandai tiap sekian order, supaya kerja tidak hilang kalau berhenti di tengah
 PAD_DARI_HARI = 5      # transaction_date Jubelio bisa mendahului tanggal cetak resi
 PAD_SAMPAI_HARI = 1
