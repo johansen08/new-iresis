@@ -3190,18 +3190,22 @@ class Receipt_fcd extends CI_Model
 
     /**
      * Syarat kategori rincian laporan picker (pop-up angka "Jumlah"):
-     * spesial   = 1 SKU, qty 1, SKU bertanda special
-     * satuan    = 1 SKU, qty 1, bukan special
+     * spesial   = 1 SKU, qty 1, dan (SKU bertanda special ATAU status picker 1_SKU_PICKER)
+     * satuan    = 1 SKU, qty 1, bukan special dan status picker bukan 1_SKU_PICKER
      * kombinasi = selain keduanya (lebih dari 1 SKU dan/atau qty lebih dari 1)
      * $qty = nama kolom total qty di subquery agregat ($m = aliasnya).
+     * Memakai alias rab (tblresiambilbarang) untuk status_performa_id.
      */
+    const ID_STATUS_1_SKU_PICKER = 11; // tblmasterstatusperforma: 1_SKU_PICKER
+
     private function syarat_kategori_picker($category, $m, $qty)
     {
         $satuan = "$m.distinct_skus = 1 AND $m.$qty = 1";
+        $spesial = "(COALESCE($m.has_special, 0) = 1 OR rab.status_performa_id = " . self::ID_STATUS_1_SKU_PICKER . ")";
         if ($category == 'spesial') {
-            return "AND $satuan AND $m.has_special = 1";
+            return "AND $satuan AND $spesial";
         } elseif ($category == 'satuan') {
-            return "AND $satuan AND COALESCE($m.has_special, 0) = 0";
+            return "AND $satuan AND NOT $spesial";
         } elseif ($category == 'kombinasi') {
             return "AND NOT ($m.distinct_skus <=> 1 AND $m.$qty <=> 1)";
         }
@@ -3212,8 +3216,8 @@ class Receipt_fcd extends CI_Model
     {
         $sql = "
             SELECT 
-                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as spesial,
-                SUM(CASE WHEN has_special = 0 AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as satuan,
+                SUM(CASE WHEN (has_special = 1 OR id_status = " . self::ID_STATUS_1_SKU_PICKER . ") AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as spesial,
+                SUM(CASE WHEN has_special = 0 AND id_status <> " . self::ID_STATUS_1_SKU_PICKER . " AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as satuan,
                 SUM(CASE WHEN NOT (distinct_skus = 1 AND total_qty = 1) OR distinct_skus IS NULL OR total_qty IS NULL THEN 1 ELSE 0 END) as kombinasi,
                 COUNT(*) as total_resi
             FROM (
@@ -3221,7 +3225,8 @@ class Receipt_fcd extends CI_Model
                     pr.id_printresi,
                     m.distinct_skus,
                     m.total_qty,
-                    COALESCE(m.has_special, 0) as has_special
+                    COALESCE(m.has_special, 0) as has_special,
+                    COALESCE(rab.status_performa_id, 0) as id_status
                 FROM tblresiambilbarang rab
                 INNER JOIN tblprintresi pr ON pr.id_printresi = rab.id_resi
                 LEFT JOIN (
