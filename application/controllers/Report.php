@@ -2474,10 +2474,9 @@ class Report extends MY_Controller
         $data['tanggal'] = date('d-m-Y', strtotime($tanggal));
         
         $category_labels = [
-            'sku_special' => 'RESI SPECIAL',
-            'resi_1_sku_sd_9' => '1 SKU & QTY S D 9',
-            'resi_2_9_sku_sd_9' => '2-9 SKU & QTY S D 9',
-            'resi_qty_banyak' => 'QTY BANYAK (>9)'
+            'spesial' => 'Spesial (1 SKU 1 QTY)',
+            'satuan' => 'Satuan (1 SKU 1 QTY)',
+            'kombinasi' => 'Kombinasi'
         ];
         $data['category_label'] = isset($category_labels[$category]) ? $category_labels[$category] : 'Detail';
 
@@ -2509,15 +2508,14 @@ class Report extends MY_Controller
         $data['tanggal'] = date('d-m-Y', strtotime($tanggal));
         
         $category_labels = [
-            'sku_special' => 'RESI SPECIAL',
-            'resi_1_sku_sd_9' => '1 SKU & QTY S D 9',
-            'resi_2_9_sku_sd_9' => '2-9 SKU & QTY S D 9',
-            'resi_qty_banyak' => 'QTY BANYAK (>9)'
+            'spesial' => 'Spesial (1 SKU 1 QTY)',
+            'satuan' => 'Satuan (1 SKU 1 QTY)',
+            'kombinasi' => 'Kombinasi'
         ];
         $data['category_label'] = isset($category_labels[$category]) ? $category_labels[$category] : 'Detail';
 
         header("Content-type: application/vnd-ms-excel");
-        header("Content-Disposition: attachment; filename=Laporan_Resi_" . str_replace(' ', '_', $nama_sku) . "_" . str_replace(' ', '_', $nama_picker) . "_" . $tanggal . ".xls");
+        header("Content-Disposition: attachment; filename=Laporan_Resi_" . str_replace(' ', '_', $id_sku) . "_" . str_replace(' ', '_', $nama_picker) . "_" . $tanggal . ".xls");
 
         $this->load->view('template_report/picker_detail_resi_excel', $data);
     }
