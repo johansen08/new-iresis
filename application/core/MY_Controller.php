@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-05.3';
+    const BOOTSTRAP_VERSI = '2026-11-06.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -191,6 +191,7 @@ class MY_Controller extends CI_Controller
         $this->run_stok_aks27_kembali_migration();
         $this->run_barang_reject_menu_migration();
         $this->run_gdbr_migration();
+        $this->run_sinkron_rak_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -476,6 +477,31 @@ class MY_Controller extends CI_Controller
                     'createdby' => 1
                 ]);
             }
+        }
+    }
+
+    /**
+     * Sinkron Rak Jubelio: tabel batch + kolom batch_id di tblrak_history.
+     * Murni tambahan (CREATE IF NOT EXISTS / ADD COLUMN), tidak mengubah data.
+     */
+    protected function run_sinkron_rak_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS tblrak_batch (
+            id INT NOT NULL AUTO_INCREMENT,
+            jenis VARCHAR(20) NOT NULL COMMENT 'SINKRON atau ROLLBACK',
+            keterangan VARCHAR(255) DEFAULT NULL,
+            ref_batch_id INT DEFAULT NULL COMMENT 'untuk ROLLBACK: batch yang dikembalikan',
+            tabel_cadangan VARCHAR(100) DEFAULT NULL COMMENT 'salinan no_rak sebelum update',
+            jumlah_sku INT NOT NULL DEFAULT 0,
+            jumlah_lewati INT NOT NULL DEFAULT 0,
+            status VARCHAR(20) NOT NULL DEFAULT 'AKTIF' COMMENT 'AKTIF atau DIKEMBALIKAN',
+            id_pegawai INT DEFAULT NULL,
+            created_at DATETIME DEFAULT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        if (!in_array('batch_id', $this->db->list_fields('tblrak_history'))) {
+            $this->db->query("ALTER TABLE tblrak_history ADD COLUMN batch_id INT NULL DEFAULT NULL, ADD INDEX idx_rakhist_batch (batch_id)");
         }
     }
 

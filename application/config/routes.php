@@ -564,6 +564,10 @@ $route['accounting/get-nomor-rak-dt']                         = 'accounting/get_
 $route['accounting/upload-rak-gudang']                        = 'accounting/upload_rak_gudang';
 $route['accounting/download-template-rak-gudang']             = 'accounting/download_template_rak_gudang';
 $route['accounting/get-rak-history']                          = 'accounting/get_rak_history';
+$route['accounting/sinkron-rak-pratinjau'] = 'accounting/sinkron_rak_pratinjau';
+$route['accounting/sinkron-rak-terapkan'] = 'accounting/sinkron_rak_terapkan';
+$route['accounting/sinkron-rak-batch'] = 'accounting/sinkron_rak_batch';
+$route['accounting/sinkron-rak-kembalikan'] = 'accounting/sinkron_rak_kembalikan';
 $route['accounting/update-sku-inline']                        = 'accounting/update_sku_inline';
 
 

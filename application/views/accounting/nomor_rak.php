@@ -203,6 +203,7 @@ textarea.input-norak-gudang {
     <div style="display:flex; gap:8px; flex-wrap:wrap; position:relative; z-index:1;">
         <button type="button" class="btn btn-warning" id="btn-upload-rak-gudang"><i class="fa fa-upload"></i> Upload Rak Gudang</button>
         <a href="<?= base_url('accounting/download-template-rak-gudang') ?>" class="btn btn-default"><i class="fa fa-download"></i> Template</a>
+        <button type="button" class="btn btn-danger" id="btn-sinkron-rak"><i class="fa fa-refresh"></i> Sinkron dari Jubelio</button>
         <button type="button" class="btn btn-info" id="btn-rak-history"><i class="fa fa-history"></i> Riwayat</button>
         <input type="file" id="rakGudangFile" accept=".xls,.xlsx" style="display:none;">
     </div>
@@ -237,6 +238,48 @@ textarea.input-norak-gudang {
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SINKRON NO RAK DARI JUBELIO -->
+<div id="sinkron-overlay" class="rak-modal-overlay">
+  <div class="rak-modal">
+    <div class="rak-modal-header">
+      <h4 style="margin:0; font-size:16px; font-weight:700;"><i class="fa fa-refresh"></i> Sinkron No Rak dari Jubelio</h4>
+      <span class="rak-modal-close" id="sinkron-close">&times;</span>
+    </div>
+    <div class="rak-modal-body">
+      <div style="margin-bottom:12px;">
+        <button type="button" class="btn btn-default" id="btn-sinkron-pilih"><i class="fa fa-file-excel-o"></i> Pilih Excel "persediaan gudang"</button>
+        <input type="file" id="sinkronFile" accept=".xls,.xlsx" style="display:none;">
+        <span id="sinkron-nama" style="margin-left:8px; color:#6b7280;"></span>
+        <div class="help-block" style="margin:6px 0 0;">Kolom yang dibaca: <b>SKU</b> dan <b>No Rak</b>. Pratinjau tidak mengubah data. Nilai No Rak kosong di Excel diabaikan.</div>
+      </div>
+      <div id="sinkron-hasil" style="display:none;">
+        <div id="sinkron-ringkas" style="margin-bottom:10px;"></div>
+        <div style="margin-bottom:10px;">
+          <label style="margin-right:14px;"><input type="checkbox" class="sinkron-kat" value="BEDA" checked> Rak beda (<span id="n-BEDA">0</span>)</label>
+          <label style="margin-right:14px;"><input type="checkbox" class="sinkron-kat" value="CABUT" checked> Tertulis CABUT (<span id="n-CABUT">0</span>)</label>
+          <label><input type="checkbox" class="sinkron-kat" value="DB_KOSONG" checked> Rak DB kosong (<span id="n-DB_KOSONG">0</span>)</label>
+        </div>
+        <div style="max-height:260px; overflow:auto; margin-bottom:10px;">
+          <table class="table table-condensed table-striped">
+            <thead><tr><th>SKU</th><th>Rak di iResis</th><th>Rak di Jubelio</th><th>Kategori</th></tr></thead>
+            <tbody id="sinkron-contoh"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-danger" id="btn-sinkron-terapkan"><i class="fa fa-check"></i> Terapkan sebagai batch baru</button>
+        <span class="help-block" style="display:inline-block; margin-left:8px;">Tabel cadangan dibuat otomatis sebelum update.</span>
+      </div>
+      <hr>
+      <h5 style="font-weight:700;"><i class="fa fa-undo"></i> Batch sinkron &amp; pengembalian</h5>
+      <div style="max-height:260px; overflow:auto;">
+        <table class="table table-condensed table-striped">
+          <thead><tr><th>#</th><th>Waktu</th><th>Jenis</th><th>Keterangan</th><th>SKU</th><th>Dilewati</th><th>Status</th><th>Oleh</th><th></th></tr></thead>
+          <tbody id="sinkron-batch"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -527,5 +570,75 @@ $(document).ready(function () {
         histTimer = setTimeout(function(){ if (histDt) histDt.ajax.reload(); }, 350);
     });
     $('#rak-hist-jenis').on('change', function() { if (histDt) histDt.ajax.reload(); });
+
+    // ══════════════ SINKRON NO RAK DARI JUBELIO ══════════════
+    var sinkronToken = null, sinkronNamaFile = '';
+    function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
+    function muatBatch() {
+        $.post('<?= base_url("accounting/sinkron-rak-batch") ?>', {}, function(res) {
+            var h = '';
+            ((res.data && res.data.rows) || []).forEach(function(b) {
+                var tombol = (b.jenis === 'SINKRON' && b.status === 'AKTIF')
+                    ? '<button class="btn btn-xs btn-warning btn-kembalikan" data-id="' + b.id + '" data-n="' + b.jumlah_sku + '"><i class="fa fa-undo"></i> Kembalikan</button>' : '';
+                h += '<tr><td>' + b.id + '</td><td>' + esc(b.created_at) + '</td><td>' + esc(b.jenis) + '</td><td>' + esc(b.keterangan) +
+                     '</td><td>' + b.jumlah_sku + '</td><td>' + b.jumlah_lewati + '</td><td>' + esc(b.status) + '</td><td>' + esc(b.nama_pegawai || '-') + '</td><td>' + tombol + '</td></tr>';
+            });
+            $('#sinkron-batch').html(h || '<tr><td colspan="9" class="text-muted">Belum ada batch.</td></tr>');
+        }, 'json');
+    }
+    $('#btn-sinkron-rak').click(function() { $('#sinkron-overlay').addClass('show'); muatBatch(); });
+    $('#sinkron-close').click(function() { $('#sinkron-overlay').removeClass('show'); });
+    $('#btn-sinkron-pilih').click(function() { $('#sinkronFile').val('').click(); });
+    $('#sinkronFile').on('change', function() {
+        if (!this.files || !this.files.length) return;
+        sinkronNamaFile = this.files[0].name;
+        $('#sinkron-nama').text(sinkronNamaFile + ' — membaca...');
+        var fd = new FormData(); fd.append('sinkronFile', this.files[0]);
+        $.ajax({ url: '<?= base_url("accounting/sinkron-rak-pratinjau") ?>', method: 'POST', data: fd, processData: false, contentType: false, dataType: 'json', timeout: 600000,
+            success: function(res) {
+                if (res.code !== 200) { showNoty(res.message, 'error'); $('#sinkron-nama').text(sinkronNamaFile); return; }
+                var d = res.data; sinkronToken = d.token;
+                $('#sinkron-nama').text(sinkronNamaFile);
+                $('#sinkron-ringkas').html('Akan berubah: <b>' + d.total + '</b> SKU &middot; sudah sama: ' + d.sama + ' &middot; tidak ada di iResis: ' + d.tidak_ada + ' &middot; konflik di Excel (dilewati): ' + d.konflik);
+                ['BEDA','CABUT','DB_KOSONG'].forEach(function(k) { $('#n-' + k).text(d.hitung[k]); });
+                var h = '';
+                d.contoh.forEach(function(c) { h += '<tr><td>' + esc(c.sku) + '</td><td>' + esc(c.lama || '(kosong)') + '</td><td><b>' + esc(c.baru) + '</b></td><td>' + c.kat + '</td></tr>'; });
+                if (d.total > d.contoh.length) h += '<tr><td colspan="4" class="text-muted">…dan ' + (d.total - d.contoh.length) + ' SKU lainnya (hanya 40 pertama ditampilkan)</td></tr>';
+                $('#sinkron-contoh').html(h);
+                $('#sinkron-hasil').show();
+            },
+            error: function() { showNoty('Gagal membaca file', 'error'); }
+        });
+    });
+    $('#btn-sinkron-terapkan').click(function() {
+        var kat = $('.sinkron-kat:checked').map(function() { return this.value; }).get();
+        if (!sinkronToken || !kat.length) { showNoty('Pilih minimal satu kategori', 'warning'); return; }
+        var n = 0; kat.forEach(function(k) { n += parseInt($('#n-' + k).text(), 10) || 0; });
+        if (!confirm('Terapkan perubahan nomor rak untuk ' + n + ' SKU (' + kat.join(', ') + ')?\nSalinan cadangan dibuat otomatis dan batch ini bisa dikembalikan.')) return;
+        var $b = $(this).prop('disabled', true);
+        $.ajax({ url: '<?= base_url("accounting/sinkron-rak-terapkan") ?>', method: 'POST', dataType: 'json', timeout: 600000,
+            data: { token: sinkronToken, kategori: kat, nama_file: sinkronNamaFile },
+            success: function(res) {
+                if (res.code !== 200) { showNoty(res.message, 'error'); return; }
+                showNoty('Batch #' + res.data.batch_id + ': ' + res.data.diterapkan + ' SKU diubah, ' + res.data.dilewati + ' dilewati. Cadangan: ' + res.data.tabel_cadangan, 'success');
+                sinkronToken = null; $('#sinkron-hasil').hide(); muatBatch(); dt.ajax.reload(null, false); fetchGlobalStats();
+            },
+            error: function() { showNoty('Terjadi kesalahan saat menerapkan', 'error'); },
+            complete: function() { $b.prop('disabled', false); }
+        });
+    });
+    $(document).on('click', '.btn-kembalikan', function() {
+        var id = $(this).data('id');
+        if (!confirm('Kembalikan batch #' + id + ' (' + $(this).data('n') + ' SKU) ke nomor rak sebelumnya?\nSKU yang rak-nya sudah diubah lagi setelah batch ini akan dilewati.')) return;
+        var $b = $(this).prop('disabled', true);
+        $.ajax({ url: '<?= base_url("accounting/sinkron-rak-kembalikan") ?>', method: 'POST', dataType: 'json', timeout: 600000, data: { batch_id: id },
+            success: function(res) {
+                if (res.code !== 200) { showNoty(res.message, 'error'); $b.prop('disabled', false); return; }
+                showNoty(res.data.dikembalikan + ' SKU dikembalikan, ' + res.data.dilewati + ' dilewati (rak sudah berubah lagi).', 'success');
+                muatBatch(); dt.ajax.reload(null, false); fetchGlobalStats();
+            },
+            error: function() { showNoty('Terjadi kesalahan saat mengembalikan', 'error'); $b.prop('disabled', false); }
+        });
+    });
 });
 </script>

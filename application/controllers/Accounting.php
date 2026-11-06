@@ -2100,5 +2100,80 @@ class Accounting extends MY_Controller
         ]);
         exit;
     }
-}
 
+    // ═════════ SINKRON NO RAK DARI JUBELIO (dengan riwayat batch & rollback) ═════════
+
+    /** Langkah 1: baca Excel persediaan, tampilkan selisih. TIDAK mengubah data. */
+    public function sinkron_rak_pratinjau()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+        ini_set('memory_limit', '2048M');
+        set_time_limit(0);
+        try {
+            if (!isset($_FILES['sinkronFile']) || $_FILES['sinkronFile']['error'] != 0) {
+                throw new \Exception('File excel tidak ditemukan atau gagal diunggah.');
+            }
+            $ext = strtolower(pathinfo($_FILES['sinkronFile']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['xls', 'xlsx'])) {
+                throw new \Exception('Format file harus .xls atau .xlsx');
+            }
+            $this->load->model('Rak_sinkron_fcd');
+            $hasil = $this->Rak_sinkron_fcd->pratinjau($_FILES['sinkronFile']['tmp_name']);
+            $hasil['nama_file'] = $_FILES['sinkronFile']['name'];
+            $this->make_ajax_response(200, 'OK', $hasil);
+        } catch (\Throwable $e) {
+            $this->make_ajax_response(500, $e->getMessage());
+        }
+    }
+
+    /** Langkah 2: terapkan hasil pratinjau sebagai satu batch (dengan cadangan). */
+    public function sinkron_rak_terapkan()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+        try {
+            $this->load->model('Rak_sinkron_fcd');
+            $hasil = $this->Rak_sinkron_fcd->terapkan(
+                (string) $this->input->post('token'),
+                (array) $this->input->post('kategori'),
+                $this->data['user']['id_user'] ?? null,
+                substr((string) $this->input->post('nama_file'), 0, 120)
+            );
+            $this->make_ajax_response(200, 'OK', $hasil);
+        } catch (\Throwable $e) {
+            $this->make_ajax_response(500, $e->getMessage());
+        }
+    }
+
+    /** Daftar batch sinkron/rollback (terbaru dulu). */
+    public function sinkron_rak_batch()
+    {
+        $this->load->model('Rak_sinkron_fcd');
+        $rows = $this->Rak_sinkron_fcd->daftar_batch(50);
+        $this->make_ajax_response(200, 'OK', ['rows' => $rows ?: []]);
+    }
+
+    /** Kembalikan satu batch ke nomor rak sebelumnya. */
+    public function sinkron_rak_kembalikan()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(405, 'Method not allowed');
+        }
+        set_time_limit(0);
+        try {
+            $this->load->model('Rak_sinkron_fcd');
+            $hasil = $this->Rak_sinkron_fcd->kembalikan(
+                intval($this->input->post('batch_id')),
+                $this->data['user']['id_user'] ?? null
+            );
+            $this->make_ajax_response(200, 'OK', $hasil);
+        } catch (\Throwable $e) {
+            $this->make_ajax_response(500, $e->getMessage());
+        }
+    }
+}
