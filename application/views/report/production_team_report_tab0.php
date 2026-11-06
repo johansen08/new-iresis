@@ -243,9 +243,12 @@
             success: function(response) {
                 if (response.status === 'success' && response.data) {
                     var d = response.data;
-                    $('#badge-spesial').text(d.spesial || 0);
-                    $('#badge-satuan').text(d.satuan || 0);
-                    $('#badge-kombinasi').text(d.kombinasi || 0);
+                    var total = parseInt(d.total_resi, 10) || 0;
+                    $.each(['spesial', 'satuan', 'kombinasi'], function(i, k) {
+                        var n = parseInt(d[k], 10) || 0;
+                        var persen = total > 0 ? (n / total * 100).toFixed(1).replace('.', ',') : '0,0';
+                        $('#badge-' + k).text(n + ' (' + persen + '%)');
+                    });
                 } else {
                     alert('Gagal mengambil data ringkasan picker.');
                 }
