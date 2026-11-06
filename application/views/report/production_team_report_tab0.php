@@ -224,10 +224,9 @@
         $('#summary-date').text(moment(activeTanggal).format('DD-MM-YYYY'));
 
         // Reset badges
-        $('#badge-sku_special').text('...');
-        $('#badge-resi_1_sku_sd_9').text('...');
-        $('#badge-resi_2_9_sku_sd_9').text('...');
-        $('#badge-resi_qty_banyak').text('...');
+        $('#badge-spesial').text('...');
+        $('#badge-satuan').text('...');
+        $('#badge-kombinasi').text('...');
 
         $('#modal-picker-summary').modal('show');
 
@@ -244,10 +243,9 @@
             success: function(response) {
                 if (response.status === 'success' && response.data) {
                     var d = response.data;
-                    $('#badge-sku_special').text(d.sku_special || 0);
-                    $('#badge-resi_1_sku_sd_9').text(d.resi_1_sku_sd_9 || 0);
-                    $('#badge-resi_2_9_sku_sd_9').text(d.resi_2_9_sku_sd_9 || 0);
-                    $('#badge-resi_qty_banyak').text(d.resi_qty_banyak || 0);
+                    $('#badge-spesial').text(d.spesial || 0);
+                    $('#badge-satuan').text(d.satuan || 0);
+                    $('#badge-kombinasi').text(d.kombinasi || 0);
                 } else {
                     alert('Gagal mengambil data ringkasan picker.');
                 }
@@ -400,21 +398,17 @@
                 <p>Tanggal: <strong id="summary-date"></strong></p>
                 <p class="text-muted">Pilih kategori di bawah untuk melihat rangkuman SKU:</p>
                 <div class="list-group">
-                    <a href="#" class="list-group-item btn-show-category-list" data-category="sku_special">
-                        <span class="badge" id="badge-sku_special" style="font-size: 14px; background-color: #d9534f;">0</span>
-                        <strong>RESI SPECIAL</strong>
+                    <a href="#" class="list-group-item btn-show-category-list" data-category="spesial">
+                        <span class="badge" id="badge-spesial" style="font-size: 14px; background-color: #d9534f;">0</span>
+                        <strong>Spesial</strong> (1 SKU 1 QTY)
                     </a>
-                    <a href="#" class="list-group-item btn-show-category-list" data-category="resi_1_sku_sd_9">
-                        <span class="badge" id="badge-resi_1_sku_sd_9" style="font-size: 14px; background-color: #f0ad4e;">0</span>
-                        1 SKU & QTY S/D 9
+                    <a href="#" class="list-group-item btn-show-category-list" data-category="satuan">
+                        <span class="badge" id="badge-satuan" style="font-size: 14px; background-color: #f0ad4e;">0</span>
+                        <strong>Satuan</strong> (1 SKU 1 QTY)
                     </a>
-                    <a href="#" class="list-group-item btn-show-category-list" data-category="resi_2_9_sku_sd_9">
-                        <span class="badge" id="badge-resi_2_9_sku_sd_9" style="font-size: 14px; background-color: #5bc0de;">0</span>
-                        2-9 SKU & QTY S/D 9
-                    </a>
-                    <a href="#" class="list-group-item btn-show-category-list" data-category="resi_qty_banyak">
-                        <span class="badge" id="badge-resi_qty_banyak" style="font-size: 14px; background-color: #337ab7;">0</span>
-                        QTY BANYAK (>9)
+                    <a href="#" class="list-group-item btn-show-category-list" data-category="kombinasi">
+                        <span class="badge" id="badge-kombinasi" style="font-size: 14px; background-color: #337ab7;">0</span>
+                        <strong>Kombinasi</strong>
                     </a>
                 </div>
             </div>

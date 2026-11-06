@@ -3188,14 +3188,33 @@ class Receipt_fcd extends CI_Model
         return $id === 0 ? ' AND rab.status_performa_id IS NULL' : ' AND rab.status_performa_id = ' . $id;
     }
 
+    /**
+     * Syarat kategori rincian laporan picker (pop-up angka "Jumlah"):
+     * spesial   = 1 SKU, qty 1, SKU bertanda special
+     * satuan    = 1 SKU, qty 1, bukan special
+     * kombinasi = selain keduanya (lebih dari 1 SKU dan/atau qty lebih dari 1)
+     * $qty = nama kolom total qty di subquery agregat ($m = aliasnya).
+     */
+    private function syarat_kategori_picker($category, $m, $qty)
+    {
+        $satuan = "$m.distinct_skus = 1 AND $m.$qty = 1";
+        if ($category == 'spesial') {
+            return "AND $satuan AND $m.has_special = 1";
+        } elseif ($category == 'satuan') {
+            return "AND $satuan AND COALESCE($m.has_special, 0) = 0";
+        } elseif ($category == 'kombinasi') {
+            return "AND NOT ($m.distinct_skus <=> 1 AND $m.$qty <=> 1)";
+        }
+        return "AND 1 = 0";
+    }
+
     public function get_picker_performance_detail_summary($id_picker, $tanggal, $id_status = null)
     {
         $sql = "
             SELECT 
-                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty <= 10 THEN 1 ELSE 0 END) as sku_special,
-                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty > 9 THEN 1 ELSE 0 END) as resi_qty_banyak,
-                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus = 1 OR distinct_skus IS NULL) THEN 1 ELSE 0 END) as resi_1_sku_sd_9,
-                SUM(CASE WHEN (has_special = 0 OR distinct_skus > 1 OR total_qty > 10) AND total_qty <= 9 AND (distinct_skus BETWEEN 2 AND 9) THEN 1 ELSE 0 END) as resi_2_9_sku_sd_9,
+                SUM(CASE WHEN has_special = 1 AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as spesial,
+                SUM(CASE WHEN has_special = 0 AND distinct_skus = 1 AND total_qty = 1 THEN 1 ELSE 0 END) as satuan,
+                SUM(CASE WHEN NOT (distinct_skus = 1 AND total_qty = 1) OR distinct_skus IS NULL OR total_qty IS NULL THEN 1 ELSE 0 END) as kombinasi,
                 COUNT(*) as total_resi
             FROM (
                 SELECT 
@@ -3287,16 +3306,7 @@ class Receipt_fcd extends CI_Model
 
     public function get_picker_sku_summary_by_category($id_picker, $tanggal, $category, $id_status = null)
     {
-        $category_cond = "";
-        if ($category == 'sku_special') {
-            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty_resi <= 10";
-        } elseif ($category == 'resi_qty_banyak') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi > 9";
-        } elseif ($category == 'resi_1_sku_sd_9') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
-        } elseif ($category == 'resi_2_9_sku_sd_9') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty_resi > 10) AND m.total_qty_resi <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
-        }
+        $category_cond = $this->syarat_kategori_picker($category, 'm', 'total_qty_resi');
 
         $sql = "
             SELECT 
@@ -3329,16 +3339,7 @@ class Receipt_fcd extends CI_Model
 
     public function get_picker_resi_list_by_sku_and_category($id_picker, $tanggal, $category, $id_sku, $id_status = null)
     {
-        $category_cond = "";
-        if ($category == 'sku_special') {
-            $category_cond = "AND m.has_special = 1 AND m.distinct_skus = 1 AND m.total_qty <= 10";
-        } elseif ($category == 'resi_qty_banyak') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty > 9";
-        } elseif ($category == 'resi_1_sku_sd_9') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus = 1 OR m.distinct_skus IS NULL)";
-        } elseif ($category == 'resi_2_9_sku_sd_9') {
-            $category_cond = "AND (COALESCE(m.has_special, 0) = 0 OR m.distinct_skus > 1 OR m.total_qty > 10) AND m.total_qty <= 9 AND (m.distinct_skus BETWEEN 2 AND 9)";
-        }
+        $category_cond = $this->syarat_kategori_picker($category, 'm', 'total_qty');
 
         $sql = "
             SELECT DISTINCT
