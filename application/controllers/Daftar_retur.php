@@ -67,9 +67,16 @@ class Daftar_retur extends MY_Controller
         $status = $this->input->post('status');
         $status = is_string($status) ? $status : '';
 
+        // Jenis retur: 'B,K' (centang multi). Kosong/tak valid = keduanya; kirim '-' = tidak ada yang dicentang.
+        $jenis_raw = $this->input->post('jenis');
+        $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
+        if (is_string($jenis_raw) && $jenis_raw !== '') {
+            $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
+        }
+
         list($rows, $total_filter, $total, $tab, $waktu) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
-            'segarkan' => $this->input->post('segarkan') === '1',
+            'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis,
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
         ));
 
@@ -85,7 +92,7 @@ class Daftar_retur extends MY_Controller
                 '<span class="dr-toko" title="' . $this->_h($r->nama_toko) . '">' . $this->_h($r->nama_toko ?: '-') . '</span>',
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
-                $this->_label_posisi($r->posisi),
+                $this->_label_posisi($r->posisi) . $this->_pill_komplain($r),
             );
         }
 
@@ -182,10 +189,17 @@ class Daftar_retur extends MY_Controller
             case Daftar_retur_fcd::POSISI_SUDAH_DIBUKA:
                 return '<span class="dr-st dr-st-hijau">Sudah dibuka</span>';
             case Daftar_retur_fcd::POSISI_BELUM_DIBUKA:
-                return '<span class="dr-st dr-st-biru" title="Diterima, belum dibuka">Belum dibuka</span>';
+                return '<span class="dr-st dr-st-biru" title="Terima, belum dibuka">Belum dibuka</span>';
             default:
                 return '<span class="dr-st dr-st-abu">Belum diterima</span>';
         }
+    }
+
+    /** Penanda kecil bila resi pernah di-scan sebagai retur komplain. */
+    private function _pill_komplain($r)
+    {
+        if ((int) $r->ir_k + (int) $r->bk_k === 0) return '';
+        return '<div><span class="dr-pill dr-pill-komplain" title="Ada scan retur komplain untuk resi ini">Komplain</span></div>';
     }
 
     private function _label_sumber($sumber)

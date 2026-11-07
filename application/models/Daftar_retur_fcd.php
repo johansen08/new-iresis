@@ -39,6 +39,10 @@ class Daftar_retur_fcd extends CI_Model
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';
 
+    /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur biasa, K = retur komplain (is_komplain = 1). */
+    const JENIS_BIASA    = 'B';
+    const JENIS_KOMPLAIN = 'K';
+
     public function __construct()
     {
         parent::__construct();
@@ -60,15 +64,13 @@ class Daftar_retur_fcd extends CI_Model
     {
         $arsip = '`' . $this->_db_arsip() . '`';
         $sah   = "'2000-01-01'";
+        // is_komplain NULL diperlakukan sebagai retur biasa (sama seperti Retur::_cari_baris_retur).
+        $biasa_r = '(r.is_komplain IS NULL OR r.is_komplain = 0)';
+        $biasa_b = '(b.is_komplain IS NULL OR b.is_komplain = 0)';
 
         return "
             SELECT f.*,
-                   DATEDIFF(NOW(), f.tanggal_retur) AS umur_hari,
-                   CASE
-                     WHEN f.n_buka > 0   THEN '" . self::POSISI_SUDAH_DIBUKA . "'
-                     WHEN f.n_iresis > 0 THEN '" . self::POSISI_BELUM_DIBUKA . "'
-                     ELSE '" . self::POSISI_BELUM_DITERIMA . "'
-                   END AS posisi
+                   DATEDIFF(NOW(), f.tanggal_retur) AS umur_hari
             FROM (
                 SELECT g.no_resi, g.no_pesanan, g.kurir, g.marketplace, g.nama_toko, g.qty, g.nilai,
                        COALESCE(g.d_pesan_p, g.d_pesan_a, g.tgl_order) AS tanggal_pesan,
@@ -79,13 +81,21 @@ class Daftar_retur_fcd extends CI_Model
                          ELSE 'ORDER'
                        END AS sumber_tanggal,
                        GREATEST(
-                         (SELECT COUNT(*) FROM tblresiretur r WHERE r.noresi = g.resi_l),
-                         (SELECT COUNT(*) FROM {$arsip}.tblresiretur r WHERE r.noresi = g.resi_l)
-                       ) AS n_iresis,
+                         (SELECT COUNT(*) FROM tblresiretur r WHERE r.noresi = g.resi_l AND {$biasa_r}),
+                         (SELECT COUNT(*) FROM {$arsip}.tblresiretur r WHERE r.noresi = g.resi_l AND {$biasa_r})
+                       ) AS ir_b,
                        GREATEST(
-                         (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l),
-                         (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l)
-                       ) AS n_buka
+                         (SELECT COUNT(*) FROM tblresiretur r WHERE r.noresi = g.resi_l AND r.is_komplain = 1),
+                         (SELECT COUNT(*) FROM {$arsip}.tblresiretur r WHERE r.noresi = g.resi_l AND r.is_komplain = 1)
+                       ) AS ir_k,
+                       GREATEST(
+                         (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}),
+                         (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b})
+                       ) AS bk_b,
+                       GREATEST(
+                         (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1),
+                         (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1)
+                       ) AS bk_k
                 FROM (
                     SELECT j.no_resi, j.resi_l, j.no_pesanan, j.kurir, j.marketplace, j.nama_toko,
                            j.qty, j.nilai, j.tgl_order,
@@ -130,7 +140,7 @@ class Daftar_retur_fcd extends CI_Model
     public function semua_baris($segarkan = false)
     {
         $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = APPPATH . 'cache/daftar_retur2_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
 
         if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_DETIK) {
             $isi = json_decode((string) @file_get_contents($file), true);
@@ -147,21 +157,58 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /**
+     * Posisi paket menurut jenis retur yang dipilih ($jenis = daftar 'B' / 'K').
+     * Tiap jenis: ada scan buka -> sudah dibuka; ada scan terima saja -> diterima belum dibuka;
+     * selain itu -> belum diterima. Bila dua jenis dipilih, yang masih menunggu dibuka menang
+     * (paling perlu ditindak), lalu sudah dibuka, lalu belum diterima.
+     * Return NULL = baris tidak termasuk (pilih Komplain saja tapi resi tak pernah komplain).
+     */
+    public function hitung_posisi($r, array $jenis)
+    {
+        $pakai_b = in_array(self::JENIS_BIASA, $jenis, true);
+        $pakai_k = in_array(self::JENIS_KOMPLAIN, $jenis, true);
+        if (!$pakai_b && !$pakai_k) return null;
+
+        // Komplain saja: hanya resi yang memang punya scan komplain.
+        if (!$pakai_b && ((int) $r->ir_k + (int) $r->bk_k) === 0) return null;
+
+        $n_buka = ($pakai_b ? (int) $r->bk_b : 0) + ($pakai_k ? (int) $r->bk_k : 0);
+        $n_terima = ($pakai_b ? (int) $r->ir_b : 0) + ($pakai_k ? (int) $r->ir_k : 0);
+
+        // Dua jenis: satu jenis menunggu dibuka sudah cukup untuk masuk tab "Terima".
+        if ($pakai_b && $pakai_k) {
+            $tunggu_b = ((int) $r->ir_b > 0 && (int) $r->bk_b === 0);
+            $tunggu_k = ((int) $r->ir_k > 0 && (int) $r->bk_k === 0);
+            if ($tunggu_b || $tunggu_k) return self::POSISI_BELUM_DIBUKA;
+        }
+        if ($n_buka > 0)   return self::POSISI_SUDAH_DIBUKA;
+        if ($n_terima > 0) return self::POSISI_BELUM_DIBUKA;
+        return self::POSISI_BELUM_DITERIMA;
+    }
+
+    /**
      * @param array $p start, end (Y-m-d H:i:s), status (posisi/kosong), search, order (kolom),
-     *                 dir, offset, limit, segarkan
+     *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
      * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung]
      */
     public function get_list(array $p)
     {
         list($semua, $waktu) = $this->semua_baris(!empty($p['segarkan']));
 
+        $jenis = isset($p['jenis']) && is_array($p['jenis'])
+            ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
+            : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
+
         // Rentang memakai TANGGAL PESAN (tanggal order), bukan tanggal retur.
         $rentang = array();
         $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0);
         foreach ($semua as $r) {
             if ($r->tanggal_pesan >= $p['start'] && $r->tanggal_pesan <= $p['end']) {
+                $posisi = $this->hitung_posisi($r, $jenis);
+                if ($posisi === null) continue;
+                $r->posisi = $posisi;
                 $rentang[] = $r;
-                if (isset($tab[$r->posisi])) $tab[$r->posisi]++;
+                $tab[$posisi]++;
             }
         }
         $total_rentang = count($rentang);

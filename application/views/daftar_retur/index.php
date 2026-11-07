@@ -36,6 +36,37 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-reset { width:38px; height:38px; border:0; border-radius:6px; background:#f3f4f6; cursor:pointer; color:#374151; }
 .dr-reset:hover { background:#e5e7eb; }
 
+
+/* Filter jenis retur: tombol + panel centang multi (acuan: pola multi-select design system Amex/Maersk/Visa --
+   dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
+.dr-multi { position:relative; }
+.dr-multi-btn { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
+                border:1px solid #d1d5db; border-radius:6px; cursor:pointer; color:#111827; }
+.dr-multi-btn:hover, .dr-multi.buka .dr-multi-btn { border-color:#0f766e; }
+.dr-multi-btn .lbl { color:#6b7280; font-size:12px; }
+.dr-multi-btn .nilai { font-weight:600; }
+.dr-multi-btn .cnt { background:#0f766e; color:#fff; border-radius:10px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
+.dr-multi-btn .cnt.semua { background:#e5e7eb; color:#6b7280; }
+.dr-multi-btn .fa-angle-down { color:#9ca3af; transition:transform .15s; }
+.dr-multi.buka .fa-angle-down { transform:rotate(180deg); }
+.dr-multi-pop { display:none; position:absolute; left:0; top:44px; z-index:60; min-width:250px; padding:6px;
+                background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.12); }
+.dr-multi.buka .dr-multi-pop { display:block; }
+.dr-opsi { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; cursor:pointer; margin:0; font-weight:400; }
+.dr-opsi:hover { background:#f3f4f6; }
+.dr-opsi input { position:absolute; opacity:0; pointer-events:none; }
+.dr-kotak { flex:none; width:18px; height:18px; border:1.5px solid #9ca3af; border-radius:4px; background:#fff;
+            display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; transition:all .12s; }
+.dr-kotak i { opacity:0; }
+.dr-opsi input:checked + .dr-kotak { background:#0f766e; border-color:#0f766e; }
+.dr-opsi input:checked + .dr-kotak i { opacity:1; }
+.dr-opsi input:focus-visible + .dr-kotak { box-shadow:0 0 0 3px rgba(15,118,110,.25); }
+.dr-opsi .teks { flex:1; color:#111827; }
+.dr-opsi .ket { display:block; color:#9ca3af; font-size:11.5px; }
+.dr-multi-kaki { display:flex; justify-content:space-between; padding:6px 10px 4px; margin-top:4px; border-top:1px solid #f1f5f9; font-size:12px; }
+.dr-multi-kaki a { cursor:pointer; color:#0f766e; font-weight:600; }
+.dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
+
 /* Tabel */
 #dr_wrap table.dataTable { border:0; }
 /* Tanpa gulir samping: tata letak tetap (table-layout:fixed) dengan lebar kolom persen,
@@ -127,7 +158,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="">Semua <span class="n" id="n_semua">-</span></div>
     <div class="dr-tab" data-status="BELUM_DITERIMA">Belum diterima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DIBUKA">Diterima, belum dibuka <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah diterima, belum dibuka">Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA">Sudah dibuka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
   </div>
 
@@ -137,6 +168,26 @@ $BASE = rtrim(base_url(), '/') . '/';
       <span class="text-muted" style="font-size:12px;">Tanggal pesan</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
+    <div class="dr-multi" id="dr_jenis">
+      <div class="dr-multi-btn" id="dr_jenis_btn" tabindex="0" role="button" aria-haspopup="true">
+        <i class="fa fa-filter" style="color:#6b7280;"></i>
+        <span class="lbl">Jenis retur</span>
+        <span class="nilai" id="dr_jenis_nilai">Semua</span>
+        <span class="cnt semua" id="dr_jenis_cnt">2</span>
+        <i class="fa fa-angle-down"></i>
+      </div>
+      <div class="dr-multi-pop" id="dr_jenis_pop">
+        <label class="dr-opsi">
+          <input type="checkbox" value="B" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
+          <span class="teks">Bukan komplain<span class="ket">Retur biasa dari ekspedisi</span></span>
+        </label>
+        <label class="dr-opsi">
+          <input type="checkbox" value="K" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
+          <span class="teks">Komplain<span class="ket">Hanya resi yang punya scan retur komplain</span></span>
+        </label>
+        <div class="dr-multi-kaki"><a id="dr_jenis_semua">Pilih semua</a><a id="dr_jenis_hapus">Hapus</a></div>
+      </div>
+    </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
   </div>
 
@@ -170,6 +221,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 $(document).ready(function () {
     var BASE = '<?= $BASE ?>';
     var statusAktif = '';
+    var jenisAktif = 'B,K';        // centang filter jenis retur; '-' = tidak ada
     var segarkanBerikut = false;   // true = lewati cache server (tombol atur ulang)
     var timerMuat = null, mulaiMuat = 0;
 
@@ -236,6 +288,7 @@ $(document).ready(function () {
                 d.start_date = v[0] || '';
                 d.end_date = v[1] || '';
                 d.status = statusAktif;
+                d.jenis = jenisAktif;
                 d.segarkan = segarkanBerikut ? '1' : '0';
             }
         },
@@ -313,6 +366,39 @@ $(document).ready(function () {
         tabel.ajax.reload();
     });
 
+
+    // Filter jenis retur (centang multi). Data dimuat ulang saat panel ditutup / tombol aksi ditekan,
+    // bukan di tiap centang, supaya memilih dua opsi tidak memicu dua kali muat.
+    var jenisBerubah = false;
+    function bacaJenis() {
+        var v = $('#dr_jenis_pop input:checked').map(function () { return this.value; }).get();
+        return v.length ? v.join(',') : '-';
+    }
+    function tulisTombolJenis() {
+        var v = $('#dr_jenis_pop input:checked').map(function () { return this.value; }).get();
+        var teks = v.length === 2 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : (v[0] === 'K' ? 'Komplain' : 'Bukan komplain'));
+        $('#dr_jenis_nilai').text(teks);
+        $('#dr_jenis_cnt').text(v.length).toggleClass('semua', v.length === 2);
+    }
+    function tutupJenis() {
+        if (!$('#dr_jenis').hasClass('buka')) return;
+        $('#dr_jenis').removeClass('buka');
+        var baru = bacaJenis();
+        if (baru !== jenisAktif) { jenisAktif = baru; tabel.ajax.reload(); }
+    }
+    $('#dr_jenis_btn').on('click', function (e) {
+        e.stopPropagation();
+        if ($('#dr_jenis').hasClass('buka')) tutupJenis(); else $('#dr_jenis').addClass('buka');
+    }).on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
+        if (e.key === 'Escape') tutupJenis();
+    });
+    $('#dr_jenis_pop').on('click', function (e) { e.stopPropagation(); });
+    $('#dr_jenis_pop').on('change', 'input', tulisTombolJenis);
+    $('#dr_jenis_semua').on('click', function () { $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); });
+    $('#dr_jenis_hapus').on('click', function () { $('#dr_jenis_pop input').prop('checked', false); tulisTombolJenis(); });
+    $(document).on('click.drjenis', tutupJenis);
+
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
 
     $('#dr_reset').on('click', function () {
@@ -321,6 +407,8 @@ $(document).ready(function () {
         $('#dr_rentang').data('daterangepicker').setEndDate(r[1]);
         tulisRentang(r[0], r[1]);
         statusAktif = '';
+        jenisAktif = 'B,K';
+        $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
         $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
         tabel.search('').order([8, 'desc']).ajax.reload();
