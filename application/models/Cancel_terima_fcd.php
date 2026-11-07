@@ -1430,4 +1430,122 @@ class Cancel_terima_fcd extends CI_Model
         }
         return ['det' => $det, 'jumlah_paket' => count($paket), 'petugas' => array_values(array_filter($petugas))];
     }
+
+    // ─────────────────────────────────────────────
+    //  Stok paket cancel (read-only)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Stok barang paket cancel yang SUDAH diterima tim retur tetapi BELUM selesai
+     * (selesai_at kosong, belum dihapus), per SKU. Angka = barang yang benar-benar
+     * ada secara fisik (qty_ditemukan hasil pengecekan), BUKAN qty tertulis di resi:
+     * resi SKU A x1 yang ternyata berisi SKU B x1 menghasilkan stok B 1 dan A 0.
+     * Barang yang sudah dikembalikan ke display (tblcancel_display aktif) dikurangkan
+     * per paket & SKU (tidak pernah negatif), sama seperti kertas serah terima.
+     * Hanya membaca; tidak menulis apa pun.
+     *
+     * @return array ['rows' => [per SKU, stok terbesar dulu], 'ringkas' => [...]]
+     */
+    public function stok_paket_cancel()
+    {
+        $kosong = ['rows' => [], 'ringkas' => ['sku' => 0, 'qty' => 0, 'paket' => 0, 'sku_beda' => 0, 'paket_semua' => 0]];
+        $paket = $this->db
+            ->select('p.id_cancel_paket AS id, p.noresi, p.diterima_dari AS dari, p.dicek_at, p.serah_cetak_at')
+            ->from('tblcancel_paket p')
+            ->where('p.dicek_at IS NOT NULL', null, false)
+            ->where('p.dihapus_at IS NULL', null, false)
+            ->where('p.selesai_at IS NULL', null, false)
+            ->get()->result_array();
+        if (!$paket) {
+            return $kosong;
+        }
+        $info = [];
+        foreach ($paket as $p) {
+            $info[(int) $p['id']] = $p;
+        }
+        $ids = array_keys($info);
+
+        $items = $this->db
+            ->select('i.id_cancel_paket, i.sku, i.no_rak, i.qty_resi, i.qty_ditemukan, i.jenis, i.pasangan_sku, s.nama_sku, s.no_rak AS rak_master, s.link_foto, s.foto_lokal')
+            ->from('tblcancel_paket_item i')
+            ->join('tblsku s', 's.id_sku = i.sku', 'left')
+            ->where_in('i.id_cancel_paket', $ids)
+            ->where('i.aktif', 1)
+            ->order_by('i.id_item', 'ASC')
+            ->get()->result_array();
+
+        $disp = [];
+        foreach ($this->db->select('id_cancel_paket, sku, SUM(qty) AS q', false)->where_in('id_cancel_paket', $ids)
+            ->where('batal_at IS NULL', null, false)->group_by(['id_cancel_paket', 'sku'])->get('tblcancel_display')->result_array() as $d) {
+            $disp[$d['id_cancel_paket'] . '|' . strtoupper($d['sku'])] = (int) $d['q'];
+        }
+
+        $per = [];
+        $paket_ada = [];
+        foreach ($items as $i) {
+            $pid = (int) $i['id_cancel_paket'];
+            $k = strtoupper($i['sku']);
+            $ada = (int) $i['qty_ditemukan'];
+            $kembali = $disp[$pid . '|' . $k] ?? 0;
+            $stok = max(0, $ada - $kembali);
+            if (!isset($per[$k])) {
+                $rak = trim((string) $i['no_rak']) !== '' ? $i['no_rak'] : $i['rak_master'];
+                $foto = $this->tambah_foto(['link_foto' => $i['link_foto'], 'foto_lokal' => $i['foto_lokal']]);
+                $per[$k] = [
+                    'sku' => $i['sku'], 'nama' => (string) $i['nama_sku'], 'rak' => (string) $rak,
+                    'foto' => $foto['foto'], 'foto_lokal' => $foto['foto_lokal'],
+                    'stok' => 0, 'paket' => [],
+                ];
+            }
+            $per[$k]['stok'] += $stok;
+            $per[$k]['paket'][] = [
+                'id' => $pid,
+                'noresi' => (string) $info[$pid]['noresi'],
+                'dari' => (string) $info[$pid]['dari'],
+                'tgl' => substr($info[$pid]['dicek_at'], 0, 10),
+                'jam' => substr($info[$pid]['dicek_at'], 11, 5),
+                'dicetak' => $info[$pid]['serah_cetak_at'] ? true : false,
+                'qty_resi' => (int) $i['qty_resi'],
+                'qty_ada' => $ada,
+                'kembali' => $kembali,
+                'stok' => $stok,
+                'jenis' => $i['jenis'],
+                'pasangan' => (string) $i['pasangan_sku'],
+            ];
+            if ($stok > 0) {
+                $paket_ada[$pid] = true;
+            }
+        }
+
+        $rows = [];
+        $total = 0;
+        $beda = 0;
+        foreach ($per as $r) {
+            if ($r['stok'] <= 0) {
+                continue; // hanya SKU yang barangnya benar-benar ada
+            }
+            // Rincian hanya paket yang menyumbang stok; "beda dari resi" dinilai dari paket itu saja
+            $r['paket'] = array_values(array_filter($r['paket'], function ($x) { return $x['stok'] > 0; }));
+            usort($r['paket'], function ($a, $b) { return strcmp($b['tgl'] . $b['jam'], $a['tgl'] . $a['jam']); });
+            $r['jumlah_paket'] = count($r['paket']);
+            $r['beda'] = false;
+            foreach ($r['paket'] as $x) {
+                if ($x['qty_resi'] !== $x['qty_ada']) {
+                    $r['beda'] = true;
+                    break;
+                }
+            }
+            $total += $r['stok'];
+            if ($r['beda']) {
+                $beda++;
+            }
+            $rows[] = $r;
+        }
+        usort($rows, function ($a, $b) {
+            return ($b['stok'] <=> $a['stok']) ?: strcmp($a['sku'], $b['sku']);
+        });
+        return ['rows' => $rows, 'ringkas' => [
+            'sku' => count($rows), 'qty' => $total, 'paket' => count($paket_ada), 'sku_beda' => $beda, 'paket_semua' => count($info),
+        ]];
+    }
 }

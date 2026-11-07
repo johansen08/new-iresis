@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-07.1';
+    const BOOTSTRAP_VERSI = '2026-11-07.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2145,6 +2145,7 @@ class MY_Controller extends CI_Controller
         $daftar = [
             ['Terima Paket Cancel',  'paket-cancel/terima',  'fa fa-inbox',     12, 'Tim retur menerima paket cancel dari packer / HO / kurir: scan resi, cocokkan SKU & qty.'],
             ['Laporan Paket Cancel', 'paket-cancel/laporan', 'fa fa-file-text', 62, 'Laporan paket cancel diterima, edit / hapus, dan cetak serah terima harian ke restock.'],
+            ['Stok Paket Cancel',    'paket-cancel/stok',    'fa fa-cubes',     63, 'Stok barang paket cancel yang sudah diterima tapi belum selesai, per SKU, sesuai isi fisik hasil pengecekan (bukan SKU di resi).'],
         ];
         foreach ($daftar as $m) {
             if ($this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $m[1]])->row()) {

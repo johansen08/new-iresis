@@ -209,4 +209,18 @@ class Paket_cancel extends MY_Controller
         }
         $this->load->view('paket_cancel/serah_cetak', $data);
     }
+
+    // ───────── Stok Paket Cancel (read-only) ─────────
+
+    public function stok()
+    {
+        $this->show();
+    }
+
+    public function stok_data()
+    {
+        $hasil = $this->cancel_terima_fcd->stok_paket_cancel();
+        $hasil['ok'] = true;
+        $this->make_ajax_response(200, 'ok', $hasil);
+    }
 }
