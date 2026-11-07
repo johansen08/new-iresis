@@ -242,6 +242,9 @@ class Cancel_terima_fcd extends CI_Model
     /** tbltypemasalah 6 = SELISIH PAKET CANCEL: tercatat atas nama picker, tanpa poin bonus/KPI, tanpa cetak slip, tidak ke Restock. */
     const TIPE_SELISIH_PAKET_CANCEL = 6;
 
+    /** tbltypemasalahpacker 7 = SELISIH PAKET CANCEL: kesalahan packer untuk paket dari HO / kurir. */
+    const TIPE_PACKER_SELISIH_PAKET_CANCEL = 7;
+
     /**
      * Baris tblmasalahpicker dari selisih satu paket, per SKU resi:
      * qty_bermasalah = |qty resi - qty ada|. SKU di luar resi dipasangkan ke SKU resi yang
@@ -316,15 +319,21 @@ class Cancel_terima_fcd extends CI_Model
      * (tipe lain, SKU sama) tidak ditimpa/digandakan.
      * @return int|string jumlah SKU bermasalah yang tercatat, atau 'tanpa_picker' / 'lewati'
      */
-    private function sinkron_masalah_picker($id_resi, $noresi, array $baris, $id_user, array $grup = null)
+    private function sinkron_masalah_picker($id_resi, $noresi, array $baris, $id_user, array $grup = null, $dari = null)
     {
         if ((int) $id_resi <= 0) {
             return 'lewati';
         }
-        if (!$this->db->select('id_resiambilbarang')->where('id_resi', (int) $id_resi)->limit(1)->get('tblresiambilbarang')->row()) {
-            return 'tanpa_picker';
+        $scan = $this->db->select('tanggal_resiambilbarang')->where('id_resi', (int) $id_resi)
+            ->order_by('tanggal_resiambilbarang', 'ASC')->limit(1)->get('tblresiambilbarang')->row();
+        if (!$scan) {
+            // Picker tidak terdeteksi: packer (HO / kurir) tetap disinkronkan, lalu dilaporkan.
+            $hasil_packer = $this->sinkron_masalah_packer($id_resi, $noresi, $baris, $id_user, $grup, $dari);
+            return ['picker' => 'tanpa_picker', 'packer' => $hasil_packer];
         }
-        $baru = $this->susun_masalah_picker($baris, $grup);
+        // Aturan jam: hanya scan picker 05.00-17.00 yang dicatat; di luar itu catatan lama dinolkan.
+        $luar_jam = !$this->dalam_jam_kerja($scan->tanggal_resiambilbarang);
+        $baru = $luar_jam ? [] : $this->susun_masalah_picker($baris, $grup);
         $lama = [];
         $ada_rows = $this->db->where('id_printresi', (int) $id_resi)->get('tblmasalahpicker')->result_array();
         $lain = [];
@@ -361,15 +370,101 @@ class Cancel_terima_fcd extends CI_Model
                 ]);
             }
         }
-        return $tercatat;
+        $hasil_packer = $this->sinkron_masalah_packer($id_resi, $noresi, $baris, $id_user, $grup, $dari);
+        return ['picker' => $luar_jam ? 'luar_jam' : $tercatat, 'packer' => $hasil_packer];
+    }
+
+    /** Jam scan antara 05.00 dan 17.00 (aturan pencatatan kesalahan picker/packer). */
+    private function dalam_jam_kerja($waktu)
+    {
+        $jam = date('H:i:s', strtotime((string) $waktu));
+        return $jam >= '05:00:00' && $jam <= '17:00:00';
+    }
+
+    /**
+     * Kesalahan packer (tbltypemasalahpacker 7) untuk paket dari HO / kurir: scan packer resi harus ada
+     * dan berjam 05.00-17.00. Bukan HO/kurir, tanpa scan, atau di luar jam = catatan lama dinolkan (tanpa DELETE).
+     * @return int|string jumlah SKU tercatat, atau 'bukan_ho_kurir' / 'tanpa_packer' / 'luar_jam'
+     */
+    private function sinkron_masalah_packer($id_resi, $noresi, array $baris, $id_user, array $grup = null, $dari = null)
+    {
+        $dari = strtoupper((string) $dari);
+        $hasil = 'bukan_ho_kurir';
+        $baru = [];
+        if (in_array($dari, ['HO', 'KURIR'], true)) {
+            $scan = $this->db->select('tanggal_packing')->where('id_resi', (int) $id_resi)
+                ->order_by('tanggal_packing', 'ASC')->limit(1)->get('tblpacking')->row();
+            if (!$scan) {
+                $hasil = 'tanpa_packer';
+            } elseif (!$this->dalam_jam_kerja($scan->tanggal_packing)) {
+                $hasil = 'luar_jam';
+            } else {
+                $baru = $this->susun_masalah_picker($baris, $grup);
+                $hasil = 0;
+            }
+        }
+        $lama = [];
+        $lain = [];
+        foreach ($this->db->where('id_printresi', (int) $id_resi)->get('tblmasalahpacker')->result_array() as $m) {
+            if ((int) $m['id_typemasalahpacker'] === self::TIPE_PACKER_SELISIH_PAKET_CANCEL) {
+                $lama[strtoupper((string) $m['sku'])] = $m;
+            } else {
+                $lain[strtoupper((string) $m['sku'])] = true;
+            }
+        }
+        $now = date('Y-m-d H:i:s');
+        $ket = 'Otomatis dari Terima Paket Cancel (asal ' . $dari . ')';
+        foreach ($baru as $k => $r) {
+            if ((int) $r['qty_bermasalah'] <= 0) {
+                continue;
+            }
+            if (isset($lama[$k])) {
+                $this->db->where('id_masalahpacker', $lama[$k]['id_masalahpacker'])->update('tblmasalahpacker', [
+                    'qty' => $r['qty'], 'qty_bermasalah' => $r['qty_bermasalah'], 'sku_salah' => $r['sku_salah'],
+                    'keterangan' => $ket, 'updated_by' => $id_user, 'updated' => $now,
+                ]);
+                $hasil++;
+            } elseif (!isset($lain[$k])) {
+                $this->db->insert('tblmasalahpacker', [
+                    'id_printresi' => (int) $id_resi, 'noresi' => $noresi, 'sku' => $r['sku'], 'qty' => $r['qty'],
+                    'id_typemasalahpacker' => self::TIPE_PACKER_SELISIH_PAKET_CANCEL,
+                    'qty_bermasalah' => $r['qty_bermasalah'], 'sku_salah' => $r['sku_salah'], 'keterangan' => $ket,
+                    'status' => 1, 'created_by' => $id_user, 'created' => $now,
+                ]);
+                $hasil++;
+            }
+        }
+        foreach ($lama as $k => $m) {
+            $aktif = isset($baru[$k]) && (int) $baru[$k]['qty_bermasalah'] > 0;
+            if (!$aktif && (int) $m['qty_bermasalah'] > 0) {
+                $this->db->where('id_masalahpacker', $m['id_masalahpacker'])->update('tblmasalahpacker', [
+                    'qty_bermasalah' => 0, 'sku_salah' => null, 'updated_by' => $id_user, 'updated' => $now,
+                ]);
+            }
+        }
+        return $hasil;
     }
 
     private function catatan_picker($hasil)
     {
-        if ($hasil === 'tanpa_picker') {
-            return '; picker resi tidak terdeteksi, selisih TIDAK dicatat ke picker';
+        $c = '';
+        $p = is_array($hasil) ? $hasil['picker'] : $hasil;
+        if ($p === 'tanpa_picker') {
+            $c = '; picker resi tidak terdeteksi, selisih TIDAK dicatat ke picker';
+        } elseif ($p === 'luar_jam') {
+            $c = '; scan picker di luar jam 05.00-17.00, TIDAK dicatat ke picker';
+        } elseif (is_int($p) && $p > 0) {
+            $c = '; ' . $p . ' SKU selisih dicatat ke picker';
         }
-        return is_int($hasil) && $hasil > 0 ? '; ' . $hasil . ' SKU selisih dicatat ke picker' : '';
+        $k = is_array($hasil) ? $hasil['packer'] : null;
+        if ($k === 'tanpa_packer') {
+            $c .= '; scan packer tidak ada, TIDAK dicatat ke packer';
+        } elseif ($k === 'luar_jam') {
+            $c .= '; scan packer di luar jam 05.00-17.00, TIDAK dicatat ke packer';
+        } elseif (is_int($k) && $k > 0) {
+            $c .= '; ' . $k . ' SKU selisih dicatat ke packer';
+        }
+        return $c;
     }
 
     private function mode_arsip()
@@ -636,7 +731,7 @@ class Cancel_terima_fcd extends CI_Model
         $this->tulis_log($id_paket, 'TERIMA', $id_user, null, [
             'dari' => $dari, 'selisih' => $s['selisih'], 'catatan' => $catatan, 'item' => $s['baris'], 'kejadian' => $lb['grup'],
         ]);
-        $hasil_picker = $this->sinkron_masalah_picker($cek['id_resi'], $cek['noresi'], $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null);
+        $hasil_picker = $this->sinkron_masalah_picker($cek['id_resi'], $cek['noresi'], $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null, $dari);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
@@ -1008,7 +1103,7 @@ class Cancel_terima_fcd extends CI_Model
         ] + $this->kolom_total($lb['total']));
         $this->tulis_selisih($paket->id_cancel_paket, $paket->id_resi, $lb['grup'], $now);
         $this->tulis_log($paket->id_cancel_paket, 'EDIT', $id_user, null, ['perubahan' => $perubahan]);
-        $hasil_picker = $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null);
+        $hasil_picker = $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, $s['baris'], $id_user, $salah !== null ? $lb['grup'] : null, $dari);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
@@ -1048,7 +1143,7 @@ class Cancel_terima_fcd extends CI_Model
         ]);
         $this->tulis_log($paket->id_cancel_paket, 'HAPUS', $id_user, $alasan, ['dari' => $paket->diterima_dari, 'dicek_at' => $paket->dicek_at]);
         // Paket dihapus = salah terima: catatan selisih ke picker dinolkan (terima ulang akan mengisinya lagi).
-        $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, [], $id_user);
+        $this->sinkron_masalah_picker($paket->id_resi, $paket->noresi, [], $id_user, null, $paket->diterima_dari);
         $this->db->trans_complete();
         $ok = $this->db->trans_status();
         $this->db->db_debug = $db_debug_asli;
