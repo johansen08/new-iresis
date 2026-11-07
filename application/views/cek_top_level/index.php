@@ -93,7 +93,25 @@ $this->load->view('top_level/_dasar'); ?>
       tp = 'ok'; judul = 'Stok top level tersedia'; sub = 'Ajukan restok display, lalu serahkan resi ke CS.';
       tombol = '<button type="button" class="tl-btn pri sm" data-ajukan="' + i + '">Request Restok Display</button>';
     }
-    return '<div class="tlc-ex"><div class="in ' + tp + '"><div class="t"><b>' + T.esc(judul) + '</b><span class="s">' + T.esc(sub) + '</span></div><div class="a">' + tombol + '</div></div>' + blokJubelio(i) + '</div>';
+    return '<div class="tlc-ex"><div class="in ' + tp + '"><div class="t"><b>' + T.esc(judul) + '</b><span class="s">' + T.esc(sub) + '</span></div><div class="a">' + tombol + '</div></div>' + blokKeranjang(d.keranjang) + blokJubelio(i) + '</div>';
+  }
+
+  // ---------- keranjang paket cancel ----------
+  var ASAL_PK = { PACKER: 'Packer', HO: 'HO', KURIR: 'Kurir' };
+  function tglPendek(s) { var p = String(s || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : s; }
+
+  /** Stok real SKU ini di paket cancel yang sudah dibuka & dicek tim retur dan belum kembali ke display. */
+  function blokKeranjang(k) {
+    k = k || { stok: 0, paket: [] };
+    var h = '<div class="tlk"><div class="tlk-hd"><b>Keranjang Paket Cancel</b><span class="tlk-q' + (k.stok ? '' : ' z') + '">' + k.stok + '</span></div>';
+    if (!k.stok) return h + '<div class="tlk-n">Tidak ada barang SKU ini di keranjang paket cancel.</div></div>';
+    h += '<div class="tlk-n">Barang real hasil cek tim retur, belum dikembalikan ke display.</div>' +
+      '<table class="tlk-t"><thead><tr><th>No. Resi</th><th>Asal</th><th>Diterima</th><th class="n">Stok</th></tr></thead><tbody>';
+    $.each(k.paket, function (n, p) {
+      h += '<tr><td>' + (p.noresi ? T.esc(p.noresi) : '<span class="tlj-mut">(tanpa resi)</span>') + '</td><td>' + T.esc(ASAL_PK[p.dari] || p.dari || '-') +
+        '</td><td>' + T.esc(tglPendek(p.tgl)) + ' ' + T.esc(p.jam) + '</td><td class="n"><b style="display:inline">' + p.stok + '</b></td></tr>';
+    });
+    return h + '</tbody></table></div>';
   }
 
   // ---------- stok live Jubelio ----------
