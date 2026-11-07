@@ -48,6 +48,12 @@
 .sk-table .c{text-align:center}.sk-table .r{text-align:right}
 .sk-th{width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);background:#f1f5f9;display:block}
 .sk-ph{width:40px;height:40px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:15px}
+.sk-fw{position:relative;width:40px;height:40px}
+.sk-eye{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:11px;line-height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
+.sk-eye:hover{background:#4f46e5;color:#fff}
+.sk-lb{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out}
+.sk-lb img{max-width:90vw;max-height:78vh;border-radius:10px;background:#fff}
+.sk-lb b{color:#fff;font-size:16px}.sk-lb small{color:#cbd5e1}
 .sk-sku{font-weight:700;color:#0f172a}
 .sk-nm{color:var(--mut);font-size:12.5px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sk-qty{display:inline-block;min-width:44px;padding:4px 10px;border-radius:8px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;text-align:center}
@@ -146,10 +152,22 @@
     function tgl(s) { var p = String(s).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : s; }
     function g(id) { return document.getElementById(id); }
 
-    function img(r, ukuran) {
-        var src = r.foto || r.foto_lokal || '';
-        if (!src) return '<div class="sk-ph"><i class="fa fa-image"></i></div>';
-        return '<img class="sk-th" src="' + esc(src) + '"' + (r.foto && r.foto_lokal ? ' data-foto-lokal="' + esc(r.foto_lokal) + '"' : '') + ' alt="" loading="lazy">';
+    function img(r) {
+        var src = r.foto || r.foto_lokal || "";
+        if (!src) return "<div class=\"sk-ph\"><i class=\"fa fa-image\"></i></div>";
+        return "<div class=\"sk-fw\"><img class=\"sk-th\" src=\"" + esc(src) + "\"" + (r.foto && r.foto_lokal ? " data-foto-lokal=\"" + esc(r.foto_lokal) + "\"" : "") + " alt=\"\" loading=\"lazy\">" +
+            "<button type=\"button\" class=\"sk-eye\" title=\"Lihat foto lebih besar\" data-lihat=\"" + esc(r.sku) + "\"><i class=\"fa fa-eye\"></i></button></div>";
+    }
+
+    // Foto besar (klik di mana saja / Esc untuk menutup)
+    function lihat(sku) {
+        var r = S.rows.filter(function (x) { return x.sku === sku; })[0];
+        if (!r) return;
+        var d = document.createElement("div");
+        d.className = "sk-lb";
+        d.onclick = function () { d.remove(); };
+        d.innerHTML = "<img src=\"" + esc(r.foto || r.foto_lokal) + "\"" + (r.foto && r.foto_lokal ? " data-foto-lokal=\"" + esc(r.foto_lokal) + "\"" : "") + " alt=\"\"><b>" + esc(r.sku) + "</b><small>klik di mana saja untuk menutup</small>";
+        document.body.appendChild(d);
     }
 
     // Ringkasan perbedaan satu paket untuk SKU ini (resi vs real)
@@ -322,10 +340,11 @@
         if (S.sort === th.dataset.s) S.dir = -S.dir; else { S.sort = th.dataset.s; S.dir = (S.sort === 'sku' || S.sort === 'rak') ? 1 : -1; }
         gambar();
     });
-    g('sk_tb').addEventListener('click', function (e) { var tr = e.target.closest('tr[data-sku]'); if (tr) buka(tr.dataset.sku); });
+    g('sk_dh_img').addEventListener('click', function (e) { var b = e.target.closest('.sk-eye'); if (b) lihat(b.dataset.lihat); });
+    g('sk_tb').addEventListener('click', function (e) { var b = e.target.closest('.sk-eye'); if (b) { e.stopPropagation(); lihat(b.dataset.lihat); return; } var tr = e.target.closest('tr[data-sku]'); if (tr) buka(tr.dataset.sku); });
     g('sk_ov').addEventListener('click', tutup);
     g('sk_dx').addEventListener('click', tutup);
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') tutup(); });
+    document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; var lb = document.querySelector('.sk-lb'); if (lb) { lb.remove(); return; } tutup(); });
 
     muat();
 })();
