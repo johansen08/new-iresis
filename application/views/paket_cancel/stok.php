@@ -83,11 +83,7 @@
 </style>
 
 <div class="sk" id="sk_root">
-  <div class="sk-head">
-    <div>
-      <h3>Stok Paket Cancel</h3>
-      <small>Paket cancel yang sudah diterima tim retur dan belum selesai. Qty adalah barang <b>real hasil pengecekan fisik</b>, bukan SKU/qty yang tertulis di resi.</small>
-    </div>
+  <div class="sk-head" style="justify-content:flex-end">
     <button type="button" class="sk-btn" id="sk_ref"><i class="fa fa-refresh"></i> Muat ulang</button>
   </div>
 
