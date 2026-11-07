@@ -382,3 +382,24 @@ Catatan: picker tipe 6 sengaja dikeluarkan dari rekap error & KPI (tanpa poin); 
 Laporan harian (`Laporan_fcd`) dan KPI (`Kpi_reports`): picker tipe 6 dan packer tipe 7. Baris yang sudah dinolkan
 (`qty_bermasalah = 0`, hasil koreksi/hapus paket) tidak ikut. Tetap dikecualikan: Restock (tidak ada barang untuk
 direstock) dan slip cetak. Kolom rincian per jenis (salah_1..5) tidak punya kolom khusus tipe 6/7, jadi hanya masuk ke total kesalahan.
+
+## 19. Lost scan yang ditemukan di HO — dilewati sementara (7 Nov 2026)
+
+**Aturan poin (diverifikasi):** tiap baris kesalahan = 50 poin penalti (`Kpi_reports`: `total_kesalahan * 50`).
+Kejadian KURANG / SALAH asal **PACKER** → hanya picker kena. Asal **HO / KURIR** → picker **dan** packer kena
+(masing-masing syarat scan 05.00–17.00, §18).
+
+**Dilewati dulu:** bila resi cancel ditemukan lewat **lost scan di HO**, selisihnya **tidak dicatat** ke picker maupun
+packer (`Cancel_terima_fcd::dari_lost_scan_ho`). Pesan simpan menyebutnya. Deteksi dari `tblcancel_paket_tolak`:
+tahap `HO` dengan keterangan `Simpan Lost Scan…` (`Lost_scan_selesai_fcd::kunci_resi`), atau tahap `LOST_SCAN`
+dengan keterangan `…lost scan…dari HO` (`Lost_scan_picker_fcd`).
+
+**Catatan untuk pengembangan berikutnya** (informasi yang sudah ada saat ini):
+- Paket lost scan sudah punya jejak lengkap: baris `tblcancel_paket_tolak` (siapa, komputer, jam) dan
+  `tblcancel_paket` (`ditemukan_di`, `tolak_terakhir_di`); laporan lost scan asal ada di `tbllostscan*` (`id_pending`
+  tertulis di keterangan tahap LOST_SCAN).
+- Yang belum diputuskan: siapa yang menanggung. Resi lost scan sering tidak punya scan picker/packer sama sekali,
+  jadi tidak ada tanggal scan untuk menentukan periode poin dan tidak jelas kesalahan ditimpa ke siapa.
+- Pilihan yang bisa dibahas: tanggung ke picker/packer dari laporan lost scan, ke petugas HO penemu, atau tanpa
+  penalti. Setelah diputuskan, cukup ubah/hapus pengecualian `dari_lost_scan_ho` di `sinkron_masalah_picker`.
+- Contoh nyata: JY2176601195 (SALAH, asal HO, tanpa scan picker/packer, tolak HO 3 Nov 2026 18:38).

@@ -324,6 +324,11 @@ class Cancel_terima_fcd extends CI_Model
         if ((int) $id_resi <= 0) {
             return 'lewati';
         }
+        // Lost scan yang baru ditemukan di HO: untuk sementara tidak dicatat ke picker maupun packer
+        // (catatan pengembangan berikutnya: docs/PAKET_CANCEL.md §19). Catatan lama tidak disentuh.
+        if ($this->dari_lost_scan_ho($id_resi)) {
+            return ['picker' => 'lost_scan_ho', 'packer' => 'lost_scan_ho'];
+        }
         $scan = $this->db->select('tanggal_resiambilbarang')->where('id_resi', (int) $id_resi)
             ->order_by('tanggal_resiambilbarang', 'ASC')->limit(1)->get('tblresiambilbarang')->row();
         if (!$scan) {
@@ -372,6 +377,23 @@ class Cancel_terima_fcd extends CI_Model
         }
         $hasil_packer = $this->sinkron_masalah_packer($id_resi, $noresi, $baris, $id_user, $grup, $dari);
         return ['picker' => $luar_jam ? 'luar_jam' : $tercatat, 'packer' => $hasil_packer];
+    }
+
+    /**
+     * Resi cancel ini ditemukan lewat lost scan di HO? Jejaknya di tblcancel_paket_tolak:
+     * tahap HO dari Simpan Lost Scan (Lost_scan_selesai_fcd), atau tahap LOST_SCAN dari
+     * Tambahkan Picker yang ditolak dengan sumber laporan HO (Lost_scan_picker_fcd).
+     */
+    private function dari_lost_scan_ho($id_resi)
+    {
+        return (bool) $this->db->query(
+            "SELECT 1 FROM tblcancel_paket_tolak
+             WHERE id_resi = ?
+               AND ((tahap = 'HO' AND keterangan LIKE 'Simpan Lost Scan%')
+                 OR (tahap = 'LOST_SCAN' AND keterangan LIKE '%lost scan%dari HO'))
+             LIMIT 1",
+            [(int) $id_resi]
+        )->row();
     }
 
     /** Jam scan antara 05.00 dan 17.00 (aturan pencatatan kesalahan picker/packer). */
@@ -449,6 +471,9 @@ class Cancel_terima_fcd extends CI_Model
     {
         $c = '';
         $p = is_array($hasil) ? $hasil['picker'] : $hasil;
+        if ($p === 'lost_scan_ho') {
+            return '; paket ini temuan lost scan di HO: selisih belum dicatat ke picker/packer (dilewati sementara)';
+        }
         if ($p === 'tanpa_picker') {
             $c = '; picker resi tidak terdeteksi, selisih TIDAK dicatat ke picker';
         } elseif ($p === 'luar_jam') {
