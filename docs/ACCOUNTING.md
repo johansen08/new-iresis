@@ -13,6 +13,12 @@ dan ketiganya hidup di controller `Retur` (bukan `Accounting`):
 Hak akses ketiganya sama (`roleaccess`): `1` webmaster, `2` admin, `6` tim retur,
 `8` tim accounting, `12` tim restok.
 
+> **Sejak 7 Nov 2026 menu lain di grup ini dinonaktifkan** (`menu.isactive = 0` lewat
+> `MY_Controller::run_nonaktifkan_menu_accounting_lain()`, `BOOTSTRAP_VERSI`
+> `2026-11-07.5`; `roleaccess` tidak diubah, backup di tabel `menu_bak_20261107`).
+> Mengaktifkan lagi: set `isactive = 1` pada barisnya **dan** hapus/ubah pemanggilan
+> migrasi itu, kalau tidak ia menonaktifkannya lagi saat versi bootstrap naik.
+>
 > **Menu lain di grup TIM ACCOUNTING tidak dipakai** (masih ada di DB dan kodenya
 > masih ada, jangan dianggap rusak/hilang): Surat Jalan (93), Surat Jalan Database
 > (94/163), Nomor Rak (160), SJ Kurangan Picker (95), Laporan Kurangan Picker (96),
