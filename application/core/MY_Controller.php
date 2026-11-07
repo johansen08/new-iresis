@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-06.1';
+    const BOOTSTRAP_VERSI = '2026-11-07.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -192,6 +192,7 @@ class MY_Controller extends CI_Controller
         $this->run_barang_reject_menu_migration();
         $this->run_gdbr_migration();
         $this->run_sinkron_rak_migration();
+        $this->run_terima_retur_ho_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2217,6 +2218,53 @@ class MY_Controller extends CI_Controller
         foreach ($setelan as $kunci => $isi) {
             if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {
                 $this->db->insert('tb_config_operasional', ['kunci' => $kunci, 'nilai' => $isi[0], 'keterangan' => $isi[1]]);
+            }
+        }
+    }
+
+    /**
+     * Menu "Terima Retur" (TIM HO): retur ekspedisi + retur komplain dalam satu layar scan
+     * (docs/TERIMA_RETUR_HO.md). Tanpa tabel baru -- menulis ke tblresiretur seperti menu lama.
+     * Induk dan hak akses mengikuti menu saudara "Lost Scan HO" (lost_scan_packer/input/ho),
+     * ditambah role 5 (HO). Hanya menambah baris roleaccess; yang sudah ada tidak diubah.
+     */
+    protected function run_terima_retur_ho_migration()
+    {
+        $uri = 'terima-retur-ho';
+        $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'lost_scan_packer/input/ho'])->row();
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'        => 'Terima Retur',
+                'parentid'    => $saudara ? $saudara->parentid : 27,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-undo',
+                'sortorder'   => 5,
+                'description' => 'Terima retur dengan scan beruntun: Retur Ekspedisi (gagal kirim) atau Retur Komplain (pengembalian barang).',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1, 5];
+        if ($saudara) {
+            foreach ($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result_array() as $r) {
+                $role_boleh[] = (int) $r['roleid'];
+            }
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row()) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
             }
         }
     }
