@@ -466,6 +466,8 @@ $route['paket-cancel/catat-display'] = 'paket_cancel/catat_display';
 $route['paket-cancel/serah-data'] = 'paket_cancel/serah_data';
 $route['paket-cancel/tandai-selesai'] = 'paket_cancel/tandai_selesai';
 $route['paket-cancel/serah-cetak'] = 'paket_cancel/serah_cetak';
+$route['paket-cancel/stok'] = 'paket_cancel/stok';
+$route['paket-cancel/stok-data'] = 'paket_cancel/stok_data';
 
 // Cek barang gedung baru (GD-BR): Scan Resi GD-BR & Rekap Resi GD-BR (docs/GDBR.md)
 $route['gdbr/scan'] = 'gdbr/scan';
