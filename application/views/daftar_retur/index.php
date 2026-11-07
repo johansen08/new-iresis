@@ -4,8 +4,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 <style>
 /* Daftar Retur Penjualan: tab status + filter ringkas + tabel bersih (acuan: UI daftar pesanan seller marketplace) */
 #dr_wrap { background:#fff; border-radius:6px; padding:0 18px 18px; }
-#dr_wrap .dr-judul { padding:16px 0 4px; }
-#dr_wrap .dr-judul h3 { margin:0; font-size:18px; font-weight:700; }
+#dr_wrap .dr-tabs { margin-top:0; }
 /* Ikon info: penjelasan & legenda disembunyikan di balik ikon (muncul saat diarahkan/diklik) */
 .dr-bantu { position:relative; display:inline-block; margin-left:6px; vertical-align:middle; }
 .dr-bantu > i { color:#9ca3af; cursor:pointer; font-size:16px; }
@@ -66,6 +65,14 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-multi-kaki { display:flex; justify-content:space-between; padding:6px 10px 4px; margin-top:4px; border-top:1px solid #f1f5f9; font-size:12px; }
 .dr-multi-kaki a { cursor:pointer; color:#0f766e; font-weight:600; }
 .dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
+
+/* DataTables: cari di kanan atas; baris per halaman, info, dan paging di bawah */
+#dr_wrap .dr-atas .dataTables_filter { float:none; text-align:right; margin:0 0 8px; }
+/* tema memberi float:left pada tabel; tanpa ini blok bawah terdorong ke samping tabel */
+#dr_wrap table.dataTable { float:none; clear:both; }
+#dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; margin-top:12px; }
+#dr_wrap .dr-bawah .dataTables_length, #dr_wrap .dr-bawah .dataTables_info, #dr_wrap .dr-bawah .dataTables_paginate { float:none; margin:0; padding:0; }
+#dr_wrap .dr-bawah .dataTables_info { flex:1; text-align:center; color:#6b7280; }
 
 /* Tabel */
 #dr_wrap table.dataTable { border:0; }
@@ -140,20 +147,6 @@ $BASE = rtrim(base_url(), '/') . '/';
 
 <div id="dr_wrap">
 
-  <div class="dr-judul">
-    <h3>Daftar Retur Penjualan
-      <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
-        <i class="fa fa-info-circle"></i>
-        <div class="dr-pop">
-          <p>Retur ekspedisi: paket yang sudah diambil kurir tetapi dikembalikan ke toko oleh kurir. Umur dihitung dari tanggal retur.</p>
-          <div class="dr-lg"><span class="dr-umur dr-umur-oranye" style="padding:0 8px;">&ge; <?= (int) $umur_oranye ?> hari</span> peringatan</div>
-          <div class="dr-lg"><span class="dr-umur dr-umur-merah" style="padding:0 8px;">&ge; <?= (int) $umur_merah ?> hari</span> wajib klaim</div>
-          <div class="dr-lg text-muted">Paket yang sudah dibuka tidak diberi warna.</div>
-        </div>
-      </span>
-    </h3>
-  </div>
-
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="">Semua <span class="n" id="n_semua">-</span></div>
@@ -189,6 +182,15 @@ $BASE = rtrim(base_url(), '/') . '/';
       </div>
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
+    <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
+          <i class="fa fa-info-circle"></i>
+          <div class="dr-pop">
+            <p>Retur ekspedisi: paket yang sudah diambil kurir tetapi dikembalikan ke toko oleh kurir. Umur dihitung dari tanggal retur.</p>
+            <div class="dr-lg"><span class="dr-umur dr-umur-oranye" style="padding:0 8px;">&ge; <?= (int) $umur_oranye ?> hari</span> peringatan</div>
+            <div class="dr-lg"><span class="dr-umur dr-umur-merah" style="padding:0 8px;">&ge; <?= (int) $umur_merah ?> hari</span> wajib klaim</div>
+            <div class="dr-lg text-muted">Paket yang sudah dibuka tidak diberi warna.</div>
+          </div>
+        </span>
   </div>
 
   <div id="dr_tablewrap">
@@ -277,6 +279,8 @@ $(document).ready(function () {
         processing: false,
         serverSide: true,
         autoWidth: false,
+        // Pencarian di atas tabel; jumlah baris per halaman + info + paging di bawah.
+        dom: "<'dr-atas'f>rt<'dr-bawah'lip>",
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         order: [[8, 'desc']],          // umur terbesar di atas
