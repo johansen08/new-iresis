@@ -43,20 +43,20 @@
 .sk-table th{background:var(--bg);color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.05em;padding:12px 14px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap;user-select:none}
 .sk-table th.s{cursor:pointer}.sk-table th.s:hover{color:var(--pri)}
 .sk-table th .ar{opacity:.35;margin-left:4px}.sk-table th.cur .ar{opacity:1;color:var(--pri)}
-.sk-table td{padding:11px 14px;border-bottom:1px solid #f1f5f9;font-size:13.5px;vertical-align:middle}
+.sk-table td{padding:12px 14px;border-bottom:1px solid #f1f5f9;font-size:13.5px;vertical-align:middle}
 .sk-table tbody tr{cursor:pointer}.sk-table tbody tr:hover td{background:#f8fafc}
 .sk-table .c{text-align:center}.sk-table .r{text-align:right}
-.sk-th{width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);background:#f1f5f9;display:block}
-.sk-ph{width:40px;height:40px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:15px}
-.sk-fw{position:relative;width:40px;height:40px}
-.sk-eye{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:11px;line-height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
+.sk-th{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);background:#f1f5f9;display:block}
+.sk-ph{width:72px;height:72px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:22px}
+.sk-fw{position:relative;width:72px;height:72px}
+.sk-eye{position:absolute;right:-8px;bottom:-8px;width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:13px;line-height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
 .sk-eye:hover{background:#4f46e5;color:#fff}
 .sk-lb{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out}
 .sk-lb img{width:min(94vw,82vh);max-width:94vw;max-height:82vh;object-fit:contain;border-radius:10px;background:#fff}
 .sk-lb b{color:#fff;font-size:16px}.sk-lb small{color:#cbd5e1}
-.sk-sku{font-weight:700;color:#0f172a}
+.sk-sku{font-weight:700;color:#0f172a;font-size:16px}
 .sk-nm{color:var(--mut);font-size:12.5px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sk-qty{display:inline-block;min-width:44px;padding:4px 10px;border-radius:8px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;text-align:center}
+.sk-qty{display:inline-block;min-width:52px;padding:6px 12px;border-radius:8px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;text-align:center}
 .sk-b{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600}
 .sk-b.a{background:#fffbeb;color:#b45309}.sk-b.g{background:#ecfdf5;color:#047857}.sk-b.s{background:#f1f5f9;color:#475569}.sk-b.r{background:#fef2f2;color:#b91c1c}.sk-b.i{background:#eef2ff;color:#3730a3}
 .sk-foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 2px 4px;color:var(--mut);font-size:13px}
@@ -113,11 +113,11 @@
     <div class="sk-tw">
       <table class="sk-table">
         <thead><tr>
-          <th style="width:64px"></th>
+          <th style="width:100px">Foto</th>
           <th class="s" data-s="sku">SKU<span class="ar">&#8645;</span></th>
-          <th class="s" data-s="rak">Rak<span class="ar">&#8645;</span></th>
-          <th class="s c" data-s="stok">Stok Real<span class="ar">&#8645;</span></th>
-          <th class="s c" data-s="jumlah_paket">Paket<span class="ar">&#8645;</span></th>
+          <th class="s" data-s="rak" style="width:130px">Rak<span class="ar">&#8645;</span></th>
+          <th class="s c" data-s="stok" style="width:130px">Stok Real<span class="ar">&#8645;</span></th>
+          <th class="s c" data-s="jumlah_paket" style="width:100px">Paket<span class="ar">&#8645;</span></th>
           <th>Keterangan</th>
         </tr></thead>
         <tbody id="sk_tb"><tr><td colspan="6" class="sk-empty">Memuat data...</td></tr></tbody>
