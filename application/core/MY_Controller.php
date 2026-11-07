@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-07.4';
+    const BOOTSTRAP_VERSI = '2026-11-07.5';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -162,6 +162,7 @@ class MY_Controller extends CI_Controller
         $this->run_video_packing_migration();
         $this->run_nonaktifkan_menu_ngrok();
         $this->run_nonaktifkan_menu_tanpa_route();
+        $this->run_nonaktifkan_menu_accounting_lain();
         $this->run_masalah_picker_new_migration();
         $this->run_lost_scan_picker_migration();
         $this->run_scan_paket_ndd_new_migration();
@@ -1432,6 +1433,20 @@ class MY_Controller extends CI_Controller
     {
         $this->db->where_in('uri', ['dashboard-harian', 'jadwal-kerja'])
                  ->where('isactive', 1)
+                 ->update('menu', ['isactive' => 0]);
+    }
+
+    /**
+     * Grup TIM ACCOUNTING (id 92) hanya memakai tiga menu: Upload Retur Jubelio
+     * (158), Verifikasi Retur (137), Verifikasi Retur Komplain (157). Sisanya
+     * disembunyikan 7 Nov 2026 (docs/ACCOUNTING.md); roleaccess dan kode
+     * controller dibiarkan, jadi cukup isactive=1 untuk mengaktifkan kembali.
+     */
+    protected function run_nonaktifkan_menu_accounting_lain()
+    {
+        $this->db->where('parentid', 92)
+                 ->where('isactive', 1)
+                 ->where_not_in('id', [158, 137, 157])
                  ->update('menu', ['isactive' => 0]);
     }
 
