@@ -100,8 +100,11 @@
               <button type="button" class="btn btn-info" id="btn_export_verified">
                 <i class="fa fa-check"></i> Export Terverifikasi
               </button>
-              <button type="button" class="btn btn-warning" id="btn_export_update" style="margin-left:5px;">
+              <button type="button" class="btn btn-default" id="btn_export_update" style="margin-left:5px;">
                 <i class="fa fa-file-excel-o"></i> Export Update
+              </button>
+              <button type="button" class="btn btn-default" id="btn_kolom_lain" style="margin-left:5px;" title="Tampilkan/sembunyikan kolom tambahan">
+                <i class="fa fa-columns"></i> <span>Tampilkan Kolom Lain</span>
               </button>
               <button type="button" class="btn btn-default" id="btn_pilih_semua" style="margin-left:10px;" disabled>
                 <i class="fa fa-check-square-o"></i> Pilih Semua
@@ -165,10 +168,14 @@
           <table class="table table-striped table-bordered" id="datatable_jubelio" style="width:100%;">
             <thead>
               <tr>
-                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon" title="Pilih/Batal Semua" /></th>
+                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon" title="Pilih/Batal Semua (semua halaman)" /></th>
+                <th>No. Pesanan</th>
+                <th>Status Buka</th>
+                <th>Detail SKU</th>
+                <th>SKU Pergantian</th>
+                <th>Verifikasi</th>
                 <th>No</th>
                 <th>No. Resi</th>
-                <th>No. Pesanan</th>
                 <th>Marketplace</th>
                 <th>Nama Toko</th>
                 <th>Kurir</th>
@@ -179,11 +186,7 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
-                <th>Status Buka</th>
                 <th>Ditolak Karena Apa</th>
-                <th>Detail SKU</th>
-                <th>SKU Pergantian</th>
-                <th>Verifikasi</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -198,10 +201,14 @@
           <table class="table table-striped table-bordered" id="datatable_jubelio_update" style="width:100%;">
             <thead>
               <tr>
-                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon-update" title="Pilih/Batal Semua" /></th>
+                <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon-update" title="Pilih/Batal Semua (semua halaman)" /></th>
+                <th>No. Pesanan</th>
+                <th>Status Buka</th>
+                <th>Detail SKU</th>
+                <th>SKU Pergantian</th>
+                <th>Verifikasi</th>
                 <th>No</th>
                 <th>No. Resi</th>
-                <th>No. Pesanan</th>
                 <th>Marketplace</th>
                 <th>Nama Toko</th>
                 <th>Kurir</th>
@@ -212,11 +219,7 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
-                <th>Status Buka</th>
                 <th>Ditolak Karena Apa</th>
-                <th>Detail SKU</th>
-                <th>SKU Pergantian</th>
-                <th>Verifikasi</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -331,52 +334,74 @@ $(document).ready(function() {
         tableJubelioUpdate.clear().rows.add(filteredUpdate).draw();
 
         // Update Pilih Semua button state based on visible checkboxes
-        var visibleCheckboxes = $('.rekon-chk, .rekon-chk-update').length;
+        var visibleCheckboxes = allChk(false).length;
         $('#btn_pilih_semua').prop('disabled', visibleCheckboxes === 0);
         updateVerifSelectedCount();
     }
 
     // ==================== DATATABLE REKONSILIASI (client-side) ====================
-    var tableJubelio = $('#datatable_jubelio').DataTable({
-        'scrollX': true,
-        'pageLength': 25,
-        'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
-        'data': [],
-        'columns': [
-            { 'data': 'cb',  'orderable': false },
-            { 'data': 0 }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
-            { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
-            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 },
-            { 'data': 12 }, { 'data': 13 }, { 'data': 14 }, { 'data': 15 },
-            { 'data': 16 }, { 'data': 17, 'orderable': false }
-        ]
-    });
+    // Urutan kolom tampilan: 5 kolom wajib dulu (checkbox, No. Pesanan, Status Buka,
+    // Detail SKU, SKU Pergantian) + Verifikasi; sisanya disembunyikan (tombol "Kolom Lain").
+    // Angka 'data' = indeks array dari get_rekonsiliasi_data().
+    var KOLOM_LAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+    function dtConfig() {
+        return {
+            'scrollX': true,
+            'pageLength': 25,
+            'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
+            'data': [],
+            'order': [],
+            'language': { 'emptyTable': 'Pilih rentang waktu lalu klik "Tampilkan" untuk memuat data' },
+            'columns': [
+                { 'data': 'cb', 'orderable': false },
+                { 'data': 2 },
+                { 'data': 13, 'render': function (d, type) {
+                    return (type === 'display' && typeof d === 'string') ? d.replace(/_/g, ' ') : d;
+                } },
+                { 'data': 15 },
+                { 'data': 16 },
+                { 'data': 17, 'orderable': false },
+                { 'data': 0 }, { 'data': 1 }, { 'data': 3 }, { 'data': 4 },
+                { 'data': 5 }, { 'data': 6 }, { 'data': 7 }, { 'data': 8 },
+                { 'data': 9 }, { 'data': 10 }, { 'data': 11 }, { 'data': 12 },
+                { 'data': 14 }
+            ],
+            'columnDefs': [{ 'targets': KOLOM_LAIN, 'visible': false }]
+        };
+    }
 
-    var tableJubelioUpdate = $('#datatable_jubelio_update').DataTable({
-        'scrollX': true,
-        'pageLength': 25,
-        'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
-        'data': [],
-        'columns': [
-            { 'data': 'cb',  'orderable': false },
-            { 'data': 0 }, { 'data': 1 }, { 'data': 2 }, { 'data': 3 },
-            { 'data': 4 }, { 'data': 5 }, { 'data': 6 }, { 'data': 7 },
-            { 'data': 8 }, { 'data': 9 }, { 'data': 10 }, { 'data': 11 },
-            { 'data': 12 }, { 'data': 13 }, { 'data': 14 }, { 'data': 15 },
-            { 'data': 16 }, { 'data': 17, 'orderable': false }
-        ]
+    var tableJubelio = $('#datatable_jubelio').DataTable(dtConfig());
+    var tableJubelioUpdate = $('#datatable_jubelio_update').DataTable(dtConfig());
+
+    // Semua checkbox pilih (SEMUA halaman, bukan hanya halaman tampil).
+    function allChk(onlyChecked, searchApplied) {
+        var mod = { page: 'all' };
+        if (searchApplied) mod.search = 'applied';
+        var sel = onlyChecked ? 'input.rekon-chk:checked' : 'input.rekon-chk:not(:disabled)';
+        var selU = onlyChecked ? 'input.rekon-chk-update:checked' : 'input.rekon-chk-update:not(:disabled)';
+        return tableJubelio.$(sel, mod).add(tableJubelioUpdate.$(selU, mod));
+    }
+
+    var kolomLainTampil = false;
+    $('#btn_kolom_lain').on('click', function () {
+        kolomLainTampil = !kolomLainTampil;
+        tableJubelio.columns(KOLOM_LAIN).visible(kolomLainTampil, false);
+        tableJubelioUpdate.columns(KOLOM_LAIN).visible(kolomLainTampil, false);
+        tableJubelio.columns.adjust().draw(false);
+        tableJubelioUpdate.columns.adjust().draw(false);
+        $(this).find('span').text(kolomLainTampil ? 'Sembunyikan Kolom Lain' : 'Tampilkan Kolom Lain');
     });
 
     function updateVerifSelectedCount() {
-        var count = $('.rekon-chk:checked').length + $('.rekon-chk-update:checked').length;
+        var count = allChk(true).length;
         $('#verif-selected-count').text(count);
         $('#btn_verifikasi_terpilih').prop('disabled', count === 0);
-        // Update check-all state
-        var all = $('.rekon-chk').not(':disabled');
-        $('#check-all-rekon').prop('checked', all.length > 0 && all.length === $('.rekon-chk:checked').length);
 
-        var allUpdate = $('.rekon-chk-update').not(':disabled');
-        $('#check-all-rekon-update').prop('checked', allUpdate.length > 0 && allUpdate.length === $('.rekon-chk-update:checked').length);
+        var all = tableJubelio.$('input.rekon-chk:not(:disabled)', { page: 'all' });
+        $('#check-all-rekon').prop('checked', all.length > 0 && all.length === tableJubelio.$('input.rekon-chk:checked', { page: 'all' }).length);
+
+        var allUpdate = tableJubelioUpdate.$('input.rekon-chk-update:not(:disabled)', { page: 'all' });
+        $('#check-all-rekon-update').prop('checked', allUpdate.length > 0 && allUpdate.length === tableJubelioUpdate.$('input.rekon-chk-update:checked', { page: 'all' }).length);
     }
 
     function getJubelioFilter() {
@@ -389,7 +414,10 @@ $(document).ready(function() {
         };
     }
 
-    function loadJubelio() {
+    // keepState=true: pertahankan kartu filter & halaman aktif (dipakai setelah verifikasi).
+    function loadJubelio(keepState) {
+        keepState = (keepState === true);
+        var prevFilter = activeFilter, prevPage = tableJubelio.page(), prevPageU = tableJubelioUpdate.page();
         var f = getJubelioFilter();
         if (!f.start_date || !f.end_date) {
             alert('Silakan pilih rentang waktu terlebih dahulu!');
@@ -442,13 +470,16 @@ $(document).ready(function() {
                 ALL_ROWS_UPDATE = rowsUpdate;
 
                 // Reset active filter to TOTAL on fresh load
-                activeFilter = 'TOTAL';
+                activeFilter = keepState ? prevFilter : 'TOTAL';
                 $('.summary-clickable').removeClass('active-filter');
-                $('[data-filter="TOTAL"]').addClass('active-filter');
+                $('[data-filter="' + activeFilter + '"]').addClass('active-filter');
 
-                // Render tables
-                tableJubelio.clear().rows.add(ALL_ROWS).draw();
-                tableJubelioUpdate.clear().rows.add(ALL_ROWS_UPDATE).draw();
+                // Render tables (applyFilter sudah menggambar ulang kedua tabel)
+                applyFilter();
+                if (keepState) {
+                    tableJubelio.page(prevPage).draw(false);
+                    tableJubelioUpdate.page(prevPageU).draw(false);
+                }
 
                 var cocok = (res.summary && res.summary.cocok) || 0;
                 var iresis = (res.summary && res.summary.iresis) || 0;
@@ -487,7 +518,7 @@ $(document).ready(function() {
         });
     }
 
-    $('#btn_tampilkan_jubelio').on('click', loadJubelio);
+    $('#btn_tampilkan_jubelio').on('click', function () { loadJubelio(false); });
 
     // ==================== SUMMARY CARD CLICK FILTERS ====================
     $(document).on('click', '.summary-clickable', function() {
@@ -541,7 +572,7 @@ $(document).ready(function() {
     // ==================== SELECT ALL CHECKBOX ====================
     $('#check-all-rekon').on('change', function() {
         var isChecked = $(this).prop('checked');
-        $('.rekon-chk').prop('checked', isChecked);
+        tableJubelio.$('input.rekon-chk:not(:disabled)', { page: 'all', search: 'applied' }).prop('checked', isChecked);
         updateVerifSelectedCount();
     });
 
@@ -551,7 +582,7 @@ $(document).ready(function() {
 
     $('#check-all-rekon-update').on('change', function() {
         var isChecked = $(this).prop('checked');
-        $('.rekon-chk-update').prop('checked', isChecked);
+        tableJubelioUpdate.$('input.rekon-chk-update:not(:disabled)', { page: 'all', search: 'applied' }).prop('checked', isChecked);
         updateVerifSelectedCount();
     });
 
@@ -561,16 +592,16 @@ $(document).ready(function() {
 
     // ==================== PILIH SEMUA BUTTON ====================
     $('#btn_pilih_semua').on('click', function() {
-        var allChecked = $('.rekon-chk').not(':disabled').length === $('.rekon-chk:checked').length &&
-                         $('.rekon-chk-update').not(':disabled').length === $('.rekon-chk-update:checked').length;
-        $('.rekon-chk, .rekon-chk-update').prop('checked', !allChecked);
+        var semua = allChk(false, true);
+        var allChecked = semua.length > 0 && semua.filter(':checked').length === semua.length;
+        semua.prop('checked', !allChecked);
         updateVerifSelectedCount();
     });
 
     // ==================== VERIFIKASI TERPILIH ====================
     $('#btn_verifikasi_terpilih').on('click', function () {
         var resiList = [];
-        $('.rekon-chk:checked, .rekon-chk-update:checked').each(function () {
+        allChk(true).each(function () {
             var resi = $(this).data('resi');
             if (resi) resiList.push(resi);
         });
@@ -597,7 +628,7 @@ $(document).ready(function() {
                         } else {
                             alert(res.message);
                         }
-                        loadJubelio();
+                        loadJubelio(true);
                     } else {
                         alert((res && res.message) ? res.message : 'Gagal melakukan verifikasi masal');
                     }
@@ -628,7 +659,7 @@ $(document).ready(function() {
                     if (typeof noty === 'function') {
                         noty({ text: res.message, timeout: 1500, layout: 'topRight', type: 'success' });
                     }
-                    loadJubelio();
+                    loadJubelio(true);
                 } else {
                     alert((res && res.message) ? res.message : 'Gagal memperbarui verifikasi');
                     $chk.prop('checked', !verified).prop('disabled', false);
