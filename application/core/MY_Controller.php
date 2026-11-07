@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-07.2';
+    const BOOTSTRAP_VERSI = '2026-11-07.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2137,6 +2137,11 @@ class MY_Controller extends CI_Controller
           KEY `idx_cancel_display_paket` (`id_cancel_paket`, `batal_at`),
           KEY `idx_cancel_display_waktu` (`dibuat_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Indeks SKU untuk kartu Keranjang Paket Cancel di Cek Top Level (cari stok satu SKU tanpa memindai seluruh tabel).
+        if (!$this->db->query("SHOW INDEX FROM tblcancel_paket_item WHERE Key_name = 'idx_cancel_item_sku'")->num_rows()) {
+            $this->db->query("ALTER TABLE tblcancel_paket_item ADD KEY `idx_cancel_item_sku` (`sku`, `aktif`)");
+        }
 
         $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM RETUR'])->row();
         if (!$induk) {

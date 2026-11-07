@@ -45,24 +45,17 @@ class Cek_top_level extends MY_Controller
     }
 
     /**
-     * Kartu "Keranjang Paket Cancel": stok real SKU ini di paket cancel yang sudah diterima tim retur dan belum
+     * Kartu "Keranjang Paket Cancel": total stok real SKU ini di paket cancel yang sudah diterima tim retur dan belum
      * selesai (hanya baca). Kegagalan di sini tidak boleh merusak hasil Cek: kartu tampil kosong.
      */
     private function _keranjang_paket_cancel($sku)
     {
-        $kosong = array('stok' => 0, 'paket' => array());
         try {
             $this->load->model('cancel_terima_fcd');
-            $d = $this->cancel_terima_fcd->stok_paket_cancel($sku);
+            return array('stok' => $this->cancel_terima_fcd->stok_keranjang_sku($sku));
         } catch (Exception $e) {
-            return $kosong;
+            return array('stok' => 0);
         }
-        foreach ($d['rows'] as $r) {
-            if (strcasecmp($r['sku'], $sku) === 0) {
-                return array('stok' => (int) $r['stok'], 'paket' => $r['paket']);
-            }
-        }
-        return $kosong;
     }
 
     /** Stok live per gudang (bagian=stok) atau history transfer (bagian=history) dari Jubelio untuk satu SKU. Tidak mengubah data apa pun. */
