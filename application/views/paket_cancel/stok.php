@@ -83,9 +83,6 @@
 </style>
 
 <div class="sk" id="sk_root">
-  <div class="sk-head" style="justify-content:flex-end">
-    <button type="button" class="sk-btn" id="sk_ref"><i class="fa fa-refresh"></i> Muat ulang</button>
-  </div>
 
   <div class="sk-kpis">
     <div class="sk-kpi"><div class="sk-kpi-top"><span class="sk-ic i"><i class="fa fa-cubes"></i></span><span class="sk-kpi-l">Total Stok (Qty)</span></div><div class="sk-kpi-v" id="k_qty">&ndash;</div><div class="sk-kpi-n">barang real di tim retur</div></div>
@@ -104,6 +101,7 @@
         <option value="sama">Sesuai resi saja</option>
       </select>
       <button type="button" class="sk-clear" id="sk_rs" style="display:none"><i class="fa fa-times"></i> Reset filter</button>
+      <button type="button" class="sk-btn" id="sk_ref" style="margin-left:auto"><i class="fa fa-refresh"></i> Muat ulang</button>
     </div>
     <div id="sk_msg"></div>
     <div class="sk-tw">
