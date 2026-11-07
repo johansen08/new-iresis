@@ -39,7 +39,7 @@ class Daftar_retur_fcd extends CI_Model
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';
 
-    /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur biasa, K = retur komplain (is_komplain = 1). */
+    /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur ekspedisi / gagal kirim (is_komplain = 0), K = retur komplain / pengembalian dari customer (is_komplain = 1). */
     const JENIS_BIASA    = 'B';
     const JENIS_KOMPLAIN = 'K';
 
