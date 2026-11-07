@@ -162,7 +162,9 @@
     function ket(p) {
         var out = [];
         if (p.qty_resi === 0) {
-            out.push('<span class="sk-b r">Di luar resi</span>' + (p.pasangan ? ' <span class="sk-b s">pengganti ' + esc(p.pasangan) + '</span>' : ''));
+            out.push(p.pasangan
+                ? '<span class="sk-b r">Salah ambil</span> <span class="sk-b s">resi: ' + esc(p.pasangan) + '</span>'
+                : '<span class="sk-b r">Di luar resi</span>');
         } else if (p.qty_ada > p.qty_resi) {
             out.push('<span class="sk-b a">Lebih ' + (p.qty_ada - p.qty_resi) + '</span>');
         } else if (p.qty_ada < p.qty_resi) {
