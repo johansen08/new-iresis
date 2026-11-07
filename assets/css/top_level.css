@@ -408,3 +408,15 @@
 .tlt-cepat button:hover{border-color:var(--tl-accent,#2159c9);color:var(--tl-accent,#2159c9)}
 .tlt-tgl-err{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:#fef2f2;color:#b91c1c;font-size:13px}
 .tlt-tgl-err[hidden]{display:none}
+
+/* Kartu Keranjang Paket Cancel di hasil Cek (stok real barang paket cancel yang belum kembali ke display) */
+.tlk{margin-top:14px;border:1px solid var(--tl-line);border-radius:10px;padding:12px 14px;background:#fff}
+.tlk-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tlk-hd b{font-size:14px}
+.tlk-q{margin-left:auto;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--tl-info)}
+.tlk-q.z{color:var(--tl-faint)}
+.tlk-n{margin-top:2px;font-size:12px;color:var(--tl-faint)}
+.tlk-t{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+.tlk-t th{font-weight:500;text-align:left;color:var(--tl-faint);font-size:12px;padding:6px 8px;border-bottom:1px solid var(--tl-line);white-space:nowrap}
+.tlk-t td{padding:6px 8px;border-bottom:1px solid var(--tl-line)}
+.tlk-t .n{text-align:right;font-variant-numeric:tabular-nums}
