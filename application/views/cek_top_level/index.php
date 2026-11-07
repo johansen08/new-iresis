@@ -100,9 +100,10 @@ $this->load->view('top_level/_dasar'); ?>
   /** Total stok real SKU ini di paket cancel yang sudah dibuka & dicek tim retur dan belum kembali ke display. */
   function blokKeranjang(k) {
     var n = (k && k.stok) || 0;
+    if (!n) return '';   // kartu hanya tampil bila ada stok
     return '<div class="tlk"><div class="tlk-hd"><div><b>Keranjang Paket Cancel</b><div class="tlk-n">' +
-      (n ? 'Ada barang real SKU ini di keranjang paket cancel, belum kembali ke display.' : 'Tidak ada barang SKU ini di keranjang paket cancel.') +
-      '</div></div><span class="tlk-q' + (n ? '' : ' z') + '">' + n + '</span></div></div>';
+      'Barang real SKU ini di keranjang paket cancel, belum kembali ke display.' +
+      '</div></div><span class="tlk-q">' + n + '</span></div></div>';
   }
 
   // ---------- stok live Jubelio ----------
