@@ -361,3 +361,19 @@ Di **Cek Top Level** (`picker/cek-top-level`), hasil Cek satu SKU kini punya kar
 status stok top level dan Stok Jubelio): total stok SKU itu di keranjang paket cancel plus rincian per resi (asal,
 waktu diterima, qty). Datanya dari `stok_paket_cancel($sku)` lewat `Cek_top_level::_keranjang_paket_cancel()`; bila gagal,
 kartu tidak tampil dan hasil Cek tetap jalan.
+
+## 18. Aturan jam & kesalahan packer di Terima Paket Cancel (7 Nov 2026)
+
+Pencatatan selisih paket (KURANG / SALAH / LEBIH) ke kesalahan picker/packer kini otomatis mengikuti aturan:
+
+- **Asal PACKER** → hanya kesalahan **picker** (`tblmasalahpicker` tipe 6), tanggal = tanggal scan picker resi.
+- **Asal HO / KURIR** → kesalahan **picker** *dan* **packer** (`tblmasalahpacker`, tipe baru `tbltypemasalahpacker` 7
+  "SELISIH PAKET CANCEL"). Tanggal tiap kesalahan = tanggal scan picker / scan packer (rekap error menggabungkan
+  lewat `tblresiambilbarang` / `tblpacking`).
+- **Jam scan harus 05.00–17.00** (`Cancel_terima_fcd::dalam_jam_kerja`). Di luar jam, atau tanpa scan picker/packer,
+  selisih tidak dicatat ke pihak itu (catatan lama dinolkan, tanpa DELETE); pesan simpan menyebut alasannya.
+- Edit asal paket (mis. HO → PACKER) menolkan catatan packer lama; hapus paket menolkan keduanya.
+
+Migrasi tipe packer 7: `run_tipe_masalah_packer_selisih_paket_cancel` (`BOOTSTRAP_VERSI` 2026-11-07.4).
+Hanya berlaku untuk paket yang diterima/diedit/dihapus **setelah** perubahan ini; paket lama tidak dikoreksi massal.
+Catatan: picker tipe 6 sengaja dikeluarkan dari rekap error & KPI (tanpa poin); tipe packer 7 belum dikeluarkan.
