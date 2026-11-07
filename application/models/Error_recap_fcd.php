@@ -64,7 +64,7 @@ class Error_recap_fcd extends CI_Model
                 FROM tblmasalahpicker mp
                 JOIN tblresiambilbarang r ON r.id_resi = mp.id_printresi
                 WHERE r.tanggal_resiambilbarang BETWEEN ? AND ?
-                  AND mp.id_typemasalah <> 6
+                  AND NOT (mp.id_typemasalah = 6 AND mp.qty_bermasalah = 0) -- tipe 6 ikut dihitung; baris yang sudah dinolkan tidak
                 GROUP BY r.yangambil_pegawai, err_periode
             ) err ON err.peg_id = work.peg_id AND err.err_periode = work.periode
             ORDER BY total_kesalahan DESC, total_resi DESC
@@ -129,6 +129,7 @@ class Error_recap_fcd extends CI_Model
                 FROM tblmasalahpacker mp
                 JOIN tblpacking p ON p.id_resi = mp.id_printresi
                 WHERE p.tanggal_packing BETWEEN ? AND ?
+                  AND NOT (mp.id_typemasalahpacker = 7 AND mp.qty_bermasalah = 0) -- tipe 7 ikut dihitung; baris yang sudah dinolkan tidak
                 GROUP BY p.packer_pegawai, err_periode
             ) err ON err.user_id = work.user_id AND err.err_periode = work.periode
             ORDER BY total_kesalahan DESC, total_resi DESC

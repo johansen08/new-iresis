@@ -44,7 +44,7 @@ class Laporan_fcd extends CI_Model
                 FROM tblmasalahpicker mp
                 JOIN tblresiambilbarang r2 ON r2.id_resi = mp.id_printresi
                 WHERE DATE(r2.tanggal_resiambilbarang) = ?
-                  AND mp.id_typemasalah <> 6
+                  AND NOT (mp.id_typemasalah = 6 AND mp.qty_bermasalah = 0) -- tipe 6 ikut dihitung; baris yang sudah dinolkan tidak
                 GROUP BY r2.yangambil_pegawai
             ) err ON err.peg_id = work.peg_id
             ORDER BY total_resi DESC
@@ -131,6 +131,7 @@ class Laporan_fcd extends CI_Model
                 FROM tblmasalahpacker mp
                 JOIN tblpacking pk2 ON pk2.id_resi = mp.id_printresi
                 WHERE DATE(pk2.tanggal_packing) = ?
+                  AND NOT (mp.id_typemasalahpacker = 7 AND mp.qty_bermasalah = 0) -- tipe 7 ikut dihitung; baris yang sudah dinolkan tidak
                 GROUP BY pk2.packer_pegawai
             ) err ON err.user_id = work.user_id
             ORDER BY total_resi DESC
