@@ -360,4 +360,4 @@ Menu dibuat `run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI` 2026-11-07.2,
 Di **Cek Top Level** (`picker/cek-top-level`), hasil Cek satu SKU kini punya kartu **Keranjang Paket Cancel** (di antara
 status stok top level dan Stok Jubelio): total stok SKU itu di keranjang paket cancel plus rincian per resi (asal,
 waktu diterima, qty). Datanya dari `stok_paket_cancel($sku)` lewat `Cek_top_level::_keranjang_paket_cancel()`; bila gagal,
-kartu tampil kosong dan hasil Cek tetap jalan.
+kartu tidak tampil dan hasil Cek tetap jalan.
