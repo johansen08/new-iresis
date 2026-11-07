@@ -479,6 +479,10 @@ $route['gdbr/rekap-export'] = 'gdbr/rekap_export';
 $route['gdbr/detail'] = 'gdbr/detail';
 $route['gdbr/ubah-cek'] = 'gdbr/ubah_cek';
 $route['gdbr/hapus-resi'] = 'gdbr/hapus_resi';
+
+// TIM HO -> Terima Retur (retur ekspedisi + retur komplain, scan beruntun)
+$route['terima-retur-ho'] = 'terima_retur_ho/index';
+$route['terima-retur-ho/scan'] = 'terima_retur_ho/scan';
 $route['report/proses-barang-qc'] = 'Report/proses_barang_qc';
 $route['report/get_proses_barang_qc_data'] = 'Report/get_proses_barang_qc_data';
 
