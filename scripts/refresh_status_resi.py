@@ -82,6 +82,91 @@ CHUNK_DETAIL = 1000    # upload + tandai tiap sekian order, supaya kerja tidak h
 PAD_DARI_HARI = 5      # transaction_date Jubelio bisa mendahului tanggal cetak resi
 PAD_SAMPAI_HARI = 1
 TANDAI_BATCH = 2000
+JENDELA_JAM = 6          # daftar order Jubelio ditarik per jendela waktu sebesar ini
+JENDELA_HALAMAN = 10000  # uji 7 Nov 2026: page_size sampai 10000 diterima Jubelio
+FMT_JAM = '%Y-%m-%dT%H:%M:%S'
+
+
+def ambil_daftar_jendela(s, dari, sampai, hanya=None):
+    """Daftar order Jubelio untuk [dari, sampai) lewat jendela waktu, BUKAN paginasi offset.
+
+    Paginasi offset Jubelio tidak stabil: uji 7 Nov 2026 pada satu hari statis (17.012 order)
+    halaman 200 kehilangan 19% order, halaman 1000 masih 4%, dan tiap tarikan beda hasilnya
+    (log 6 Nov: 100 ribu "dobel dibuang" dari 450 ribu, dan 25% kandidat "tidak ketemu").
+    Parameter transaction_date_from/to menerima tanggal-jam. Satu jendela 6 jam muat dalam
+    SATU halaman 10.000 baris -> tidak ada offset yang bisa bergeser. Terbukti: 1 hari =
+    4 jendela = 17.012 baris, 0 dobel, 4 detik (cara lama 87 halaman, 24 detik, 19% hilang).
+    Jendela yang totalCount-nya melebihi satu halaman dibelah dua sampai muat.
+
+    hanya: set tracking_no yang diinginkan (hemat memori). Mengembalikan
+    (orders, lengkap, jumlah_dibaca); lengkap=False bila ada jendela yang gagal ditarik.
+    """
+    url = f'{base.CORE_API_BASE}/sales/v2/orders/'
+    awal = datetime.strptime(dari, '%Y-%m-%d')
+    akhir = datetime.strptime(sampai, '%Y-%m-%d')
+    seen = set()
+    hasil = []
+    status = {'lengkap': True, 'panggilan': 0}
+
+    def minta(a, z, page):
+        status['panggilan'] += 1
+        r = get_tangguh(s, url, {
+            'page': page, 'page_size': JENDELA_HALAMAN,
+            'transaction_date_from': a.strftime(FMT_JAM), 'transaction_date_to': z.strftime(FMT_JAM),
+        }, tries=base.LIST_MAX_RETRY, wait_base=base.LIST_WAIT_BASE)
+        if r is None or r.status_code != 200:
+            return None
+        return r.json()
+
+    def simpan(data):
+        for o in data:
+            sid = o.get('salesorder_id')
+            if sid in seen:
+                continue
+            seen.add(sid)
+            if hanya is None or o.get('tracking_no') in hanya:
+                hasil.append(o)
+
+    def tarik(a, z):
+        body = minta(a, z, 1)
+        if body is None:
+            status['lengkap'] = False
+            base.log(f'  Jendela {a:%Y-%m-%d %H:%M} GAGAL ditarik -> daftar TIDAK lengkap.')
+            return
+        data = body.get('data', [])
+        total = int(body.get('totalCount') or 0)
+        if total <= len(data):
+            simpan(data)
+            return
+        detik = int((z - a).total_seconds())
+        if detik > 120:  # terlalu padat untuk satu halaman: belah dua
+            tengah = a + timedelta(seconds=detik // 2)
+            tarik(a, tengah)
+            tarik(tengah, z)
+            return
+        simpan(data)  # jendela <=2 menit masih > 10.000: sisanya lewat offset (nyaris mustahil)
+        page = 2
+        while (page - 1) * JENDELA_HALAMAN < total:
+            b2 = minta(a, z, page)
+            if b2 is None:
+                status['lengkap'] = False
+                return
+            simpan(b2.get('data', []))
+            page += 1
+
+    a = awal
+    hari_log = None
+    while a < akhir:
+        z = min(a + timedelta(hours=JENDELA_JAM), akhir)
+        tarik(a, z)
+        if a.date() != hari_log and a.day % 5 == 0:  # log jarang: tiap tanggal kelipatan 5
+            base.log(f'  ... sampai {a:%Y-%m-%d}: {len(seen)} order dibaca, {len(hasil)} cocok kandidat')
+        hari_log = a.date()
+        a = z
+        time.sleep(0.2)
+    base.log(f'  Daftar selesai: {len(seen)} order unik dibaca, {len(hasil)} cocok kandidat, '
+             f'{status["panggilan"]} panggilan, {"LENGKAP" if status["lengkap"] else "TIDAK LENGKAP"}.')
+    return hasil, status['lengkap'], len(seen)
 
 
 def url_cron(nama, **query):
@@ -134,18 +219,14 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering, pekerja=PEKERJA_DE
     dari = (datetime.strptime(kand['dari'], '%Y-%m-%d') - timedelta(days=PAD_DARI_HARI)).strftime('%Y-%m-%d')
     sampai = (datetime.strptime(kand['sampai'], '%Y-%m-%d') + timedelta(days=PAD_SAMPAI_HARI)).strftime('%Y-%m-%d')
     base.log(f'Ambil daftar order Jubelio {dari} s/d {sampai}...')
-    orders = base.fetch_all_orders(s, dari, sampai)
-    orders = [o for o in orders if o.get('tracking_no') in due]
+    orders, list_lengkap, _ = ambil_daftar_jendela(s, dari, sampai, hanya=due)
     ada_di_jubelio = {o['tracking_no'] for o in orders}
     tidak_ketemu = due - ada_di_jubelio
-    # Daftar order Jubelio dibaca per halaman (offset) dan bergeser kalau ada order baru masuk,
-    # sehingga di rentang yang masih "hidup" (mode harian/mingguan) sebagian order terlewat
-    # (uji 4 Nov 2026: 13 ribu duplikat, 20-55% kandidat "tidak ketemu" padahal ada).
-    # Maka resi tidak ketemu HANYA ditandai di mode backlog (rentang > 60 hari, data statis)
-    # dan hanya bila daftar lengkap. Di mode lain dibiarkan -> dicoba lagi di run berikutnya.
-    if mode != 'backlog' or not base.LIST_LENGKAP:
-        if mode == 'backlog':
-            base.log('PERINGATAN: daftar Jubelio tidak lengkap; resi "tidak ketemu" TIDAK ditandai (dicoba lagi besok).')
+    # Dengan daftar per jendela waktu (lengkap, tanpa dobel) "tidak ketemu" berarti memang tidak ada
+    # di rentang tanggal itu. Hanya ditandai bila daftar lengkap; kalau ada jendela gagal, dibiarkan
+    # supaya dicoba lagi besok.
+    if not list_lengkap:
+        base.log('PERINGATAN: daftar Jubelio tidak lengkap; resi "tidak ketemu" TIDAK ditandai (dicoba lagi besok).')
         tidak_ketemu_ditandai = set()
     else:
         tidak_ketemu_ditandai = tidak_ketemu
