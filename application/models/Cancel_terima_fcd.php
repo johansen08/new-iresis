@@ -1436,6 +1436,34 @@ class Cancel_terima_fcd extends CI_Model
     // ─────────────────────────────────────────────
 
     /**
+     * Total stok real satu SKU di keranjang paket cancel (diterima, belum selesai, belum dihapus), dikurangi barang yang
+     * sudah dicatat kembali ke display. Satu query ringan (indeks idx_cancel_item_sku), dipakai kartu Keranjang Paket
+     * Cancel di Cek Top Level; aturan hitungnya sama dengan stok_paket_cancel().
+     */
+    public function stok_keranjang_sku($sku)
+    {
+        $sku = trim((string) $sku);
+        if ($sku === '') {
+            return 0;
+        }
+        $row = $this->db->query(
+            "SELECT COALESCE(SUM(GREATEST(x.ada - COALESCE(d.q, 0), 0)), 0) AS stok
+               FROM (SELECT i.id_cancel_paket, SUM(i.qty_ditemukan) AS ada
+                       FROM tblcancel_paket_item i
+                       JOIN tblcancel_paket p ON p.id_cancel_paket = i.id_cancel_paket
+                      WHERE i.sku = ? AND i.aktif = 1
+                        AND p.dicek_at IS NOT NULL AND p.dihapus_at IS NULL AND p.selesai_at IS NULL
+                      GROUP BY i.id_cancel_paket) x
+          LEFT JOIN (SELECT id_cancel_paket, SUM(qty) AS q
+                       FROM tblcancel_display
+                      WHERE sku = ? AND batal_at IS NULL AND id_cancel_paket IS NOT NULL
+                      GROUP BY id_cancel_paket) d ON d.id_cancel_paket = x.id_cancel_paket",
+            [$sku, $sku]
+        )->row_array();
+        return (int) ($row['stok'] ?? 0);
+    }
+
+    /**
      * Stok barang paket cancel yang SUDAH diterima tim retur tetapi BELUM selesai
      * (selesai_at kosong, belum dihapus), per SKU. Angka = barang yang benar-benar
      * ada secara fisik (qty_ditemukan hasil pengecekan), BUKAN qty tertulis di resi:
@@ -1444,10 +1472,9 @@ class Cancel_terima_fcd extends CI_Model
      * per paket & SKU (tidak pernah negatif), sama seperti kertas serah terima.
      * Hanya membaca; tidak menulis apa pun.
      *
-     * $sku diisi = hanya satu SKU (dipakai kartu Keranjang Paket Cancel di Cek Top Level).
      * @return array ['rows' => [per SKU, stok terbesar dulu], 'ringkas' => [...]]
      */
-    public function stok_paket_cancel($sku = null)
+    public function stok_paket_cancel()
     {
         $kosong = ['rows' => [], 'ringkas' => ['sku' => 0, 'qty' => 0, 'paket' => 0, 'sku_beda' => 0, 'paket_semua' => 0]];
         $paket = $this->db
@@ -1466,16 +1493,14 @@ class Cancel_terima_fcd extends CI_Model
         }
         $ids = array_keys($info);
 
-        $this->db
+        $items = $this->db
             ->select('i.id_cancel_paket, i.sku, i.no_rak, i.qty_resi, i.qty_ditemukan, i.jenis, i.pasangan_sku, s.nama_sku, s.no_rak AS rak_master, s.link_foto, s.foto_lokal')
             ->from('tblcancel_paket_item i')
             ->join('tblsku s', 's.id_sku = i.sku', 'left')
             ->where_in('i.id_cancel_paket', $ids)
-            ->where('i.aktif', 1);
-        if ($sku !== null && trim((string) $sku) !== '') {
-            $this->db->where('i.sku', trim((string) $sku));
-        }
-        $items = $this->db->order_by('i.id_item', 'ASC')->get()->result_array();
+            ->where('i.aktif', 1)
+            ->order_by('i.id_item', 'ASC')
+            ->get()->result_array();
 
         $disp = [];
         foreach ($this->db->select('id_cancel_paket, sku, SUM(qty) AS q', false)->where_in('id_cancel_paket', $ids)
