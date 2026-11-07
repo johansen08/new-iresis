@@ -49,7 +49,7 @@
 .sk-th{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);background:#f1f5f9;display:block}
 .sk-ph{width:72px;height:72px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:22px}
 .sk-fw{position:relative;width:72px;height:72px}
-.sk-eye{position:absolute;right:-8px;bottom:-8px;width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:13px;line-height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
+.sk-eye{position:absolute;right:-12px;bottom:-12px;width:38px;height:38px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:19px;line-height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
 .sk-eye:hover{background:#4f46e5;color:#fff}
 .sk-lb{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out}
 .sk-lb img{width:min(94vw,82vh);max-width:94vw;max-height:82vh;object-fit:contain;border-radius:10px;background:#fff}
