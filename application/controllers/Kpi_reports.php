@@ -329,7 +329,8 @@ class Kpi_reports extends MY_Controller
                             WHERE r.yangambil_pegawai = rab.yangambil_pegawai
                             AND r.tanggal_resiambilbarang BETWEEN ? AND ?
                             -- Reject Display (tipe 5) dilaporkan lewat menu terpisah, bukan kesalahan picker
-                            AND mp.id_typemasalah NOT IN (5, 6) -- 6 = Selisih Paket Cancel (tanpa poin)
+                            AND mp.id_typemasalah <> 5
+                            AND NOT (mp.id_typemasalah = 6 AND mp.qty_bermasalah = 0) -- tipe 6 ikut dihitung; baris yang sudah dinolkan tidak
                         ), 0) as total_kesalahan,
                         
                         -- SKU breakdown by category (using COUNT DISTINCT to prevent double counting due to join)
@@ -410,7 +411,8 @@ class Kpi_reports extends MY_Controller
                             WHERE r.yangambil_pegawai = rab.yangambil_pegawai
                             AND r.tanggal_resiambilbarang BETWEEN ? AND ?
                             -- Reject Display (tipe 5) dilaporkan lewat menu terpisah, bukan kesalahan picker
-                            AND mp.id_typemasalah NOT IN (5, 6) -- 6 = Selisih Paket Cancel (tanpa poin)
+                            AND mp.id_typemasalah <> 5
+                            AND NOT (mp.id_typemasalah = 6 AND mp.qty_bermasalah = 0) -- tipe 6 ikut dihitung; baris yang sudah dinolkan tidak
                         ), 0) as total_kesalahan,
                         0 as paket_1_sku,
                         0 as paket_5_sku,
@@ -600,6 +602,7 @@ class Kpi_reports extends MY_Controller
                             JOIN tblpacking pk2 ON pk2.id_resi = mp.id_printresi
                             WHERE pk2.packer_pegawai = p.packer_pegawai
                             AND pk2.tanggal_packing BETWEEN ? AND ?
+                            AND NOT (mp.id_typemasalahpacker = 7 AND mp.qty_bermasalah = 0) -- tipe 7 ikut dihitung; baris yang sudah dinolkan tidak
                         ), 0) as total_kesalahan,
                         COALESCE(AVG(tk.target_resi), 0) as target_resi,
                         CASE WHEN u.hakakses = 4 THEN 1 ELSE 0 END as is_inti,
@@ -688,6 +691,7 @@ class Kpi_reports extends MY_Controller
                             JOIN tblpacking pk2 ON pk2.id_resi = mp.id_printresi
                             WHERE pk2.packer_pegawai = p.packer_pegawai
                             AND pk2.tanggal_packing BETWEEN ? AND ?
+                            AND NOT (mp.id_typemasalahpacker = 7 AND mp.qty_bermasalah = 0) -- tipe 7 ikut dihitung; baris yang sudah dinolkan tidak
                         ), 0) as total_kesalahan,
                         COALESCE(AVG(tk.target_resi), 0) as target_resi,
                         CASE WHEN u.hakakses = 4 THEN 1 ELSE 0 END as is_inti,

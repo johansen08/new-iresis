@@ -377,3 +377,8 @@ Pencatatan selisih paket (KURANG / SALAH / LEBIH) ke kesalahan picker/packer kin
 Migrasi tipe packer 7: `run_tipe_masalah_packer_selisih_paket_cancel` (`BOOTSTRAP_VERSI` 2026-11-07.4).
 Hanya berlaku untuk paket yang diterima/diedit/dihapus **setelah** perubahan ini; paket lama tidak dikoreksi massal.
 Catatan: picker tipe 6 sengaja dikeluarkan dari rekap error & KPI (tanpa poin); tipe packer 7 belum dikeluarkan.
+
+**Ikut dihitung (7 Nov 2026).** Selisih paket cancel kini **dihitung** sebagai kesalahan di Rekap Error (`Error_recap_fcd`),
+Laporan harian (`Laporan_fcd`) dan KPI (`Kpi_reports`): picker tipe 6 dan packer tipe 7. Baris yang sudah dinolkan
+(`qty_bermasalah = 0`, hasil koreksi/hapus paket) tidak ikut. Tetap dikecualikan: Restock (tidak ada barang untuk
+direstock) dan slip cetak. Kolom rincian per jenis (salah_1..5) tidak punya kolom khusus tipe 6/7, jadi hanya masuk ke total kesalahan.
