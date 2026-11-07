@@ -347,3 +347,17 @@ kejadian dari tabel; paket lama tanpa kejadian dihitung dari qty seperti sebelum
 dan popup Edit di Laporan (status, kartu ringkasan, kotak SKU yang terambil, payload). Terima Paket Cancel
 juga punya kotak centang "Kunci kursor di kolom scan resi" (default aktif, disimpan di browser).
 
+
+## 17. Stok Paket Cancel & kartu Keranjang Paket Cancel (7 Nov 2026)
+
+Menu **Stok Paket Cancel** (`paket-cancel/stok`, TIM RETUR, hanya baca; `Cancel_terima_fcd::stok_paket_cancel()`)
+menampilkan stok per SKU dari paket yang sudah diterima tim retur dan **belum selesai** (`dicek_at` terisi, `dihapus_at`
+dan `selesai_at` kosong). Angka = **barang real hasil cek fisik** (`qty_ditemukan`), bukan SKU/qty di resi: resi SKU A x1
+yang ternyata berisi SKU B x1 menghasilkan stok B 1 dan A 0. Barang yang sudah dicatat kembali ke display
+(`tblcancel_display` aktif) dikurangkan per paket & SKU (tidak negatif); SKU yang stok akhirnya 0 tidak tampil.
+Menu dibuat `run_paket_cancel_terima_migration` (`BOOTSTRAP_VERSI` 2026-11-07.2, awalnya role 1).
+
+Di **Cek Top Level** (`picker/cek-top-level`), hasil Cek satu SKU kini punya kartu **Keranjang Paket Cancel** (di antara
+status stok top level dan Stok Jubelio): total stok SKU itu di keranjang paket cancel plus rincian per resi (asal,
+waktu diterima, qty). Datanya dari `stok_paket_cancel($sku)` lewat `Cek_top_level::_keranjang_paket_cancel()`; bila gagal,
+kartu tampil kosong dan hasil Cek tetap jalan.
