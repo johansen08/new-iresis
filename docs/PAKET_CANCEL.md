@@ -402,4 +402,4 @@ dengan keterangan `…lost scan…dari HO` (`Lost_scan_picker_fcd`).
   jadi tidak ada tanggal scan untuk menentukan periode poin dan tidak jelas kesalahan ditimpa ke siapa.
 - Pilihan yang bisa dibahas: tanggung ke picker/packer dari laporan lost scan, ke petugas HO penemu, atau tanpa
   penalti. Setelah diputuskan, cukup ubah/hapus pengecualian `dari_lost_scan_ho` di `sinkron_masalah_picker`.
-- Contoh nyata: JY2176601195 (SALAH, asal HO, tanpa scan picker/packer, tolak HO 3 Nov 2026 18:38).
+- Catatan: JY2176601195 (tanpa scan picker/packer, tolak HO 3 Nov 2026) BUKAN lost scan (keterangan "Scan Paket REGULER"); kasus tanpa scan semacam itu hanya terkena aturan §18 (tidak dicatat).
