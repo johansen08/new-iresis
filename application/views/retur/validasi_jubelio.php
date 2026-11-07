@@ -55,9 +55,6 @@
 
     <!-- ============ PANEL 2: LAPORAN REKONSILIASI ============ -->
     <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title"><i class="fa fa-check-square-o"></i> <?= isset($is_komplain) && $is_komplain ? 'Laporan Verifikasi Retur Komplain' : 'Laporan Verifikasi Retur' ?></h4>
-      </div>
       <div class="panel-body">
 
         <!-- Filter -->
