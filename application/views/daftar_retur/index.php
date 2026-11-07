@@ -179,11 +179,11 @@ $BASE = rtrim(base_url(), '/') . '/';
       <div class="dr-multi-pop" id="dr_jenis_pop">
         <label class="dr-opsi">
           <input type="checkbox" value="B" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">Bukan komplain<span class="ket">Retur biasa dari ekspedisi</span></span>
+          <span class="teks">Ekspedisi<span class="ket">Retur ekspedisi (gagal kirim)</span></span>
         </label>
         <label class="dr-opsi">
           <input type="checkbox" value="K" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">Komplain<span class="ket">Hanya resi yang punya scan retur komplain</span></span>
+          <span class="teks">Komplain<span class="ket">Pengembalian barang dari customer</span></span>
         </label>
         <div class="dr-multi-kaki"><a id="dr_jenis_semua">Pilih semua</a><a id="dr_jenis_hapus">Hapus</a></div>
       </div>
@@ -376,7 +376,7 @@ $(document).ready(function () {
     }
     function tulisTombolJenis() {
         var v = $('#dr_jenis_pop input:checked').map(function () { return this.value; }).get();
-        var teks = v.length === 2 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : (v[0] === 'K' ? 'Komplain' : 'Bukan komplain'));
+        var teks = v.length === 2 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : (v[0] === 'K' ? 'Komplain' : 'Ekspedisi'));
         $('#dr_jenis_nilai').text(teks);
         $('#dr_jenis_cnt').text(v.length).toggleClass('semua', v.length === 2);
     }
