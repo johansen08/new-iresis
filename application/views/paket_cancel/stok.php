@@ -93,7 +93,7 @@
 
   <div class="sk-body">
     <div class="sk-bar">
-      <div class="sk-search"><i class="fa fa-search"></i><input id="sk_q" placeholder="Cari SKU, nama, rak, atau no. resi..." autocomplete="off"></div>
+      <div class="sk-search"><i class="fa fa-search"></i><input id="sk_q" placeholder="Cari SKU, rak, atau no. resi..." autocomplete="off"></div>
       <div class="sk-fil" id="sk_fa"><button type="button" class="sk-chip" data-tog><i class="fa fa-inbox"></i> Asal <span class="n" id="sk_fa_n"></span> <i class="fa fa-angle-down"></i></button><div class="sk-pop" id="sk_fa_p"></div></div>
       <select class="sk-sel" id="sk_fb" title="Bandingkan dengan isi resi">
         <option value="">Semua SKU</option>
@@ -129,7 +129,7 @@
 
 <div class="sk-ov" id="sk_ov"></div>
 <aside class="sk-dr" id="sk_dr" aria-hidden="true">
-  <div class="sk-dr-h"><div id="sk_dh_img"></div><div class="t"><h4 id="sk_dh_sku"></h4><div class="nm" id="sk_dh_nm"></div></div><button type="button" class="sk-x" id="sk_dx" aria-label="Tutup">&times;</button></div>
+  <div class="sk-dr-h"><div id="sk_dh_img"></div><div class="t"><h4 id="sk_dh_sku"></h4></div><button type="button" class="sk-x" id="sk_dx" aria-label="Tutup">&times;</button></div>
   <div class="sk-dr-b" id="sk_db"></div>
 </aside>
 
@@ -176,7 +176,7 @@
         if (pakai.length && !r.paket.some(function (p) { return S.asal[p.dari]; })) return false;
         if (S.q) {
             var q = S.q.toLowerCase();
-            var gudang = (r.sku + ' ' + r.nama + ' ' + r.rak + ' ' + r.paket.map(function (p) { return p.noresi; }).join(' ')).toLowerCase();
+            var gudang = (r.sku + ' ' + r.rak + ' ' + r.paket.map(function (p) { return p.noresi; }).join(' ')).toLowerCase();
             if (gudang.indexOf(q) < 0) return false;
         }
         return true;
@@ -203,7 +203,7 @@
             r.paket.forEach(function (p) { asal[p.dari || ''] = 1; });
             h += '<tr data-sku="' + esc(r.sku) + '">' +
                 '<td>' + img(r) + '</td>' +
-                '<td><div class="sk-sku">' + esc(r.sku) + '</div><div class="sk-nm" title="' + esc(r.nama) + '">' + esc(r.nama || '-') + '</div></td>' +
+                '<td><div class="sk-sku">' + esc(r.sku) + '</div></td>' +
                 '<td>' + esc(r.rak || '-') + '</td>' +
                 '<td class="c"><span class="sk-qty">' + n(r.stok) + '</span></td>' +
                 '<td class="c">' + n(r.jumlah_paket) + '</td>' +
@@ -280,7 +280,6 @@
         if (!r) return;
         g('sk_dh_img').innerHTML = img(r);
         g('sk_dh_sku').textContent = r.sku;
-        g('sk_dh_nm').textContent = r.nama || '';
         var resi = r.paket.reduce(function (a, p) { return a + p.qty_resi; }, 0);
         var h = '<div class="sk-sum"><div><b>' + n(r.stok) + '</b><span>Stok real</span></div><div><b>' + n(r.jumlah_paket) + '</b><span>Paket</span></div><div><b>' + esc(r.rak || '-') + '</b><span>Rak</span></div></div>';
         h += '<p class="sk-note">Stok dihitung dari barang yang benar-benar ditemukan saat pengecekan, dikurangi yang sudah dicatat kembali ke display. Angka "tertulis di resi" hanya pembanding.</p>';
