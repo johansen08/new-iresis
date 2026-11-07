@@ -52,7 +52,7 @@
 .sk-eye{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;padding:0;border:1px solid #cbd5e1;border-radius:50%;background:#fff;color:#4f46e5;font-size:11px;line-height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.2)}
 .sk-eye:hover{background:#4f46e5;color:#fff}
 .sk-lb{position:fixed;inset:0;z-index:2000;background:rgba(15,23,42,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out}
-.sk-lb img{max-width:90vw;max-height:78vh;border-radius:10px;background:#fff}
+.sk-lb img{width:min(94vw,82vh);max-width:94vw;max-height:82vh;object-fit:contain;border-radius:10px;background:#fff}
 .sk-lb b{color:#fff;font-size:16px}.sk-lb small{color:#cbd5e1}
 .sk-sku{font-weight:700;color:#0f172a}
 .sk-nm{color:var(--mut);font-size:12.5px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
