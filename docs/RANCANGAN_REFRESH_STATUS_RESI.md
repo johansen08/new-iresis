@@ -202,3 +202,43 @@ saat kandidat mode backlog tinggal 0. Hasil uji tulis 4 Nov 2026: mingguan 100 d
 - Jatah mingguan dinaikkan ke 25.000 (batas kandidat 45.000) dan pekerja bawaan ke 5. Perkiraan run
   selesai ±06.15 (jam kerja mulai ±07.00); antrean habis ±3 minggu. Pantau log pagi: kalau muncul 429
   atau run melewati 07.00, turunkan lagi.
+
+### Pembaruan 7 Nov 2026 (daftar order per jendela waktu)
+
+Temuan dari log 6 Nov: tarikan daftar order Jubelio menghabiskan ±80 menit per malam (backlog saja 58
+menit untuk 450 ribu order), membuang 100 ribu "dobel" per tarikan, dan 25% kandidat tampak "tidak ketemu"
+(11.211 di mingguan, 5.502 di harian) sehingga terus masuk antrean lagi.
+
+Diukur langsung ke Jubelio (baca saja), pada satu hari statis 10 Agu (17.012 order):
+
+| Cara | Panggilan | Waktu | Hasil |
+|---|---|---|---|
+| Paginasi offset, halaman 200 | 87 | 24 dtk | 13.843 unik, **19% hilang** |
+| Paginasi offset, halaman 1000 | 19 | 7 dtk | ±16.300 unik, **4% hilang**, beda tiap tarikan |
+| Jendela 6 jam, 1 halaman 10.000 | 4 | 4 dtk | **17.012 unik, 0 dobel** |
+
+Ditemukan: `transaction_date_from/to` menerima tanggal-jam (`2026-08-10T06:00:00`), `page_size` sampai
+10.000 diterima, `sort_by` diterima tapi diabaikan, dan `q=<resi>` mencari satu resi. Karena satu jendela
+muat dalam satu halaman, tidak ada offset yang bisa bergeser.
+
+Perubahan di `scripts/refresh_status_resi.py`:
+
+- `ambil_daftar_jendela()` menggantikan `base.fetch_all_orders()` di skrip ini (jendela 6 jam, dibelah dua
+  bila totalCount melebihi satu halaman, difilter ke kandidat supaya hemat memori). Skrip sinkron harian
+  `auto_upload_resi_api.py` **tidak diubah**.
+- Resi "tidak ketemu" kini ditandai dicek di **semua mode** selama daftar lengkap (sebelumnya hanya backlog).
+  Dari 30 sampel backlog yang tidak ketemu, pencarian `q=` menemukan 0: memang tidak ada di Jubelio.
+- Kunci `logs/refresh_status_resi.lock` mencegah dua run tumpang tindih (run kedua keluar dengan kode 3;
+  kunci lebih tua dari 10 jam dianggap basi).
+- Jatah mingguan 45.000 detail (batas kandidat 80.000), karena waktu daftar turun.
+
+Uji kering dengan ukuran malam 6 Nov:
+
+| Mode | Daftar (lama → baru) | Tidak ketemu (lama → baru) |
+|---|---|---|
+| Harian | ±9 mnt → 45 dtk | 5.502 → 16 |
+| Mingguan | ±11 mnt → 68 dtk | 11.211 → 43 |
+| Backlog | 58 mnt → 6 mnt | 2.817 → 2.227 (benar-benar tidak ada di Jubelio) |
+
+Catatan: sinkron harian `auto_upload_resi_api.py` memakai paginasi offset yang sama (halaman 200), jadi
+berpotensi kehilangan sebagian order H-3..hari ini tiap tarikan. Perlu dipertimbangkan memakai jendela yang sama.

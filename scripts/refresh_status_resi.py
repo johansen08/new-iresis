@@ -74,7 +74,7 @@ MODE_DEFAULT = {
     # Anggaran dinaikkan 5 Nov 2026: ~9 ribu resi/hari masuk umur 15-60 hari, jadi jatah mingguan
     # harus > itu supaya antrean menyusut (resi terhapus dari prod oleh purna setelah ~150 hari).
     'harian':   (12000, 25000),
-    'mingguan': (25000, 45000),
+    'mingguan': (45000, 80000),   # 7 Nov 2026: daftar per jendela hemat ±1,5 jam/malam -> jatah naik
     'backlog':  (6000, 10000),
 }
 PEKERJA_DEFAULT = 5    # panggilan detail paralel; uji 5 Nov: 1=1,4/dtk, 3=3,9/dtk, 5=6,8/dtk, tanpa 429
@@ -297,6 +297,38 @@ def proses_mode(s, mode, maks_detail, batas_kandidat, kering, pekerja=PEKERJA_DE
     return ringkas
 
 
+FILE_KUNCI = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs', 'refresh_status_resi.lock')
+KUNCI_MAKS_JAM = 10  # kunci lebih tua dari ini dianggap sisa run yang mati
+
+
+def ambil_kunci():
+    """Cegah dua run tumpang tindih (jatah lebih besar -> run lebih lama; run manual saat jadwal 03.00).
+    Pembuatan file atomik (O_EXCL). Kunci yang lebih tua dari KUNCI_MAKS_JAM dianggap basi."""
+    os.makedirs(os.path.dirname(FILE_KUNCI), exist_ok=True)
+    for _ in range(2):
+        try:
+            fd = os.open(FILE_KUNCI, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f'{os.getpid()} {datetime.now():%Y-%m-%d %H:%M:%S}'.encode())
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                umur = time.time() - os.path.getmtime(FILE_KUNCI)
+                if umur < KUNCI_MAKS_JAM * 3600:
+                    return False
+                os.remove(FILE_KUNCI)  # basi: coba lagi sekali
+            except OSError:
+                return False
+    return False
+
+
+def lepas_kunci():
+    try:
+        os.remove(FILE_KUNCI)
+    except OSError:
+        pass
+
+
 def main():
     ap = argparse.ArgumentParser(description='Refresh status resi non-final berkala')
     ap.add_argument('--mode', choices=['harian', 'mingguan', 'backlog', 'semua'], default='semua')
@@ -306,22 +338,28 @@ def main():
     args = ap.parse_args()
 
     base.log('=== REFRESH STATUS RESI ===')
-    s = base.login_core_api()
-    base.log('Login OK.')
+    if not ambil_kunci():
+        base.log(f'Dibatalkan: run lain masih berjalan (kunci {FILE_KUNCI}, umur < {KUNCI_MAKS_JAM} jam).')
+        sys.exit(3)
+    try:
+        s = base.login_core_api()
+        base.log('Login OK.')
 
-    daftar = ['harian', 'mingguan', 'backlog'] if args.mode == 'semua' else [args.mode]
-    gagal = 0
-    for mode in daftar:
-        maks, batas = MODE_DEFAULT[mode]
-        if args.maks_detail is not None:
-            maks = args.maks_detail
-            batas = min(batas, max(maks * 3, 100))
-        try:
-            proses_mode(s, mode, maks, batas, args.kering, max(1, args.pekerja))
-        except Exception as e:  # satu mode gagal tidak boleh menggagalkan mode lain
-            gagal += 1
-            base.log(f'ERROR mode {mode}: {e}')
-    base.log('=== SELESAI ===')
+        daftar = ['harian', 'mingguan', 'backlog'] if args.mode == 'semua' else [args.mode]
+        gagal = 0
+        for mode in daftar:
+            maks, batas = MODE_DEFAULT[mode]
+            if args.maks_detail is not None:
+                maks = args.maks_detail
+                batas = min(batas, max(maks * 3, 100))
+            try:
+                proses_mode(s, mode, maks, batas, args.kering, max(1, args.pekerja))
+            except Exception as e:  # satu mode gagal tidak boleh menggagalkan mode lain
+                gagal += 1
+                base.log(f'ERROR mode {mode}: {e}')
+        base.log('=== SELESAI ===')
+    finally:
+        lepas_kunci()
     if gagal:
         sys.exit(1)
 
