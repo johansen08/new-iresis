@@ -524,6 +524,12 @@
       .kp-st-meta > i.fa { flex: none; width: 12px; text-align: center; color: #94a3b8; }
       .kp-st-meta.kp-telat > i.fa { color: #b91c1c; }
       .kp-st-resi { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+      /* Ikon salin resi pengembalian: selalu terlihat (bukan hanya saat hover) */
+      .kp-copy.kp-copy-tegas, .kp-table tbody tr:hover .kp-copy.kp-copy-tegas { width: 22px; height: 22px; border: 1px solid #e2e8f0; background: #fff; color: #475569; }
+      .kp-copy.kp-copy-tegas:hover, .kp-table tbody tr:hover .kp-copy.kp-copy-tegas:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+      .kp-copy.kp-copy-tegas.ok { border-color: #059669; color: #059669; background: #ecfdf5; }
+      .kp-dr-row dd .kp-st-tetapkan { margin-left: 10px; vertical-align: middle; }
+      .kp-dr-row dd .kp-copy.kp-copy-tegas { margin-left: 8px; vertical-align: middle; }
       .kp-link { appearance: none; background: none; border: 0; padding: 0; margin-top: 3px; display: block; font-size: 12px; color: var(--primary); cursor: pointer; }
       .kp-link:hover { text-decoration: underline; }
       .kp-telat { color: #b91c1c !important; font-weight: 600; }
@@ -1303,16 +1309,18 @@
             var inf = resp.info_status || {};
             var terkunci = inf.kode === 'DANA_BARANG' && inf.tab === 'selesai';
             var statusDrawer = '<div class="kp-dr-sec"><h5>Status</h5>' +
-                '<div class="kp-dr-row"><i class="fa fa-flag"></i><dt>Status</dt><dd><span class="kp-pill kp-pill-' + (inf.nada || 'slate') + '">' + esc(inf.label || '-') + '</span></dd></div>' +
+                '<div class="kp-dr-row"><i class="fa fa-flag"></i><dt>Status</dt><dd><span class="kp-pill kp-pill-' + (inf.nada || 'slate') + '">' + esc(inf.label || '-') + '</span>' +
+                    (resp.boleh_ubah_status && !terkunci
+                        ? '<button type="button" class="kp-st-tetapkan btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" data-resiretur="' + esc(c.no_resi_retur || '') + '">' + (inf.kode === 'PERLU' ? 'Tetapkan' : 'Ubah') + '</button>'
+                        : '') +
+                '</dd></div>' +
                 (inf.tahap ? pvRow('fa-info-circle', 'Tahap retur', inf.tahap) : '') +
                 (inf.telat ? '<div class="kp-dr-row"><i class="fa fa-clock-o" style="color:#b91c1c"></i><dt>Peringatan</dt><dd class="kp-telat">Barang retur belum dibuka lebih dari 14 hari</dd></div>' : '') +
                 ((c.status_komplain === 'DANA_BARANG' || c.no_resi_retur)
                     ? (c.no_resi_retur
-                        ? pvRow('fa-truck', 'Resi pengembalian', c.no_resi_retur, true)
+                        ? '<div class="kp-dr-row"><i class="fa fa-truck"></i><dt>Resi pengembalian</dt><dd>' + esc(c.no_resi_retur) +
+                            '<button type="button" class="kp-copy kp-copy-tegas" data-copy="' + esc(c.no_resi_retur) + '" title="Salin"><i class="fa fa-files-o"></i></button></dd></div>'
                         : '<div class="kp-dr-row"><i class="fa fa-truck"></i><dt>Resi pengembalian</dt><dd class="kp-telat">Belum diisi</dd></div>')
-                    : '') +
-                (resp.boleh_ubah_status && !terkunci
-                    ? '<button type="button" class="btn-modern btn-modern-secondary btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" data-resiretur="' + esc(c.no_resi_retur || '') + '" style="margin-top:6px;"><i class="fa fa-flag"></i> ' + (inf.kode === 'PERLU' ? 'Tetapkan status' : 'Ubah status') + '</button>'
                     : '');
             if ((resp.riwayat_status || []).length) {
                 statusDrawer += '<ul class="kp-riwayat">';

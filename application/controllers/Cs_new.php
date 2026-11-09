@@ -327,10 +327,12 @@ class Cs_new extends MY_Controller
             if ($info['tahap'] !== '') {
                 $status_cell .= '<div class="kp-st-meta"><i class="fa fa-info-circle"></i><span>' . htmlspecialchars($info['tahap']) . '</span></div>';
             }
-            if ($item['status_komplain'] === 'DANA_BARANG') {
+            // Resi pengembalian: tampil bila sudah ada (apa pun statusnya), atau bila status Dana dan Barang (kosong = peringatan)
+            $ada_resi_retur = $item['no_resi_retur'] !== null && $item['no_resi_retur'] !== '';
+            if ($item['status_komplain'] === 'DANA_BARANG' || $ada_resi_retur) {
                 $status_cell .= '<div class="kp-st-meta kp-copyrow" title="Resi paket pengembalian barang"><i class="fa fa-truck"></i>'
-                    . ($item['no_resi_retur'] !== null && $item['no_resi_retur'] !== ''
-                        ? '<span class="kp-st-resi">' . htmlspecialchars($item['no_resi_retur']) . '</span>' . $this->_tombol_salin($item['no_resi_retur'])
+                    . ($ada_resi_retur
+                        ? '<span class="kp-st-resi">' . htmlspecialchars($item['no_resi_retur']) . '</span>' . $this->_tombol_salin($item['no_resi_retur'], 'kp-copy-tegas')
                         : '<span class="kp-telat">Resi retur belum diisi</span>')
                     . '</div>';
             }
@@ -665,9 +667,9 @@ class Cs_new extends MY_Controller
     }
 
     /** Tombol salin kecil di samping nomor (diproses handler .kp-copy di view). */
-    private function _tombol_salin($nilai)
+    private function _tombol_salin($nilai, $kelas = '')
     {
-        return '<button type="button" class="kp-copy" data-copy="' . htmlspecialchars($nilai, ENT_QUOTES, 'UTF-8') . '" title="Salin"><i class="fa fa-files-o"></i></button>';
+        return '<button type="button" class="kp-copy' . ($kelas !== '' ? ' ' . $kelas : '') . '" data-copy="' . htmlspecialchars($nilai, ENT_QUOTES, 'UTF-8') . '" title="Salin"><i class="fa fa-files-o"></i></button>';
     }
 
     public function get_complain_management_detail($id_complain)
