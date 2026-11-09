@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-09.2';
+    const BOOTSTRAP_VERSI = '2026-11-09.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -778,6 +778,10 @@ class MY_Controller extends CI_Controller
             }
             if (!$this->db->field_exists('tgl_status', 'tblcs_complain')) {
                 $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `tgl_status` DATETIME NULL DEFAULT NULL");
+            }
+            // Resi paket pengembalian barang dari marketplace (wajib untuk status DANA_BARANG)
+            if (!$this->db->field_exists('no_resi_retur', 'tblcs_complain')) {
+                $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `no_resi_retur` VARCHAR(100) NULL DEFAULT NULL");
             }
             if (!$this->db->field_exists('status_by', 'tblcs_complain')) {
                 $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `status_by` INT(11) NULL DEFAULT NULL");

@@ -963,6 +963,10 @@
         <label class="kp-stopt"><input type="radio" name="ms-status" value="DANA_BARANG">Pengembalian Dana dan Barang<small>Barang dikembalikan pembeli. Masuk tab Retur sampai Buka Retur selesai.</small></label>
         <label class="kp-stopt"><input type="radio" name="ms-status" value="TIDAK_ADA_PENGAJUAN">Tidak Ada Pengajuan<small>Tidak ada pengembalian dana maupun barang. Langsung masuk Selesai.</small></label>
         <label class="kp-stopt" id="ms-opt-batal" style="display:none;"><input type="radio" name="ms-status" value="RETUR_BATAL">Retur Batal<small>Barang tidak jadi dikirim pembeli. Alasan wajib diisi.</small></label>
+        <div id="ms-resi-box" style="display:none;margin-top:8px;">
+          <label for="ms-resi" style="font-weight:600;font-size:13px;">No. resi pengembalian barang <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="ms-resi" class="form-control" maxlength="100" autocomplete="off" placeholder="Resi paket retur dari marketplace" />
+        </div>
         <textarea id="ms-catatan" class="form-control" rows="2" maxlength="255" placeholder="Catatan (wajib untuk Retur Batal)" style="margin-top:8px;"></textarea>
       </div>
       <div class="modal-footer">
@@ -1113,30 +1117,39 @@
     });
 
     // Tetapkan / ubah status (webmaster & admin; server memeriksa ulang)
-    function bukaModalStatus(id, kode) {
+    function bukaModalStatus(id, kode, resiRetur) {
         $('#ms-id').val(id);
         $('input[name="ms-status"]').prop('checked', false);
         $('#ms-catatan').val('');
+        $('#ms-resi').val(resiRetur || '');
+        $('#ms-resi-box').hide();
         $('#ms-opt-batal').toggle(kode === 'DANA_BARANG');
         $('#modalStatusKomplain').modal('show');
     }
     $(document).on('click.kpnew', '.btn-set-status', function(e) {
         e.stopPropagation();
-        var id = $(this).data('id'), kode = $(this).attr('data-status');
+        var id = $(this).data('id'), kode = $(this).attr('data-status'), resi = $(this).attr('data-resiretur') || '';
         if ($(this).closest('#drawerKomplain').length) {
-            $('#drawerKomplain').one('hidden.bs.modal', function() { bukaModalStatus(id, kode); }).modal('hide');
+            $('#drawerKomplain').one('hidden.bs.modal', function() { bukaModalStatus(id, kode, resi); }).modal('hide');
         } else {
-            bukaModalStatus(id, kode);
+            bukaModalStatus(id, kode, resi);
         }
+    });
+    $(document).on('change.kpnew', 'input[name="ms-status"]', function() {
+        var perlu = $('input[name="ms-status"]:checked').val() === 'DANA_BARANG';
+        $('#ms-resi-box').toggle(perlu);
+        if (perlu) setTimeout(function() { $('#ms-resi').trigger('focus'); }, 50);
     });
     $('#ms-simpan').on('click', function() {
         var st = $('input[name="ms-status"]:checked').val(), cat = $.trim($('#ms-catatan').val());
         if (!st) { showNoty('Pilih salah satu status.', 'warning'); return; }
+        var resi = $.trim($('#ms-resi').val());
+        if (st === 'DANA_BARANG' && !resi) { showNoty('No. resi pengembalian barang wajib diisi.', 'warning'); return; }
         if (st === 'RETUR_BATAL' && !cat) { showNoty('Alasan wajib diisi untuk membatalkan retur.', 'warning'); return; }
         var $b = $(this).prop('disabled', true);
         $.ajax({
             url: 'cs-new/complain-management/set-status', type: 'POST', dataType: 'json',
-            data: { id_complain: $('#ms-id').val(), status: st, catatan: cat },
+            data: { id_complain: $('#ms-id').val(), status: st, catatan: cat, no_resi_retur: resi },
             success: function(resp) {
                 if (resp.code === 200) {
                     showNoty(resp.message, 'success');
@@ -1273,8 +1286,9 @@
             var terkunci = inf.kode === 'DANA_BARANG' && inf.tab === 'selesai';
             var statusDrawer = '<div class="kp-dr-sec"><h5>Status</h5>' +
                 pvRow('fa-flag', 'Status', (inf.label || '-') + (inf.tahap ? ' — ' + inf.tahap : '')) +
+                (c.status_komplain === 'DANA_BARANG' ? pvRow('fa-truck', 'Resi pengembalian barang', c.no_resi_retur || 'Belum diisi', !!c.no_resi_retur) : '') +
                 (resp.boleh_ubah_status && !terkunci
-                    ? '<button type="button" class="btn-modern btn-modern-secondary btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" style="margin-top:6px;"><i class="fa fa-flag"></i> ' + (inf.kode === 'PERLU' ? 'Tetapkan status' : 'Ubah status') + '</button>'
+                    ? '<button type="button" class="btn-modern btn-modern-secondary btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" data-resiretur="' + esc(c.no_resi_retur || '') + '" style="margin-top:6px;"><i class="fa fa-flag"></i> ' + (inf.kode === 'PERLU' ? 'Tetapkan status' : 'Ubah status') + '</button>'
                     : '');
             if ((resp.riwayat_status || []).length) {
                 statusDrawer += '<ul class="kp-riwayat">';
