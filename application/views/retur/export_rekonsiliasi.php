@@ -43,7 +43,7 @@
                 <th>Tanggal</th>
                 <th>Kondisi</th>
                 <th>Status Buka</th>
-                <th>Ditolak Karena Apa</th>
+                <th>Keterangan</th>
                 <th>Detail SKU</th>
                 <th>SKU Pergantian</th>
                 <th>Terverifikasi</th>
