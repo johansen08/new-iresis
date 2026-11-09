@@ -222,7 +222,7 @@
                 <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon" title="Pilih/Batal Semua (semua halaman)" /></th>
                 <th>No. Pesanan</th>
                 <th>Status Buka</th>
-                <th>Ditolak Karena Apa</th>
+                <th>Keterangan</th>
                 <th>Detail SKU</th>
                 <th>SKU Pergantian</th>
                 <th>Verifikasi</th>
@@ -252,7 +252,7 @@
                 <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon-update" title="Pilih/Batal Semua (semua halaman)" /></th>
                 <th>No. Pesanan</th>
                 <th>Status Buka</th>
-                <th>Ditolak Karena Apa</th>
+                <th>Keterangan</th>
                 <th>Detail SKU</th>
                 <th>SKU Pergantian</th>
                 <th>Verifikasi</th>
