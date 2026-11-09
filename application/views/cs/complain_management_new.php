@@ -1033,13 +1033,10 @@
     });
 
     // Kartu ringkasan: dimuat ulang setiap tabel digambar ulang, dengan filter yang sama
-    var lewatiRingkasan = false, xhrRingkasan = null;
-    table.on('page.dt length.dt order.dt', function() { lewatiRingkasan = true; });
+    var xhrRingkasan = null;
     function muatRingkasan() {
         var d = sertakanFilter({});
         d.search_text = $('#kp-search').val();
-        // Pindah halaman / ganti jumlah baris / urut kolom tidak mengubah angka ringkasan: dilewati
-        if (lewatiRingkasan) { lewatiRingkasan = false; return; }
         if (xhrRingkasan) xhrRingkasan.abort();
         xhrRingkasan = $.post('cs-new/complain-management/ringkasan', d, function(r) {
             if (!r || typeof r.total === 'undefined') return;
@@ -1054,7 +1051,9 @@
                     $('.kp-tab[data-tab="' + k + '"] .kp-tab-n').text(n.toLocaleString('id-ID')).toggleClass('ada', k === 'perlu' && n > 0);
                 });
             }
-        }, 'json');
+        }, 'json').fail(function(x, st) {
+            if (st !== 'abort' && window.console) console.error('Ringkasan komplain gagal dimuat:', st, (x.responseText || '').slice(0, 500));
+        });
     }
     table.on('draw.dt', muatRingkasan);
 
