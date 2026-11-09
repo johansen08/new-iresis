@@ -76,13 +76,7 @@ class Cs_new extends MY_Controller
         }
         unset($emp);
 
-        // Get list of unique stores
-        $data['stores'] = $this->db->select('DISTINCT(toko) as nama_toko')
-                                   ->where('toko IS NOT NULL')
-                                   ->where('toko !=', '')
-                                   ->order_by('toko', 'asc')
-                                   ->get('tblprintresi')
-                                   ->result_array();
+        $data['stores'] = $this->_daftar_toko();
 
         $data['kategori_list'] = $this->complain_kategori;
         $data['sumber_list']   = $this->complain_sumber;
@@ -91,6 +85,32 @@ class Cs_new extends MY_Controller
         $data['hasil_list']    = $this->complain_hasil;
 
         $this->show($data, 'cs/complain_management_new');
+    }
+
+    /**
+     * Daftar toko unik untuk dropdown form. DISTINCT di tblprintresi (±500 ribu baris, tanpa
+     * index toko) memakan ±0,4 detik di setiap buka menu, jadi hasilnya disimpan di file cache
+     * selama 6 jam (per database, supaya mode arsip tidak tercampur).
+     */
+    private function _daftar_toko()
+    {
+        $berkas = APPPATH . 'cache/daftar_toko_komplain_' . preg_replace('/[^A-Za-z0-9_]/', '', (string) $this->db->database) . '.json';
+        if (is_file($berkas) && (time() - filemtime($berkas)) < 21600) {
+            $cache = json_decode((string) @file_get_contents($berkas), true);
+            if (is_array($cache) && $cache) {
+                return $cache;
+            }
+        }
+        $daftar = $this->db->select('DISTINCT(toko) as nama_toko', false)
+                           ->where('toko IS NOT NULL')
+                           ->where('toko !=', '')
+                           ->order_by('toko', 'asc')
+                           ->get('tblprintresi')
+                           ->result_array();
+        if ($daftar) {
+            @file_put_contents($berkas, json_encode($daftar), LOCK_EX);
+        }
+        return $daftar;
     }
 
     public function get_complain_management_data()
@@ -124,10 +144,13 @@ class Cs_new extends MY_Controller
             $order_column = $valid_columns[$col_index] ?? null;
         }
 
-        $this->_apply_complain_filters($reportrange, $search_value, $this->_filter_dari_request());
+        // Hitung total: versi ringan (tanpa join & tanpa kolom) — count_all_results() mereset builder
+        $filter = $this->_filter_dari_request();
+        $this->_apply_complain_filters($reportrange, $search_value, $filter, true);
+        $total = $this->db->count_all_results();
 
-        // Get total filtered count
-        $total = $this->db->count_all_results('', false);
+        // Ambil satu halaman data
+        $this->_apply_complain_filters($reportrange, $search_value, $filter);
 
         if ($order_column) {
             $this->db->order_by($order_column, $order_dir);
@@ -249,16 +272,29 @@ class Cs_new extends MY_Controller
     /**
      * @param bool $agregat true = tanpa select kolom (dipakai kartu ringkasan, select diatur pemanggil)
      */
-    private function _apply_complain_filters($reportrange, $search_value = '', $filters = [], $agregat = false)
+    private function _apply_complain_filters($reportrange, $search_value = '', $filters = [], $agregat = false, $kolom_penuh = false)
     {
+        $search_value = (string) $search_value;
         // tgl_efektif: tanggal komplain kalau diisi, kalau tidak jatuh ke created_at
         // (data lama hasil migrasi belum punya tgl_komplain)
-        if (!$agregat) {
+        // Hanya kolom yang dipakai tabel (bukan c.*: kolom teks panjang tidak ikut terbawa)
+        if (!$agregat && $kolom_penuh) {
+            // Ekspor Excel butuh hampir semua kolom
             $this->db->select('c.*, m.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
+        } elseif (!$agregat) {
+            $this->db->select('c.id_complain, c.no_resi, c.no_pesanan, c.toko, c.kategori_komplain, c.jenis_komplain, c.hasil_investigasi, '
+                . 'c.id_masalahpacker, c.id_resiretur, c.nominal_total, c.nama_qc, c.nama_packer, c.nama_picker, '
+                . 'c.no_absen_input, c.nama_penginput, c.created_at, '
+                . 'm.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
         }
         $this->db->from('tblcs_complain c');
-        $this->db->join('tblmarketplace m', 'c.id_marketplace = m.id_marketplace', 'left');
-        $this->db->join('tbluser u', 'u.id_user = c.created_by', 'left');
+        // Join hanya bila dibutuhkan: data halaman (tampil nama) atau pencarian (cari nama marketplace)
+        if (!$agregat || $search_value !== '') {
+            $this->db->join('tblmarketplace m', 'c.id_marketplace = m.id_marketplace', 'left');
+        }
+        if (!$agregat) {
+            $this->db->join('tbluser u', 'u.id_user = c.created_by', 'left');
+        }
         $this->db->where('c.is_deleted', 0);
 
         if (!empty($reportrange)) {
@@ -266,10 +302,13 @@ class Cs_new extends MY_Controller
             if (count($dates) == 2) {
                 $start_date = date('Y-m-d', strtotime(trim($dates[0])));
                 $end_date = date('Y-m-d', strtotime(trim($dates[1])));
-                // Ditulis mentah supaya COALESCE(...) tidak diperlakukan sebagai nama kolom
+                $akhir_eks = date('Y-m-d', strtotime($end_date . ' +1 day'));
+                // Bentuk yang bisa memakai index (idx_cs_complain_tgl / created_at), setara dengan
+                // COALESCE(tgl_komplain, DATE(created_at)) BETWEEN start AND end.
                 $this->db->where(
-                    'COALESCE(c.tgl_komplain, DATE(c.created_at)) BETWEEN '
-                        . $this->db->escape($start_date) . ' AND ' . $this->db->escape($end_date),
+                    '((c.tgl_komplain BETWEEN ' . $this->db->escape($start_date) . ' AND ' . $this->db->escape($end_date) . ')'
+                        . ' OR (c.tgl_komplain IS NULL AND c.created_at >= ' . $this->db->escape($start_date)
+                        . ' AND c.created_at < ' . $this->db->escape($akhir_eks) . '))',
                     null,
                     false
                 );
@@ -337,7 +376,9 @@ class Cs_new extends MY_Controller
         $this->_apply_complain_filters(
             $this->input->post('reportrange') ?: '',
             $this->input->post('search_text') ?: '',
-            $this->_filter_dari_request()
+            $this->_filter_dari_request(),
+            false,
+            true
         );
         $this->db->order_by('tgl_efektif', 'DESC');
         $this->db->order_by('c.id_complain', 'DESC');

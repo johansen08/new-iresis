@@ -584,7 +584,7 @@
           <span class="kp-period-label">Periode</span>
           <label class="kp-chip kp-chip-date" title="Rentang tanggal komplain">
             <i class="fa fa-calendar"></i>
-            <input type="text" id="reportrange" readonly value="<?= date('Y-m-01 00:00:00') . ' - ' . date('Y-m-t 23:59:59') ?>" />
+            <input type="text" id="reportrange" readonly value="" placeholder="Semua tanggal" />
           </label>
         </div>
         <div class="kp-head-actions">
@@ -965,6 +965,7 @@
         ],
         "order": [[0, "desc"]],
         "pageLength": 25,
+        "autoWidth": false,
         "lengthMenu": [[10, 25, 50, 100], [10, 25, 50, 100]],
         "dom": 't<"kp-foot"<"kp-info"i><"kp-pager"lp>>',
         "language": {
@@ -980,10 +981,16 @@
     });
 
     // Kartu ringkasan: dimuat ulang setiap tabel digambar ulang, dengan filter yang sama
+    var kunciRingkasanTerakhir = null, xhrRingkasan = null;
     function muatRingkasan() {
         var d = sertakanFilter({});
         d.search_text = $('#kp-search').val();
-        $.post('cs-new/complain-management/ringkasan', d, function(r) {
+        // Pindah halaman / ganti jumlah baris tidak mengubah angka ringkasan: lewati bila filter sama
+        var kunci = JSON.stringify(d);
+        if (kunci === kunciRingkasanTerakhir) return;
+        kunciRingkasanTerakhir = kunci;
+        if (xhrRingkasan) xhrRingkasan.abort();
+        xhrRingkasan = $.post('cs-new/complain-management/ringkasan', d, function(r) {
             if (!r || typeof r.total === 'undefined') return;
             $('#kpi-total').text(r.total.toLocaleString('id-ID'));
             $('#kpi-qcsalah').text(r.qc_salah.toLocaleString('id-ID'));
@@ -991,7 +998,7 @@
             $('#kpi-qcsalah-note').text(pct + '% dari komplain, ' + r.qc_benar.toLocaleString('id-ID') + ' QC benar');
             $('#kpi-belum').text(r.belum_dicek.toLocaleString('id-ID'));
             $('#kpi-nominal').text('Rp ' + Math.round(r.nominal).toLocaleString('id-ID'));
-        }, 'json');
+        }, 'json').fail(function(x, st) { if (st !== 'abort') kunciRingkasanTerakhir = null; });
     }
     table.on('draw.dt', muatRingkasan);
 
@@ -1047,11 +1054,13 @@
         locale: {
             format: 'YYYY-MM-DD HH:mm:ss'
         },
+        autoUpdateInput: false, // bawaan kosong = semua data; terisi hanya setelah user memilih periode
         timePicker: true,
         timePicker24Hour: true,
         startDate: moment().startOf('month'),
         endDate: moment().endOf('month'),
         ranges: {
+           'Semua Tanggal': [moment('2000-01-01').startOf('day'), moment().endOf('day')],
            'Hari Ini': [moment().startOf('day'), moment().endOf('day')],
            'Kemarin': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
            '7 Hari Terakhir': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
@@ -1060,7 +1069,14 @@
            'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
         }
     });
-    $('#reportrange').on('apply.daterangepicker', function() { table.ajax.reload(); });
+    $('#reportrange').on('apply.daterangepicker', function(ev, picker) {
+        if (picker.chosenLabel === 'Semua Tanggal') {
+            $(this).val('');
+        } else {
+            $(this).val(picker.startDate.format('YYYY-MM-DD HH:mm:ss') + ' - ' + picker.endDate.format('YYYY-MM-DD HH:mm:ss'));
+        }
+        table.ajax.reload();
+    });
 
     // Export Excel: kirim filter yang sedang aktif lewat form POST ke iframe tersembunyi
     $('#btn-export-komplain').on('click', function() {
