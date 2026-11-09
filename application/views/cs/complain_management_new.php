@@ -490,7 +490,8 @@
       .kp-table > tbody > tr:hover > td { background: #f1f5ff; cursor: pointer; }
       .kp-table > tbody > tr:last-child > td { border-bottom: 0; }
       .kp-table td:nth-child(5) { min-width: 120px; max-width: 150px; }
-      .kp-table td:nth-child(6) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
+      .kp-table td:nth-child(6) { min-width: 210px; }
+      .kp-table td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-id { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .kp-resi { display: block; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-sub { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--text-muted); white-space: nowrap; }
@@ -508,6 +509,17 @@
       .kp-tab-n { display: inline-block; min-width: 20px; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 11.5px; font-weight: 700; text-align: center; }
       .kp-tab.aktif .kp-tab-n { background: var(--primary-light); color: var(--primary); }
       .kp-tab[data-tab="perlu"] .kp-tab-n.ada { background: #fffbeb; color: #b45309; }
+      /* Sel Status: pil + tombol ubah di baris atas, keterangan di bawahnya */
+      .kp-st { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+      .kp-st-top { display: flex; align-items: center; gap: 6px; }
+      .kp-st-edit { width: 24px; height: 24px; font-size: 12px; opacity: 0; transition: opacity .12s; }
+      .kp-table tbody tr:hover .kp-st-edit, .kp-st-edit:focus { opacity: 1; }
+      .kp-st-tetapkan { appearance: none; padding: 2px 11px; border: 1px solid var(--primary); border-radius: 999px; background: #fff; color: var(--primary); font-size: 12px; font-weight: 600; cursor: pointer; }
+      .kp-st-tetapkan:hover { background: var(--primary); color: #fff; }
+      .kp-st-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.3; color: var(--text-muted); white-space: nowrap; }
+      .kp-st-meta > i.fa { flex: none; width: 12px; text-align: center; color: #94a3b8; }
+      .kp-st-meta.kp-telat > i.fa { color: #b91c1c; }
+      .kp-st-resi { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
       .kp-link { appearance: none; background: none; border: 0; padding: 0; margin-top: 3px; display: block; font-size: 12px; color: var(--primary); cursor: pointer; }
       .kp-link:hover { text-decoration: underline; }
       .kp-telat { color: #b91c1c !important; font-weight: 600; }
@@ -711,7 +723,7 @@
                   <th>Toko</th>
                   <th>Kategori</th>
                   <th>Hasil CCTV</th>
-                  <th>Status</th>
+                  <th>Status / Resi Retur</th>
                   <th class="kp-th-num">Nominal</th>
                   <th>Packer / Picker</th>
                   <th></th>
@@ -1267,7 +1279,9 @@
             var nada = nadaHasil[c.hasil_investigasi] || 'slate';
             var hasilPil = '<span class="kp-pill kp-pill-' + nada + '">' + esc(c.hasil_investigasi || 'Belum dicek') + '</span>';
 
-            $('#drawerKomplainLabel').html('Komplain ' + kode + ' ' + hasilPil);
+            var infH = resp.info_status || {};
+            var statusPil = infH.label ? ' <span class="kp-pill kp-pill-' + (infH.nada || 'slate') + '">' + esc(infH.label) + '</span>' : '';
+            $('#drawerKomplainLabel').html('Komplain ' + kode + ' ' + hasilPil + statusPil);
             $('#kp-dr-meta').text('Dibuat ' + (c.created_at ? moment(c.created_at).format('DD MMM YYYY HH:mm:ss') : '-') +
                 ' oleh ' + (c.nama_penginput || '-') + (c.no_absen_input && c.no_absen_input !== '-' ? ' (' + c.no_absen_input + ')' : ''));
 
@@ -1285,8 +1299,14 @@
             var inf = resp.info_status || {};
             var terkunci = inf.kode === 'DANA_BARANG' && inf.tab === 'selesai';
             var statusDrawer = '<div class="kp-dr-sec"><h5>Status</h5>' +
-                pvRow('fa-flag', 'Status', (inf.label || '-') + (inf.tahap ? ' — ' + inf.tahap : '')) +
-                (c.status_komplain === 'DANA_BARANG' ? pvRow('fa-truck', 'Resi pengembalian barang', c.no_resi_retur || 'Belum diisi', !!c.no_resi_retur) : '') +
+                '<div class="kp-dr-row"><i class="fa fa-flag"></i><dt>Status</dt><dd><span class="kp-pill kp-pill-' + (inf.nada || 'slate') + '">' + esc(inf.label || '-') + '</span></dd></div>' +
+                (inf.tahap ? pvRow('fa-info-circle', 'Tahap retur', inf.tahap) : '') +
+                (inf.telat ? '<div class="kp-dr-row"><i class="fa fa-clock-o" style="color:#b91c1c"></i><dt>Peringatan</dt><dd class="kp-telat">Barang retur belum dibuka lebih dari 14 hari</dd></div>' : '') +
+                ((c.status_komplain === 'DANA_BARANG' || c.no_resi_retur)
+                    ? (c.no_resi_retur
+                        ? pvRow('fa-truck', 'Resi pengembalian', c.no_resi_retur, true)
+                        : '<div class="kp-dr-row"><i class="fa fa-truck"></i><dt>Resi pengembalian</dt><dd class="kp-telat">Belum diisi</dd></div>')
+                    : '') +
                 (resp.boleh_ubah_status && !terkunci
                     ? '<button type="button" class="btn-modern btn-modern-secondary btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" data-resiretur="' + esc(c.no_resi_retur || '') + '" style="margin-top:6px;"><i class="fa fa-flag"></i> ' + (inf.kode === 'PERLU' ? 'Tetapkan status' : 'Ubah status') + '</button>'
                     : '');

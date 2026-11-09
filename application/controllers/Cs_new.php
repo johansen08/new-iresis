@@ -312,25 +312,33 @@ class Cs_new extends MY_Controller
             }
 
             $info = $this->_info_status($item['status_komplain'], $item['created_at'], $item['tgl_status'], $item['retur_terbaru']);
-            $status_cell = '<span class="kp-pill kp-pill-' . $info['nada'] . '">' . htmlspecialchars($info['label']) . '</span>';
+            // Sel Status: pil + tombol ubah, lalu baris keterangan (tahap retur, resi pengembalian, lewat batas)
+            $terkunci = $info['kode'] === 'DANA_BARANG' && $info['tab'] === 'selesai';
+            $tombol_status = '';
+            if ($boleh_status && !$terkunci) {
+                $attr = ' data-id="' . $id_complain . '" data-status="' . $info['kode'] . '" data-resiretur="'
+                    . htmlspecialchars((string) $item['no_resi_retur'], ENT_QUOTES, 'UTF-8') . '"';
+                $tombol_status = $info['kode'] === 'PERLU'
+                    ? '<button type="button" class="kp-st-tetapkan btn-set-status"' . $attr . '>Tetapkan</button>'
+                    : '<button type="button" class="kp-icon-btn kp-st-edit btn-set-status" title="Ubah status"' . $attr . '><i class="fa fa-pencil"></i></button>';
+            }
+            $status_cell = '<div class="kp-st"><div class="kp-st-top"><span class="kp-pill kp-pill-' . $info['nada'] . '">'
+                . htmlspecialchars($info['label']) . '</span>' . $tombol_status . '</div>';
             if ($info['tahap'] !== '') {
-                $status_cell .= '<span class="kp-sub">' . htmlspecialchars($info['tahap']) . '</span>';
+                $status_cell .= '<div class="kp-st-meta"><i class="fa fa-info-circle"></i><span>' . htmlspecialchars($info['tahap']) . '</span></div>';
             }
             if ($item['status_komplain'] === 'DANA_BARANG') {
-                $status_cell .= '<span class="kp-sub kp-copyrow" title="Resi paket pengembalian barang">Resi retur: '
+                $status_cell .= '<div class="kp-st-meta kp-copyrow" title="Resi paket pengembalian barang"><i class="fa fa-truck"></i>'
                     . ($item['no_resi_retur'] !== null && $item['no_resi_retur'] !== ''
-                        ? htmlspecialchars($item['no_resi_retur']) . $this->_tombol_salin($item['no_resi_retur'])
-                        : '<span class="kp-telat">belum diisi</span>')
-                    . '</span>';
+                        ? '<span class="kp-st-resi">' . htmlspecialchars($item['no_resi_retur']) . '</span>' . $this->_tombol_salin($item['no_resi_retur'])
+                        : '<span class="kp-telat">Resi retur belum diisi</span>')
+                    . '</div>';
             }
             if ($info['telat']) {
-                $status_cell .= '<span class="kp-sub kp-telat" title="Barang retur belum dibuka lebih dari ' . self::BATAS_HARI_RETUR . ' hari sejak status ditetapkan"><i class="fa fa-clock-o"></i> Lewat ' . self::BATAS_HARI_RETUR . ' hari</span>';
+                $status_cell .= '<div class="kp-st-meta kp-telat" title="Barang retur belum dibuka lebih dari ' . self::BATAS_HARI_RETUR
+                    . ' hari sejak status ditetapkan"><i class="fa fa-clock-o"></i><span>Lewat ' . self::BATAS_HARI_RETUR . ' hari</span></div>';
             }
-            // Retur yang sudah dibuka terkunci: tidak ada tombol ubah
-            if ($boleh_status && !($info['kode'] === 'DANA_BARANG' && $info['tab'] === 'selesai')) {
-                $status_cell .= '<button type="button" class="kp-link btn-set-status" data-id="' . $id_complain . '" data-status="' . $info['kode'] . '" data-resiretur="' . htmlspecialchars((string) $item['no_resi_retur'], ENT_QUOTES, 'UTF-8') . '">'
-                    . ($info['kode'] === 'PERLU' ? 'Tetapkan' : 'Ubah') . '</button>';
-            }
+            $status_cell .= '</div>';
 
             $penginput = $item['nama_penginput'] ?: '';
             $input_cell = $penginput !== ''
