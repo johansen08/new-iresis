@@ -68,7 +68,7 @@
   /* Baris header "pengukur" milik DataTables (scrollX) harus tetap tak terlihat */
   .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th { padding-top: 0 !important; padding-bottom: 0 !important; height: 0 !important; border: 0 !important; line-height: 0; font-size: 0; }
   .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th::before, .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th::after { display: none !important; }
-  .vj-table > tbody > tr > td:nth-child(2), .vj-table > tbody > tr > td:nth-child(4) { white-space: nowrap; }
+  .vj-table > tbody > tr > td:nth-child(2), .vj-table > tbody > tr > td:nth-child(5) { white-space: nowrap; }
   .vj-table input[type=checkbox] { accent-color: var(--vj-primary); width: 15px; height: 15px; margin: 0; cursor: pointer; }
   .vj-table td small.text-success { display: block; margin-top: 2px; font-size: 11.5px; color: #047857 !important; white-space: nowrap; }
   .vj-table label { font-weight: 500; }
@@ -222,6 +222,7 @@
                 <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon" title="Pilih/Batal Semua (semua halaman)" /></th>
                 <th>No. Pesanan</th>
                 <th>Status Buka</th>
+                <th>Ditolak Karena Apa</th>
                 <th>Detail SKU</th>
                 <th>SKU Pergantian</th>
                 <th>Verifikasi</th>
@@ -237,7 +238,6 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
-                <th>Ditolak Karena Apa</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -252,6 +252,7 @@
                 <th class="text-center" style="width:30px;"><input type="checkbox" id="check-all-rekon-update" title="Pilih/Batal Semua (semua halaman)" /></th>
                 <th>No. Pesanan</th>
                 <th>Status Buka</th>
+                <th>Ditolak Karena Apa</th>
                 <th>Detail SKU</th>
                 <th>SKU Pergantian</th>
                 <th>Verifikasi</th>
@@ -267,7 +268,6 @@
                 <th>Qty Jubelio</th>
                 <th>Tanggal</th>
                 <th>Kondisi</th>
-                <th>Ditolak Karena Apa</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -390,7 +390,7 @@ $(document).ready(function() {
     // Urutan kolom tampilan: 5 kolom wajib dulu (checkbox, No. Pesanan, Status Buka,
     // Detail SKU, SKU Pergantian) + Verifikasi; sisanya disembunyikan (tombol "Kolom Lain").
     // Angka 'data' = indeks array dari get_rekonsiliasi_data().
-    var KOLOM_LAIN = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+    var KOLOM_LAIN = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
     function dtConfig() {
         return {
             'scrollX': true,
@@ -411,13 +411,13 @@ $(document).ready(function() {
                               : (['REJECT', 'BUKAN_BARANG_KITA', 'BARANG_TIDAK_ADA', 'PAKET_HILANG', 'DIPAKAI_ADMIN'].indexOf(raw) !== -1 ? 'red' : 'amber');
                     return '<span class="vj-pill vj-pill-' + warna + '">' + d.replace(/_/g, ' ') + '</span>';
                 } },
+                { 'data': 14 },
                 { 'data': 15 },
                 { 'data': 16 },
                 { 'data': 17, 'orderable': false },
                 { 'data': 0 }, { 'data': 1 }, { 'data': 3 }, { 'data': 4 },
                 { 'data': 5 }, { 'data': 6 }, { 'data': 7 }, { 'data': 8 },
-                { 'data': 9 }, { 'data': 10 }, { 'data': 11 }, { 'data': 12 },
-                { 'data': 14 }
+                { 'data': 9 }, { 'data': 10 }, { 'data': 11 }, { 'data': 12 }
             ],
             'columnDefs': [{ 'targets': KOLOM_LAIN, 'visible': false }]
         };
