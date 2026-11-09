@@ -482,15 +482,19 @@
       .kp-duo .kp-person:nth-child(n) { font-size: 13px; }
       .kp-duo > span + span .kp-avatar { background: #f1f5f9; color: #475569; }
       .kp-table { width: 100% !important; margin: 0 !important; border-collapse: separate; border-spacing: 0; }
-      .kp-table > thead > tr > th { padding: 10px 9px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+      .kp-table > thead > tr > th { padding: 10px 6px; background: var(--bg-slate); border-bottom: 1px solid var(--border-slate); border-top: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
       .kp-table > thead > tr > th.kp-th-num { text-align: right; }
       .kp-table > thead > tr > th[class*="sorting"] { padding-right: 20px; }
-      .kp-table > tbody > tr > td { padding: 10px 9px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
+      .kp-table > tbody > tr > td { padding: 10px 6px; border-top: 0; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: var(--text-slate); vertical-align: middle; }
       .kp-table > tbody > tr:nth-child(even) > td { background: #fafbfd; }
       .kp-table > tbody > tr:hover > td { background: #f1f5ff; cursor: pointer; }
       .kp-table > tbody > tr:last-child > td { border-bottom: 0; }
       .kp-table td:nth-child(5) { min-width: 120px; max-width: 150px; }
-      .kp-table td:nth-child(6) { min-width: 210px; }
+      .kp-table td:nth-child(6) { width: 150px; }
+      /* Supaya tabel muat tanpa scroll horizontal: nama toko & no. pesanan boleh turun baris */
+      .kp-table td:nth-child(3) .kp-resi { white-space: normal; max-width: 170px; }
+      .kp-table td:nth-child(2) .kp-sub { white-space: normal; word-break: break-all; max-width: 160px; }
+      .kp-table td:nth-child(9) .kp-icon-btn { width: 26px; }
       .kp-table td:nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; white-space: nowrap; }
       .kp-id { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
       .kp-resi { display: block; font-weight: 600; color: #0f172a; white-space: nowrap; }
@@ -723,7 +727,7 @@
                   <th>Toko</th>
                   <th>Kategori</th>
                   <th>Hasil CCTV</th>
-                  <th>Status / Resi Retur</th>
+                  <th>Status</th>
                   <th class="kp-th-num">Nominal</th>
                   <th>Packer / Picker</th>
                   <th></th>
