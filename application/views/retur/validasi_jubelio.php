@@ -68,7 +68,20 @@
   /* Baris header "pengukur" milik DataTables (scrollX) harus tetap tak terlihat */
   .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th { padding-top: 0 !important; padding-bottom: 0 !important; height: 0 !important; border: 0 !important; line-height: 0; font-size: 0; }
   .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th::before, .vj-table-wrap .dataTables_scrollBody > .vj-table > thead > tr > th::after { display: none !important; }
-  .vj-table > tbody > tr > td:nth-child(2), .vj-table > tbody > tr > td:nth-child(5) { white-space: nowrap; }
+  /* Satu baris per sel (rapi & seragam); hanya Keterangan & Detail SKU boleh membungkus. */
+  .vj-table > tbody > tr > td { white-space: nowrap; }
+  .vj-table th.vj-c-center, .vj-table td.vj-c-center { text-align: center; }
+  .vj-table th.vj-c-num, .vj-table td.vj-c-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .vj-table th.vj-c-cb, .vj-table td.vj-c-cb { width: 40px; min-width: 40px; }
+  .vj-table th.vj-c-pesanan { min-width: 170px; }
+  .vj-table th.vj-c-status { min-width: 130px; }
+  .vj-table th.vj-c-ket, .vj-table td.vj-c-ket { min-width: 180px; max-width: 280px; white-space: normal; }
+  .vj-table th.vj-c-sku, .vj-table td.vj-c-sku { min-width: 200px; max-width: 320px; white-space: normal; }
+  .vj-table th.vj-c-skuperg { min-width: 140px; }
+  .vj-table th.vj-c-verif { min-width: 120px; }
+  .vj-table > thead > tr > th { vertical-align: middle; }
+  .vj-table td.vj-c-verif label { display: inline-flex; align-items: center; gap: 6px; line-height: 1.2; }
+  .vj-table td.vj-c-verif small.text-success { margin-top: 3px; line-height: 1.2; }
   .vj-table input[type=checkbox] { accent-color: var(--vj-primary); width: 15px; height: 15px; margin: 0; cursor: pointer; }
   .vj-table td small.text-success { display: block; margin-top: 2px; font-size: 11.5px; color: #047857 !important; white-space: nowrap; }
   .vj-table label { font-weight: 500; }
@@ -393,7 +406,9 @@ $(document).ready(function() {
     var KOLOM_LAIN = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
     function dtConfig() {
         return {
-            'scrollX': true,
+            // Tanpa scrollX: header & isi tetap satu <table> (selalu sejajar); gulir
+            // horizontal ditangani .vj-table-wrap (overflow-x:auto).
+            'autoWidth': false,
             'pageLength': 25,
             'lengthMenu': [[10, 25, 50, 100, 200], [10, 25, 50, 100, 200]],
             'data': [],
@@ -401,8 +416,8 @@ $(document).ready(function() {
             'dom': 't<"vj-foot"<"vj-info"i><"vj-pager"lp>>',
             'language': { 'emptyTable': 'Pilih rentang waktu lalu klik "Tampilkan" untuk memuat data' },
             'columns': [
-                { 'data': 'cb', 'orderable': false },
-                { 'data': 2 },
+                { 'data': 'cb', 'orderable': false, 'className': 'vj-c-center vj-c-cb' },
+                { 'data': 2, 'className': 'vj-c-pesanan' },
                 { 'data': 13, 'render': function (d, type) {
                     if (type !== 'display' || typeof d !== 'string') return d;
                     var raw = d.trim().toUpperCase();
@@ -410,14 +425,15 @@ $(document).ready(function() {
                     var warna = (raw === 'KE_DISPLAY') ? 'green'
                               : (['REJECT', 'BUKAN_BARANG_KITA', 'BARANG_TIDAK_ADA', 'PAKET_HILANG', 'DIPAKAI_ADMIN'].indexOf(raw) !== -1 ? 'red' : 'amber');
                     return '<span class="vj-pill vj-pill-' + warna + '">' + d.replace(/_/g, ' ') + '</span>';
-                } },
-                { 'data': 14 },
-                { 'data': 15 },
-                { 'data': 16 },
-                { 'data': 17, 'orderable': false },
-                { 'data': 0 }, { 'data': 1 }, { 'data': 3 }, { 'data': 4 },
+                }, 'className': 'vj-c-center vj-c-status' },
+                { 'data': 14, 'className': 'vj-c-ket' },
+                { 'data': 15, 'className': 'vj-c-sku' },
+                { 'data': 16, 'className': 'vj-c-skuperg' },
+                { 'data': 17, 'orderable': false, 'className': 'vj-c-verif' },
+                { 'data': 0, 'className': 'vj-c-center' }, { 'data': 1 }, { 'data': 3 }, { 'data': 4 },
                 { 'data': 5 }, { 'data': 6 }, { 'data': 7 }, { 'data': 8 },
-                { 'data': 9 }, { 'data': 10 }, { 'data': 11 }, { 'data': 12 }
+                { 'data': 9, 'className': 'vj-c-num' }, { 'data': 10, 'className': 'vj-c-num' },
+                { 'data': 11 }, { 'data': 12, 'className': 'vj-c-center' }
             ],
             'columnDefs': [{ 'targets': KOLOM_LAIN, 'visible': false }]
         };
