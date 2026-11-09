@@ -61,6 +61,91 @@ class Cs_new extends MY_Controller
 
     const TYPE_MASALAH_QC_SALAH = 'QC Salah (Komplain CS)';
 
+    // Komplain dibuat sebelum tanggal ini dan belum punya status = "Selesai (lama)" (tanpa UPDATE massal)
+    const STATUS_MULAI = '2026-11-01 00:00:00';
+    // Retur DANA_BARANG yang belum dibuka setelah sekian hari sejak status ditetapkan diberi tanda merah
+    const BATAS_HARI_RETUR = 14;
+
+    // Status yang boleh dipilih user -> label tampilan
+    private $status_label = [
+        'DANA'                => 'Pengembalian Dana',
+        'DANA_BARANG'         => 'Pengembalian Dana dan Barang',
+        'TIDAK_ADA_PENGAJUAN' => 'Tidak Ada Pengajuan',
+        'RETUR_BATAL'         => 'Retur Batal',
+    ];
+
+    /** Hanya webmaster & admin yang boleh menetapkan/mengubah status. */
+    private function _boleh_ubah_status()
+    {
+        return in_array((int) $this->data['user']['hakakses'], [1, 2], true);
+    }
+
+    /**
+     * Subquery SQL: "status_retur|status_detail" terbaru di tblresiretur untuk resi komplain.
+     * no_resi diubah ke latin1 supaya index tblresiretur.noresi (latin1) tetap terpakai.
+     */
+    private function _sql_retur_terbaru()
+    {
+        return "(SELECT CONCAT(r.status_retur, '|', COALESCE(r.status_detail, '')) FROM tblresiretur r "
+            . "WHERE r.noresi = CONVERT(c.no_resi USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
+    }
+
+    /** Kondisi SQL per tab (null = semua). Aman terhadap NULL. */
+    private function _kondisi_tab($tab)
+    {
+        $mulai = $this->db->escape(self::STATUS_MULAI);
+        $retur = $this->_sql_retur_terbaru();
+        switch ($tab) {
+            case 'perlu':
+                return "(c.status_komplain IS NULL AND c.created_at >= $mulai)";
+            case 'retur':
+                return "(c.status_komplain = 'DANA_BARANG' AND COALESCE($retur, '') NOT LIKE 'Buka Retur|%')";
+            case 'selesai':
+                return "((c.status_komplain IS NULL AND c.created_at < $mulai)"
+                    . " OR c.status_komplain IN ('DANA','TIDAK_ADA_PENGAJUAN','RETUR_BATAL','SELESAI_LAMA')"
+                    . " OR (c.status_komplain = 'DANA_BARANG' AND COALESCE($retur, '') LIKE 'Buka Retur|%'))";
+        }
+        return null;
+    }
+
+    /**
+     * Status tampilan satu baris: kode, label, nada warna, keterangan tahap.
+     * $retur = "status_retur|status_detail" (atau null bila belum ada catatan retur).
+     */
+    private function _info_status($status, $created_at, $tgl_status, $retur)
+    {
+        if ($status === null || $status === '') {
+            if ($created_at && $created_at < self::STATUS_MULAI) {
+                return ['kode' => 'SELESAI_LAMA', 'label' => 'Selesai (lama)', 'nada' => 'slate', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
+            }
+            return ['kode' => 'PERLU', 'label' => 'Perlu Status', 'nada' => 'amber', 'tahap' => '', 'telat' => false, 'tab' => 'perlu'];
+        }
+        if ($status === 'DANA') {
+            return ['kode' => $status, 'label' => 'Pengembalian Dana', 'nada' => 'sky', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
+        }
+        if ($status === 'TIDAK_ADA_PENGAJUAN') {
+            return ['kode' => $status, 'label' => 'Tidak Ada Pengajuan', 'nada' => 'slate', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
+        }
+        if ($status === 'RETUR_BATAL') {
+            return ['kode' => $status, 'label' => 'Retur Batal', 'nada' => 'slate', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
+        }
+        if ($status === 'SELESAI_LAMA') {
+            return ['kode' => $status, 'label' => 'Selesai (lama)', 'nada' => 'slate', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
+        }
+        // DANA_BARANG: tahap dibaca dari alur retur (Terima Retur -> Buka Retur)
+        list($st, $det) = array_pad(explode('|', (string) $retur, 2), 2, '');
+        if ($st === 'Buka Retur') {
+            $hasil = $det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $det))) : 'tanpa keterangan';
+            return ['kode' => $status, 'label' => 'Dana dan Barang', 'nada' => 'green', 'tahap' => 'Retur selesai: ' . $hasil, 'telat' => false, 'tab' => 'selesai'];
+        }
+        $tahap = $st === 'Terima Retur' ? 'Diterima, belum dibuka' : 'Menunggu barang tiba';
+        $telat = false;
+        if ($tgl_status && (time() - strtotime($tgl_status)) > self::BATAS_HARI_RETUR * 86400) {
+            $telat = true;
+        }
+        return ['kode' => $status, 'label' => 'Dana dan Barang', 'nada' => 'indigo', 'tahap' => $tahap, 'telat' => $telat, 'tab' => 'retur'];
+    }
+
     public function complain_management()
     {
         $data['message'] = $this->session->flashdata('message');
@@ -134,8 +219,9 @@ class Cs_new extends MY_Controller
             2 => 'c.toko',
             3 => 'c.kategori_komplain',
             4 => 'c.hasil_investigasi',
-            5 => 'c.nominal_total',
-            6 => 'c.nama_qc'
+            5 => 'c.status_komplain',
+            6 => 'c.nominal_total',
+            7 => 'c.nama_qc'
         ];
 
         if (!empty($order)) {
@@ -168,6 +254,7 @@ class Cs_new extends MY_Controller
 
         $user_role = $this->data['user']['hakakses'];
         $is_admin = in_array($user_role, [1, 2]);
+        $boleh_status = $this->_boleh_ubah_status();
 
         // Nada pil per kategori / hasil (kelas kp-pill-*, didefinisikan di view)
         $nada_kategori = [
@@ -223,6 +310,20 @@ class Cs_new extends MY_Controller
                 }
             }
 
+            $info = $this->_info_status($item['status_komplain'], $item['created_at'], $item['tgl_status'], $item['retur_terbaru']);
+            $status_cell = '<span class="kp-pill kp-pill-' . $info['nada'] . '">' . htmlspecialchars($info['label']) . '</span>';
+            if ($info['tahap'] !== '') {
+                $status_cell .= '<span class="kp-sub">' . htmlspecialchars($info['tahap']) . '</span>';
+            }
+            if ($info['telat']) {
+                $status_cell .= '<span class="kp-sub kp-telat" title="Barang retur belum dibuka lebih dari ' . self::BATAS_HARI_RETUR . ' hari sejak status ditetapkan"><i class="fa fa-clock-o"></i> Lewat ' . self::BATAS_HARI_RETUR . ' hari</span>';
+            }
+            // Retur yang sudah dibuka terkunci: tidak ada tombol ubah
+            if ($boleh_status && !($info['kode'] === 'DANA_BARANG' && $info['tab'] === 'selesai')) {
+                $status_cell .= '<button type="button" class="kp-link btn-set-status" data-id="' . $id_complain . '" data-status="' . $info['kode'] . '">'
+                    . ($info['kode'] === 'PERLU' ? 'Tetapkan' : 'Ubah') . '</button>';
+            }
+
             $penginput = $item['nama_penginput'] ?: '';
             $input_cell = $penginput !== ''
                 ? '<span class="kp-resi">' . htmlspecialchars($penginput) . '</span><span class="kp-sub">' . date('d/m/Y H:i', strtotime($item['created_at'])) . '</span>'
@@ -242,6 +343,7 @@ class Cs_new extends MY_Controller
                 $toko_cell,
                 $kategori_cell,
                 $hasil_cell,
+                $status_cell,
                 'Rp ' . number_format($item['nominal_total'], 0, ',', '.'),
                 '<div class="kp-duo"><span title="Packer">' . $this->_sel_orang($item['nama_qc'] ?: $item['nama_packer']) . '</span>'
                     . '<span title="Picker">' . $this->_sel_orang($item['nama_picker']) . '</span></div>',
@@ -284,7 +386,8 @@ class Cs_new extends MY_Controller
         } elseif (!$agregat) {
             $this->db->select('c.id_complain, c.no_resi, c.no_pesanan, c.toko, c.kategori_komplain, c.jenis_komplain, c.hasil_investigasi, '
                 . 'c.id_masalahpacker, c.id_resiretur, c.nominal_total, c.nama_qc, c.nama_packer, c.nama_picker, '
-                . 'c.no_absen_input, c.nama_penginput, c.created_at, '
+                . 'c.no_absen_input, c.nama_penginput, c.created_at, c.status_komplain, c.tgl_status, '
+                . "CASE WHEN c.status_komplain = 'DANA_BARANG' THEN " . $this->_sql_retur_terbaru() . ' END AS retur_terbaru, '
                 . 'm.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
         }
         $this->db->from('tblcs_complain c');
@@ -313,6 +416,12 @@ class Cs_new extends MY_Controller
                     false
                 );
             }
+        }
+
+        // Tab (Perlu Status / Retur / Selesai); 'semua' = tanpa kondisi
+        $kondisi_tab = $this->_kondisi_tab($filters['tab'] ?? 'semua');
+        if ($kondisi_tab !== null) {
+            $this->db->where($kondisi_tab, null, false);
         }
 
         // Filter multi-pilih: hanya nilai yang dikenal yang dipakai
@@ -468,24 +577,34 @@ class Cs_new extends MY_Controller
             'jenis'       => $this->_filter_array('f_jenis'),
             'marketplace' => $this->_filter_array('f_marketplace'),
             'hasil'       => $this->_filter_array('f_hasil'),
+            'tab'         => in_array($this->input->post('tab'), ['perlu', 'retur', 'selesai'], true) ? $this->input->post('tab') : 'semua',
         ];
     }
 
     /** Kartu ringkasan di atas tabel, mengikuti filter yang sedang aktif. */
     public function get_complain_ringkasan()
     {
+        // Tab tidak ikut WHERE: jumlah semua tab dihitung sekaligus, kartu mengikuti tab aktif
+        $filter = $this->_filter_dari_request();
+        $tab = $filter['tab'];
+        unset($filter['tab']);
         $this->_apply_complain_filters(
             $this->input->post('reportrange') ?: '',
             $this->input->post('search_text') ?: '',
-            $this->_filter_dari_request(),
+            $filter,
             true
         );
+        $k = $this->_kondisi_tab($tab) ?: '1=1';
         $this->db->select(
-            "COUNT(*) AS total,
-             SUM(c.hasil_investigasi = 'QC Salah') AS qc_salah,
-             SUM(c.hasil_investigasi = 'QC Benar') AS qc_benar,
-             SUM(c.hasil_investigasi IS NULL) AS belum_dicek,
-             COALESCE(SUM(c.nominal_total), 0) AS nominal",
+            "COUNT(*) AS jml_semua,
+             COALESCE(SUM(" . $this->_kondisi_tab('perlu') . "), 0) AS jml_perlu,
+             COALESCE(SUM(" . $this->_kondisi_tab('retur') . "), 0) AS jml_retur,
+             COALESCE(SUM(" . $this->_kondisi_tab('selesai') . "), 0) AS jml_selesai,
+             COALESCE(SUM($k), 0) AS total,
+             COALESCE(SUM($k AND c.hasil_investigasi = 'QC Salah'), 0) AS qc_salah,
+             COALESCE(SUM($k AND c.hasil_investigasi = 'QC Benar'), 0) AS qc_benar,
+             COALESCE(SUM($k AND c.hasil_investigasi IS NULL), 0) AS belum_dicek,
+             COALESCE(SUM(CASE WHEN $k THEN c.nominal_total END), 0) AS nominal",
             false
         );
         $r = $this->db->get()->row_array();
@@ -496,6 +615,12 @@ class Cs_new extends MY_Controller
             'qc_benar'    => (int) $r['qc_benar'],
             'belum_dicek' => (int) $r['belum_dicek'],
             'nominal'     => (float) $r['nominal'],
+            'tab'         => [
+                'semua'   => (int) $r['jml_semua'],
+                'perlu'   => (int) $r['jml_perlu'],
+                'retur'   => (int) $r['jml_retur'],
+                'selesai' => (int) $r['jml_selesai'],
+            ],
         ]));
     }
 
@@ -579,9 +704,26 @@ class Cs_new extends MY_Controller
                                   ->get()
                                   ->result_array();
 
+        $retur_terbaru = null;
+        if ($complain['status_komplain'] === 'DANA_BARANG') {
+            $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, '')) AS s FROM tblresiretur "
+                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
+            $retur_terbaru = $r['s'] ?? null;
+        }
+        $info_status = $this->_info_status($complain['status_komplain'], $complain['created_at'], $complain['tgl_status'], $retur_terbaru);
+        $riwayat_status = $this->db->select('l.status_dari, l.status_ke, l.catatan, l.waktu, u.name AS nama_user')
+                                   ->from('tblcs_complain_status_log l')
+                                   ->join('tbluser u', 'u.id_user = l.oleh', 'left')
+                                   ->where('l.id_complain', $id_complain)
+                                   ->order_by('l.id_log', 'DESC')
+                                   ->get()->result_array();
+
         echo json_encode([
             'success' => true,
             'complain' => $complain,
+            'info_status' => $info_status,
+            'riwayat_status' => $riwayat_status,
+            'boleh_ubah_status' => $this->_boleh_ubah_status(),
             'items' => $items,
             'lampiran' => $lampiran,
             'komplain_lain' => $komplain_lain,
@@ -902,6 +1044,73 @@ class Cs_new extends MY_Controller
 
         echo json_encode(['code' => 201, 'message' => $message, 'id_complain' => $id_complain]);
         exit;
+    }
+
+    /**
+     * Tetapkan / ubah status komplain. Hanya webmaster & admin.
+     * POST: id_complain, status (DANA|DANA_BARANG|TIDAK_ADA_PENGAJUAN|RETUR_BATAL), catatan.
+     * Retur yang sudah dibuka (Buka Retur) mengunci status; RETUR_BATAL hanya dari DANA_BARANG.
+     */
+    public function set_status_komplain()
+    {
+        if (!$this->_boleh_ubah_status()) {
+            $this->make_ajax_response(403, 'Hanya Webmaster/Admin yang dapat mengubah status komplain.');
+        }
+        $id = (int) $this->input->post('id_complain');
+        $baru = (string) $this->input->post('status');
+        $catatan = trim((string) $this->input->post('catatan'));
+
+        if ($id <= 0 || !isset($this->status_label[$baru])) {
+            $this->make_ajax_response(400, 'Data status tidak valid.');
+        }
+        $c = $this->db->select('id_complain, no_resi, status_komplain, created_at, tgl_status')
+                      ->get_where('tblcs_complain', ['id_complain' => $id, 'is_deleted' => 0])->row_array();
+        if (!$c) {
+            $this->make_ajax_response(404, 'Komplain tidak ditemukan.');
+        }
+
+        $lama = $c['status_komplain'];
+        if ($lama === $baru) {
+            $this->make_ajax_response(400, 'Status sudah ' . $this->status_label[$baru] . '.');
+        }
+        if ($lama === 'DANA_BARANG') {
+            $r = $this->db->query("SELECT status_retur FROM tblresiretur WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$c['no_resi']])->row_array();
+            if (($r['status_retur'] ?? '') === 'Buka Retur') {
+                $this->make_ajax_response(400, 'Retur sudah dibuka (selesai), status tidak bisa diubah lagi.');
+            }
+        }
+        if ($baru === 'RETUR_BATAL') {
+            if ($lama !== 'DANA_BARANG') {
+                $this->make_ajax_response(400, 'Retur Batal hanya untuk komplain berstatus Pengembalian Dana dan Barang.');
+            }
+            if ($catatan === '') {
+                $this->make_ajax_response(400, 'Alasan wajib diisi untuk membatalkan retur.');
+            }
+        }
+
+        $sekarang = date('Y-m-d H:i:s');
+        $uid = (int) $this->data['user']['id_user'];
+        $this->db->trans_start();
+        $this->db->where('id_complain', $id)->update('tblcs_complain', [
+            'status_komplain' => $baru,
+            'tgl_status'      => $sekarang,
+            'status_by'       => $uid,
+            'updated_by'      => $uid,
+        ]);
+        $this->db->insert('tblcs_complain_status_log', [
+            'id_complain' => $id,
+            'status_dari' => $lama,
+            'status_ke'   => $baru,
+            'catatan'     => $catatan !== '' ? mb_substr($catatan, 0, 255) : null,
+            'oleh'        => $uid,
+            'waktu'       => $sekarang,
+        ]);
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === false) {
+            $this->make_ajax_response(500, 'Gagal menyimpan status.');
+        }
+        $this->make_ajax_response(200, 'Status diubah menjadi ' . $this->status_label[$baru] . '.');
     }
 
     public function delete_complain_management($id_complain)

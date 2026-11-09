@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-09.1';
+    const BOOTSTRAP_VERSI = '2026-11-09.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -767,6 +767,35 @@ class MY_Controller extends CI_Controller
             if (!$this->db->field_exists('nama_penginput', 'tblcs_complain')) {
                 $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `nama_penginput` VARCHAR(100) NULL AFTER `no_absen_input`");
             }
+        }
+
+        // Status komplain (tab Perlu Status / Retur / Selesai). NULL = belum ditetapkan;
+        // komplain sebelum 2026-11-01 yang NULL ditampilkan sebagai "Selesai (lama)" lewat query
+        // (tanpa UPDATE massal). Nilai: DANA, DANA_BARANG, TIDAK_ADA_PENGAJUAN, RETUR_BATAL, SELESAI_LAMA.
+        if ($this->db->table_exists('tblcs_complain')) {
+            if (!$this->db->field_exists('status_komplain', 'tblcs_complain')) {
+                $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `status_komplain` VARCHAR(30) NULL DEFAULT NULL");
+            }
+            if (!$this->db->field_exists('tgl_status', 'tblcs_complain')) {
+                $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `tgl_status` DATETIME NULL DEFAULT NULL");
+            }
+            if (!$this->db->field_exists('status_by', 'tblcs_complain')) {
+                $this->db->query("ALTER TABLE `tblcs_complain` ADD COLUMN `status_by` INT(11) NULL DEFAULT NULL");
+            }
+            if ($this->db->query("SHOW INDEX FROM `tblcs_complain` WHERE Key_name = 'idx_cs_complain_status'")->num_rows() === 0) {
+                $this->db->query("ALTER TABLE `tblcs_complain` ADD INDEX `idx_cs_complain_status` (`is_deleted`, `status_komplain`, `created_at`)");
+            }
+            $this->db->query("CREATE TABLE IF NOT EXISTS `tblcs_complain_status_log` (
+                `id_log` INT(11) NOT NULL AUTO_INCREMENT,
+                `id_complain` INT(11) NOT NULL,
+                `status_dari` VARCHAR(30) NULL,
+                `status_ke` VARCHAR(30) NOT NULL,
+                `catatan` VARCHAR(255) NULL,
+                `oleh` INT(11) NOT NULL,
+                `waktu` DATETIME NOT NULL,
+                PRIMARY KEY (`id_log`),
+                KEY `idx_status_log_complain` (`id_complain`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
 
         // Index untuk daftar komplain: filter is_deleted=0 + urut created_at DESC (urutan bawaan tabel)

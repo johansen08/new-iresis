@@ -392,6 +392,7 @@ $route['cs-new/complain-management/export'] = 'cs_new/export_complain_management
 $route['cs-new/complain-management/detail/(:num)'] = 'cs_new/get_complain_management_detail/$1';
 $route['cs-new/complain-management/save'] = 'cs_new/save_complain_management';
 $route['cs-new/complain-management/delete/(:num)'] = 'cs_new/delete_complain_management/$1';
+$route['cs-new/complain-management/set-status'] = 'cs_new/set_status_komplain';
 $route['cs-new/complain-management/search-resi'] = 'cs_new/search_resi_for_complain';
 $route['cs-new/complain-management/get-sku-suggestions'] = 'cs_new/get_sku_suggestions_with_hpp';
 $route['cs-new/complain-management/upload-lampiran'] = 'cs_new/upload_lampiran_complain';

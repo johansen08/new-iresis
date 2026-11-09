@@ -500,6 +500,22 @@
       .kp-pill-red { background: #fef2f2; color: #b91c1c; } .kp-pill-amber { background: #fffbeb; color: #b45309; }
       .kp-pill-green { background: #ecfdf5; color: #047857; } .kp-pill-indigo { background: #eef2ff; color: #4338ca; }
       .kp-pill-sky { background: #f0f9ff; color: #0369a1; } .kp-pill-slate { background: #f1f5f9; color: #475569; }
+      /* Tab status + tautan ubah status + penanda retur lewat batas */
+      .kp-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--border-slate); }
+      .kp-tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; color: #64748b; cursor: pointer; }
+      .kp-tab:hover { color: #0f172a; }
+      .kp-tab.aktif { color: var(--primary); border-bottom-color: var(--primary); }
+      .kp-tab-n { display: inline-block; min-width: 20px; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 11.5px; font-weight: 700; text-align: center; }
+      .kp-tab.aktif .kp-tab-n { background: var(--primary-light); color: var(--primary); }
+      .kp-tab[data-tab="perlu"] .kp-tab-n.ada { background: #fffbeb; color: #b45309; }
+      .kp-link { appearance: none; background: none; border: 0; padding: 0; margin-top: 3px; display: block; font-size: 12px; color: var(--primary); cursor: pointer; }
+      .kp-link:hover { text-decoration: underline; }
+      .kp-telat { color: #b91c1c !important; font-weight: 600; }
+      .kp-stopt { display: block; padding: 9px 12px; margin: 0 0 6px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 13.5px; }
+      .kp-stopt input { margin-right: 8px; }
+      .kp-stopt small { display: block; margin: 2px 0 0 22px; color: #64748b; font-size: 12px; }
+      .kp-riwayat { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; color: #475569; }
+      .kp-riwayat li { padding: 4px 0; border-top: 1px dashed #e2e8f0; }
       .kp-dot-text { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; line-height: 1.3; }
       .kp-dot-text i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
       .kp-dot-red i { background: #ef4444; } .kp-dot-amber i { background: #f59e0b; } .kp-dot-green i { background: #10b981; }
@@ -619,6 +635,12 @@
 
       <div class="modern-panel-body kp-body">
         <div id="tab-pane-daftar">
+          <div class="kp-tabs" id="kp-tabs">
+            <button type="button" class="kp-tab aktif" data-tab="semua">Semua<span class="kp-tab-n">&ndash;</span></button>
+            <button type="button" class="kp-tab" data-tab="perlu">Perlu Status<span class="kp-tab-n">&ndash;</span></button>
+            <button type="button" class="kp-tab" data-tab="retur">Retur<span class="kp-tab-n">&ndash;</span></button>
+            <button type="button" class="kp-tab" data-tab="selesai">Selesai<span class="kp-tab-n">&ndash;</span></button>
+          </div>
           <div class="kp-toolbar">
             <div class="kp-search">
               <i class="fa fa-search"></i>
@@ -689,6 +711,7 @@
                   <th>Toko</th>
                   <th>Kategori</th>
                   <th>Hasil CCTV</th>
+                  <th>Status</th>
                   <th class="kp-th-num">Nominal</th>
                   <th>Packer / Picker</th>
                   <th></th>
@@ -926,6 +949,30 @@
   </div>
 </div>
 
+<!-- Modal tetapkan / ubah status komplain (webmaster & admin) -->
+<div class="modal fade" id="modalStatusKomplain" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Status komplain</h4>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="ms-id" value="" />
+        <label class="kp-stopt"><input type="radio" name="ms-status" value="DANA">Pengembalian Dana<small>Penjual ganti rugi dana saja, tidak ada barang yang kembali. Langsung masuk Selesai.</small></label>
+        <label class="kp-stopt"><input type="radio" name="ms-status" value="DANA_BARANG">Pengembalian Dana dan Barang<small>Barang dikembalikan pembeli. Masuk tab Retur sampai Buka Retur selesai.</small></label>
+        <label class="kp-stopt"><input type="radio" name="ms-status" value="TIDAK_ADA_PENGAJUAN">Tidak Ada Pengajuan<small>Tidak ada pengembalian dana maupun barang. Langsung masuk Selesai.</small></label>
+        <label class="kp-stopt" id="ms-opt-batal" style="display:none;"><input type="radio" name="ms-status" value="RETUR_BATAL">Retur Batal<small>Barang tidak jadi dikirim pembeli. Alasan wajib diisi.</small></label>
+        <textarea id="ms-catatan" class="form-control" rows="2" maxlength="255" placeholder="Catatan (wajib untuk Retur Batal)" style="margin-top:8px;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modern btn-modern-secondary" data-dismiss="modal">Batal</button>
+        <button type="button" class="btn-modern" id="ms-simpan">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts Section -->
 <script>
   $(document).ready(function() {
@@ -939,7 +986,11 @@
     // ---------------- Daftar komplain: filter, tabel, kartu ringkasan ----------------
     var filterAktif = { kategori: [], hasil: [], jenis: [], marketplace: [], sumber: [] };
 
+    var tabAktif = 'semua';
+    var labelStatus = { DANA: 'Pengembalian Dana', DANA_BARANG: 'Pengembalian Dana dan Barang', TIDAK_ADA_PENGAJUAN: 'Tidak Ada Pengajuan', RETUR_BATAL: 'Retur Batal', SELESAI_LAMA: 'Selesai (lama)' };
+
     function sertakanFilter(d) {
+        d.tab = tabAktif;
         d.reportrange = $('#reportrange').val();
         $.each(filterAktif, function(k, v) { d['f_' + k] = v; });
         return d;
@@ -959,9 +1010,10 @@
             { "data": 2 },  // toko + marketplace
             { "data": 3 },  // kategori
             { "data": 4 },  // hasil cctv
-            { "data": 5 },  // nominal
-            { "data": 6 },  // packer / picker
-            { "data": 7, "orderable": false } // aksi
+            { "data": 5 },  // status komplain
+            { "data": 6 },  // nominal
+            { "data": 7 },  // packer / picker
+            { "data": 8, "orderable": false } // aksi
         ],
         "order": [[0, "desc"]],
         "pageLength": 25,
@@ -969,8 +1021,8 @@
         "lengthMenu": [[10, 25, 50, 100], [10, 25, 50, 100]],
         "dom": 't<"kp-foot"<"kp-info"i><"kp-pager"lp>>',
         "language": {
-            "emptyTable": "Tidak ada data komplain pada periode & filter ini",
-            "zeroRecords": "Tidak ada data komplain pada periode & filter ini",
+            "emptyTable": "Tidak ada data komplain pada tab, periode & filter ini",
+            "zeroRecords": "Tidak ada data komplain pada tab, periode & filter ini",
             "info": "Menampilkan _START_&ndash;_END_ dari _TOTAL_ komplain",
             "infoEmpty": "Menampilkan 0 komplain",
             "infoFiltered": "",
@@ -981,14 +1033,13 @@
     });
 
     // Kartu ringkasan: dimuat ulang setiap tabel digambar ulang, dengan filter yang sama
-    var kunciRingkasanTerakhir = null, xhrRingkasan = null;
+    var lewatiRingkasan = false, xhrRingkasan = null;
+    table.on('page.dt length.dt order.dt', function() { lewatiRingkasan = true; });
     function muatRingkasan() {
         var d = sertakanFilter({});
         d.search_text = $('#kp-search').val();
-        // Pindah halaman / ganti jumlah baris tidak mengubah angka ringkasan: lewati bila filter sama
-        var kunci = JSON.stringify(d);
-        if (kunci === kunciRingkasanTerakhir) return;
-        kunciRingkasanTerakhir = kunci;
+        // Pindah halaman / ganti jumlah baris / urut kolom tidak mengubah angka ringkasan: dilewati
+        if (lewatiRingkasan) { lewatiRingkasan = false; return; }
         if (xhrRingkasan) xhrRingkasan.abort();
         xhrRingkasan = $.post('cs-new/complain-management/ringkasan', d, function(r) {
             if (!r || typeof r.total === 'undefined') return;
@@ -998,7 +1049,12 @@
             $('#kpi-qcsalah-note').text(pct + '% dari komplain, ' + r.qc_benar.toLocaleString('id-ID') + ' QC benar');
             $('#kpi-belum').text(r.belum_dicek.toLocaleString('id-ID'));
             $('#kpi-nominal').text('Rp ' + Math.round(r.nominal).toLocaleString('id-ID'));
-        }, 'json').fail(function(x, st) { if (st !== 'abort') kunciRingkasanTerakhir = null; });
+            if (r.tab) {
+                $.each(r.tab, function(k, n) {
+                    $('.kp-tab[data-tab="' + k + '"] .kp-tab-n').text(n.toLocaleString('id-ID')).toggleClass('ada', k === 'perlu' && n > 0);
+                });
+            }
+        }, 'json');
     }
     table.on('draw.dt', muatRingkasan);
 
@@ -1047,6 +1103,53 @@
         $.each(filterAktif, function(k) { filterAktif[k] = []; });
         $('.kp-filter').each(function() { perbaruiChip($(this)); });
         table.ajax.reload();
+    });
+
+    // Tab status
+    $(document).on('click.kpnew', '.kp-tab', function() {
+        tabAktif = $(this).data('tab');
+        $('.kp-tab').removeClass('aktif');
+        $(this).addClass('aktif');
+        table.ajax.reload();
+    });
+
+    // Tetapkan / ubah status (webmaster & admin; server memeriksa ulang)
+    function bukaModalStatus(id, kode) {
+        $('#ms-id').val(id);
+        $('input[name="ms-status"]').prop('checked', false);
+        $('#ms-catatan').val('');
+        $('#ms-opt-batal').toggle(kode === 'DANA_BARANG');
+        $('#modalStatusKomplain').modal('show');
+    }
+    $(document).on('click.kpnew', '.btn-set-status', function(e) {
+        e.stopPropagation();
+        var id = $(this).data('id'), kode = $(this).attr('data-status');
+        if ($(this).closest('#drawerKomplain').length) {
+            $('#drawerKomplain').one('hidden.bs.modal', function() { bukaModalStatus(id, kode); }).modal('hide');
+        } else {
+            bukaModalStatus(id, kode);
+        }
+    });
+    $('#ms-simpan').on('click', function() {
+        var st = $('input[name="ms-status"]:checked').val(), cat = $.trim($('#ms-catatan').val());
+        if (!st) { showNoty('Pilih salah satu status.', 'warning'); return; }
+        if (st === 'RETUR_BATAL' && !cat) { showNoty('Alasan wajib diisi untuk membatalkan retur.', 'warning'); return; }
+        var $b = $(this).prop('disabled', true);
+        $.ajax({
+            url: 'cs-new/complain-management/set-status', type: 'POST', dataType: 'json',
+            data: { id_complain: $('#ms-id').val(), status: st, catatan: cat },
+            success: function(resp) {
+                if (resp.code === 200) {
+                    showNoty(resp.message, 'success');
+                    $('#modalStatusKomplain').modal('hide');
+                    table.ajax.reload(null, false);
+                } else {
+                    showNoty(resp.message || 'Gagal menyimpan status.', 'error');
+                }
+            },
+            error: function() { showNoty('Terjadi kesalahan koneksi server.', 'error'); },
+            complete: function() { $b.prop('disabled', false); }
+        });
     });
 
     // DateRangePicker
@@ -1167,6 +1270,24 @@
                           (parseFloat(it.price) || 0).toLocaleString('id-ID') + '</td><td class="num">Rp ' + sub.toLocaleString('id-ID') + '</td></tr>';
             });
 
+            var inf = resp.info_status || {};
+            var terkunci = inf.kode === 'DANA_BARANG' && inf.tab === 'selesai';
+            var statusDrawer = '<div class="kp-dr-sec"><h5>Status</h5>' +
+                pvRow('fa-flag', 'Status', (inf.label || '-') + (inf.tahap ? ' — ' + inf.tahap : '')) +
+                (resp.boleh_ubah_status && !terkunci
+                    ? '<button type="button" class="btn-modern btn-modern-secondary btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" style="margin-top:6px;"><i class="fa fa-flag"></i> ' + (inf.kode === 'PERLU' ? 'Tetapkan status' : 'Ubah status') + '</button>'
+                    : '');
+            if ((resp.riwayat_status || []).length) {
+                statusDrawer += '<ul class="kp-riwayat">';
+                $.each(resp.riwayat_status, function(i, h) {
+                    statusDrawer += '<li>' + esc(moment(h.waktu).format('DD MMM YYYY HH:mm')) + ' · ' + esc(h.nama_user || '-') + ': ' +
+                        esc(h.status_dari ? (labelStatus[h.status_dari] || h.status_dari) : 'Belum ada') + ' &rarr; <strong>' + esc(labelStatus[h.status_ke] || h.status_ke) + '</strong>' +
+                        (h.catatan ? ' <em>(' + esc(h.catatan) + ')</em>' : '') + '</li>';
+                });
+                statusDrawer += '</ul>';
+            }
+            statusDrawer += '</div>';
+
             var html =
                 '<div class="kp-dr-sec"><h5>Pesanan</h5>' +
                     pvRow('fa-barcode', 'No. resi', c.no_resi, true) +
@@ -1180,6 +1301,7 @@
                     pvRow('fa-align-left', 'Keterangan', c.detail_lainnya) +
                     pvRow('fa-comments-o', 'Sumber', c.sumber_komplain) +
                     pvRow('fa-calendar-check-o', 'Tanggal komplain', c.tgl_komplain) + '</div>' +
+                statusDrawer +
                 '<div class="kp-dr-sec"><h5>Barang komplain</h5><table class="kp-dr-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th></tr></thead><tbody>' +
                     barang + '<tr class="kp-dr-total"><td colspan="3" class="num">Total</td><td class="num">Rp ' + total.toLocaleString('id-ID') + '</td></tr></tbody></table></div>' +
                 '<div class="kp-dr-sec"><h5>Investigasi</h5>' +
