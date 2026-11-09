@@ -193,11 +193,9 @@
                 <option value="REFUND">REFUND</option>
                 <option value="PENUKARAN_BERES">PENDINGAN BERES (PB)</option>
                 <option value="REQUEST_DARI_PEMBELI">REQUEST DARI PEMBELI</option>
-                <option value="KURANG">kurang dari penjual</option>
-                <option value="KURANG_DARI_PEMBELI">KURANG DARI PEMBELI</option>
+                <option value="KURANG">KURANG KIRIM</option>
                 <option value="KE_DISPLAY">KE DISPLAY</option>
                 <option value="BUKAN_BARANG_KITA">BUKAN BARANG KITA</option>
-                <option value="PAKET_HILANG">PAKET HILANG</option>
                 <option value="DIPAKAI_ADMIN">DIPAKAI ADMIN</option>
                 <option value="BARANG_TIDAK_ADA">BARANG TIDAK ADA</option>
                 <?php if (isset($is_komplain) && $is_komplain): ?>
@@ -275,11 +273,9 @@
                 <option value="REFUND">REFUND</option>
                 <option value="PENUKARAN_BERES">PENDINGAN BERES (PB)</option>
                 <option value="REQUEST_DARI_PEMBELI">REQUEST DARI PEMBELI</option>
-                <option value="KURANG">kurang dari penjual</option>
-                <option value="KURANG_DARI_PEMBELI">KURANG DARI PEMBELI</option>
+                <option value="KURANG">KURANG KIRIM</option>
                 <option value="KE_DISPLAY">KE DISPLAY</option>
                 <option value="BUKAN_BARANG_KITA">BUKAN BARANG KITA</option>
-                <option value="PAKET_HILANG">PAKET HILANG</option>
                 <option value="DIPAKAI_ADMIN">DIPAKAI ADMIN</option>
                 <option value="BARANG_TIDAK_ADA">BARANG TIDAK ADA</option>
                 <?php if (isset($is_komplain) && $is_komplain): ?>
