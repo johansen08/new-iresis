@@ -82,12 +82,13 @@ class Cs_new extends MY_Controller
 
     /**
      * Subquery SQL: "status_retur|status_detail" terbaru di tblresiretur untuk resi komplain.
-     * no_resi diubah ke latin1 supaya index tblresiretur.noresi (latin1) tetap terpakai.
+     * Yang dicari adalah resi paket pengembalian dari marketplace (no_resi_retur); komplain lama
+     * tanpa isian itu memakai no_resi aslinya. Diubah ke latin1 supaya index noresi tetap terpakai.
      */
     private function _sql_retur_terbaru()
     {
         return "(SELECT CONCAT(r.status_retur, '|', COALESCE(r.status_detail, '')) FROM tblresiretur r "
-            . "WHERE r.noresi = CONVERT(c.no_resi USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
+            . "WHERE r.noresi = CONVERT(COALESCE(NULLIF(c.no_resi_retur, ''), c.no_resi) USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
     }
 
     /** Kondisi SQL per tab (null = semua). Aman terhadap NULL. */
@@ -315,12 +316,19 @@ class Cs_new extends MY_Controller
             if ($info['tahap'] !== '') {
                 $status_cell .= '<span class="kp-sub">' . htmlspecialchars($info['tahap']) . '</span>';
             }
+            if ($item['status_komplain'] === 'DANA_BARANG') {
+                $status_cell .= '<span class="kp-sub kp-copyrow" title="Resi paket pengembalian barang">Resi retur: '
+                    . ($item['no_resi_retur'] !== null && $item['no_resi_retur'] !== ''
+                        ? htmlspecialchars($item['no_resi_retur']) . $this->_tombol_salin($item['no_resi_retur'])
+                        : '<span class="kp-telat">belum diisi</span>')
+                    . '</span>';
+            }
             if ($info['telat']) {
                 $status_cell .= '<span class="kp-sub kp-telat" title="Barang retur belum dibuka lebih dari ' . self::BATAS_HARI_RETUR . ' hari sejak status ditetapkan"><i class="fa fa-clock-o"></i> Lewat ' . self::BATAS_HARI_RETUR . ' hari</span>';
             }
             // Retur yang sudah dibuka terkunci: tidak ada tombol ubah
             if ($boleh_status && !($info['kode'] === 'DANA_BARANG' && $info['tab'] === 'selesai')) {
-                $status_cell .= '<button type="button" class="kp-link btn-set-status" data-id="' . $id_complain . '" data-status="' . $info['kode'] . '">'
+                $status_cell .= '<button type="button" class="kp-link btn-set-status" data-id="' . $id_complain . '" data-status="' . $info['kode'] . '" data-resiretur="' . htmlspecialchars((string) $item['no_resi_retur'], ENT_QUOTES, 'UTF-8') . '">'
                     . ($info['kode'] === 'PERLU' ? 'Tetapkan' : 'Ubah') . '</button>';
             }
 
@@ -386,7 +394,7 @@ class Cs_new extends MY_Controller
         } elseif (!$agregat) {
             $this->db->select('c.id_complain, c.no_resi, c.no_pesanan, c.toko, c.kategori_komplain, c.jenis_komplain, c.hasil_investigasi, '
                 . 'c.id_masalahpacker, c.id_resiretur, c.nominal_total, c.nama_qc, c.nama_packer, c.nama_picker, '
-                . 'c.no_absen_input, c.nama_penginput, c.created_at, c.status_komplain, c.tgl_status, '
+                . 'c.no_absen_input, c.nama_penginput, c.created_at, c.status_komplain, c.tgl_status, c.no_resi_retur, '
                 . "CASE WHEN c.status_komplain = 'DANA_BARANG' THEN " . $this->_sql_retur_terbaru() . ' END AS retur_terbaru, '
                 . 'm.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
         }
@@ -707,7 +715,7 @@ class Cs_new extends MY_Controller
         $retur_terbaru = null;
         if ($complain['status_komplain'] === 'DANA_BARANG') {
             $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, '')) AS s FROM tblresiretur "
-                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
+                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi_retur'] !== null && $complain['no_resi_retur'] !== '' ? $complain['no_resi_retur'] : $complain['no_resi']])->row_array();
             $retur_terbaru = $r['s'] ?? null;
         }
         $info_status = $this->_info_status($complain['status_komplain'], $complain['created_at'], $complain['tgl_status'], $retur_terbaru);
@@ -1059,22 +1067,34 @@ class Cs_new extends MY_Controller
         $id = (int) $this->input->post('id_complain');
         $baru = (string) $this->input->post('status');
         $catatan = trim((string) $this->input->post('catatan'));
+        $resi_retur = strtoupper(preg_replace('/\s+/', '', (string) $this->input->post('no_resi_retur')));
 
         if ($id <= 0 || !isset($this->status_label[$baru])) {
             $this->make_ajax_response(400, 'Data status tidak valid.');
         }
-        $c = $this->db->select('id_complain, no_resi, status_komplain, created_at, tgl_status')
+        $c = $this->db->select('id_complain, no_resi, no_resi_retur, status_komplain, created_at, tgl_status')
                       ->get_where('tblcs_complain', ['id_complain' => $id, 'is_deleted' => 0])->row_array();
         if (!$c) {
             $this->make_ajax_response(404, 'Komplain tidak ditemukan.');
         }
 
         $lama = $c['status_komplain'];
-        if ($lama === $baru) {
+        // Status sama hanya boleh bila untuk melengkapi/mengoreksi resi pengembalian barang
+        $koreksi_resi = $lama === 'DANA_BARANG' && $baru === 'DANA_BARANG' && $resi_retur !== '' && $resi_retur !== (string) $c['no_resi_retur'];
+        if ($lama === $baru && !$koreksi_resi) {
             $this->make_ajax_response(400, 'Status sudah ' . $this->status_label[$baru] . '.');
         }
+        if ($baru === 'DANA_BARANG') {
+            if ($resi_retur === '') {
+                $this->make_ajax_response(400, 'No. resi pengembalian barang wajib diisi untuk Pengembalian Dana dan Barang.');
+            }
+            if (strlen($resi_retur) > 100) {
+                $this->make_ajax_response(400, 'No. resi pengembalian barang terlalu panjang.');
+            }
+        }
         if ($lama === 'DANA_BARANG') {
-            $r = $this->db->query("SELECT status_retur FROM tblresiretur WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$c['no_resi']])->row_array();
+            $resi_cari = ($c['no_resi_retur'] !== null && $c['no_resi_retur'] !== '') ? $c['no_resi_retur'] : $c['no_resi'];
+            $r = $this->db->query("SELECT status_retur FROM tblresiretur WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$resi_cari])->row_array();
             if (($r['status_retur'] ?? '') === 'Buka Retur') {
                 $this->make_ajax_response(400, 'Retur sudah dibuka (selesai), status tidak bisa diubah lagi.');
             }
@@ -1091,17 +1111,21 @@ class Cs_new extends MY_Controller
         $sekarang = date('Y-m-d H:i:s');
         $uid = (int) $this->data['user']['id_user'];
         $this->db->trans_start();
-        $this->db->where('id_complain', $id)->update('tblcs_complain', [
+        $ubah = [
             'status_komplain' => $baru,
-            'tgl_status'      => $sekarang,
+            'tgl_status'      => $lama === $baru ? $c['tgl_status'] : $sekarang,
             'status_by'       => $uid,
             'updated_by'      => $uid,
-        ]);
+        ];
+        if ($baru === 'DANA_BARANG') {
+            $ubah['no_resi_retur'] = $resi_retur;
+        }
+        $this->db->where('id_complain', $id)->update('tblcs_complain', $ubah);
         $this->db->insert('tblcs_complain_status_log', [
             'id_complain' => $id,
             'status_dari' => $lama,
             'status_ke'   => $baru,
-            'catatan'     => $catatan !== '' ? mb_substr($catatan, 0, 255) : null,
+            'catatan'     => mb_substr(trim(($baru === 'DANA_BARANG' ? 'Resi retur: ' . $resi_retur . ($catatan !== '' ? '. ' : '') : '') . $catatan), 0, 255) ?: null,
             'oleh'        => $uid,
             'waktu'       => $sekarang,
         ]);
@@ -1110,7 +1134,7 @@ class Cs_new extends MY_Controller
         if ($this->db->trans_status() === false) {
             $this->make_ajax_response(500, 'Gagal menyimpan status.');
         }
-        $this->make_ajax_response(200, 'Status diubah menjadi ' . $this->status_label[$baru] . '.');
+        $this->make_ajax_response(200, $koreksi_resi ? 'Resi pengembalian barang diperbarui.' : 'Status diubah menjadi ' . $this->status_label[$baru] . '.');
     }
 
     public function delete_complain_management($id_complain)
