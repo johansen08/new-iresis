@@ -523,6 +523,9 @@
       .kp-st-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.3; color: var(--text-muted); white-space: nowrap; }
       .kp-st-meta > i.fa { flex: none; width: 12px; text-align: center; color: #94a3b8; }
       .kp-st-meta.kp-telat > i.fa { color: #b91c1c; }
+      .kp-st-meta.kp-rt-ok { color: #047857; font-weight: 600; }
+      .kp-st-meta.kp-rt-ok > i.fa { color: #059669; }
+      .kp-st-meta.kp-rt-belum { color: #94a3b8; }
       .kp-st-resi { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
       /* Ikon salin resi pengembalian: selalu terlihat (bukan hanya saat hover) */
       .kp-copy.kp-copy-tegas, .kp-table tbody tr:hover .kp-copy.kp-copy-tegas { width: 22px; height: 22px; border: 1px solid #e2e8f0; background: #fff; color: #475569; }
@@ -1314,7 +1317,10 @@
                         ? '<button type="button" class="kp-st-tetapkan btn-set-status" data-id="' + c.id_complain + '" data-status="' + esc(inf.kode || '') + '" data-resiretur="' + esc(c.no_resi_retur || '') + '">' + (inf.kode === 'PERLU' ? 'Tetapkan' : 'Ubah') + '</button>'
                         : '') +
                 '</dd></div>' +
-                (inf.tahap ? pvRow('fa-info-circle', 'Tahap retur', inf.tahap) : '') +
+                (resp.retur_info
+                    ? pvRow('fa-inbox', 'Terima Retur', resp.retur_info.terima ? ('Sudah' + (resp.retur_info.tgl_terima ? ' — ' + resp.retur_info.tgl_terima : '')) : 'Belum') +
+                      pvRow('fa-folder-open-o', 'Buka Retur', resp.retur_info.buka ? ('Sudah' + (resp.retur_info.hasil ? ' — ' + resp.retur_info.hasil : '')) : 'Belum')
+                    : (inf.tahap ? pvRow('fa-info-circle', 'Tahap retur', inf.tahap) : '')) +
                 (inf.telat ? '<div class="kp-dr-row"><i class="fa fa-clock-o" style="color:#b91c1c"></i><dt>Peringatan</dt><dd class="kp-telat">Barang retur belum dibuka lebih dari 14 hari</dd></div>' : '') +
                 ((c.status_komplain === 'DANA_BARANG' || c.no_resi_retur)
                     ? (c.no_resi_retur
