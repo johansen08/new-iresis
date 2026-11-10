@@ -205,8 +205,9 @@ Barang yang ada di display dan top level adalah komponen bundle, bukan SKU bundl
 - Isi bundle dibaca dari Jubelio (`Jubelio_stok::komponen`, field `bundles` pada `inventory/items/{item_id}`, hanya baca).
   Database lokal **tidak** menyimpan isi bundle (`tblsku.bundle` hanya penanda True/False). Hasil di-cache 6 jam di
   `application/cache/jubelio/hasil_komp_*.json` karena komposisi jarang berubah.
-- Contoh: `T01-PTAA-72` (bundle) = `T01-PTAA-56` x1 + `TL001` x1. Resi dengan 2 bundle itu tampil dua baris: `T01-PTAA-56` x2
-  dan `TL001` x2, masing-masing dengan rak display-nya sendiri dan keterangan "Isi bundle T01-PTAA-72".
+- Contoh: `T01-PTAA-72` (bundle) = `T01-PTAA-56` + `TL001`. Resi dengan bundle itu tampil dua baris, `T01-PTAA-56` dan
+  `TL001`, masing-masing dengan rak display-nya sendiri dan keterangan "Isi bundle T01-PTAA-72". Qty pesanan (mis. x2)
+  tidak ditampilkan karena tidak diperlukan untuk cek top level.
 - Klik **Cek**, stok live Jubelio, dan **Request Restok Display** memakai SKU komponen itu (request tercatat per komponen).
   Komponen yang sama dari beberapa baris/bundle digabung dan qty-nya dijumlahkan.
 - Bila Jubelio gagal dihubungi atau bundle tidak punya isi, baris SKU bundle tetap tampil dengan peringatan
