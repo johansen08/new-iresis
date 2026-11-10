@@ -6,107 +6,175 @@
 <title>Prototype — Buka Retur Otomatis</title>
 <style>
   :root {
-    --bg: #f6f7fb; --card: #fff; --line: #e5e7ee; --text: #111827; --muted: #6b7280;
-    --primary: #4f46e5; --ok: #059669; --warn: #b45309; --bad: #b91c1c; --soft: #f3f4f8;
+    --bg: #f5f6fa; --card: #fff; --line: #e4e7ee; --text: #111827; --muted: #6b7280;
+    --primary: #4f46e5; --primary-soft: #eef0ff; --ok: #059669; --warn: #b45309; --bad: #b91c1c; --soft: #f3f4f8;
+    --r: 10px;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e5e7eb; --muted:#94a3b8; --primary:#818cf8; --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --soft:#273449; }
+    :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e5e7eb; --muted:#94a3b8; --primary:#818cf8; --primary-soft:#2b2f63;
+      --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --soft:#273449; }
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
-  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
-  h1 { font-size: 17px; margin: 0; font-weight: 600; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-  input[type=text], input[type=number], select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); max-width: 100%; }
-  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
-  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 12px; }
-  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; padding: 8px 18px; }
+  button, input, select { font: inherit; color: inherit; }
+  .app { max-width: 1680px; margin: 0 auto; padding: 16px; }
+  .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .head h1 { font-size: 18px; font-weight: 650; margin: 0; }
+  .layout { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 1000px) {
+    .layout { grid-template-columns: 340px minmax(0, 1fr); }
+    .side { position: sticky; top: 12px; }
+  }
+  @media (min-width: 1600px) {
+    .app { padding: 24px 32px; }
+    .layout { grid-template-columns: 400px minmax(0, 1fr); gap: 20px; }
+    body { font-size: 15px; }
+  }
+  .side, .main { display: grid; gap: 12px; min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
+  .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  input[type=text], input[type=number], select { padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); min-width: 0; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; }
+  button { cursor: pointer; border-radius: 7px; border: 1px solid var(--line); background: var(--card); padding: 6px 12px; }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; padding: 9px 22px; }
   button.primary:disabled { opacity: .4; cursor: not-allowed; }
-  .link { border: 0; background: none; color: var(--muted); padding: 0; text-decoration: underline; cursor: pointer; font-size: 13px; }
-  .icon { border: 0; background: none; color: var(--muted); padding: 4px 7px; font-size: 15px; line-height: 1; }
-  .icon:hover { color: var(--text); background: var(--soft); }
-  .scan { display: flex; gap: 8px; }
-  .scan input { flex: 1; font-size: 16px; padding: 9px 12px; }
+  .link { border: 0; background: none; color: var(--muted); padding: 2px 0; text-decoration: underline; font-size: 13px; }
+  .scanbox input { width: 100%; font-size: 18px; padding: 12px 14px; border: 2px solid var(--primary); border-radius: 9px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .chip { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; background: var(--soft); color: var(--muted); white-space: nowrap; }
   .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); } .chip.ok { color: var(--ok); }
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  .ringkas .l1 { font-size: 16px; font-weight: 600; word-break: break-all; }
-  .ringkas .l2 { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .alert { padding: 8px 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; background: var(--soft); border-left: 3px solid var(--warn); }
-  table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 4px 6px 8px; }
-  td { padding: 8px 6px; border-top: 1px solid var(--line); vertical-align: top; }
-  td.sku { width: 34%; }
-  td.sku b { font-weight: 600; }
-  td.qty input { width: 58px; }
-  td.act { width: 70px; text-align: right; white-space: nowrap; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--ok); }
+  .muted { color: var(--muted); } .small { font-size: 12px; }
+  .ringkas .l1 { font-size: 17px; font-weight: 650; word-break: break-all; }
+  .ringkas .l2 { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .alert { padding: 8px 12px; border-radius: 8px; font-size: 13px; background: var(--soft); border-left: 3px solid var(--warn); margin-bottom: 10px; }
+  .alert.ok { border-color: var(--ok); } .alert.bad { border-color: var(--bad); }
+  .kosong { text-align: center; color: var(--muted); padding: 48px 16px; }
+  .kosong b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+
+  /* kelompok SKU */
+  .grp { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .grp:first-child { border-top: 0; padding-top: 0; }
+  .foto { position: relative; width: 76px; height: 76px; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: var(--soft); }
+  .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .foto.tanpa { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; color: var(--bad); padding: 4px; border-style: dashed; border-color: var(--bad); }
+  .eye { position: absolute; right: 3px; bottom: 3px; width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(17,24,39,.72); border: 0; color: #fff; }
+  .eye svg { width: 15px; height: 15px; }
+  .ghead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .ghead b { font-size: 15px; word-break: break-all; }
+  .alok { font-size: 12px; font-weight: 600; white-space: nowrap; padding-top: 2px; }
+  .lines { display: grid; gap: 8px; }
+  .line { display: grid; align-items: start; gap: 8px 10px; grid-template-columns: 124px minmax(170px, 1.1fr) minmax(140px, 1fr) 64px; }
+  .stepper { display: grid; grid-template-columns: 32px 1fr 32px; }
+  .stepper button { padding: 0; height: 36px; font-size: 18px; line-height: 1; }
+  .stepper button:first-child { border-radius: 7px 0 0 7px; } .stepper button:last-child { border-radius: 0 7px 7px 0; }
+  .stepper button:disabled { opacity: .35; cursor: not-allowed; }
+  .stepper input { height: 36px; text-align: center; border-radius: 0; border-left: 0; border-right: 0; width: 100%; padding: 0 2px; -moz-appearance: textfield; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .st { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  .st select { flex: 1; min-width: 0; height: 36px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
   .dot.manual { background: var(--warn); } .dot.edit { background: var(--primary); }
-  td select { width: calc(100% - 16px); }
-  .err { color: var(--bad); font-size: 12px; display: block; margin-top: 2px; }
-  .ket input { width: 100%; }
-  .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .err { color: var(--bad); font-size: 12px; flex-basis: 100%; padding-left: 14px; }
+  .ket input { width: 100%; height: 36px; }
+  .ket .cat { font-size: 12px; color: var(--muted); line-height: 36px; }
+  .act { display: flex; justify-content: flex-end; gap: 2px; }
+  .icon { border: 0; background: none; color: var(--muted); width: 32px; height: 36px; padding: 0; font-size: 16px; }
+  .icon:hover { color: var(--text); background: var(--soft); }
+  @media (max-width: 760px) {
+    .app { padding: 12px; }
+    .grp { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
+    .foto { width: 56px; height: 56px; }
+    .eye { width: 22px; height: 22px; } .eye svg { width: 12px; height: 12px; }
+    .line { grid-template-columns: 124px minmax(0, 1fr) auto; }
+    .line .st { grid-column: 1 / -1; order: 3; }
+    .line .ket { grid-column: 1 / -1; order: 4; }
+    .line .act { order: 2; grid-column: 3; }
+    .line .stepper { order: 1; }
+  }
+  @media (max-width: 420px) { .line { grid-template-columns: 1fr auto; } .line .stepper { max-width: 150px; } .line .act { grid-column: 2; } }
+
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .foot .kiri { display: flex; flex-direction: column; gap: 2px; }
   .foot .msg { color: var(--warn); font-size: 13px; }
-  .ok-line { color: var(--ok); font-weight: 600; }
+  .ok-line { color: var(--ok); font-weight: 650; }
   pre { background: var(--soft); border-radius: 8px; padding: 10px; overflow: auto; font-size: 12px; max-height: 240px; margin: 8px 0 0; }
-  .hide { display: none; }
+  .hide { display: none !important; }
   details > summary { cursor: pointer; color: var(--muted); font-size: 13px; list-style: none; }
   details > summary::-webkit-details-marker { display: none; }
   details > summary::before { content: "▸ "; } details[open] > summary::before { content: "▾ "; }
-  .uji { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px; }
-  .uji li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: var(--card); }
-  .uji li:hover { border-color: var(--primary); }
-  .uji b { display: block; font-size: 12.5px; word-break: break-all; font-weight: 600; }
+  .uji { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 340px; overflow: auto; }
+  .uji li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  .uji li:hover { border-color: var(--primary); background: var(--primary-soft); }
+  .uji b { display: block; font-size: 12.5px; word-break: break-all; }
   .uji span { color: var(--muted); font-size: 12px; }
-  dl.kv { display: grid; grid-template-columns: 120px 1fr; gap: 3px 10px; margin: 10px 0 0; font-size: 13px; }
+  dl.kv { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 4px 10px; margin: 10px 0 0; font-size: 13px; }
   dl.kv dt { color: var(--muted); } dl.kv dd { margin: 0; word-break: break-word; }
+
+  /* lightbox foto */
+  .lb { position: fixed; inset: 0; z-index: 50; background: rgba(2,6,23,.82); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .lb figure { margin: 0; max-width: min(92vw, 900px); max-height: 92vh; display: grid; gap: 8px; justify-items: center; }
+  .lb img { max-width: 100%; max-height: 80vh; border-radius: 10px; background: #fff; }
+  .lb figcaption { color: #e5e7eb; font-size: 14px; text-align: center; }
+  .lb .x { position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.14); border: 0; color: #fff; font-size: 20px; padding: 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <h1>Buka Retur Otomatis <span class="chip">prototype · data contoh</span></h1>
+<div class="app">
+  <header class="head">
+    <h1>Buka Retur Otomatis</h1>
+    <span class="chip">prototype · data contoh</span>
+  </header>
+
+  <div class="layout">
+    <aside class="side">
+      <section class="card scanbox">
+        <label class="lbl" for="input-resi">Scan resi</label>
+        <input type="text" id="input-resi" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Arahkan alat scan ke sini" autofocus>
+        <div class="hint">Enter memproses otomatis dan kolom langsung dikosongkan untuk scan berikutnya.</div>
+      </section>
+
+      <section class="card ringkas hide" id="kartu-ringkas"></section>
+
+      <section class="card">
+        <details id="det-uji">
+          <summary>Data uji (12 resi)</summary>
+          <ul class="uji" id="daftar-uji"></ul>
+          <p style="margin:8px 0 0"><button class="link" id="btn-reset-data" type="button">Kembalikan semua data uji</button></p>
+        </details>
+        <details style="margin-top:10px">
+          <summary>Aturan otomatis</summary>
+          <ol class="small muted" style="margin:8px 0 0; padding-left:18px">
+            <li>Komplain: resi asli sama, atau no. pesanan komplain (boleh sebagian, min. 6 karakter) ada di no. pesanan resi. Harus tepat satu.</li>
+            <li>SKU di resi yang tidak ada di komplain → BUKAN RETUR.</li>
+            <li>Satu SKU resi dan satu SKU komplain yang tidak berpasangan → REQUEST DARI PEMBELI + SKU pergantian.</li>
+            <li>Qty komplain &lt; qty resi → sebesar komplain mengikuti kategori, sisanya BUKAN RETUR (qty yang sudah diproses dihitung).</li>
+            <li>Kategori: Salah Kirim QC → KE DISPLAY; Salah Kirim Ekspedisi → BUKAN BARANG KITA; Salah Kirim (lama) → QC Benar BUKAN BARANG KITA, QC Salah KE DISPLAY; Kurang Kirim → REFUND; Reject → REJECT; Paket Kosong → BARANG TIDAK ADA; Barang Tidak Original, Tidak Sesuai Deskripsi, Telat Kirim, Salah Alamat → KE DISPLAY; Lainnya → ALASAN LAINNYA.</li>
+          </ol>
+        </details>
+      </section>
+    </aside>
+
+    <main class="main">
+      <section class="card kosong" id="kartu-kosong"><b>Siap scan</b>Scan resi retur komplain untuk melihat rencana Buka Retur.</section>
+
+      <section class="card hide" id="kartu-rencana">
+        <div id="pesan-rencana"></div>
+        <div id="isi-rencana"></div>
+        <div class="foot">
+          <div class="kiri"><button class="link" id="btn-otomatis-ulang" type="button">Isi ulang otomatis</button><span class="msg" id="ringkas-validasi"></span></div>
+          <button class="primary" id="btn-simpan" type="button">Simpan</button>
+        </div>
+      </section>
+
+      <section class="card hide" id="kartu-hasil-simpan"></section>
+    </main>
   </div>
+</div>
 
-  <div class="card">
-    <form id="form-scan" class="scan" autocomplete="off">
-      <input type="text" id="input-resi" placeholder="Scan resi asli atau resi pengembalian" autofocus>
-      <button class="primary" type="submit">Cocokkan</button>
-    </form>
-    <details style="margin-top:10px" id="det-uji">
-      <summary>Data uji (12 resi)</summary>
-      <ul class="uji" id="daftar-uji"></ul>
-      <p style="margin:8px 0 0"><button class="link" id="btn-reset-data" type="button">Kembalikan semua data uji</button></p>
-    </details>
-  </div>
-
-  <div id="area-hasil" class="hide">
-    <div class="card ringkas" id="kartu-ringkas"></div>
-
-    <div class="card" id="kartu-rencana">
-      <div id="pesan-rencana"></div>
-      <div id="isi-rencana"></div>
-      <div class="foot">
-        <div><button class="link" id="btn-otomatis-ulang" type="button">Isi ulang otomatis</button> <span class="msg" id="ringkas-validasi"></span></div>
-        <button class="primary" id="btn-simpan" type="button">Simpan</button>
-      </div>
-    </div>
-
-    <div class="card hide" id="kartu-hasil-simpan"></div>
-  </div>
-
-  <details class="card">
-    <summary>Aturan otomatis</summary>
-    <ol class="small muted" style="margin:8px 0 0; padding-left:18px">
-      <li>Komplain: resi asli sama, atau no. pesanan komplain (boleh sebagian, min. 6 karakter) ada di no. pesanan resi. Harus tepat satu.</li>
-      <li>SKU di resi yang tidak ada di komplain → BUKAN RETUR.</li>
-      <li>Satu SKU resi dan satu SKU komplain yang tidak berpasangan → REQUEST DARI PEMBELI + SKU pergantian.</li>
-      <li>Qty komplain &lt; qty resi → sebesar komplain mengikuti kategori, sisanya BUKAN RETUR (qty yang sudah diproses dihitung).</li>
-      <li>Kategori: Salah Kirim QC → KE DISPLAY; Salah Kirim Ekspedisi → BUKAN BARANG KITA; Salah Kirim (lama) → QC Benar BUKAN BARANG KITA, QC Salah KE DISPLAY; Kurang Kirim → REFUND; Reject → REJECT; Paket Kosong → BARANG TIDAK ADA; Barang Tidak Original, Tidak Sesuai Deskripsi, Telat Kirim, Salah Alamat → KE DISPLAY; Lainnya → ALASAN LAINNYA.</li>
-    </ol>
-  </details>
+<div class="lb hide" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto produk">
+  <button class="x" id="lb-tutup" type="button" aria-label="Tutup">✕</button>
+  <figure><img id="lb-img" alt=""><figcaption id="lb-cap"></figcaption></figure>
 </div>
 
 <script>
@@ -126,34 +194,47 @@
     'Telat Kirim': 'KE_DISPLAY', 'Salah Alamat': 'KE_DISPLAY', 'Lainnya': 'ALASAN_LAINNYA'
   };
   var MIN_PESANAN_SEBAGIAN = 6;
+  var IKON_MATA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+  // Foto contoh dibuat otomatis (SVG). Di aplikasi sebenarnya: foto SKU dari tblsku (URL asli, cadangan foto lokal).
+  function foto(sku, ukuran) {
+    var h = 0, i;
+    for (i = 0; i < sku.length; i++) h = (h * 31 + sku.charCodeAt(i)) % 360;
+    var inisial = sku.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + ukuran + '" height="' + ukuran + '" viewBox="0 0 200 200">' +
+      '<rect width="200" height="200" fill="hsl(' + h + ',55%,88%)"/><circle cx="100" cy="82" r="38" fill="hsl(' + h + ',55%,70%)"/>' +
+      '<rect x="48" y="128" width="104" height="30" rx="15" fill="hsl(' + h + ',55%,62%)"/>' +
+      '<text x="100" y="186" font-family="Arial" font-size="20" text-anchor="middle" fill="hsl(' + h + ',40%,30%)">' + inisial + '</text></svg>';
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
 
   function dataAwal() {
     return {
       resi: [
         { noresi: 'SPXID06257599701A', pesanan: 'SP-261029UAJWE6HD', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 14:25',
-          items: [{ sku: 'BM-AKS27-1', nama: 'Aksesoris Rambut Set A', qty: 1 }], proses: [], ket: 'Salah Kirim lama + CCTV QC Benar; resi pengembalian ID266281394104T' },
+          items: [{ sku: 'BM-AKS27-1', nama: 'Aksesoris Rambut Set A', qty: 1, foto: true }], proses: [], ket: 'Salah Kirim lama + CCTV QC Benar; resi pengembalian ID266281394104T' },
         { noresi: 'JY1816188007', pesanan: 'TT-586903093730051562-67824', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '08/11/2026 10:02',
-          items: [{ sku: 'C222-AK181-2', nama: 'Kalung Mutiara 2', qty: 1 }, { sku: 'C222-AK97-4', nama: 'Gelang Rantai 4', qty: 1 }], proses: [], ket: '2 SKU, komplain hanya 1 SKU (Reject)' },
+          items: [{ sku: 'C222-AK181-2', nama: 'Kalung Mutiara 2', qty: 1, foto: true }, { sku: 'C222-AK97-4', nama: 'Gelang Rantai 4', qty: 1, foto: true }], proses: [], ket: '2 SKU, komplain hanya 1 SKU (Reject)' },
         { noresi: 'SPXID06240296239B', pesanan: 'SP-2611028FR4N2Q3', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 09:10',
-          items: [{ sku: 'C222-AK233-1', nama: 'Anting Set 1', qty: 2 }], proses: [], ket: 'Qty resi 2, komplain 1 (Kurang Kirim)' },
+          items: [{ sku: 'C222-AK233-1', nama: 'Anting Set 1', qty: 2, foto: true }], proses: [], ket: 'Qty resi 2, komplain 1 (Kurang Kirim)' },
         { noresi: 'SPXID06002134406A', pesanan: 'SP-261025X9T4PQ1', toko: 'SP TOPI KECE', mp: 'Shopee', terima: '07/11/2026 16:40',
-          items: [{ sku: 'MX-5015-32', nama: 'Topi Rajut 32', qty: 1 }, { sku: 'MX-5015-34', nama: 'Topi Rajut 34', qty: 1 }, { sku: 'MX-5015-52', nama: 'Topi Rajut 52', qty: 1 }], proses: [], ket: '3 SKU, komplain 1 SKU, QC Salah (Salah Kirim lama)' },
+          items: [{ sku: 'MX-5015-32', nama: 'Topi Rajut 32', qty: 1, foto: true }, { sku: 'MX-5015-34', nama: 'Topi Rajut 34', qty: 1, foto: true }, { sku: 'MX-5015-52', nama: 'Topi Rajut 52', qty: 1, foto: true }], proses: [], ket: '3 SKU, komplain 1 SKU, QC Salah (Salah Kirim lama)' },
         { noresi: 'JY2000000001', pesanan: 'TT-586700000000000001-48087', toko: 'TT YARRA STORE', mp: 'Tiktok', terima: '06/11/2026 13:15',
-          items: [{ sku: 'C222-AK307-1', nama: 'Jepit Rambut Merah', qty: 1 }], proses: [], ket: 'Ganti variasi: resi AK307-1, komplain AK307-2' },
+          items: [{ sku: 'C222-AK307-1', nama: 'Jepit Rambut Merah', qty: 1, foto: true }], proses: [], ket: 'Ganti variasi: resi AK307-1, komplain AK307-2' },
         { noresi: 'SPXID06999999901A', pesanan: 'SP-261105NOKOMP01', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 08:00',
-          items: [{ sku: 'MX-5030-21', nama: 'Bandana 21', qty: 1 }, { sku: 'MX-5011-1', nama: 'Bandana 1', qty: 1 }], proses: [], ket: 'Tidak ada komplain → isi manual' },
+          items: [{ sku: 'MX-5030-21', nama: 'Bandana 21', qty: 1, foto: true }, { sku: 'MX-5011-1', nama: 'Bandana 1', qty: 1, foto: false }], proses: [], ket: 'Tanpa komplain → isi manual; satu SKU tanpa foto' },
         { noresi: 'SPXID06999999902B', pesanan: 'SP-261105DUAKOMP2', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 08:20',
-          items: [{ sku: 'GL-FNE-4', nama: 'Gelang Fine 4', qty: 1 }], proses: [], ket: 'Dua komplain aktif → ambigu' },
+          items: [{ sku: 'GL-FNE-4', nama: 'Gelang Fine 4', qty: 1, foto: true }], proses: [], ket: 'Dua komplain aktif → ambigu' },
         { noresi: 'SPXID06999999903C', pesanan: 'SP-261105BELUMTRM', toko: 'SP TOPI KECE', mp: 'Shopee', terima: null,
-          items: [{ sku: 'GL-FNE-2', nama: 'Gelang Fine 2', qty: 1 }], proses: [], ket: 'Belum Terima Retur → ditolak' },
+          items: [{ sku: 'GL-FNE-2', nama: 'Gelang Fine 2', qty: 1, foto: true }], proses: [], ket: 'Belum Terima Retur → ditolak' },
         { noresi: 'JY2000000002', pesanan: 'TT-586700000000000002-48087', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '05/11/2026 11:00',
-          items: [{ sku: 'MX1659', nama: 'Scrunchie Polos', qty: 5 }, { sku: 'C226-GTJ-5', nama: 'Gantungan 5', qty: 1 }], proses: [{ sku: 'MX1659', status: 'REJECT', qty: 2 }], ket: 'Qty 5, komplain 2, 2 sudah REJECT' },
+          items: [{ sku: 'MX1659', nama: 'Scrunchie Polos', qty: 5, foto: true }, { sku: 'C226-GTJ-5', nama: 'Gantungan 5', qty: 1, foto: true }], proses: [{ sku: 'MX1659', status: 'REJECT', qty: 2 }], ket: 'Qty 5, komplain 2, 2 sudah REJECT' },
         { noresi: 'JY2000000003', pesanan: 'TT-586700000000000003-76823', toko: 'TT YARRA STORE', mp: 'Tiktok', terima: '08/11/2026 15:30',
-          items: [{ sku: 'C223-CNC24-1', nama: 'Cincin Perak 1', qty: 1 }], proses: [], ket: 'Salah Kirim Ekspedisi' },
+          items: [{ sku: 'C223-CNC24-1', nama: 'Cincin Perak 1', qty: 1, foto: true }], proses: [], ket: 'Salah Kirim Ekspedisi' },
         { noresi: 'JY2000000004', pesanan: 'TT-586700000000000004-76823', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '08/11/2026 15:45',
-          items: [{ sku: 'T01-PTAA-62', nama: 'Tas Mini 62', qty: 1 }], proses: [], ket: 'Lainnya → ALASAN LAINNYA (alasan wajib)' },
+          items: [{ sku: 'T01-PTAA-62', nama: 'Tas Mini 62', qty: 1, foto: true }], proses: [], ket: 'Lainnya → ALASAN LAINNYA (alasan wajib)' },
         { noresi: 'SPXID06999999904D', pesanan: 'SP-2611019904DXK', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 13:00',
-          items: [{ sku: 'BM-AKS29-1', nama: 'Aksesoris 29', qty: 1 }], proses: [], ket: 'Paket Kosong; komplain hanya menulis pesanan sebagian' }
+          items: [{ sku: 'BM-AKS29-1', nama: 'Aksesoris 29', qty: 1, foto: true }], proses: [], ket: 'Paket Kosong; komplain hanya menulis pesanan sebagian' }
       ],
       komplain: [
         { id: 1222, no_resi: 'SPXID06257599701A', no_pesanan: 'SP-261029UAJWE6HD', no_resi_retur: 'ID266281394104T', kategori: 'Salah Kirim', hasil: 'QC Benar', items: [{ sku: 'BM-AKS27-1', qty: 1 }] },
@@ -173,6 +254,7 @@
 
   var db = dataAwal();
   var sesi = null;
+  var scan = null;
 
   function $(s) { return document.querySelector(s); }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -298,7 +380,6 @@
     });
     return { per: per, galat: galat, lebih: lebih, kurang: kurang, al: al };
   }
-
   function pesanValidasi(v) {
     var m = [];
     if (v.lebih.length) m.push('Qty melebihi sisa: ' + v.lebih.join(', '));
@@ -316,7 +397,8 @@
   function render() {
     var s = sesi;
     if (!s) return;
-    $('#area-hasil').classList.remove('hide');
+    $('#kartu-kosong').classList.add('hide');
+    $('#kartu-ringkas').classList.remove('hide');
     $('#kartu-hasil-simpan').classList.add('hide');
 
     if (s.ditolak) {
@@ -327,16 +409,16 @@
     $('#kartu-rencana').classList.remove('hide');
     var r = s.resi;
 
-    // ringkasan: satu baris inti, sisanya dilipat
-    var h = '<div class="l1">' + esc(r.noresi) + (s.cara !== 'resi asli' ? ' <span class="chip">dari ' + esc(s.input) + '</span>' : '') + '</div><div class="l2">';
+    var h = '<div class="l1">' + esc(r.noresi) + '</div><div class="l2">';
+    if (s.cara !== 'resi asli') h += '<span class="chip">discan: ' + esc(s.input) + '</span>';
     if (!s.komplain.length) h += '<span class="chip warn">Tanpa komplain</span>';
     else if (s.komplain.length > 1) h += '<span class="chip warn">' + s.komplain.length + ' komplain cocok</span>';
     else {
       var c = s.komplain[0];
       h += '<span class="chip ok">' + kodeK(c.k.id) + '</span><span class="chip">' + esc(c.k.kategori) + '</span><span class="chip">CCTV ' + esc(c.k.hasil) + '</span>';
-      if (c.via !== 'resi') h += '<span class="chip">cocok lewat ' + esc(c.via) + '</span>';
+      if (c.via !== 'resi') h += '<span class="chip">via ' + esc(c.via) + '</span>';
     }
-    h += '</div><details style="margin-top:8px"><summary>Detail</summary><dl class="kv">' +
+    h += '</div><details style="margin-top:10px"><summary>Detail</summary><dl class="kv">' +
       '<dt>No. pesanan</dt><dd>' + esc(r.pesanan) + '</dd>' +
       '<dt>Toko</dt><dd>' + esc(r.toko) + ' · ' + esc(r.mp) + '</dd>' +
       '<dt>Terima Retur</dt><dd>' + esc(r.terima) + '</dd>';
@@ -348,64 +430,66 @@
     h += '</dl></details>';
     $('#kartu-ringkas').innerHTML = h;
 
-    // pesan: hanya peringatan penting
     var p = '';
     var sisaTot = r.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(r, i)); }, 0);
-    if (sisaTot <= 0) p += '<div class="alert" style="border-color:var(--ok);margin:0 0 10px">Semua qty resi ini sudah diproses. Untuk mengubah, pakai menu Update Retur.</div>';
-    s.rencana.peringatan.forEach(function (w) { p += '<div class="alert" style="margin:0 0 10px">' + esc(w) + '</div>'; });
-    if (s.rencana.otomatis && sisaTot > 0) p += '<div class="small muted" style="margin-bottom:8px">Diisi otomatis dari komplain. Periksa dulu sebelum menyimpan.</div>';
+    if (s.catatanAwal) p += '<div class="alert">' + esc(s.catatanAwal) + '</div>';
+    if (sisaTot <= 0) p += '<div class="alert ok">Semua qty resi ini sudah diproses. Untuk mengubah, pakai menu Update Retur.</div>';
+    s.rencana.peringatan.forEach(function (w) { p += '<div class="alert">' + esc(w) + '</div>'; });
+    if (s.rencana.otomatis && sisaTot > 0) p += '<div class="small muted" style="margin-bottom:10px">Diisi otomatis dari komplain. Periksa dulu sebelum menyimpan.</div>';
     $('#pesan-rencana').innerHTML = p;
 
-    // tabel datar
     var v = validasi();
-    var t = '<table><thead><tr><th>SKU</th><th>Qty</th><th>Status</th><th>Keterangan</th><th></th></tr></thead><tbody>';
+    var t = '';
     var adaBaris = false;
     r.items.forEach(function (it) {
       var sisa = sisaSku(r, it), a = v.al[up(it.sku)] || 0;
       var rows = s.baris.filter(function (b) { return up(b.sku) === up(it.sku); });
-      if (!rows.length && sisa <= 0) {
-        t += '<tr><td class="sku"><b>' + esc(it.sku) + '</b><div class="small muted">' + esc(it.nama) + '</div></td><td colspan="4" class="muted">selesai diproses</td></tr>';
-        return;
-      }
-      var warna = a > sisa ? 'var(--bad)' : (a < sisa ? 'var(--warn)' : 'var(--muted)');
-      rows.forEach(function (b, idx) {
+      var warna = sisa <= 0 ? 'var(--ok)' : (a > sisa ? 'var(--bad)' : (a < sisa ? 'var(--warn)' : 'var(--muted)'));
+      var teksAl = sisa <= 0 ? 'selesai diproses' : (a + ' / ' + sisa + ' pcs');
+      var fotoHtml = it.foto
+        ? '<div class="foto"><img src="' + foto(it.sku, 160) + '" alt="' + esc(it.nama) + '"><button type="button" class="eye" data-act="foto" data-sku="' + esc(it.sku) + '" title="Lihat foto penuh" aria-label="Lihat foto penuh">' + IKON_MATA + '</button></div>'
+        : '<div class="foto tanpa" title="Foto SKU belum ada di data produk">Foto belum ada</div>';
+      t += '<div class="grp">' + fotoHtml + '<div class="body"><div class="ghead"><div><b>' + esc(it.sku) + '</b><div class="small muted">' + esc(it.nama) +
+        (it.foto ? '' : ' · <span style="color:var(--bad)">lengkapi foto di data SKU</span>') + '</div></div><div class="alok" style="color:' + warna + '">' + teksAl + '</div></div><div class="lines">';
+      rows.forEach(function (b) {
         adaBaris = true;
         var e = v.per[b.id] || [];
-        t += '<tr data-id="' + b.id + '">';
-        if (idx === 0) {
-          t += '<td class="sku" rowspan="' + rows.length + '"><b>' + esc(it.sku) + '</b><div class="small muted">' + esc(it.nama) + '</div>' +
-            '<div class="small" style="color:' + warna + '">' + a + ' / ' + sisa + ' pcs</div>' +
-            '<button class="link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ baris</button></td>';
-        }
+        var maks = sisa - (a - (parseInt(b.qty, 10) || 0));
+        var qn = parseInt(b.qty, 10) || 0;
         var kls = b.diubah ? 'edit' : (b.sumber === 'manual' ? 'manual' : '');
         var judul = b.diubah ? 'Diedit' : (b.sumber === 'manual' ? 'Manual' : 'Diisi otomatis');
-        t += '<td class="qty"><input type="number" min="1" value="' + esc(b.qty) + '" data-f="qty"></td>' +
-          '<td><span class="dot ' + kls + '" title="' + judul + '"></span><select data-f="status"><option value="">— pilih —</option>' +
+        t += '<div class="line" data-id="' + b.id + '">' +
+          '<div class="stepper"><button type="button" data-act="qty-" aria-label="Kurangi qty"' + (qn <= 1 ? ' disabled' : '') + '>−</button>' +
+          '<input type="number" inputmode="numeric" min="1" max="' + maks + '" value="' + esc(b.qty) + '" data-f="qty" aria-label="Qty">' +
+          '<button type="button" data-act="qty+" aria-label="Tambah qty"' + (qn >= maks ? ' disabled' : '') + '>+</button></div>' +
+          '<div class="st"><span class="dot ' + kls + '" title="' + judul + '"></span><select data-f="status" aria-label="Status detail"><option value="">— pilih status —</option>' +
           Object.keys(STATUS).map(function (k) { return '<option value="' + k + '"' + (b.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>'; }).join('') +
-          '</select>' + (e.length ? '<span class="err">' + esc(e[0]) + '</span>' : '') + '</td><td class="ket">';
+          '</select>' + (e.length ? '<span class="err">' + esc(e[0]) + '</span>' : '') + '</div><div class="ket">';
         if (WAJIB_ALASAN[b.status]) t += '<input type="text" data-f="alasan" placeholder="' + WAJIB_ALASAN[b.status] + '" value="' + esc(b.alasan) + '">';
         else if (WAJIB_PERGANTIAN[b.status]) t += '<input type="text" data-f="perg" placeholder="SKU pergantian" value="' + esc(b.perg) + '">';
-        else if (b.catatan) t += '<span class="small muted">' + esc(b.catatan) + '</span>';
-        t += '</td><td class="act"><button class="icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru">⑂</button>' +
-          '<button class="icon" data-act="hapus" title="Hapus baris">✕</button></td></tr>';
+        else if (b.catatan) t += '<span class="cat">' + esc(b.catatan) + '</span>';
+        t += '</div><div class="act"><button type="button" class="icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru" aria-label="Pecah">⑂</button>' +
+          '<button type="button" class="icon" data-act="hapus" title="Hapus baris" aria-label="Hapus baris">✕</button></div></div>';
       });
-      if (!rows.length) {
-        t += '<tr><td class="sku"><b>' + esc(it.sku) + '</b><div class="small muted">' + esc(it.nama) + '</div><div class="small" style="color:var(--warn)">0 / ' + sisa + ' pcs</div></td>' +
-          '<td colspan="4"><button class="link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ tambah baris</button></td></tr>';
-      }
+      if (sisa > 0) t += '<div><button type="button" class="link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ tambah baris</button></div>';
+      t += '</div></div></div>';
     });
-    t += '</tbody></table>';
     $('#isi-rencana').innerHTML = t;
     perbaruiFoot();
     if (!adaBaris) $('#btn-simpan').disabled = true;
   }
 
   // ---------- Aksi ----------
+  function adaEditBelumSimpan() {
+    return sesi && sesi.resi && sesi.baris.some(function (b) { return b.diubah; });
+  }
+
   function pindai(input) {
-    input = input.trim();
+    input = String(input || '').trim();
     if (!input) return;
+    var catatan = adaEditBelumSimpan() ? 'Rencana resi ' + sesi.resi.noresi + ' yang belum disimpan telah diganti oleh scan ini.' : '';
     var c = cariResi(input);
-    sesi = { input: input, resi: null, komplain: [], rencana: null, baris: [], cara: '' };
+    sesi = { input: input, resi: null, komplain: [], rencana: null, baris: [], cara: '', catatanAwal: catatan };
     if (!c) { sesi.ditolak = 'Resi "' + input + '" tidak ditemukan (bukan resi asli maupun resi pengembalian yang terdaftar).'; render(); return; }
     sesi.resi = c.resi; sesi.cara = c.cara;
     if (!c.resi.terima) { sesi.ditolak = 'Resi ' + c.resi.noresi + ' belum discan Terima Retur. Scan Terima Retur dulu.'; render(); return; }
@@ -416,10 +500,38 @@
   }
 
   function temukanBaris(el) {
-    var tr = el.closest('tr[data-id]');
+    var tr = el.closest('[data-id]');
     if (!tr) return null;
     var id = parseInt(tr.getAttribute('data-id'), 10);
     return sesi.baris.filter(function (b) { return b.id === id; })[0] || null;
+  }
+  function batasQty(b) {
+    var it = sesi.resi.items.filter(function (i) { return up(i.sku) === up(b.sku); })[0];
+    var al = alokasi()[up(b.sku)] || 0;
+    return sisaSku(sesi.resi, it) - (al - (parseInt(b.qty, 10) || 0));
+  }
+
+  // ---------- Fokus: kursor selalu kembali ke kolom scan ----------
+  function lightboxTerbuka() { return !$('#lightbox').classList.contains('hide'); }
+  function kunciFokus() {
+    if (lightboxTerbuka()) return;
+    var a = document.activeElement;
+    if (a && a !== scan && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) return; // sedang mengedit
+    if (a !== scan) scan.focus();
+  }
+  document.addEventListener('click', function () { setTimeout(kunciFokus, 0); });
+  document.addEventListener('focusout', function () { setTimeout(kunciFokus, 60); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && lightboxTerbuka()) { tutupLightbox(); return; }
+    // Enter di kolom edit mengembalikan kursor ke scan
+    if (e.key === 'Enter' && e.target !== scan && /^(INPUT|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); scan.focus(); }
+  });
+
+  // ---------- Scan: Enter memproses, kolom dikosongkan setiap scan ----------
+  function prosesScan() {
+    var nilai = scan.value;
+    scan.value = ''; // kosongkan dulu supaya scan berikutnya mulai dari kolom bersih
+    pindai(nilai);
   }
 
   document.addEventListener('input', function (e) {
@@ -434,13 +546,17 @@
   document.addEventListener('change', function (e) {
     var f = e.target.getAttribute && e.target.getAttribute('data-f');
     if (!f || !sesi) return;
+    if (f === 'qty') { var b = temukanBaris(e.target); if (b) { var m = batasQty(b); b.qty = Math.max(1, Math.min(parseInt(b.qty, 10) || 1, m)); } }
     render();
+    setTimeout(kunciFokus, 0);
   });
 
   document.addEventListener('click', function (e) {
     var tombol = e.target.closest ? e.target.closest('[data-act]') : null;
-    if (!tombol || !sesi) return;
+    if (!tombol) return;
     var act = tombol.getAttribute('data-act');
+    if (act === 'foto') { bukaLightbox(tombol.getAttribute('data-sku')); return; }
+    if (!sesi) return;
     if (act === 'tambah') {
       var sku = tombol.getAttribute('data-sku');
       var it = sesi.resi.items.filter(function (i) { return i.sku === sku; })[0];
@@ -452,6 +568,8 @@
       var b = temukanBaris(tombol);
       if (!b) return;
       if (act === 'hapus') sesi.baris = sesi.baris.filter(function (x) { return x !== b; });
+      if (act === 'qty+') { b.qty = Math.min((parseInt(b.qty, 10) || 0) + 1, batasQty(b)); b.diubah = true; }
+      if (act === 'qty-') { b.qty = Math.max(1, (parseInt(b.qty, 10) || 1) - 1); b.diubah = true; }
       if (act === 'pecah') {
         if ((parseInt(b.qty, 10) || 0) < 2) { alert('Qty baris ini 1, tidak bisa dipecah.'); return; }
         b.qty = parseInt(b.qty, 10) - 1; b.diubah = true;
@@ -462,10 +580,24 @@
     render();
   });
 
+  // ---------- Lightbox foto ----------
+  function bukaLightbox(sku) {
+    var it = sesi && sesi.resi.items.filter(function (i) { return i.sku === sku; })[0];
+    $('#lb-img').src = foto(sku, 900);
+    $('#lb-img').alt = it ? it.nama : sku;
+    $('#lb-cap').textContent = sku + (it ? ' · ' + it.nama : '');
+    $('#lightbox').classList.remove('hide');
+    $('#lb-tutup').focus();
+  }
+  function tutupLightbox() { $('#lightbox').classList.add('hide'); scan.focus(); }
+  $('#lb-tutup').addEventListener('click', tutupLightbox);
+  $('#lightbox').addEventListener('click', function (e) { if (e.target === this) tutupLightbox(); });
+
   $('#btn-otomatis-ulang').addEventListener('click', function () {
     if (!sesi || !sesi.resi) return;
     sesi.rencana = susunRencana(sesi.resi, sesi.komplain);
     sesi.baris = sesi.rencana.baris.slice();
+    sesi.catatanAwal = '';
     render();
   });
 
@@ -487,16 +619,16 @@
     Object.keys(perStatus).forEach(function (k, i) { if (i === 0 || perStatus[k] > perStatus[label]) label = k; });
     var sisa = sesi.resi.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(sesi.resi, i)); }, 0);
     var h = '<div class="ok-line">Tersimpan · ' + payload.length + ' baris · status resi: ' + esc(STATUS[label]) + '</div>' +
-      '<div class="small muted" style="margin-top:2px">' + (sisa > 0 ? sisa + ' pcs belum diproses; resi masih bisa dibuka lagi.' : 'Semua qty sudah diproses.') + '</div>' +
+      '<div class="small muted" style="margin-top:2px">' + (sisa > 0 ? sisa + ' pcs belum diproses; resi masih bisa dibuka lagi.' : 'Semua qty sudah diproses.') + ' Scan resi berikutnya.</div>' +
       '<details style="margin-top:8px"><summary>Data yang dikirim ke server</summary><pre>' + esc(JSON.stringify(payload, null, 2)) + '</pre></details>';
     sesi.rencana = susunRencana(sesi.resi, sesi.komplain);
     sesi.baris = sesi.rencana.baris.slice();
+    sesi.catatanAwal = '';
     render();
     $('#kartu-hasil-simpan').innerHTML = h;
     $('#kartu-hasil-simpan').classList.remove('hide');
+    scan.focus();
   });
-
-  $('#form-scan').addEventListener('submit', function (e) { e.preventDefault(); pindai($('#input-resi').value); $('#input-resi').select(); });
 
   function gambarDaftar() {
     $('#daftar-uji').innerHTML = db.resi.map(function (r) {
@@ -508,13 +640,24 @@
   $('#daftar-uji').addEventListener('click', function (e) {
     var li = e.target.closest('li[data-resi]');
     if (!li) return;
-    $('#input-resi').value = li.getAttribute('data-resi');
     pindai(li.getAttribute('data-resi'));
   });
-  $('#btn-reset-data').addEventListener('click', function () { db = dataAwal(); sesi = null; $('#area-hasil').classList.add('hide'); $('#input-resi').value = ''; gambarDaftar(); });
+  $('#btn-reset-data').addEventListener('click', function () {
+    db = dataAwal(); sesi = null;
+    $('#kartu-ringkas').classList.add('hide'); $('#kartu-rencana').classList.add('hide'); $('#kartu-hasil-simpan').classList.add('hide');
+    $('#kartu-kosong').classList.remove('hide');
+    gambarDaftar();
+  });
+
+  scan = $('#input-resi');
+  scan.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); prosesScan(); } });
+  scan.addEventListener('focus', function () { if (document.activeElement === scan && scan.value && !scan.dataset.ketik) scan.select(); });
+  scan.addEventListener('input', function () { scan.dataset.ketik = '1'; });
+  scan.addEventListener('blur', function () { delete scan.dataset.ketik; });
 
   gambarDaftar();
-  window.__proto = { pindai: pindai, state: function () { return sesi; }, db: function () { return db; } };
+  scan.focus();
+  window.__proto = { pindai: pindai, prosesScan: prosesScan, state: function () { return sesi; }, db: function () { return db; } };
 })();
 </script>
 </body>
