@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype — Buka Retur Otomatis</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --card: #fff; --line: #e2e8f0; --text: #0f172a; --muted: #64748b;
+    --primary: #4f46e5; --primary-l: #eef2ff; --ok: #059669; --ok-l: #ecfdf5; --warn: #b45309; --warn-l: #fffbeb;
+    --bad: #b91c1c; --bad-l: #fef2f2; --sky-l: #f0f9ff; --sky: #0369a1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --primary:#818cf8; --primary-l:#312e81;
+      --ok:#34d399; --ok-l:#064e3b; --warn:#fbbf24; --warn-l:#451a03; --bad:#f87171; --bad-l:#450a0a; --sky-l:#0c4a6e; --sky:#7dd3fc; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .tab { padding: 8px 14px; color: var(--muted); border-bottom: 2px solid transparent; font-weight: 600; }
+  .tab.aktif { color: var(--primary); border-color: var(--primary); }
+  .tab.tak-aktif { opacity: .55; }
+  input[type=text], input[type=number], select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); }
+  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 12px; }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { color: var(--muted); }
+  button.mini { padding: 3px 8px; font-size: 12px; }
+  .scanrow { display: flex; gap: 8px; }
+  .scanrow input { flex: 1; font-size: 16px; padding: 9px 12px; }
+  .uji { list-style: none; margin: 0; padding: 0; }
+  .uji li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
+  .uji li:hover { border-color: var(--primary); background: var(--primary-l); }
+  .uji b { display: block; font-size: 13px; word-break: break-all; }
+  .uji span { color: var(--muted); font-size: 12px; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--primary-l); color: var(--primary); }
+  .pill.ok { background: var(--ok-l); color: var(--ok); } .pill.warn { background: var(--warn-l); color: var(--warn); }
+  .pill.bad { background: var(--bad-l); color: var(--bad); } .pill.sky { background: var(--sky-l); color: var(--sky); }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; margin: 0; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; word-break: break-word; }
+  .alert { padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid; }
+  .alert.bad { background: var(--bad-l); color: var(--bad); border-color: var(--bad); }
+  .alert.warn { background: var(--warn-l); color: var(--warn); border-color: var(--warn); }
+  .alert.ok { background: var(--ok-l); color: var(--ok); border-color: var(--ok); }
+  .alert.sky { background: var(--sky-l); color: var(--sky); border-color: var(--sky); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; color: var(--muted); padding: 6px 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr.sku-head td { background: var(--bg); font-weight: 600; }
+  td.qty input { width: 64px; }
+  td select { max-width: 190px; }
+  .src { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+  .err { color: var(--bad); font-size: 12px; display: block; }
+  .bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .alokasi { font-size: 12px; font-weight: 600; }
+  .alokasi.ok { color: var(--ok); } .alokasi.kurang { color: var(--warn); } .alokasi.lebih { color: var(--bad); }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; font-size: 12px; max-height: 260px; }
+  .hide { display: none; }
+  .legend span { margin-right: 10px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .note { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prototype — Tab "Buka Retur Otomatis"</h1>
+  <p class="sub">Menu Retur → Scan Retur Komplain. Data di halaman ini <b>contoh</b> (SKU dan pola mengikuti kasus nyata, nomor sebagian fiktif). Tidak ada yang tersimpan ke database; semua dihitung di browser dengan aturan yang sama seperti rancangan.</p>
+
+  <div class="tabs">
+    <div class="tab tak-aktif">Terima Retur</div>
+    <div class="tab tak-aktif">Buka Retur</div>
+    <div class="tab aktif">Buka Retur Otomatis <span class="pill sky">baru</span></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Data uji (klik untuk scan)</h2>
+        <ul class="uji" id="daftar-uji"></ul>
+        <button class="ghost mini" id="btn-reset-data">Kembalikan semua data uji</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>1. Scan resi</h2>
+        <form id="form-scan" class="scanrow" autocomplete="off">
+          <input type="text" id="input-resi" placeholder="Scan resi asli / resi pengembalian marketplace" autofocus>
+          <button class="primary" type="submit">Cari &amp; cocokkan</button>
+        </form>
+        <p class="note" style="margin:8px 0 0">Boleh resi asli, atau resi pengembalian yang diisi CS saat status "Pengembalian Dana dan Barang".</p>
+      </div>
+
+      <div id="area-hasil" class="hide">
+        <div class="card" id="kartu-matching">
+          <h2>2. Hasil matching</h2>
+          <div id="isi-matching"></div>
+        </div>
+
+        <div class="card" id="kartu-rencana">
+          <h2>3. Rencana Buka Retur (bisa diedit)</h2>
+          <div id="pesan-rencana"></div>
+          <div id="isi-rencana"></div>
+          <div class="bar">
+            <div>
+              <button class="ghost" id="btn-otomatis-ulang" type="button">Terapkan ulang otomatis</button>
+              <span class="note" id="ringkas-validasi"></span>
+            </div>
+            <button class="primary" id="btn-simpan" type="button">Simpan keseluruhan</button>
+          </div>
+        </div>
+
+        <div class="card hide" id="kartu-hasil-simpan">
+          <h2>4. Hasil simpan (simulasi)</h2>
+          <div id="isi-hasil-simpan"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <details>
+          <summary>Aturan otomatis yang dipakai (urutan prioritas)</summary>
+          <ol class="note" style="color:var(--text)">
+            <li><b>Komplain dicari</b>: resi asli sama, atau no. pesanan komplain (boleh sebagian, min. 6 karakter) terkandung di no. pesanan resi. Harus tepat <b>satu</b> komplain aktif; selain itu tidak ada isi otomatis.</li>
+            <li><b>SKU di resi yang tidak ada di komplain</b> → BUKAN_RETUR (pembeli menerima barangnya).</li>
+            <li><b>Satu SKU resi dan satu SKU komplain yang tidak berpasangan</b> → REQUEST_DARI_PEMBELI, SKU pergantian = SKU komplain.</li>
+            <li><b>Qty komplain &lt; qty resi</b> → qty komplain memakai saran kategori, sisanya BUKAN_RETUR. Qty yang sudah diproses sebelumnya dihitung.</li>
+            <li><b>Saran kategori</b>: Salah Kirim QC → KE_DISPLAY; Salah Kirim Ekspedisi → BUKAN_BARANG_KITA; Salah Kirim (lama) → QC Benar: BUKAN_BARANG_KITA / QC Salah: KE_DISPLAY; Kurang Kirim → REFUND; Reject → REJECT; Paket Kosong → BARANG_TIDAK_ADA; Barang Tidak Original, Tidak Sesuai Deskripsi, Telat Kirim, Salah Alamat → KE_DISPLAY; Lainnya → ALASAN_LAINNYA; Paket Hilang → tanpa saran.</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Konstanta ----------
+  var STATUS = {
+    KE_DISPLAY: 'KE DISPLAY', REJECT: 'REJECT', REFUND: 'REFUND', PENUKARAN_BERES: 'PENDINGAN BERES (PB)',
+    REQUEST_DARI_PEMBELI: 'REQUEST DARI PEMBELI', KURANG: 'KURANG KIRIM', BUKAN_BARANG_KITA: 'BUKAN BARANG KITA',
+    DIPAKAI_ADMIN: 'DIPAKAI ADMIN', BARANG_TIDAK_ADA: 'BARANG TIDAK ADA', BUKAN_RETUR: 'BUKAN RETUR', ALASAN_LAINNYA: 'ALASAN LAINNYA'
+  };
+  var WAJIB_ALASAN = { REJECT: 'Alasan ditolak', ALASAN_LAINNYA: 'Tulis alasan' };
+  var WAJIB_PERGANTIAN = { PENUKARAN_BERES: 1, REQUEST_DARI_PEMBELI: 1 };
+  var SARAN_KATEGORI = {
+    'Salah Kirim QC': 'KE_DISPLAY', 'Salah Kirim Ekspedisi': 'BUKAN_BARANG_KITA', 'Reject': 'REJECT', 'Kurang Kirim': 'REFUND',
+    'Paket Kosong': 'BARANG_TIDAK_ADA', 'Barang Tidak Original': 'KE_DISPLAY', 'Tidak Sesuai Deskripsi': 'KE_DISPLAY',
+    'Telat Kirim': 'KE_DISPLAY', 'Salah Alamat': 'KE_DISPLAY', 'Lainnya': 'ALASAN_LAINNYA'
+  };
+  var MIN_PESANAN_SEBAGIAN = 6;
+
+  // ---------- Data uji (contoh) ----------
+  function dataAwal() {
+    return {
+      resi: [
+        { noresi: 'SPXID06257599701A', pesanan: 'SP-261029UAJWE6HD', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 14:25',
+          items: [{ sku: 'BM-AKS27-1', nama: 'Aksesoris Rambut Set A', qty: 1 }], proses: [], ket: 'Salah Kirim lama + CCTV QC Benar; resi pengembalian ID266281394104T' },
+        { noresi: 'JY1816188007', pesanan: 'TT-586903093730051562-67824', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '08/11/2026 10:02',
+          items: [{ sku: 'C222-AK181-2', nama: 'Kalung Mutiara 2', qty: 1 }, { sku: 'C222-AK97-4', nama: 'Gelang Rantai 4', qty: 1 }], proses: [], ket: '2 SKU, komplain hanya 1 SKU (Reject)' },
+        { noresi: 'SPXID06240296239B', pesanan: 'SP-2611028FR4N2Q3', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 09:10',
+          items: [{ sku: 'C222-AK233-1', nama: 'Anting Set 1', qty: 2 }], proses: [], ket: 'Qty resi 2, komplain 1 (Kurang Kirim)' },
+        { noresi: 'SPXID06002134406A', pesanan: 'SP-261025X9T4PQ1', toko: 'SP TOPI KECE', mp: 'Shopee', terima: '07/11/2026 16:40',
+          items: [{ sku: 'MX-5015-32', nama: 'Topi Rajut 32', qty: 1 }, { sku: 'MX-5015-34', nama: 'Topi Rajut 34', qty: 1 }, { sku: 'MX-5015-52', nama: 'Topi Rajut 52', qty: 1 }], proses: [], ket: '3 SKU, komplain 1 SKU, QC Salah (Salah Kirim lama)' },
+        { noresi: 'JY2000000001', pesanan: 'TT-586700000000000001-48087', toko: 'TT YARRA STORE', mp: 'Tiktok', terima: '06/11/2026 13:15',
+          items: [{ sku: 'C222-AK307-1', nama: 'Jepit Rambut Merah', qty: 1 }], proses: [], ket: 'Pembeli minta ganti variasi: resi AK307-1, komplain AK307-2' },
+        { noresi: 'SPXID06999999901A', pesanan: 'SP-261105NOKOMP01', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 08:00',
+          items: [{ sku: 'MX-5030-21', nama: 'Bandana 21', qty: 1 }, { sku: 'MX-5011-1', nama: 'Bandana 1', qty: 1 }], proses: [], ket: 'Tidak ada komplain → isi manual' },
+        { noresi: 'SPXID06999999902B', pesanan: 'SP-261105DUAKOMP2', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 08:20',
+          items: [{ sku: 'GL-FNE-4', nama: 'Gelang Fine 4', qty: 1 }], proses: [], ket: 'Dua komplain aktif → ambigu' },
+        { noresi: 'SPXID06999999903C', pesanan: 'SP-261105BELUMTRM', toko: 'SP TOPI KECE', mp: 'Shopee', terima: null,
+          items: [{ sku: 'GL-FNE-2', nama: 'Gelang Fine 2', qty: 1 }], proses: [], ket: 'Belum Terima Retur → ditolak' },
+        { noresi: 'JY2000000002', pesanan: 'TT-586700000000000002-48087', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '05/11/2026 11:00',
+          items: [{ sku: 'MX1659', nama: 'Scrunchie Polos', qty: 5 }, { sku: 'C226-GTJ-5', nama: 'Gantungan 5', qty: 1 }], proses: [{ sku: 'MX1659', status: 'REJECT', qty: 2 }], ket: 'Qty 5, komplain 2, 2 sudah diproses REJECT; ada 1 SKU lain' },
+        { noresi: 'JY2000000003', pesanan: 'TT-586700000000000003-76823', toko: 'TT YARRA STORE', mp: 'Tiktok', terima: '08/11/2026 15:30',
+          items: [{ sku: 'C223-CNC24-1', nama: 'Cincin Perak 1', qty: 1 }], proses: [], ket: 'Salah Kirim Ekspedisi' },
+        { noresi: 'JY2000000004', pesanan: 'TT-586700000000000004-76823', toko: 'TT CARAMEL', mp: 'Tiktok', terima: '08/11/2026 15:45',
+          items: [{ sku: 'T01-PTAA-62', nama: 'Tas Mini 62', qty: 1 }], proses: [], ket: 'Kategori Lainnya → ALASAN_LAINNYA (alasan wajib)' },
+        { noresi: 'SPXID06999999904D', pesanan: 'SP-2611019904DXK', toko: 'BEVERRA OFFICIAL STORE', mp: 'Shopee', terima: '09/11/2026 13:00',
+          items: [{ sku: 'BM-AKS29-1', nama: 'Aksesoris 29', qty: 1 }], proses: [], ket: 'Paket Kosong; komplain hanya menulis no. pesanan sebagian "2611019904"' }
+      ],
+      komplain: [
+        { id: 1222, no_resi: 'SPXID06257599701A', no_pesanan: 'SP-261029UAJWE6HD', no_resi_retur: 'ID266281394104T', kategori: 'Salah Kirim', hasil: 'QC Benar', items: [{ sku: 'BM-AKS27-1', qty: 1 }] },
+        { id: 1033, no_resi: 'JY1816188007', no_pesanan: 'TT-586903093730051562-67824', kategori: 'Reject', hasil: 'QC Benar', items: [{ sku: 'C222-AK97-4', qty: 1 }] },
+        { id: 1228, no_resi: 'SPXID06240296239B', no_pesanan: 'SP-2611028FR4N2Q3', kategori: 'Kurang Kirim', hasil: 'QC Benar', items: [{ sku: 'C222-AK233-1', qty: 1 }] },
+        { id: 1025, no_resi: 'SPXID06002134406A', no_pesanan: 'SP-261025X9T4PQ1', kategori: 'Salah Kirim', hasil: 'QC Salah', items: [{ sku: 'MX-5015-32', qty: 1 }] },
+        { id: 1290, no_resi: 'JY2000000001', no_pesanan: 'TT-586700000000000001-48087', no_resi_retur: 'ID200000000001X', kategori: 'Salah Kirim QC', hasil: 'QC Salah', items: [{ sku: 'C222-AK307-2', qty: 1 }] },
+        { id: 1300, no_resi: 'SPXID06999999902B', no_pesanan: 'SP-261105DUAKOMP2', kategori: 'Reject', hasil: 'QC Benar', items: [{ sku: 'GL-FNE-4', qty: 1 }] },
+        { id: 1301, no_resi: 'SPXID06999999902B', no_pesanan: 'SP-261105DUAKOMP2', kategori: 'Kurang Kirim', hasil: 'QC Benar', items: [{ sku: 'GL-FNE-4', qty: 1 }] },
+        { id: 1178, no_resi: 'JY2000000002', no_pesanan: 'TT-586700000000000002-48087', kategori: 'Reject', hasil: 'QC Benar', items: [{ sku: 'MX1659', qty: 2 }] },
+        { id: 1310, no_resi: 'JY2000000003', no_pesanan: 'TT-586700000000000003-76823', kategori: 'Salah Kirim Ekspedisi', hasil: 'QC Benar', items: [{ sku: 'C223-CNC24-1', qty: 1 }] },
+        { id: 1311, no_resi: 'JY2000000004', no_pesanan: 'TT-586700000000000004-76823', kategori: 'Lainnya', hasil: 'QC Benar', items: [{ sku: 'T01-PTAA-62', qty: 1 }] },
+        { id: 1320, no_resi: '', no_pesanan: '2611019904', kategori: 'Paket Kosong', hasil: 'QC Benar', items: [{ sku: 'BM-AKS29-1', qty: 1 }] }
+      ]
+    };
+  }
+
+  var db = dataAwal();
+  var sesi = null; // { resi, komplain, cara, baris:[], pesanErr }
+
+  // ---------- Util ----------
+  function $(s) { return document.querySelector(s); }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function up(t) { return String(t || '').trim().toUpperCase(); }
+  function kodeK(id) { return 'K-' + ('00000' + id).slice(-5); }
+  function sumQty(list, fn) { return list.reduce(function (a, x) { return a + (fn(x) ? x.qty : 0); }, 0); }
+
+  // ---------- Pencocokan ----------
+  function cariResi(input) {
+    var v = up(input);
+    var langsung = db.resi.filter(function (r) { return up(r.noresi) === v; })[0];
+    if (langsung) return { resi: langsung, cara: 'resi asli' };
+    var kom = db.komplain.filter(function (k) { return k.no_resi_retur && up(k.no_resi_retur) === v; });
+    var unik = {};
+    kom.forEach(function (k) { unik[up(k.no_resi)] = 1; });
+    var kunci = Object.keys(unik);
+    if (kunci.length === 1) {
+      var r = db.resi.filter(function (x) { return up(x.noresi) === kunci[0]; })[0];
+      if (r) return { resi: r, cara: 'resi pengembalian marketplace → resi asli', resiPengembalian: input.trim() };
+    }
+    return null;
+  }
+
+  function cariKomplain(resi) {
+    return db.komplain.filter(function (k) {
+      if (up(k.no_resi) === up(resi.noresi)) return true;
+      var p = up(k.no_pesanan);
+      return p.length >= MIN_PESANAN_SEBAGIAN && up(resi.pesanan).indexOf(p) !== -1;
+    }).map(function (k) {
+      var via = up(k.no_resi) === up(resi.noresi) ? 'resi asli' : (up(k.no_pesanan) === up(resi.pesanan) ? 'no. pesanan' : 'no. pesanan sebagian');
+      return { k: k, via: via };
+    });
+  }
+
+  function kodeKategori(k) {
+    if (k.kategori === 'Salah Kirim') return { 'QC Benar': 'BUKAN_BARANG_KITA', 'QC Salah': 'KE_DISPLAY' }[k.hasil] || '';
+    return SARAN_KATEGORI[k.kategori] || '';
+  }
+
+  // ---------- Rencana otomatis ----------
+  function sudahProses(resi, sku, jenis) {
+    return resi.proses.filter(function (p) { return up(p.sku) === up(sku); })
+      .reduce(function (a, p) { return a + (jenis === 'bukan' ? (p.status === 'BUKAN_RETUR' ? p.qty : 0) : (jenis === 'lain' ? (p.status !== 'BUKAN_RETUR' ? p.qty : 0) : p.qty)); }, 0);
+  }
+  function sisaSku(resi, it) { return it.qty - sudahProses(resi, it.sku, 'semua'); }
+
+  var seq = 0;
+  function baris(sku, qty, status, sumber, catatan, perg) {
+    return { id: ++seq, sku: sku, qty: qty, status: status || '', alasan: '', perg: perg || '', sumber: sumber, catatan: catatan || '' };
+  }
+
+  function susunRencana(resi, komplainCocok) {
+    var out = { baris: [], peringatan: [], otomatis: false };
+    if (komplainCocok.length === 0) {
+      out.peringatan.push('Tidak ada komplain aktif yang cocok. Isi status detail manual.');
+      resi.items.forEach(function (it) { var s = sisaSku(resi, it); if (s > 0) out.baris.push(baris(it.sku, s, '', 'manual', 'Tanpa komplain')); });
+      return out;
+    }
+    if (komplainCocok.length > 1) {
+      out.peringatan.push('Ada ' + komplainCocok.length + ' komplain aktif cocok (' + komplainCocok.map(function (c) { return kodeK(c.k.id); }).join(', ') + '). Tidak diisi otomatis agar tidak salah; tentukan manual.');
+      resi.items.forEach(function (it) { var s = sisaSku(resi, it); if (s > 0) out.baris.push(baris(it.sku, s, '', 'manual', 'Komplain ambigu')); });
+      return out;
+    }
+    out.otomatis = true;
+    var k = komplainCocok[0].k;
+    var kode = kodeKategori(k);
+    var qk = {}, qr = {};
+    k.items.forEach(function (i) { qk[up(i.sku)] = (qk[up(i.sku)] || 0) + i.qty; });
+    resi.items.forEach(function (i) { qr[up(i.sku)] = (qr[up(i.sku)] || 0) + i.qty; });
+    var lebihResi = resi.items.filter(function (i) { return !(up(i.sku) in qk); });
+    var lebihKom = k.items.filter(function (i) { return !(up(i.sku) in qr); });
+
+    resi.items.forEach(function (it) {
+      var key = up(it.sku), sisa = sisaSku(resi, it);
+      if (sisa <= 0) return;
+      if (key in qk) {
+        var jk = qk[key], jr = qr[key];
+        if (jk > jr) out.peringatan.push('SKU ' + it.sku + ': qty komplain (' + jk + ') lebih besar dari qty resi (' + jr + ').');
+        var sisaKom = Math.max(0, Math.min(jk, jr) - sudahProses(resi, it.sku, 'lain'));
+        var sisaBukan = Math.max(0, (jr - jk) - sudahProses(resi, it.sku, 'bukan'));
+        var sisaPakai = sisa;
+        if (sisaKom > 0) {
+          var q = Math.min(sisaKom, sisaPakai);
+          out.baris.push(baris(it.sku, q, kode, jr > jk ? 'qty' : 'kategori',
+            jr > jk ? ('Komplain ' + jk + ' dari ' + jr + ' pcs') : ('Kategori ' + k.kategori + (k.kategori === 'Salah Kirim' ? ' + CCTV ' + k.hasil : ''))));
+          sisaPakai -= q;
+        }
+        if (sisaBukan > 0 && sisaPakai > 0) {
+          var q2 = Math.min(sisaBukan, sisaPakai);
+          out.baris.push(baris(it.sku, q2, 'BUKAN_RETUR', 'qty', 'Sisa di luar qty komplain (diterima pembeli)'));
+        }
+      } else if (!lebihKom.length) {
+        out.baris.push(baris(it.sku, sisa, 'BUKAN_RETUR', 'bukan-komplain', 'SKU tidak ada di komplain (diterima pembeli)'));
+      } else if (lebihResi.length === 1 && lebihKom.length === 1) {
+        out.baris.push(baris(it.sku, sisa, 'REQUEST_DARI_PEMBELI', 'request', 'SKU komplain ' + lebihKom[0].sku + ' berbeda dengan resi', lebihKom[0].sku));
+      } else {
+        out.baris.push(baris(it.sku, sisa, '', 'manual', 'SKU tidak berpasangan, tentukan manual'));
+        out.peringatan.push('SKU ' + it.sku + ' tidak berpasangan jelas dengan SKU komplain.');
+      }
+    });
+    return out;
+  }
+
+  // ---------- Validasi ----------
+  function alokasi() {
+    var m = {};
+    sesi.baris.forEach(function (b) { m[up(b.sku)] = (m[up(b.sku)] || 0) + (parseInt(b.qty, 10) || 0); });
+    return m;
+  }
+  function validasi() {
+    var galat = [], per = {}, al = alokasi();
+    sesi.baris.forEach(function (b) {
+      var e = [];
+      var q = parseInt(b.qty, 10) || 0;
+      if (q < 1) e.push('Qty minimal 1');
+      if (!b.status) e.push('Pilih status detail');
+      if (WAJIB_ALASAN[b.status] && !String(b.alasan).trim()) e.push(WAJIB_ALASAN[b.status] + ' wajib diisi');
+      if (WAJIB_PERGANTIAN[b.status] && !String(b.perg).trim()) e.push('SKU pergantian wajib diisi');
+      per[b.id] = e;
+      if (e.length) galat.push(e[0]);
+    });
+    var lebih = [], kurang = [];
+    sesi.resi.items.forEach(function (it) {
+      var sisa = sisaSku(sesi.resi, it), a = al[up(it.sku)] || 0;
+      if (a > sisa) { lebih.push(it.sku); }
+      if (sisa > 0 && a < sisa) { kurang.push(it.sku); }
+    });
+    return { per: per, galat: galat, lebih: lebih, kurang: kurang, al: al };
+  }
+
+  // ---------- Render ----------
+  function render() {
+    var s = sesi;
+    if (!s) return;
+    $('#area-hasil').classList.remove('hide');
+    $('#kartu-hasil-simpan').classList.add('hide');
+
+    // matching
+    var h = '';
+    if (s.ditolak) {
+      h += '<div class="alert bad"><b>Ditolak:</b> ' + esc(s.ditolak) + '</div>';
+      $('#isi-matching').innerHTML = h;
+      $('#kartu-rencana').classList.add('hide');
+      return;
+    }
+    $('#kartu-rencana').classList.remove('hide');
+    var r = s.resi;
+    h += '<dl class="kv">' +
+      '<dt>Resi dipindai</dt><dd>' + esc(s.input) + ' <span class="pill sky">' + esc(s.cara) + '</span></dd>' +
+      '<dt>Resi asli</dt><dd><b>' + esc(r.noresi) + '</b></dd>' +
+      '<dt>No. pesanan</dt><dd>' + esc(r.pesanan) + '</dd>' +
+      '<dt>Toko / marketplace</dt><dd>' + esc(r.toko) + ' · ' + esc(r.mp) + '</dd>' +
+      '<dt>Terima Retur</dt><dd><span class="pill ok">Sudah</span> ' + esc(r.terima) + '</dd>' +
+      '<dt>SKU di resi</dt><dd>' + r.items.map(function (i) { return esc(i.sku) + ' ×' + i.qty; }).join(', ') + '</dd>';
+    if (!s.komplain.length) {
+      h += '<dt>Komplain</dt><dd><span class="pill warn">Tidak ada yang cocok</span></dd>';
+    } else {
+      s.komplain.forEach(function (c) {
+        h += '<dt>Komplain</dt><dd><b>' + kodeK(c.k.id) + '</b> · ' + esc(c.k.kategori) + ' · CCTV: ' + esc(c.k.hasil) +
+          ' <span class="pill">cocok lewat ' + esc(c.via) + '</span><br><span class="note">SKU komplain: ' +
+          c.k.items.map(function (i) { return esc(i.sku) + ' ×' + i.qty; }).join(', ') +
+          (c.k.no_resi_retur ? ' · resi pengembalian: ' + esc(c.k.no_resi_retur) : '') + '</span></dd>';
+      });
+    }
+    var sudah = r.proses.length ? r.proses.map(function (p) { return esc(p.sku) + ' ' + p.qty + '× ' + STATUS[p.status]; }).join('; ') : '';
+    if (sudah) h += '<dt>Sudah diproses</dt><dd>' + sudah + '</dd>';
+    h += '</dl>';
+    $('#isi-matching').innerHTML = h;
+
+    // peringatan
+    var p = '';
+    var sisaTot = r.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(r, i)); }, 0);
+    if (sisaTot <= 0) p += '<div class="alert ok">Seluruh qty resi ini sudah diproses. Untuk mengubahnya, gunakan menu Update Retur.</div>';
+    else if (s.rencana.otomatis) p += '<div class="alert sky">Status detail dan qty sudah diisi otomatis dari data komplain. Periksa, ubah bila isi paket berbeda, lalu simpan.</div>';
+    s.rencana.peringatan.forEach(function (w) { p += '<div class="alert warn">' + esc(w) + '</div>'; });
+    $('#pesan-rencana').innerHTML = p;
+
+    // tabel
+    var v = validasi();
+    var t = '<table><thead><tr><th style="width:26%">SKU</th><th style="width:70px">Qty</th><th>Status detail</th><th>Keterangan tambahan</th><th style="width:120px"></th></tr></thead><tbody>';
+    var adaBaris = false;
+    r.items.forEach(function (it) {
+      var sisa = sisaSku(r, it), a = v.al[up(it.sku)] || 0;
+      var kls = a > sisa ? 'lebih' : (a === sisa ? 'ok' : 'kurang');
+      var teks = sisa <= 0 ? 'selesai diproses' : (a + ' dari ' + sisa + ' pcs dialokasikan');
+      t += '<tr class="sku-head"><td colspan="4">' + esc(it.sku) + ' <span class="note">· ' + esc(it.nama) + ' · qty resi ' + it.qty + (sisa !== it.qty ? ' · sisa ' + sisa : '') + '</span></td>' +
+        '<td><span class="alokasi ' + (sisa <= 0 ? 'ok' : kls) + '">' + teks + '</span></td></tr>';
+      var rows = s.baris.filter(function (b) { return up(b.sku) === up(it.sku); });
+      rows.forEach(function (b) {
+        adaBaris = true;
+        var e = v.per[b.id] || [];
+        t += '<tr data-id="' + b.id + '"><td><span class="src">' + sumberLabel(b) + '</span></td>' +
+          '<td class="qty"><input type="number" min="1" value="' + esc(b.qty) + '" data-f="qty"></td>' +
+          '<td><select data-f="status"><option value="">— pilih —</option>' +
+          Object.keys(STATUS).map(function (k) { return '<option value="' + k + '"' + (b.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>'; }).join('') +
+          '</select>' + (e.length ? '<span class="err">' + esc(e[0]) + '</span>' : '') + '</td><td>';
+        if (WAJIB_ALASAN[b.status]) t += '<input type="text" data-f="alasan" placeholder="' + WAJIB_ALASAN[b.status] + '" value="' + esc(b.alasan) + '" style="width:100%">';
+        if (WAJIB_PERGANTIAN[b.status]) t += '<input type="text" data-f="perg" placeholder="SKU pergantian" value="' + esc(b.perg) + '" style="width:100%">';
+        if (b.catatan) t += '<span class="src">' + esc(b.catatan) + '</span>';
+        t += '</td><td><button class="mini ghost" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru">Pecah</button> ' +
+          '<button class="mini ghost" data-act="hapus" title="Hapus baris">Hapus</button></td></tr>';
+      });
+      if (sisa > 0) t += '<tr><td colspan="5"><button class="mini" data-act="tambah" data-sku="' + esc(it.sku) + '">+ Tambah baris untuk ' + esc(it.sku) + '</button></td></tr>';
+    });
+    t += '</tbody></table>';
+    $('#isi-rencana').innerHTML = t;
+
+    // ringkas + tombol simpan
+    var msg = [];
+    if (v.lebih.length) msg.push('Qty melebihi sisa: ' + v.lebih.join(', '));
+    if (v.galat.length) msg.push(v.galat.length + ' baris belum lengkap');
+    if (v.kurang.length) msg.push('Belum dialokasikan penuh: ' + v.kurang.join(', ') + ' (boleh, sisanya tetap menunggu)');
+    $('#ringkas-validasi').textContent = msg.join(' · ');
+    $('#btn-simpan').disabled = !adaBaris || v.lebih.length > 0 || v.galat.length > 0;
+  }
+
+  function sumberLabel(b) {
+    var m = { kategori: '<span class="pill ok">otomatis · kategori</span>', qty: '<span class="pill ok">otomatis · qty</span>',
+      'bukan-komplain': '<span class="pill ok">otomatis · SKU di luar komplain</span>', request: '<span class="pill ok">otomatis · request pembeli</span>',
+      manual: '<span class="pill warn">manual</span>', tambahan: '<span class="pill">ditambah user</span>' };
+    var edit = b.diubah ? ' <span class="pill sky">diedit</span>' : '';
+    return (m[b.sumber] || '') + edit;
+  }
+
+  // ---------- Aksi ----------
+  function pindai(input) {
+    input = input.trim();
+    if (!input) return;
+    var c = cariResi(input);
+    sesi = { input: input, resi: null, komplain: [], rencana: null, baris: [], cara: '' };
+    if (!c) { sesi.ditolak = 'Resi "' + input + '" tidak ditemukan (bukan resi asli maupun resi pengembalian yang terdaftar di komplain).'; render(); return; }
+    sesi.resi = c.resi; sesi.cara = c.cara;
+    if (!c.resi.terima) { sesi.ditolak = 'Resi ' + c.resi.noresi + ' belum discan Terima Retur Komplain. Scan Terima Retur dulu, baru bisa Buka Retur.'; render(); return; }
+    sesi.komplain = cariKomplain(c.resi);
+    sesi.rencana = susunRencana(c.resi, sesi.komplain);
+    sesi.baris = sesi.rencana.baris.slice();
+    render();
+  }
+
+  function temukanBaris(el) {
+    var tr = el.closest('tr[data-id]');
+    if (!tr) return null;
+    var id = parseInt(tr.getAttribute('data-id'), 10);
+    return sesi.baris.filter(function (b) { return b.id === id; })[0] || null;
+  }
+
+  document.addEventListener('input', function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-f');
+    if (!f || !sesi) return;
+    var b = temukanBaris(e.target);
+    if (!b) return;
+    b[f] = e.target.value;
+    b.diubah = true;
+    // pertahankan fokus: render ulang hanya bagian ringkasan untuk input teks/angka
+    var v = validasi();
+    var msg = [];
+    if (v.lebih.length) msg.push('Qty melebihi sisa: ' + v.lebih.join(', '));
+    if (v.galat.length) msg.push(v.galat.length + ' baris belum lengkap');
+    if (v.kurang.length) msg.push('Belum dialokasikan penuh: ' + v.kurang.join(', ') + ' (boleh, sisanya tetap menunggu)');
+    $('#ringkas-validasi').textContent = msg.join(' · ');
+    $('#btn-simpan').disabled = !sesi.baris.length || v.lebih.length > 0 || v.galat.length > 0;
+  });
+  document.addEventListener('change', function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-f');
+    if (!f || !sesi) return;
+    render();
+  });
+
+  document.addEventListener('click', function (e) {
+    var act = e.target.getAttribute && e.target.getAttribute('data-act');
+    if (!act || !sesi) return;
+    if (act === 'tambah') {
+      var sku = e.target.getAttribute('data-sku');
+      var it = sesi.resi.items.filter(function (i) { return i.sku === sku; })[0];
+      var sisa = sisaSku(sesi.resi, it) - (alokasi()[up(sku)] || 0);
+      var nb = baris(sku, Math.max(1, sisa), '', 'tambahan', '');
+      nb.diubah = true;
+      sesi.baris.push(nb);
+    } else {
+      var b = temukanBaris(e.target);
+      if (!b) return;
+      if (act === 'hapus') sesi.baris = sesi.baris.filter(function (x) { return x !== b; });
+      if (act === 'pecah') {
+        if ((parseInt(b.qty, 10) || 0) < 2) { alert('Qty baris ini 1, tidak bisa dipecah.'); return; }
+        b.qty = parseInt(b.qty, 10) - 1; b.diubah = true;
+        var nb2 = baris(b.sku, 1, '', 'tambahan', 'Hasil pecah'); nb2.diubah = true;
+        sesi.baris.splice(sesi.baris.indexOf(b) + 1, 0, nb2);
+      }
+    }
+    render();
+  });
+
+  $('#btn-otomatis-ulang').addEventListener('click', function () {
+    if (!sesi || !sesi.resi) return;
+    sesi.rencana = susunRencana(sesi.resi, sesi.komplain);
+    sesi.baris = sesi.rencana.baris.slice();
+    render();
+  });
+
+  $('#btn-simpan').addEventListener('click', function () {
+    var v = validasi();
+    if (v.lebih.length || v.galat.length) return;
+    var payload = sesi.baris.map(function (b) {
+      return { resi_buka: sesi.resi.noresi, sku: b.sku, qty: parseInt(b.qty, 10), status_detail_buka: b.status,
+        sku_pergantian: b.perg || null, alasan_ditolak: b.alasan || null, sumber_saran: b.sumber, diedit_user: !!b.diubah };
+    });
+    // simulasi: gabung status sama per SKU (seperti Retur_fcd::simpan_buka_sku), lalu tulis ke "database"
+    payload.forEach(function (p) {
+      var ada = sesi.resi.proses.filter(function (x) { return up(x.sku) === up(p.sku) && x.status === p.status_detail_buka; })[0];
+      if (ada) ada.qty += p.qty; else sesi.resi.proses.push({ sku: p.sku, status: p.status_detail_buka, qty: p.qty });
+    });
+    var terakhir = payload[payload.length - 1].status_detail_buka;
+    var sisa = sesi.resi.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(sesi.resi, i)); }, 0);
+    var diubah = payload.filter(function (p) { return p.diedit_user; }).length;
+    var h = '<div class="alert ok"><b>Tersimpan (simulasi).</b> ' + payload.length + ' baris ke <code>tblbukaretur</code> dalam satu transaksi; ' +
+      diubah + ' baris hasil edit user, ' + (payload.length - diubah) + ' sesuai saran otomatis.</div>' +
+      '<dl class="kv"><dt>tblresiretur</dt><dd>status_retur = <b>Buka Retur</b>, status_detail = ' + esc(terakhir) + ' <span class="note">(nilai baris terakhir, sama seperti perilaku sekarang)</span></dd>' +
+      '<dt>Sisa qty resi</dt><dd>' + (sisa > 0 ? sisa + ' pcs belum diproses, resi masih bisa dibuka lagi' : 'semua qty sudah diproses (resi selesai)') + '</dd></dl>' +
+      '<details open><summary>Payload yang dikirim ke server</summary><pre>' + esc(JSON.stringify(payload, null, 2)) + '</pre></details>';
+    // muat ulang rencana dengan data terbaru (qty yang baru diproses sudah berkurang dari sisa), lalu tampilkan hasil simpan
+    sesi.rencana = susunRencana(sesi.resi, sesi.komplain);
+    sesi.baris = sesi.rencana.baris.slice();
+    render();
+    $('#isi-hasil-simpan').innerHTML = h;
+    $('#kartu-hasil-simpan').classList.remove('hide');
+  });
+
+  $('#form-scan').addEventListener('submit', function (e) { e.preventDefault(); pindai($('#input-resi').value); $('#input-resi').select(); });
+
+  function gambarDaftar() {
+    $('#daftar-uji').innerHTML = db.resi.map(function (r) {
+      return '<li data-resi="' + esc(r.noresi) + '"><b>' + esc(r.noresi) + '</b><span>' + esc(r.ket) + '</span></li>';
+    }).join('') +
+      '<li data-resi="ID266281394104T"><b>ID266281394104T</b><span>Resi pengembalian marketplace (dipetakan ke SPXID06257599701A)</span></li>' +
+      '<li data-resi="XX-TIDAK-ADA"><b>XX-TIDAK-ADA</b><span>Resi yang tidak dikenal</span></li>';
+  }
+  $('#daftar-uji').addEventListener('click', function (e) {
+    var li = e.target.closest('li[data-resi]');
+    if (!li) return;
+    $('#input-resi').value = li.getAttribute('data-resi');
+    pindai(li.getAttribute('data-resi'));
+  });
+  $('#btn-reset-data').addEventListener('click', function () { db = dataAwal(); sesi = null; $('#area-hasil').classList.add('hide'); $('#input-resi').value = ''; gambarDaftar(); });
+
+  gambarDaftar();
+  // untuk pengujian otomatis di console
+  window.__proto = { pindai: pindai, state: function () { return sesi; }, db: function () { return db; } };
+})();
+</script>
+</body>
+</html>
