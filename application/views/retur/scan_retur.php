@@ -582,12 +582,12 @@ $(document).ready(function() {
         $(hintSelector).text('');
         if (!s) { return; }
         // Saran per SKU (BUKAN_RETUR / REQUEST_DARI_PEMBELI) menggantikan saran kategori; SKU terpilih harus sepakat
-        var kode = null, catatan = '', perg = '', sepakat = true;
+        var kode = null, catatan = '', perg = '', sepakat = true, qty = 0;
         $.each(daftarSku || [], function(i, sku) {
             var e = (s.per_sku && s.per_sku[$.trim(sku)]) || null;
             var k = e ? e.kode : (s.kode || null);
-            if (i === 0) { kode = k; catatan = e ? e.catatan : ''; perg = e && e.sku_pergantian ? e.sku_pergantian : ''; }
-            else if (k !== kode) { sepakat = false; }
+            if (i === 0) { kode = k; catatan = e ? e.catatan : ''; perg = e && e.sku_pergantian ? e.sku_pergantian : ''; qty = e && e.qty ? e.qty : 0; }
+            else if (k !== kode || (e && e.qty)) { sepakat = false; }
         });
         if (!sepakat) {
             $(hintSelector).text('SKU yang dipilih punya saran berbeda dari komplain K-' + ('00000' + s.id_complain).slice(-5) + '. Pilih per SKU atau tentukan sendiri.');
@@ -596,6 +596,10 @@ $(document).ready(function() {
         if (!kode || !$(selSelector + ' option[value="' + kode + '"]').length) { return; }
         $(selSelector).val(kode).trigger('change');
         if (perg && pergSelector) { $(pergSelector).val(perg); }
+        // Saran qty (komplain hanya sebagian dari qty resi): hanya untuk proses per SKU
+        if (qty && daftarSku.length === 1 && $('#modal_qty').length && selSelector === '#modal_status_detail') {
+            $('#modal_qty').val(Math.min(qty, parseInt($('#modal_qty').attr('max')) || qty));
+        }
         $(hintSelector).text('Disarankan dari komplain K-' + ('00000' + s.id_complain).slice(-5) + ' (' + s.kategori + ')' +
             (catatan ? ': ' + catatan : '') + '. Ganti bila isi paket berbeda.');
     }
