@@ -82,13 +82,13 @@ class Cs_new extends MY_Controller
 
     /**
      * Subquery SQL: "status_retur|status_detail" terbaru di tblresiretur untuk resi komplain.
-     * Yang dicari adalah resi paket pengembalian dari marketplace (no_resi_retur); komplain lama
-     * tanpa isian itu memakai no_resi aslinya. Diubah ke latin1 supaya index noresi tetap terpakai.
+     * Scan Terima/Buka Retur memetakan resi paket pengembalian (no_resi_retur) ke resi asli, jadi
+     * baris tblresiretur selalu memakai no_resi asli. Diubah ke latin1 supaya index noresi tetap terpakai.
      */
     private function _sql_retur_terbaru()
     {
         return "(SELECT CONCAT(r.status_retur, '|', COALESCE(r.status_detail, '')) FROM tblresiretur r "
-            . "WHERE r.noresi = CONVERT(COALESCE(NULLIF(c.no_resi_retur, ''), c.no_resi) USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
+            . "WHERE r.noresi = CONVERT(c.no_resi USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
     }
 
     /** Kondisi SQL per tab (null = semua). Aman terhadap NULL. */
@@ -725,7 +725,7 @@ class Cs_new extends MY_Controller
         $retur_terbaru = null;
         if ($complain['status_komplain'] === 'DANA_BARANG') {
             $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, '')) AS s FROM tblresiretur "
-                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi_retur'] !== null && $complain['no_resi_retur'] !== '' ? $complain['no_resi_retur'] : $complain['no_resi']])->row_array();
+                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
             $retur_terbaru = $r['s'] ?? null;
         }
         $info_status = $this->_info_status($complain['status_komplain'], $complain['created_at'], $complain['tgl_status'], $retur_terbaru);
@@ -1103,7 +1103,7 @@ class Cs_new extends MY_Controller
             }
         }
         if ($lama === 'DANA_BARANG') {
-            $resi_cari = ($c['no_resi_retur'] !== null && $c['no_resi_retur'] !== '') ? $c['no_resi_retur'] : $c['no_resi'];
+            $resi_cari = $c['no_resi'];
             $r = $this->db->query("SELECT status_retur FROM tblresiretur WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$resi_cari])->row_array();
             if (($r['status_retur'] ?? '') === 'Buka Retur') {
                 $this->make_ajax_response(400, 'Retur sudah dibuka (selesai), status tidak bisa diubah lagi.');

@@ -92,6 +92,17 @@ Access bila perlu.
 
 Mode Arsip: scan ditolak dengan pesan "Mode Arsip aktif" (basis data arsip baca-saja).
 
+## Resi pengembalian dari komplain
+
+Paket yang datang dari pembeli membawa **resi pengembalian marketplace**, bukan resi asli pesanan.
+Saat CS menetapkan status komplain "Pengembalian Dana dan Barang", resi itu wajib diisi
+(`tblcs_complain.no_resi_retur`). `resolusi_noresi_retur()` (`helpers/arsip_helper.php`) memakainya
+sebagai pemetaan pertama: resi yang discan dicari di `no_resi_retur` (komplain belum dihapus); bila
+memetakan ke tepat satu `no_resi` asli, scan diperlakukan sebagai resi asli itu. Berlaku di Terima
+Retur HO, Scan Retur / Scan Retur Komplain (tab Terima dan Buka), dan simpan Buka Retur. Baris
+`tblresiretur` tetap memakai resi asli, jadi tahap retur di Manajemen Komplain CS New ikut terbaca.
+Pemetaan Jubelio (di bawah) jadi cadangan. Index `idx_cs_complain_resi_retur` dibuat oleh migrasi.
+
 ## Belum ditangani
 
 Resi balik pembeli yang belum ada di `tblreturjubelio` (upload Excel retur Jubelio, tidak
