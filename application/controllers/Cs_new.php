@@ -32,6 +32,7 @@ class Cs_new extends MY_Controller
         'Telat Kirim',
         'Salah Alamat',
         'Barang Tidak Original',
+        'Bukan Barang Kita',
         'Lainnya'
     ];
 
@@ -408,7 +409,7 @@ class Cs_new extends MY_Controller
         $nada_kategori = [
             'Kurang Kirim' => 'amber', 'Reject' => 'red', 'Paket Kosong' => 'slate', 'Salah Kirim' => 'indigo',
             'Tidak Sesuai Deskripsi' => 'sky', 'Barang Rusak' => 'red', 'Paket Hilang' => 'red', 'Telat Kirim' => 'amber',
-            'Salah Alamat' => 'indigo', 'Barang Tidak Original' => 'red', 'Lainnya' => 'slate'
+            'Salah Alamat' => 'indigo', 'Barang Tidak Original' => 'red', 'Bukan Barang Kita' => 'sky', 'Lainnya' => 'slate'
         ];
         $nada_hasil = ['QC Salah' => 'red', 'QC Benar' => 'green', 'Tidak Terlihat CCTV' => 'amber', 'CCTV Tidak Bisa Diakses' => 'slate'];
 
