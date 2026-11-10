@@ -398,6 +398,8 @@
       if (!b.status) e.push('Pilih status');
       if (WAJIB_ALASAN[b.status] && !String(b.alasan).trim()) e.push(WAJIB_ALASAN[b.status] + ' wajib diisi');
       if (WAJIB_PERGANTIAN[b.status] && !String(b.perg).trim()) e.push('SKU pergantian wajib diisi');
+      if (WAJIB_ALASAN[b.status] && String(b.alasan).length > 255) e.push('Alasan maksimal 255 karakter');
+      if (WAJIB_PERGANTIAN[b.status] && String(b.perg).length > 255) e.push('SKU pergantian maksimal 255 karakter');
       per[b.id] = e;
       if (e.length) galat.push(e[0]);
     });
@@ -469,10 +471,11 @@
 
     var v = validasi();
     var t = '';
-    var adaBaris = false;
+    var adaBaris = false, selesai = 0;
     r.items.forEach(function (it) {
       var sisa = sisaSku(r, it), a = v.al[up(it.sku)] || 0;
       var rows = s.baris.filter(function (b) { return up(b.sku) === up(it.sku); });
+      if (sisa <= 0 && !rows.length) { selesai++; return; } // sudah ditetapkan: tidak perlu ditampilkan lagi
       var warna = sisa <= 0 ? 'var(--ok)' : (a > sisa ? 'var(--bad)' : (a < sisa ? 'var(--warn)' : 'var(--muted)'));
       var teksAl = sisa <= 0 ? 'selesai diproses' : (a + ' / ' + sisa + ' pcs');
       var fotoHtml = it.foto
@@ -504,6 +507,7 @@
       if (sisa > 0) t += '<div><button type="button" class="link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ tambah baris</button></div>';
       t += '</div></div></div>';
     });
+    if (selesai) t = '<div class="small muted" style="margin-bottom:10px">' + selesai + ' SKU sudah selesai diproses dan tidak ditampilkan lagi. Hanya yang belum ditetapkan yang perlu diisi.</div>' + t;
     $('#isi-rencana').innerHTML = t;
     perbaruiFoot();
     if (!adaBaris) $('#btn-simpan').disabled = true;
@@ -637,14 +641,28 @@
   // Simulasi tulis ke server: gabung status sama per SKU (seperti Retur_fcd::simpan_buka_sku)
   function simpanKeServer(rows) {
     var payload = rows.map(function (b) {
-      return { resi_buka: sesi.resi.noresi, sku: b.sku, qty: parseInt(b.qty, 10), status_detail_buka: b.status,
-        sku_pergantian: b.perg || null, alasan_ditolak: b.alasan || null, diedit_user: !!b.diubah };
+      // Sama seperti modal Buka Retur manual: kolom keterangan hanya dikirim untuk status yang memintanya
+      return { sku: b.sku, qty: Math.max(1, parseInt(b.qty, 10)), status_detail_buka: b.status,
+        sku_pergantian: WAJIB_PERGANTIAN[b.status] && String(b.perg).trim() ? String(b.perg).trim() : null,
+        alasan_ditolak: WAJIB_ALASAN[b.status] && String(b.alasan).trim() ? String(b.alasan).trim() : null };
     });
     payload.forEach(function (p) {
       var ada = sesi.resi.proses.filter(function (x) { return up(x.sku) === up(p.sku) && x.status === p.status_detail_buka; })[0];
       if (ada) ada.qty += p.qty; else sesi.resi.proses.push({ sku: p.sku, status: p.status_detail_buka, qty: p.qty });
     });
     return payload;
+  }
+  // Isi nyata yang ditulis server: SAMA dengan Retur::save_buka_retur_sku (kolom, nilai tetap, dan update tblresiretur)
+  function kontrakSimpan(payload) {
+    return {
+      kirim_ke_server: { endpoint: 'POST retur/save-buka-otomatis', noresi: sesi.resi.noresi, is_komplain: 1, baris: payload },
+      ditulis_server_ke_tblbukaretur_per_baris: {
+        status_buka: 'Buka Retur', resi_buka: sesi.resi.noresi, hasil_scan_buka: sesi.resi.noresi, is_komplain: 1,
+        tanggal_buka_retur: '<waktu server>', created_at: '<waktu server>', id_pegawai: '<user login>',
+        catatan: 'status sama untuk SKU sama digabung (qty ditambah) lewat Retur_fcd::simpan_buka_sku; qty dibatasi sisa_qty_buka'
+      },
+      diubah_server_di_tblresiretur: { status_retur: 'Buka Retur', status_detail: labelStatusResi(), id_pegawai: '<user login>', is_update: 0, is_komplain: 1 }
+    };
   }
   // tblresiretur.status_detail dari seluruh yang sudah diproses: bagian komplain mengalahkan BUKAN_RETUR; di antaranya qty terbesar
   function labelStatusResi() {
@@ -661,7 +679,7 @@
     var sisa = sisaResi();
     var h = '<div class="ok-line">Tersimpan · ' + ringkas + ' · status resi: ' + esc(STATUS[labelStatusResi()]) + '</div>' +
       '<div class="small muted" style="margin-top:2px">' + (sisa > 0 ? sisa + ' pcs belum diproses; resi masih bisa dibuka lagi.' : 'Semua qty resi sudah diproses.') + ' Scan resi berikutnya.</div>' +
-      '<details style="margin-top:8px"><summary>Data yang dikirim ke server</summary><pre>' + esc(JSON.stringify(payload, null, 2)) + '</pre></details>';
+      '<details style="margin-top:8px"><summary>Yang dikirim dan ditulis server</summary><pre>' + esc(JSON.stringify(kontrakSimpan(payload), null, 2)) + '</pre></details>';
     $('#kartu-hasil-simpan').innerHTML = h;
     $('#kartu-hasil-simpan').classList.remove('hide');
   }

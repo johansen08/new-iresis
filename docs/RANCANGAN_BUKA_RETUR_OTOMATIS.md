@@ -120,6 +120,39 @@ Aturan simpan (server memeriksa ulang, bukan percaya browser):
   yang pertama pada urutan baris); BUKAN_RETUR hanya dipakai bila semua baris BUKAN_RETUR.
   Menu Buka Retur lama tetap berperilaku seperti sekarang (status terakhir).
 
+### 3.3a Kontrak simpan: sama persis dengan Buka Retur manual
+
+Tab baru **hanya mengganti cara mengisi dan menampilkan**; penulisan data memakai fungsi yang sama dengan
+`Retur::save_buka_retur_sku` (diperiksa terhadap kode, bukan asumsi):
+
+| Langkah | Buka Retur manual | Tab otomatis |
+|---|---|---|
+| Normalisasi resi | `resolusi_noresi_retur` | sama |
+| Gerbang | `_cek_boleh_buka_retur($noresi, 1)` (wajib Terima Retur komplain) | sama |
+| Batas qty | `sisa_qty_buka`; qty > sisa ditolak 409 | sama, dihitung ulang di dalam kunci |
+| Normalisasi qty | `max(1, (int) qty)` | sama |
+| Tulis `tblbukaretur` | `simpan_buka_sku`: `status_buka='Buka Retur'`, `status_detail_buka`, `resi_buka`, `hasil_scan_buka` (= resi), `sku`, `qty`, `is_komplain`, `sku_pergantian`, `alasan_ditolak`, `tanggal_buka_retur`, `id_pegawai`, `created_at`; status sama untuk SKU sama digabung (qty ditambah) | memanggil `simpan_buka_sku` yang sama, satu panggilan per baris |
+| `sku_pergantian` / `alasan_ditolak` | hanya terisi untuk PB, REQUEST (pergantian) dan REJECT, ALASAN_LAINNYA (alasan); disembunyikan dan dikosongkan untuk status lain | sama (server mengabaikan nilai untuk status lain) |
+| Update `tblresiretur` | `guarded_pk_update`: `status_retur='Buka Retur'`, `status_detail`, `id_pegawai`, `is_update`, `is_komplain` | sama, sekali setelah semua baris |
+| Daftar status detail | 11 nilai di `scan_retur.php` (BUKAN_RETUR hanya menu komplain) | sama persis |
+| Transaksi | per SKU tanpa transaksi (massal memakai transaksi) | satu transaksi `trans_start/complete` |
+
+Tidak ada tabel, kolom, atau status baru. Laporan, rekonsiliasi, batch Ke Display, dan Accounting membaca baris yang sama.
+
+**Satu-satunya perbedaan yang disengaja:** nilai `tblresiretur.status_detail` bila satu resi punya beberapa status.
+Manual: status dari simpan terakhir. Tab otomatis: prioritas komplain (keputusan 1). Kolom, format, dan tipe nilainya sama;
+yang berbeda hanya aturan memilih nilai. Bila ingin benar-benar identik, ganti ke "status terakhir" (satu baris kode).
+
+**Uji paritas (pada salinan DB, bukan produksi):** untuk resi yang sama, simpan hasil yang sama lewat Buka Retur manual
+dan lewat tab otomatis, lalu bandingkan isi `tblbukaretur` dan `tblresiretur` (selain `id_*` dan waktu). Harus identik;
+bila tidak, anggap bug. Sertakan kasus: qty dipecah ke beberapa status, status sama diinput dua kali (digabung),
+REJECT dengan alasan, REQUEST dengan SKU pergantian, status ganti setelah alasan diketik (alasan harus tidak tersimpan).
+
+### 3.3b Scan ulang resi yang sudah ditetapkan
+
+Rencana hanya memuat SKU yang masih punya sisa qty. SKU yang sudah selesai diproses tidak ditampilkan lagi (cukup
+catatan jumlahnya); resi yang seluruh qty-nya sudah diproses hanya menampilkan pemberitahuan dan arahan ke Update Retur.
+
 ### 3.4 Data
 
 Tidak perlu kolom atau tabel baru untuk fungsi inti. Opsional (fase 2) untuk mengukur akurasi saran:
