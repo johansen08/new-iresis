@@ -44,6 +44,9 @@
   #tab-buka-otomatis .bo-alok { font-size: 12px; font-weight: 600; white-space: nowrap; padding-top: 2px; }
   #tab-buka-otomatis .bo-lines { display: grid; gap: 8px; }
   #tab-buka-otomatis .bo-line { display: grid; align-items: start; gap: 8px 10px; grid-template-columns: 124px minmax(170px, 1.1fr) minmax(140px, 1fr) 100px; }
+  #tab-buka-otomatis .bo-line > .bo-stepper { grid-column: 1; grid-row: 1; } #tab-buka-otomatis .bo-line > .bo-st { grid-column: 2; grid-row: 1; }
+  #tab-buka-otomatis .bo-line > .bo-ket { grid-column: 3; grid-row: 1; } #tab-buka-otomatis .bo-line > .bo-act { grid-column: 4; grid-row: 1; }
+  #tab-buka-otomatis .bo-line > .bo-ket.perlu { grid-column: 1 / -1; grid-row: 2; }
   #tab-buka-otomatis .bo-stepper { display: grid; grid-template-columns: 32px 1fr 32px; }
   #tab-buka-otomatis .bo-stepper button { padding: 0; height: 36px; font-size: 18px; line-height: 1; }
   #tab-buka-otomatis .bo-stepper button:first-child { border-radius: 7px 0 0 7px; } #tab-buka-otomatis .bo-stepper button:last-child { border-radius: 0 7px 7px 0; }
@@ -56,6 +59,10 @@
   #tab-buka-otomatis .bo-dot.manual { background: var(--bo-warn); } #tab-buka-otomatis .bo-dot.edit { background: var(--bo-primary); }
   #tab-buka-otomatis .bo-err { color: var(--bo-bad); font-size: 12px; flex-basis: 100%; padding-left: 14px; }
   #tab-buka-otomatis .bo-ket input { width: 100%; }
+  #tab-buka-otomatis .bo-ket textarea { width: 100%; min-height: 76px; padding: 9px 10px; border: 1px solid var(--bo-line); border-radius: 7px; background: #fff; font: inherit; color: inherit; resize: vertical; }
+  #tab-buka-otomatis .bo-ket.perlu .bo-lbl-ket { display: block; font-size: 12px; font-weight: 600; color: var(--bo-muted); margin-bottom: 4px; }
+  #tab-buka-otomatis .bo-ket.perlu input { height: 40px; }
+  #tab-buka-otomatis .bo-icon svg { width: 17px; height: 17px; display: block; margin: auto; }
   #tab-buka-otomatis .bo-ket .bo-cat { font-size: 12px; color: var(--bo-muted); line-height: 36px; }
   #tab-buka-otomatis .bo-act { display: flex; justify-content: flex-end; gap: 2px; }
   #tab-buka-otomatis .bo-icon { border: 0 !important; background: none !important; color: var(--bo-muted); width: 32px; height: 36px; padding: 0 !important; font-size: 16px; }
@@ -75,8 +82,9 @@
     #tab-buka-otomatis .bo-grp { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
     #tab-buka-otomatis .bo-foto { width: 56px; height: 56px; }
     #tab-buka-otomatis .bo-line { grid-template-columns: 124px minmax(0, 1fr) auto; }
-    #tab-buka-otomatis .bo-line .bo-st { grid-column: 1 / -1; order: 3; } #tab-buka-otomatis .bo-line .bo-ket { grid-column: 1 / -1; order: 4; }
-    #tab-buka-otomatis .bo-line .bo-act { order: 2; grid-column: 3; } #tab-buka-otomatis .bo-line .bo-stepper { order: 1; }
+    #tab-buka-otomatis .bo-line > .bo-stepper { grid-column: 1; grid-row: 1; } #tab-buka-otomatis .bo-line > .bo-act { grid-column: 3; grid-row: 1; }
+    #tab-buka-otomatis .bo-line > .bo-st { grid-column: 1 / -1; grid-row: 2; }
+    #tab-buka-otomatis .bo-line > .bo-ket, #tab-buka-otomatis .bo-line > .bo-ket.perlu { grid-column: 1 / -1; grid-row: 3; }
   }
   /* popup konfirmasi */
   .bo-modal { position: fixed; inset: 0; z-index: 2000; background: rgba(2,6,23,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -148,6 +156,11 @@
   };
   var WAJIB_ALASAN = { REJECT: 'Alasan ditolak', ALASAN_LAINNYA: 'Tulis alasan' };
   var WAJIB_PERGANTIAN = { PENUKARAN_BERES: 1, REQUEST_DARI_PEMBELI: 1 };
+  var IKON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    pecah: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>',
+    hapus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
   var IKON_MATA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
   var sesi = null, seq = 0, muatKe = 0, sedangSimpan = false;
@@ -275,13 +288,13 @@
           '<button type="button" data-act="qty+" aria-label="Tambah qty"' + (qn >= maks ? ' disabled' : '') + '>+</button></div>' +
           '<div class="bo-st"><span class="bo-dot ' + kls + '" title="' + judul + '"></span><select data-f="status" aria-label="Status detail"><option value="">— pilih status —</option>' +
           Object.keys(STATUS).map(function (k) { return '<option value="' + k + '"' + (b.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>'; }).join('') +
-          '</select>' + (e.length ? '<span class="bo-err">' + esc(e[0]) + '</span>' : '') + '</div><div class="bo-ket">';
-        if (WAJIB_ALASAN[b.status]) { t += '<input type="text" data-f="alasan" maxlength="255" placeholder="' + WAJIB_ALASAN[b.status] + '" value="' + esc(b.alasan) + '">'; }
-        else if (WAJIB_PERGANTIAN[b.status]) { t += '<input type="text" data-f="perg" maxlength="255" placeholder="SKU pergantian" value="' + esc(b.perg) + '">'; }
+          '</select>' + (e.length ? '<span class="bo-err">' + esc(e[0]) + '</span>' : '') + '</div><div class="bo-ket' + (WAJIB_ALASAN[b.status] || WAJIB_PERGANTIAN[b.status] ? ' perlu' : '') + '">';
+        if (WAJIB_ALASAN[b.status]) { t += '<label class="bo-lbl-ket">' + WAJIB_ALASAN[b.status] + ' <span style="color:#b91c1c">*</span></label><textarea data-f="alasan" rows="3" maxlength="255" placeholder="Jelaskan alasannya (wajib)">' + esc(b.alasan) + '</textarea>'; }
+        else if (WAJIB_PERGANTIAN[b.status]) { t += '<label class="bo-lbl-ket">SKU pergantian <span style="color:#b91c1c">*</span></label><input type="text" data-f="perg" maxlength="255" placeholder="Masukkan SKU pergantian (wajib)" value="' + esc(b.perg) + '">'; }
         else if (b.catatan) { t += '<span class="bo-cat">' + esc(b.catatan) + '</span>'; }
-        t += '</div><div class="bo-act"><button type="button" class="bo-icon ok-i" data-act="simpan-baris" title="Simpan baris ini saja" aria-label="Simpan baris ini saja">✓</button>' +
-          '<button type="button" class="bo-icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru" aria-label="Pecah">⑂</button>' +
-          '<button type="button" class="bo-icon" data-act="hapus" title="Hapus baris" aria-label="Hapus baris">✕</button></div></div>';
+        t += '</div><div class="bo-act"><button type="button" class="bo-icon ok-i" data-act="simpan-baris" title="Simpan baris ini saja" aria-label="Simpan baris ini saja">' + IKON.ok + '</button>' +
+          '<button type="button" class="bo-icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru" aria-label="Pecah">' + IKON.pecah + '</button>' +
+          '<button type="button" class="bo-icon" data-act="hapus" title="Hapus baris" aria-label="Hapus baris">' + IKON.hapus + '</button></div></div>';
       });
       if (sisa > 0) { t += '<div><button type="button" class="bo-link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ tambah baris</button></div>'; }
       t += '</div></div></div>';
@@ -406,7 +419,7 @@
   $(document).on('keydown.boOtomatis', function (e) {
     if (!hidup()) { $(document).off('.boOtomatis'); return; }
     if (e.key === 'Escape' && !$('#bo-konfirmasi').hasClass('bo-hide')) { tutupKonfirmasi(); return; }
-    if (e.key === 'Enter' && e.target.id !== 'bo-scan' && aktif() && $(e.target).closest('#tab-buka-otomatis').length && /^(INPUT|SELECT)$/.test(e.target.tagName)) {
+    if (e.key === 'Enter' && e.target.id !== 'bo-scan' && aktif() && $(e.target).closest('#tab-buka-otomatis').length && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && !e.shiftKey) {
       e.preventDefault(); $('#bo-scan').trigger('focus');
     }
   });
@@ -421,6 +434,7 @@
     if (!sesi || !sesi.data) { return; }
     var b = temukan(this); if (!b) { return; }
     b[$(this).attr('data-f')] = this.value; b.diubah = true; perbaruiFoot();
+    $(this).closest('[data-id]').find('.bo-err').text((validasi().per[b.id] || [])[0] || ''); // pesan galat baris ikut hilang saat sudah benar
   });
   $(document).on('change.boOtomatis', '#tab-buka-otomatis [data-f]', function () {
     if (!sesi || !sesi.data) { return; }
