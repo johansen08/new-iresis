@@ -3060,4 +3060,55 @@ class Retur_fcd extends CI_Model
 
         return $this->db->query("SELECT * FROM ({$base}) d ORDER BY d.umur_hari DESC, d.no_resi ASC")->result_array();
     }
+    /**
+     * Pemetaan kategori komplain -> saran Status Detail saat Buka Retur (hanya saran, petugas boleh mengganti).
+     * Dasar: pola riwayat Buka Retur per kategori. Kategori yang tidak ada di sini tidak diberi saran.
+     */
+    const SARAN_STATUS_DETAIL = [
+        'Salah Kirim QC'         => 'KE_DISPLAY',
+        'Salah Kirim Ekspedisi'  => 'BUKAN_BARANG_KITA',
+        'Salah Kirim'            => 'KE_DISPLAY', // kategori lama
+        'Reject'                 => 'REJECT',
+        'Kurang Kirim'           => 'KE_DISPLAY',
+        'Paket Kosong'           => 'BARANG_TIDAK_ADA',
+        'Barang Tidak Original'  => 'BUKAN_BARANG_KITA',
+        'Bukan Barang Kita'      => 'BUKAN_BARANG_KITA',
+        'Tidak Sesuai Deskripsi' => 'KE_DISPLAY',
+    ];
+
+    /**
+     * Saran Status Detail Buka Retur untuk sebuah resi, dari komplain aktifnya.
+     * Komplain dicari lewat resi asli, atau lewat no. pesanan komplain yang boleh SEBAGIAN
+     * (minimal 6 karakter, terkandung di no. pesanan resi). Saran hanya diberikan bila tepat
+     * satu komplain aktif yang cocok dan kategorinya punya pemetaan.
+     *
+     * @return array|null ['kode', 'kategori', 'id_complain']
+     */
+    public function saran_status_detail($noresi)
+    {
+        $resi = $this->db->select('id_printresi')->get_where('tblprintresi', ['noresi' => $noresi])->row();
+        if (!$resi) {
+            return null;
+        }
+        $pesanan = array_column($this->db->distinct()->select('no_pesanan')
+            ->where('id_resi', $resi->id_printresi)->where("no_pesanan <> ''", null, false)
+            ->get('tbldetailprintresi')->result_array(), 'no_pesanan');
+
+        $this->db->select('id_complain, kategori_komplain')->from('tblcs_complain')->where('is_deleted', 0)
+            ->group_start()->where('no_resi', $noresi);
+        foreach ($pesanan as $p) {
+            $this->db->or_where('no_pesanan', $p);
+            $this->db->or_where('(CHAR_LENGTH(TRIM(no_pesanan)) >= 6 AND LOCATE(TRIM(no_pesanan), ' . $this->db->escape($p) . ') > 0)', null, false);
+        }
+        $rows = $this->db->group_end()->limit(2)->get()->result_array();
+
+        if (count($rows) !== 1 || !isset(self::SARAN_STATUS_DETAIL[$rows[0]['kategori_komplain']])) {
+            return null;
+        }
+        return [
+            'kode'        => self::SARAN_STATUS_DETAIL[$rows[0]['kategori_komplain']],
+            'kategori'    => $rows[0]['kategori_komplain'],
+            'id_complain' => (int) $rows[0]['id_complain'],
+        ];
+    }
 }
