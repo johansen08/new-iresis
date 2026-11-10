@@ -455,7 +455,8 @@ class Top_level_fcd extends CI_Model
         }
 
         $items = $this->db->query(
-            'SELECT d.sku, MAX(COALESCE(NULLIF(TRIM(s.no_rak), ""), "BELUM DITENTUKAN")) AS no_rak
+            'SELECT d.sku, SUM(d.jumlah) AS qty, MAX(UPPER(COALESCE(s.bundle, ""))) = "TRUE" AS is_bundle,
+                    MAX(COALESCE(NULLIF(TRIM(s.no_rak), ""), "BELUM DITENTUKAN")) AS no_rak
              FROM tbldetailprintresi d
              LEFT JOIN tblsku s ON s.id_sku = d.sku
              WHERE d.id_resi = ?
@@ -463,6 +464,8 @@ class Top_level_fcd extends CI_Model
              ORDER BY MIN(d.id_detail_resi)',
             array((int) $resi['id_printresi'])
         )->result_array();
+
+        $items = $this->urai_bundle($items);
 
         foreach ($items as &$it) {
             $r = $this->request_resi_sku($resi['noresi'], $it['sku']);
@@ -472,6 +475,96 @@ class Top_level_fcd extends CI_Model
         unset($it);
 
         return array('noresi' => $resi['noresi'], 'mp' => (string) $resi['nama_marketplace'], 'items' => $items);
+    }
+
+    /**
+     * SKU bundle (tblsku.bundle = True) diganti SKU isinya yang bukan bundle, karena yang ada di display/top level adalah
+     * barang komponennya, bukan SKU bundle. Isi bundle dari Jubelio (Jubelio_stok::komponen); qty = qty resi x qty komponen.
+     * Komponen yang sama dari beberapa bundle digabung. Bila Jubelio gagal atau bundle tidak punya isi, baris bundle
+     * dipertahankan dengan penanda `bundle_gagal` supaya picker tahu SKU ini belum terurai.
+     */
+    private function urai_bundle(array $items)
+    {
+        $ada = false;
+        foreach ($items as $it) {
+            if (!empty($it['is_bundle'])) {
+                $ada = true;
+                break;
+            }
+        }
+        if (!$ada) {
+            foreach ($items as &$it) {
+                $it['qty'] = (int) $it['qty'];
+                $it['dari'] = null;
+                $it['bundle_gagal'] = false;
+            }
+            unset($it);
+            return $items;
+        }
+
+        $out = array();
+        $idx = array(); // sku => posisi di $out, untuk menggabung komponen yang sama
+        $perlu_rak = array();
+        foreach ($items as $it) {
+            $qty = (int) $it['qty'];
+            $isi = null;
+            if (!empty($it['is_bundle'])) {
+                try {
+                    $this->load->library('jubelio_stok');
+                    $isi = $this->jubelio_stok->komponen($it['sku']);
+                } catch (Exception $e) {
+                    log_message('error', 'Cek Top Level: isi bundle ' . $it['sku'] . ' gagal dibaca: ' . $e->getMessage());
+                    $isi = null;
+                }
+            }
+            if (empty($isi)) {
+                $it['qty'] = $qty;
+                $it['dari'] = null;
+                $it['bundle_gagal'] = !empty($it['is_bundle']);
+                if (isset($idx[$it['sku']])) { // SKU biasa yang sudah muncul sebagai isi bundle: gabung
+                    $out[$idx[$it['sku']]]['qty'] += $qty;
+                    continue;
+                }
+                $idx[$it['sku']] = count($out);
+                $out[] = $it;
+                continue;
+            }
+            foreach ($isi as $k) {
+                $q = $qty * (int) $k['qty'];
+                if (isset($idx[$k['sku']])) {
+                    $out[$idx[$k['sku']]]['qty'] += $q;
+                    if (!is_array($out[$idx[$k['sku']]]['dari'])) {
+                        $out[$idx[$k['sku']]]['dari'] = array();
+                    }
+                    if (!in_array($it['sku'], $out[$idx[$k['sku']]]['dari'], true)) {
+                        $out[$idx[$k['sku']]]['dari'][] = $it['sku'];
+                    }
+                    continue;
+                }
+                $idx[$k['sku']] = count($out);
+                $perlu_rak[] = $k['sku'];
+                $out[] = array('sku' => $k['sku'], 'qty' => $q, 'is_bundle' => 0, 'no_rak' => 'BELUM DITENTUKAN',
+                    'dari' => array($it['sku']), 'bundle_gagal' => false);
+            }
+        }
+
+        if ($perlu_rak) {
+            $rows = $this->db->query(
+                'SELECT id_sku, COALESCE(NULLIF(TRIM(no_rak), ""), "BELUM DITENTUKAN") AS no_rak FROM tblsku WHERE id_sku IN (' . implode(',', array_fill(0, count($perlu_rak), '?')) . ')',
+                $perlu_rak
+            )->result_array();
+            $rak = array();
+            foreach ($rows as $r) {
+                $rak[$r['id_sku']] = $r['no_rak'];
+            }
+            foreach ($out as &$o) {
+                if ($o['dari'] !== null && isset($rak[$o['sku']])) {
+                    $o['no_rak'] = $rak[$o['sku']];
+                }
+            }
+            unset($o);
+        }
+        return $out;
     }
 
     /** Request terakhir yang memuat resi dan SKU ini (apa pun statusnya). */

@@ -197,6 +197,21 @@ yang diambil langsung dari Jubelio core-api (`picker/cek-top-level/jubelio`, han
   Endpoint lokal sendiri sudah cepat (35-60 ms termasuk bootstrap), jadi tidak ada yang perlu dioptimasi di sana.
 - Panel **Request Hari Ini** (tiga kartu status Diajukan / Diproses / Selesai dan antrian di sisi kanan) tetap ada seperti semula.
 
+## SKU bundle di Cek Top Level
+
+Barang yang ada di display dan top level adalah komponen bundle, bukan SKU bundle-nya. Karena itu, saat resi dicari
+(`Top_level_fcd::cari_resi` -> `urai_bundle`), SKU yang `tblsku.bundle = True` diganti SKU isinya yang bukan bundle:
+
+- Isi bundle dibaca dari Jubelio (`Jubelio_stok::komponen`, field `bundles` pada `inventory/items/{item_id}`, hanya baca).
+  Database lokal **tidak** menyimpan isi bundle (`tblsku.bundle` hanya penanda True/False). Hasil di-cache 6 jam di
+  `application/cache/jubelio/hasil_komp_*.json` karena komposisi jarang berubah.
+- Contoh: `T01-PTAA-72` (bundle) = `T01-PTAA-56` x1 + `TL001` x1. Resi dengan 2 bundle itu tampil dua baris: `T01-PTAA-56` x2
+  dan `TL001` x2, masing-masing dengan rak display-nya sendiri dan keterangan "Isi bundle T01-PTAA-72".
+- Klik **Cek**, stok live Jubelio, dan **Request Restok Display** memakai SKU komponen itu (request tercatat per komponen).
+  Komponen yang sama dari beberapa baris/bundle digabung dan qty-nya dijumlahkan.
+- Bila Jubelio gagal dihubungi atau bundle tidak punya isi, baris SKU bundle tetap tampil dengan peringatan
+  "isinya belum bisa dibaca dari Jubelio" (kegagalan dicatat di log), jadi menu tidak mati.
+
 ## Tabel
 
 | Tabel | Isi |

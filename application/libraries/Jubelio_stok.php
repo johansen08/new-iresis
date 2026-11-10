@@ -91,6 +91,44 @@ class Jubelio_stok
         return $hasil;
     }
 
+    /**
+     * Isi bundle satu SKU dari Jubelio (field `bundles` pada /inventory/items/{item_id}). Komposisi bundle jarang berubah,
+     * jadi hasilnya di-cache 6 jam (tombol Muat ulang tidak memakai ini). Tidak mengubah data apa pun.
+     *
+     * @return array daftar {sku, qty, nama}; array kosong bila SKU bukan bundle
+     * @throws RuntimeException bila Jubelio tidak bisa dihubungi / SKU tidak ditemukan
+     */
+    public function komponen($sku)
+    {
+        $sku = $this->bersih($sku);
+        $berkas = $this->berkas_hasil('komp', $sku);
+        $f = @file_get_contents($berkas);
+        $c = $f ? json_decode($f, true) : null;
+        if (is_array($c) && isset($c['exp'], $c['data']) && $c['exp'] > time()) {
+            return $c['data'];
+        }
+
+        $item_id = $this->item_id_cache($sku);
+        if (!$item_id) {
+            $item_id = $this->stok($sku, true)['item_id'];
+        }
+        $j = $this->get('/inventory/items/' . (int) $item_id);
+        $out = array();
+        foreach ((isset($j['bundles']) && is_array($j['bundles'])) ? $j['bundles'] : array() as $b) {
+            if (empty($b['item_code'])) {
+                continue;
+            }
+            $out[] = array(
+                'sku'  => trim((string) $b['item_code']),
+                'qty'  => max(1, (int) round((float) (isset($b['qty']) ? $b['qty'] : 1))),
+                'nama' => isset($b['item_name']) ? (string) $b['item_name'] : '',
+            );
+        }
+        $this->siapkan_dir();
+        @file_put_contents($berkas, json_encode(array('exp' => time() + 21600, 'data' => $out)), LOCK_EX);
+        return $out;
+    }
+
     private function bersih($sku)
     {
         $sku = trim((string) $sku);
@@ -224,7 +262,9 @@ class Jubelio_stok
         @file_put_contents($this->berkas_hasil($bagian, $sku), json_encode(array('exp' => time() + $this->ttl, 'data' => $hasil)), LOCK_EX);
         if (mt_rand(1, 40) === 1) { // sesekali buang berkas hasil yang sudah basi supaya folder tidak menumpuk
             foreach ((array) glob($this->dir . 'hasil_*.json') as $b) {
-                if (@filemtime($b) < time() - 600) {
+                // berkas isi bundle (hasil_komp_*) berumur 6 jam; sisanya 10 menit
+                $umur = strpos(basename($b), 'hasil_komp_') === 0 ? 25200 : 600;
+                if (@filemtime($b) < time() - $umur) {
                     @unlink($b);
                 }
             }
