@@ -115,10 +115,8 @@ Aturan simpan (server memeriksa ulang, bukan percaya browser):
   REJECT dan ALASAN_LAINNYA; `sku_pergantian` wajib untuk PENUKARAN_BERES dan REQUEST_DARI_PEMBELI.
 - Baris dengan SKU + status sama digabung sebelum simpan (unique key), memakai `simpan_buka_sku` yang sudah ada.
 - Semua baris gagal bersama bila satu gagal (`trans_start` / `trans_complete`), balasan memuat pesan per baris.
-- Setelah sukses: `tblresiretur` diperbarui **sekali**. `status_detail` memakai **prioritas komplain** (keputusan 1):
-  status selain BUKAN_RETUR mengalahkan BUKAN_RETUR; di antara status komplain dipilih yang qty-nya terbesar (seri:
-  yang pertama pada urutan baris); BUKAN_RETUR hanya dipakai bila semua baris BUKAN_RETUR.
-  Menu Buka Retur lama tetap berperilaku seperti sekarang (status terakhir).
+- Setelah sukses: `tblresiretur` diperbarui **sekali**. `status_detail` = status baris yang disimpan **terakhir**
+  (urutan baris pada layar), sama persis dengan Buka Retur manual (keputusan 1).
 
 ### 3.3a Kontrak simpan: sama persis dengan Buka Retur manual
 
@@ -139,9 +137,12 @@ Tab baru **hanya mengganti cara mengisi dan menampilkan**; penulisan data memaka
 
 Tidak ada tabel, kolom, atau status baru. Laporan, rekonsiliasi, batch Ke Display, dan Accounting membaca baris yang sama.
 
-**Satu-satunya perbedaan yang disengaja:** nilai `tblresiretur.status_detail` bila satu resi punya beberapa status.
-Manual: status dari simpan terakhir. Tab otomatis: prioritas komplain (keputusan 1). Kolom, format, dan tipe nilainya sama;
-yang berbeda hanya aturan memilih nilai. Bila ingin benar-benar identik, ganti ke "status terakhir" (satu baris kode).
+**`tblresiretur.status_detail` pada resi multi-status:** memakai status terakhir yang disimpan, sama dengan manual
+(keputusan 1, diubah dari "prioritas komplain" atas permintaan agar paritas penuh). Satu-satunya selisih dengan manual
+tinggal transaksi tunggal untuk semua baris, yang tidak mengubah isi data.
+Catatan: nilai ini bergantung pada urutan simpan. Label "Retur selesai: …" di Manajemen Komplain mengikutinya, sehingga
+resi dengan REJECT lalu BUKAN_RETUR bisa berlabel BUKAN_RETUR. Bila ini mengganggu, aturan bisa diubah nanti tanpa
+menyentuh `tblbukaretur`.
 
 **Uji paritas (pada salinan DB, bukan produksi):** untuk resi yang sama, simpan hasil yang sama lewat Buka Retur manual
 dan lewat tab otomatis, lalu bandingkan isi `tblbukaretur` dan `tblresiretur` (selain `id_*` dan waktu). Harus identik;
@@ -192,8 +193,8 @@ no. pesanan sebagian. Yang bisa dicoba: ubah status, ubah qty, Pecah, Hapus, Tam
 
 ## 6. Pertanyaan terbuka
 
-1. ~~`tblresiretur.status_detail` bila resi punya beberapa status.~~ **Diputuskan: prioritas komplain** (bagian komplain
-   mengalahkan BUKAN_RETUR), karena BUKAN_RETUR hanya sisa barang yang diterima pembeli.
+1. ~~`tblresiretur.status_detail` bila resi punya beberapa status.~~ **Diputuskan: status terakhir**, sama persis dengan
+   Buka Retur manual (sempat dipilih "prioritas komplain", lalu diganti demi paritas penuh).
 2. **Resi yang seluruh SKU-nya BUKAN_RETUR**: tetap dianggap Buka Retur selesai? (Saat ini ya.)
 3. **Komplain ambigu (dua komplain aktif)**: cukup manual, atau pilih komplain terbaru lewat dropdown di layar?
 4. Perlu pencatatan saran vs final (fase 3) sejak awal atau menyusul?
