@@ -650,6 +650,7 @@
       var ada = sesi.resi.proses.filter(function (x) { return up(x.sku) === up(p.sku) && x.status === p.status_detail_buka; })[0];
       if (ada) ada.qty += p.qty; else sesi.resi.proses.push({ sku: p.sku, status: p.status_detail_buka, qty: p.qty });
     });
+    if (payload.length) sesi.resi.statusTerakhir = payload[payload.length - 1].status_detail_buka;
     return payload;
   }
   // Isi nyata yang ditulis server: SAMA dengan Retur::save_buka_retur_sku (kolom, nilai tetap, dan update tblresiretur)
@@ -664,13 +665,11 @@
       diubah_server_di_tblresiretur: { status_retur: 'Buka Retur', status_detail: labelStatusResi(), id_pegawai: '<user login>', is_update: 0, is_komplain: 1 }
     };
   }
-  // tblresiretur.status_detail dari seluruh yang sudah diproses: bagian komplain mengalahkan BUKAN_RETUR; di antaranya qty terbesar
+  // tblresiretur.status_detail: status dari baris yang disimpan TERAKHIR (sama persis dengan Buka Retur manual)
   function labelStatusResi() {
-    var per = {};
-    sesi.resi.proses.forEach(function (p) { if (p.status !== 'BUKAN_RETUR') per[p.status] = (per[p.status] || 0) + p.qty; });
-    var label = 'BUKAN_RETUR';
-    Object.keys(per).forEach(function (k, i) { if (i === 0 || per[k] > per[label]) label = k; });
-    return label;
+    if (sesi.resi.statusTerakhir) return sesi.resi.statusTerakhir;
+    var p = sesi.resi.proses; // data awal (sudah diproses sebelumnya): baris terakhir
+    return p.length ? p[p.length - 1].status : '';
   }
   function sisaResi() { return sesi.resi.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(sesi.resi, i)); }, 0); }
   function totalQtyResi() { return sesi.resi.items.reduce(function (a, i) { return a + i.qty; }, 0); }
