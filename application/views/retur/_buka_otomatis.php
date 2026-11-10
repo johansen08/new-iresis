@@ -111,7 +111,6 @@
       <section class="bo-card">
         <label class="bo-lbl" for="bo-scan">Scan resi</label>
         <input type="text" id="bo-scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Arahkan alat scan ke sini">
-        <div class="bo-hint">Resi asli atau resi pengembalian. Enter memproses otomatis dan kolom langsung dikosongkan untuk scan berikutnya.</div>
       </section>
       <section class="bo-card bo-hide" id="bo-ringkas"></section>
     </aside>
