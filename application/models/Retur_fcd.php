@@ -3069,7 +3069,7 @@ class Retur_fcd extends CI_Model
         'Salah Kirim Ekspedisi'  => 'BUKAN_BARANG_KITA',
         // 'Salah Kirim' (kategori lama) ditentukan hasil CCTV, lihat saran_status_detail()
         'Reject'                 => 'REJECT',
-        'Kurang Kirim'           => 'KE_DISPLAY',
+        'Kurang Kirim'           => 'REFUND',
         'Paket Kosong'           => 'BARANG_TIDAK_ADA',
         'Barang Tidak Original'  => 'BUKAN_BARANG_KITA',
         'Bukan Barang Kita'      => 'BUKAN_BARANG_KITA',
