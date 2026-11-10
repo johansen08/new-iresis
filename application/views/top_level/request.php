@@ -132,9 +132,13 @@ $this->load->view('top_level/_dasar'); ?>
         '<div class="tlr-cta"><button type="button" class="tl-btn ghost dng" data-batal="' + d.id + '">Batalkan request</button>' +
         '<button type="button" class="tl-btn pri lg" data-cetak="' + d.id + '">' + T.ic('print', 15) + 'Cetak slip</button></div>';
     } else if (d.status === 'DITUGASKAN') {
-      h += '<div class="tlr-two">' + rincianBox(d) + resiBox(d) + '</div>' + formQty(d) +
-        '<div class="tlr-cta"><button type="button" class="tl-btn" data-cetak="' + d.id + '">' + T.ic('print', 15) + 'Cetak ulang slip</button>' +
-        '<button type="button" class="tl-btn pri lg" id="tl-simpan">Simpan &amp; selesai</button></div>';
+      var beda = $.grep(d.rak, function (x) { return x.live !== undefined && +x.live !== +x.stok; });
+      h += '<div class="tlr-two">' + rincianBox(d) + resiBox(d) + '</div>' +
+        (beda.length ? '<div class="tl-note warn" style="margin-bottom:10px"><b>Stok berubah sejak slip dicetak:</b> ' + $.map(beda, function (x) { return T.esc(x.rak) + ' (slip ' + x.stok + ', sekarang ' + x.live + ')'; }).join(', ') + '. Request ini tidak bisa diselesaikan: batalkan lalu buat request baru.</div>' : '') +
+        formQty(d) +
+        '<div class="tlr-cta"><button type="button" class="tl-btn ghost dng" data-batal="' + d.id + '">Batalkan request</button>' +
+        '<button type="button" class="tl-btn" data-cetak="' + d.id + '">' + T.ic('print', 15) + 'Cetak ulang slip</button>' +
+        '<button type="button" class="tl-btn pri lg" id="tl-simpan"' + (beda.length ? ' disabled' : '') + '>Simpan &amp; selesai</button></div>';
     } else if (d.status === 'SELESAI') {
       var hasil = {}, tot = 0;
       $.each(d.hasil || [], function (i, x) { hasil[x.rak] = x.amb; tot += +x.amb; });
@@ -269,7 +273,7 @@ $this->load->view('top_level/_dasar'); ?>
     var $m = T.modal({
       judul: 'Batalkan request?',
       body: '<div class="tl-db"><div class="tlc-kv"><span>Nomor TTL</span><b>' + T.esc(nomor(d)) + '</b><span>SKU</span><b>' + T.esc(d.sku) + '</b><span>Resi</span><b>' + (d.resi.length ? T.esc(d.resi.join(', ')) : '—') + '</b></div>' +
-        '<div class="tlc-wr">Request dibatalkan dan nomor TTL-nya ikut dibatalkan. Hanya bisa sebelum slip dicetak.</div></div>' +
+        '<div class="tlc-wr">Request dibatalkan dan nomor TTL-nya ikut dibatalkan. Stok tidak berubah. Kalau slip sudah dicetak, tarik slipnya dari Restok.</div></div>' +
         '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tidak</button><button type="button" class="tl-btn pri bad" data-yabatal>Ya, Batalkan</button></div>'
     });
     $m.find('[data-tl-tutup]').last().focus();

@@ -50,7 +50,13 @@ punya tampilan web.
    tanggal tetap terisi) dan stok tidak berkurang.
    Resi diserahkan fisik ke picker, tidak dicatat sistem.
 
-Cabang: **Dibatalkan** (hanya sebelum slip dicetak).
+Cabang: **Dibatalkan** (bisa sebelum maupun sesudah slip dicetak; stok tidak berubah karena stok baru berkurang saat Selesai).
+
+**Aturan slip berjalan (perbaikan stok hantu, 10 Nov 2026):** slip membekukan stok rak saat dicetak. Selama request
+berstatus `DITUGASKAN`, Pindah rak / Koreksi / Ubah Stok / Keluar manual untuk SKU itu ditolak (`pesan_slip_berjalan`).
+Saat Selesai, stok live tiap rak harus sama dengan angka di slip; bila beda, ditolak dan CS membatalkan lalu membuat
+request baru. Tanpa aturan ini, penyelesaian TL menimpa stok dengan angka slip lama dan memunculkan stok hantu
+(kasus C223-ANT169-1).
 
 Di halaman picker (Cek Top Level) status ditampilkan sebagai **Diajukan** (menunggu CS mencetak), **Diproses** (CS sudah
 mencetak, kode `DITUGASKAN`), dan **Selesai** (CS sudah memasukkan TTL keluar). Menu CS Request Top Level tetap memakai
