@@ -73,9 +73,8 @@ $this->load->view('top_level/_dasar'); ?>
       } else {
         ac = '<button type="button" class="tl-btn ' + (buka === i ? '' : 'pri') + '" data-cek="' + i + '">' + (buka === i ? 'Tutup' : 'Cek') + '</button>';
       }
-      // Bundle sudah diganti SKU isinya (server): tampilkan qty dan asal bundle-nya; bila isi bundle gagal dibaca, beri peringatan.
+      // Bundle sudah diganti SKU isinya (server): tampilkan asal bundle-nya (qty pesanan sengaja tidak ditampilkan); bila isi bundle gagal dibaca, beri peringatan.
       var ket = '';
-      if (it.qty > 1) ket += ' <span class="mono">× ' + it.qty + '</span>';
       if (it.dari && it.dari.length) ket += '<span class="tlj-mut" style="display:block;font-size:12px">Isi bundle ' + T.esc(it.dari.join(', ')) + '</span>';
       if (it.bundle_gagal) ket += '<span class="tlj-mut" style="display:block;font-size:12px;color:#b45309">SKU bundle, isinya belum bisa dibaca dari Jubelio</span>';
       h += '<div class="tlc-row"><div class="tlc-rm"><div><span class="lbl">SKU</span><span class="sk">' + T.esc(it.sku) + '</span>' + ket + '</div>' +
