@@ -518,12 +518,16 @@
       var ada = sesi.resi.proses.filter(function (x) { return up(x.sku) === up(p.sku) && x.status === p.status_detail_buka; })[0];
       if (ada) ada.qty += p.qty; else sesi.resi.proses.push({ sku: p.sku, status: p.status_detail_buka, qty: p.qty });
     });
-    var terakhir = payload[payload.length - 1].status_detail_buka;
+    // Nilai tblresiretur.status_detail: bagian komplain mengalahkan BUKAN_RETUR; di antara bagian komplain, qty terbesar (seri: yang pertama)
+    var perStatus = {};
+    payload.forEach(function (p) { if (p.status_detail_buka !== 'BUKAN_RETUR') perStatus[p.status_detail_buka] = (perStatus[p.status_detail_buka] || 0) + p.qty; });
+    var terakhir = 'BUKAN_RETUR';
+    Object.keys(perStatus).forEach(function (k, i) { if (i === 0 || perStatus[k] > perStatus[terakhir]) terakhir = k; });
     var sisa = sesi.resi.items.reduce(function (a, i) { return a + Math.max(0, sisaSku(sesi.resi, i)); }, 0);
     var diubah = payload.filter(function (p) { return p.diedit_user; }).length;
     var h = '<div class="alert ok"><b>Tersimpan (simulasi).</b> ' + payload.length + ' baris ke <code>tblbukaretur</code> dalam satu transaksi; ' +
       diubah + ' baris hasil edit user, ' + (payload.length - diubah) + ' sesuai saran otomatis.</div>' +
-      '<dl class="kv"><dt>tblresiretur</dt><dd>status_retur = <b>Buka Retur</b>, status_detail = ' + esc(terakhir) + ' <span class="note">(nilai baris terakhir, sama seperti perilaku sekarang)</span></dd>' +
+      '<dl class="kv"><dt>tblresiretur</dt><dd>status_retur = <b>Buka Retur</b>, status_detail = ' + esc(terakhir) + ' <span class="note">(prioritas komplain: BUKAN_RETUR hanya dipakai bila semua baris BUKAN_RETUR)</span></dd>' +
       '<dt>Sisa qty resi</dt><dd>' + (sisa > 0 ? sisa + ' pcs belum diproses, resi masih bisa dibuka lagi' : 'semua qty sudah diproses (resi selesai)') + '</dd></dl>' +
       '<details open><summary>Payload yang dikirim ke server</summary><pre>' + esc(JSON.stringify(payload, null, 2)) + '</pre></details>';
     // muat ulang rencana dengan data terbaru (qty yang baru diproses sudah berkurang dari sisa), lalu tampilkan hasil simpan

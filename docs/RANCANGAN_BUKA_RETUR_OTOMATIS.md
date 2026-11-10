@@ -115,7 +115,10 @@ Aturan simpan (server memeriksa ulang, bukan percaya browser):
   REJECT dan ALASAN_LAINNYA; `sku_pergantian` wajib untuk PENUKARAN_BERES dan REQUEST_DARI_PEMBELI.
 - Baris dengan SKU + status sama digabung sebelum simpan (unique key), memakai `simpan_buka_sku` yang sudah ada.
 - Semua baris gagal bersama bila satu gagal (`trans_start` / `trans_complete`), balasan memuat pesan per baris.
-- Setelah sukses: `tblresiretur` diperbarui **sekali** (lihat pertanyaan 1 untuk nilai `status_detail`).
+- Setelah sukses: `tblresiretur` diperbarui **sekali**. `status_detail` memakai **prioritas komplain** (keputusan 1):
+  status selain BUKAN_RETUR mengalahkan BUKAN_RETUR; di antara status komplain dipilih yang qty-nya terbesar (seri:
+  yang pertama pada urutan baris); BUKAN_RETUR hanya dipakai bila semua baris BUKAN_RETUR.
+  Menu Buka Retur lama tetap berperilaku seperti sekarang (status terakhir).
 
 ### 3.4 Data
 
@@ -156,9 +159,8 @@ no. pesanan sebagian. Yang bisa dicoba: ubah status, ubah qty, Pecah, Hapus, Tam
 
 ## 6. Pertanyaan terbuka
 
-1. **`tblresiretur.status_detail` bila resi punya beberapa status.** Pilihan: (a) status terakhir seperti sekarang;
-   (b) status dengan qty terbesar; (c) prioritas: bagian komplain (REJECT/REFUND/KE_DISPLAY/…) mengalahkan BUKAN_RETUR.
-   Saran: (c), karena BUKAN_RETUR hanya sisa barang yang diterima pembeli dan tidak menggambarkan hasil komplain.
+1. ~~`tblresiretur.status_detail` bila resi punya beberapa status.~~ **Diputuskan: prioritas komplain** (bagian komplain
+   mengalahkan BUKAN_RETUR), karena BUKAN_RETUR hanya sisa barang yang diterima pembeli.
 2. **Resi yang seluruh SKU-nya BUKAN_RETUR**: tetap dianggap Buka Retur selesai? (Saat ini ya.)
 3. **Komplain ambigu (dua komplain aktif)**: cukup manual, atau pilih komplain terbaru lewat dropdown di layar?
 4. Perlu pencatatan saran vs final (fase 3) sejak awal atau menyusul?
