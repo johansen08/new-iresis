@@ -577,12 +577,27 @@ $(document).ready(function() {
     var currentBukaReturBtn = null;
 
     // Saran Status Detail dari komplain (diisi saat resi discan, dipakai saat modal dibuka)
-    function terapkanSaranBuka(selSelector, hintSelector) {
+    function terapkanSaranBuka(selSelector, hintSelector, daftarSku, pergSelector) {
         var s = window.saranBuka;
         $(hintSelector).text('');
-        if (!s || !s.kode || !$(selSelector + ' option[value="' + s.kode + '"]').length) { return; }
-        $(selSelector).val(s.kode).trigger('change');
-        $(hintSelector).text('Disarankan dari komplain K-' + ('00000' + s.id_complain).slice(-5) + ' (' + s.kategori + '). Ganti bila isi paket berbeda.');
+        if (!s) { return; }
+        // Saran per SKU (BUKAN_RETUR / REQUEST_DARI_PEMBELI) menggantikan saran kategori; SKU terpilih harus sepakat
+        var kode = null, catatan = '', perg = '', sepakat = true;
+        $.each(daftarSku || [], function(i, sku) {
+            var e = (s.per_sku && s.per_sku[$.trim(sku)]) || null;
+            var k = e ? e.kode : (s.kode || null);
+            if (i === 0) { kode = k; catatan = e ? e.catatan : ''; perg = e && e.sku_pergantian ? e.sku_pergantian : ''; }
+            else if (k !== kode) { sepakat = false; }
+        });
+        if (!sepakat) {
+            $(hintSelector).text('SKU yang dipilih punya saran berbeda dari komplain K-' + ('00000' + s.id_complain).slice(-5) + '. Pilih per SKU atau tentukan sendiri.');
+            return;
+        }
+        if (!kode || !$(selSelector + ' option[value="' + kode + '"]').length) { return; }
+        $(selSelector).val(kode).trigger('change');
+        if (perg && pergSelector) { $(pergSelector).val(perg); }
+        $(hintSelector).text('Disarankan dari komplain K-' + ('00000' + s.id_complain).slice(-5) + ' (' + s.kategori + ')' +
+            (catatan ? ': ' + catatan : '') + '. Ganti bila isi paket berbeda.');
     }
 
     $(document).on('click', '.prosesBukaRetur', function(event) {
@@ -628,7 +643,7 @@ $(document).ready(function() {
 
         // Show
         $('#bukaReturModal').fadeIn();
-        terapkanSaranBuka('#modal_status_detail', '#saran_hint_modal');
+        terapkanSaranBuka('#modal_status_detail', '#saran_hint_modal', [sku], '#modal_sku_pergantian');
     });
 
     $(document).on('click', '.btn-qty-minus', function() {
@@ -845,7 +860,7 @@ $(document).ready(function() {
         $('#bulk_selected_items_list').html(htmlList);
 
         $('#bukaReturBulkModal').fadeIn();
-        terapkanSaranBuka('#bulk_status_detail', '#saran_hint_bulk');
+        terapkanSaranBuka('#bulk_status_detail', '#saran_hint_bulk', $.map(items, function(it) { return it.sku; }), '#bulk_sku_pergantian');
     });
 
     $(document).on('click', '.btn-cancel-bulk-popup', function() {
