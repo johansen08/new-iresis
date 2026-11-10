@@ -3115,37 +3115,67 @@ class Retur_fcd extends CI_Model
             $kode = self::SARAN_STATUS_DETAIL[$kategori] ?? null;
         }
 
-        // Saran per SKU: bandingkan SKU di resi dengan SKU yang dikomplain (tblcs_complain_detail).
+        // Saran per SKU: bandingkan SKU dan QTY di resi dengan yang dikomplain (tblcs_complain_detail).
         //  - SKU resi yang TIDAK ada di komplain, dan semua SKU komplain ada di resi -> BUKAN_RETUR
         //    (pembeli pesan beberapa SKU, hanya sebagian yang dikomplain; sisanya diterima pembeli).
+        //  - SKU ada di komplain tetapi qty komplain < qty resi (mis. resi 3 pcs, komplain 1 pcs):
+        //    qty sebesar komplain memakai saran kategori, SISANYA BUKAN_RETUR. Sudah diproses sebagian
+        //    (tblbukaretur) diperhitungkan, jadi saran bergeser ke tahap berikutnya.
         //  - SKU komplain yang tidak ada di resi (request ganti variasi/warna) -> REQUEST_DARI_PEMBELI,
         //    hanya bila tepat satu SKU resi dan satu SKU komplain yang tidak berpasangan (SKU pergantian = SKU komplain);
         //    selain itu ambigu, tanpa saran per SKU.
         $per_sku = [];
-        $sku_resi = array_map('trim', array_column($this->db->distinct()->select('sku')
-            ->where('id_resi', $resi->id_printresi)->where("sku <> ''", null, false)
-            ->get('tbldetailprintresi')->result_array(), 'sku'));
-        $sku_komplain = array_map('trim', array_column($this->db->distinct()->select('sku')
-            ->where('id_complain', (int) $rows[0]['id_complain'])->where('is_deleted', 0)->where("sku <> ''", null, false)
-            ->get('tblcs_complain_detail')->result_array(), 'sku'));
-        if ($sku_resi && $sku_komplain) {
-            $norm = function ($a) { return array_map('strtoupper', $a); };
-            $lebih_resi     = array_values(array_filter($sku_resi, function ($s) use ($sku_komplain, $norm) {
-                return !in_array(strtoupper($s), $norm($sku_komplain), true);
-            }));
-            $lebih_komplain = array_values(array_filter($sku_komplain, function ($s) use ($sku_resi, $norm) {
-                return !in_array(strtoupper($s), $norm($sku_resi), true);
-            }));
+        $qty_resi = [];
+        foreach ($this->db->select('sku, SUM(jumlah) AS q', false)->where('id_resi', $resi->id_printresi)
+            ->where("sku <> ''", null, false)->group_by('sku')->get('tbldetailprintresi')->result_array() as $r) {
+            $qty_resi[strtoupper(trim($r['sku']))] = ['sku' => trim($r['sku']), 'q' => (int) $r['q']];
+        }
+        $qty_komplain = [];
+        foreach ($this->db->select('sku, SUM(qty) AS q', false)->where('id_complain', (int) $rows[0]['id_complain'])
+            ->where('is_deleted', 0)->where("sku <> ''", null, false)->group_by('sku')->get('tblcs_complain_detail')->result_array() as $r) {
+            $qty_komplain[strtoupper(trim($r['sku']))] = ['sku' => trim($r['sku']), 'q' => (int) $r['q']];
+        }
+        $sudah = []; // sku => ['bukan_retur' => qty, 'lain' => qty] yang sudah diproses di Buka Retur
+        foreach ($this->db->select('sku, status_detail_buka, SUM(qty) AS q', false)->where('resi_buka', $noresi)
+            ->group_by(['sku', 'status_detail_buka'])->get('tblbukaretur')->result_array() as $r) {
+            $kunci = strtoupper(trim((string) $r['sku']));
+            $jenis = $r['status_detail_buka'] === 'BUKAN_RETUR' ? 'bukan_retur' : 'lain';
+            $sudah[$kunci][$jenis] = ($sudah[$kunci][$jenis] ?? 0) + (int) $r['q'];
+        }
+
+        if ($qty_resi && $qty_komplain) {
+            $lebih_resi     = array_diff_key($qty_resi, $qty_komplain);
+            $lebih_komplain = array_diff_key($qty_komplain, $qty_resi);
+
+            // SKU yang dikomplain tetapi qty komplain lebih kecil dari qty resi
+            foreach ($qty_komplain as $k => $kk) {
+                if (!isset($qty_resi[$k]) || $qty_resi[$k]['q'] <= $kk['q']) {
+                    continue;
+                }
+                $qr = $qty_resi[$k]['q'];
+                $qk = $kk['q'];
+                $sisa_komplain = max(0, $qk - ($sudah[$k]['lain'] ?? 0));
+                $sisa_bukan    = max(0, ($qr - $qk) - ($sudah[$k]['bukan_retur'] ?? 0));
+                $ket = 'Komplain hanya ' . $qk . ' dari ' . $qr . ' pcs: ' . $qk . ' pcs sesuai kategori, sisa ' . ($qr - $qk) . ' pcs BUKAN_RETUR';
+                if ($sisa_komplain > 0 && $kode !== null) {
+                    $per_sku[$qty_resi[$k]['sku']] = ['kode' => $kode, 'qty' => $sisa_komplain, 'catatan' => $ket . ' (proses ' . $sisa_komplain . ' pcs dulu)'];
+                } elseif ($sisa_komplain <= 0 && $sisa_bukan > 0) {
+                    $per_sku[$qty_resi[$k]['sku']] = ['kode' => 'BUKAN_RETUR', 'qty' => $sisa_bukan, 'catatan' => 'Bagian komplain sudah diproses; sisa ' . $sisa_bukan . ' pcs diterima pembeli'];
+                }
+            }
+
             if ($lebih_resi) {
                 if (!$lebih_komplain) {
-                    foreach ($lebih_resi as $s) {
-                        $per_sku[$s] = ['kode' => 'BUKAN_RETUR', 'catatan' => 'SKU ini tidak ada di komplain (barangnya diterima pembeli)'];
+                    foreach ($lebih_resi as $kk) {
+                        $per_sku[$kk['sku']] = ['kode' => 'BUKAN_RETUR', 'catatan' => 'SKU ini tidak ada di komplain (barangnya diterima pembeli)'];
                     }
                 } elseif (count($lebih_resi) === 1 && count($lebih_komplain) === 1) {
-                    $per_sku[$lebih_resi[0]] = [
-                        'kode'          => 'REQUEST_DARI_PEMBELI',
-                        'sku_pergantian' => $lebih_komplain[0],
-                        'catatan'       => 'SKU komplain ' . $lebih_komplain[0] . ' berbeda dengan resi (request pergantian)',
+                    $a = reset($lebih_resi);
+                    $b = reset($lebih_komplain);
+                    $per_sku[$a['sku']] = [
+                        'kode'           => 'REQUEST_DARI_PEMBELI',
+                        'sku_pergantian' => $b['sku'],
+                        'catatan'        => 'SKU komplain ' . $b['sku'] . ' berbeda dengan resi (request pergantian)',
                     ];
                 }
             }
