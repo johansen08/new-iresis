@@ -1,7 +1,21 @@
 # Rancangan: tab "Buka Retur Otomatis" (Retur → Scan Retur Komplain)
 
-Status: **rancangan + prototype** (belum ada kode di aplikasi). Prototype yang bisa diuji:
-`docs/prototype_buka_retur_otomatis.html` (buka langsung di browser, 12 resi uji, tanpa server).
+Status: **sudah diimplementasikan** (10 Nov 2026) sebagai tab ketiga **Buka Retur Otomatis** di Retur → Scan Retur
+Komplain (tidak muncul di Update Retur Komplain maupun menu retur biasa). Prototype tetap ada di
+`docs/prototype_buka_retur_otomatis.html`.
+
+Berkas: `views/retur/_buka_otomatis.php` (tab, dimuat dari `views/retur/scan_retur.php`), `Retur::buka_otomatis_rencana` (GET,
+hanya baca) dan `Retur::save_buka_otomatis` (POST, satu transaksi), `Retur_fcd::rencana_buka_otomatis` dan
+`Retur_fcd::kode_saran_kategori`, route `retur/buka-otomatis-rencana/(:any)` dan `retur/save-buka-otomatis`.
+Tidak ada migrasi baru.
+
+Hasil uji di browser (aplikasi nyata pada salinan DB, 10 Nov 2026): scan Enter + kolom dikosongkan, kursor terkunci,
+foto SKU nyata + lightbox, rencana otomatis untuk 9 skenario (kategori, SKU di luar komplain, qty sebagian, request
+pergantian, no. pesanan sebagian, tanpa komplain, dua komplain, belum Terima Retur, resi tidak dikenal), popup
+konfirmasi, simpan keseluruhan dan per baris, scan ulang hanya menampilkan sisa, penolakan server (qty melebihi,
+alasan kosong, status tidak sah, belum Terima Retur), rollback atomik, dan **paritas dengan Buka Retur manual**
+(pemisahan qty REFUND 1 + BUKAN_RETUR 1: isi `tblbukaretur` dan `tblresiretur` identik). Tabel Manajemen Komplain CS New
+membaca hasilnya dengan benar.
 
 Tujuan: petugas scan satu resi, sistem **mencocokkan resi asli dengan data komplain**, mengisi **status detail dan
 pemisahan qty** secara otomatis, menampilkan hasilnya dulu, petugas boleh **mengubah / menghapus / menambah baris**,

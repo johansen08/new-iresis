@@ -853,6 +853,173 @@ class Retur extends MY_Controller
         $this->make_ajax_response(201, $msg);
     }
 
+    // ==================== BUKA RETUR OTOMATIS (komplain) ====================
+    // Rancangan: docs/RANCANGAN_BUKA_RETUR_OTOMATIS.md. Penulisan data SAMA dengan save_buka_retur_sku
+    // (simpan_buka_sku + guarded_pk_update tblresiretur); yang baru hanya pengisian otomatis dan satu transaksi.
+    private $status_detail_sah = ['REJECT', 'REFUND', 'PENUKARAN_BERES', 'REQUEST_DARI_PEMBELI', 'KURANG', 'KE_DISPLAY',
+        'BUKAN_BARANG_KITA', 'DIPAKAI_ADMIN', 'BARANG_TIDAK_ADA', 'BUKAN_RETUR', 'ALASAN_LAINNYA'];
+
+    private function _json_bersih($isi)
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        echo json_encode($isi);
+        exit();
+    }
+
+    /** GET: hasil matching + rencana. Tidak menulis apa pun. */
+    public function buka_otomatis_rencana($noresi = '')
+    {
+        $input = trim(urldecode($noresi));
+        if ($input === '') {
+            $this->_json_bersih(['status' => 'error', 'message' => 'Resi kosong.']);
+        }
+        if ($this->session->userdata('mode_arsip')) {
+            $this->_json_bersih(['status' => 'error', 'message' => 'Mode Arsip aktif (baca saja). Keluar dari Mode Arsip untuk Buka Retur.']);
+        }
+        $noresi = resolusi_noresi_retur($input);
+        pastikan_resi_live($noresi);
+
+        $err = $this->_cek_boleh_buka_retur($noresi, 1);
+        if ($err !== null) {
+            $this->_json_bersih(['status' => 'error', 'message' => $err]);
+        }
+        $rencana = $this->retur_fcd->rencana_buka_otomatis($noresi);
+        if ($rencana === null) {
+            $this->_json_bersih(['status' => 'error', 'message' => 'Noresi tidak ditemukan.']);
+        }
+        $rencana['diinput'] = $input;
+        $rencana['cara'] = strtoupper($input) === strtoupper($noresi) ? 'resi asli' : 'resi pengembalian / resi balik';
+        $this->_json_bersih(['status' => 'ok', 'data' => $rencana]);
+    }
+
+    /** POST: simpan seluruh baris rencana dalam satu transaksi. */
+    public function save_buka_otomatis()
+    {
+        if ($this->input->method() == 'get') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+        if ($this->session->userdata('mode_arsip')) {
+            $this->make_ajax_response(409, 'Mode Arsip aktif (baca saja).');
+        }
+
+        $noresi = resolusi_noresi_retur(trim((string) $this->input->post('noresi')));
+        $baris = json_decode((string) $this->input->post('baris'), true);
+        if ($noresi === '' || empty($baris) || !is_array($baris)) {
+            $this->make_ajax_response(400, 'Data tidak lengkap');
+        }
+        $is_complain = 1; // tab ini hanya untuk retur komplain
+
+        // Gerbang sama dengan Buka Retur manual: wajib sudah Terima Retur komplain
+        $err_buka = $this->_cek_boleh_buka_retur($noresi, $is_complain);
+        if ($err_buka !== null) {
+            $this->make_ajax_response(409, $err_buka);
+        }
+        $receipt = $this->db->get_where('tblprintresi', ['noresi' => $noresi])->row();
+        if (!$receipt) {
+            $this->make_ajax_response(409, 'Noresi tidak ditemukan.');
+        }
+
+        // Validasi (server memeriksa ulang, sama dengan aturan modal Buka Retur manual)
+        $bersih = [];
+        foreach ($baris as $i => $b) {
+            $nomor = $i + 1;
+            $sku = trim((string) ($b['sku'] ?? ''));
+            $status = (string) ($b['status'] ?? '');
+            $qty = max(1, (int) ($b['qty'] ?? 0));
+            if ($sku === '' || !in_array($status, $this->status_detail_sah, true)) {
+                $this->make_ajax_response(400, "Baris $nomor: SKU atau status detail tidak valid");
+            }
+            $perg = trim((string) ($b['sku_pergantian'] ?? ''));
+            $alasan = trim((string) ($b['alasan_ditolak'] ?? ''));
+            // Keterangan hanya berlaku untuk status yang memintanya; untuk status lain dikosongkan (seperti modal manual)
+            $perg = in_array($status, ['PENUKARAN_BERES', 'REQUEST_DARI_PEMBELI'], true) ? $perg : '';
+            $alasan = in_array($status, ['REJECT', 'ALASAN_LAINNYA'], true) ? $alasan : '';
+            if (in_array($status, ['PENUKARAN_BERES', 'REQUEST_DARI_PEMBELI'], true) && $perg === '') {
+                $this->make_ajax_response(400, "Baris $nomor ($sku): SKU pergantian wajib diisi");
+            }
+            if (in_array($status, ['REJECT', 'ALASAN_LAINNYA'], true) && $alasan === '') {
+                $this->make_ajax_response(400, "Baris $nomor ($sku): alasan wajib diisi");
+            }
+            if (mb_strlen($perg) > 255 || mb_strlen($alasan) > 255) {
+                $this->make_ajax_response(400, "Baris $nomor ($sku): keterangan maksimal 255 karakter");
+            }
+            $bersih[] = ['sku' => $sku, 'qty' => $qty, 'status' => $status, 'perg' => $perg, 'alasan' => $alasan];
+        }
+
+        // Kunci per resi: dua petugas / double Enter tidak boleh sama-sama lolos cek sisa qty
+        $kunci = 'buka_retur_' . (int) $receipt->id_printresi;
+        $dapat = $this->db->query('SELECT GET_LOCK(?, 5) AS k', [$kunci])->row();
+        if (!$dapat || (int) $dapat->k !== 1) {
+            $this->make_ajax_response(409, 'Server sibuk memproses resi ini. Coba lagi.');
+        }
+
+        $user_id = $this->data['user']['id_user'];
+        $pesan = null;
+        $this->db->trans_begin();
+        try {
+            foreach ($bersih as $i => $b) {
+                $nomor = $i + 1;
+                // Guard qty berbasis sisa (dihitung ulang di dalam kunci; baris sebelumnya dalam transaksi ikut terhitung)
+                $sisa = $this->retur_fcd->sisa_qty_buka($noresi, $b['sku'], $is_complain);
+                if ($sisa !== null && $b['qty'] > $sisa) {
+                    $pesan = ($sisa <= 0)
+                        ? "Baris $nomor: SKU {$b['sku']} sudah selesai diproses seluruhnya untuk resi ini."
+                        : "Baris $nomor: qty melebihi sisa, SKU {$b['sku']} hanya tersisa $sisa pcs.";
+                    break;
+                }
+                $now = date('Y-m-d H:i:s');
+                $bukaretur = [
+                    'status_buka' => 'Buka Retur',
+                    'status_detail_buka' => $b['status'],
+                    'resi_buka' => $noresi,
+                    'hasil_scan_buka' => $noresi,
+                    'sku' => $b['sku'],
+                    'qty' => $b['qty'],
+                    'is_komplain' => $is_complain,
+                    'sku_pergantian' => $b['perg'] !== '' ? $b['perg'] : null,
+                    'alasan_ditolak' => $b['alasan'] !== '' ? $b['alasan'] : null,
+                    'tanggal_buka_retur' => $now,
+                    'id_pegawai' => $user_id,
+                    'created_at' => $now,
+                ];
+                if (!$this->retur_fcd->simpan_buka_sku($bukaretur, $user_id)) {
+                    $pesan = "Baris $nomor: SKU {$b['sku']} dengan status {$b['status']} sedang/sudah tersimpan. Muat ulang lalu coba lagi.";
+                    break;
+                }
+            }
+
+            if ($pesan === null) {
+                // tblresiretur: sekali, sama dengan manual (status_detail = status baris terakhir yang disimpan)
+                $retur_exist = $this->db->get_where('tblresiretur', ['id_resi' => $receipt->id_printresi, 'is_komplain' => $is_complain])->row();
+                if ($retur_exist) {
+                    $this->retur_fcd->guarded_pk_update('tblresiretur', 'id_resiretur', $retur_exist->id_resiretur, [
+                        'status_retur' => 'Buka Retur',
+                        'status_detail' => $bersih[count($bersih) - 1]['status'],
+                        'id_pegawai' => $user_id,
+                        'is_update' => 0,
+                        'is_komplain' => $is_complain,
+                    ]);
+                }
+            }
+        } catch (Throwable $e) {
+            log_message('error', 'save_buka_otomatis: ' . $e->getMessage());
+            $pesan = 'Gagal menyimpan Buka Retur. Tidak ada data yang tersimpan.';
+        }
+
+        if ($pesan !== null || $this->db->trans_status() === false) {
+            $this->db->trans_rollback();
+            $this->db->query('SELECT RELEASE_LOCK(?)', [$kunci]);
+            $this->make_ajax_response(409, $pesan ?: 'Gagal menyimpan Buka Retur. Tidak ada data yang tersimpan.');
+        }
+        $this->db->trans_commit();
+        $this->db->query('SELECT RELEASE_LOCK(?)', [$kunci]);
+
+        $this->make_ajax_response(201, count($bersih) . ' baris Buka Retur tersimpan.');
+    }
+
     public function search_retur()
     {
         $data['message'] = $this->session->flashdata('message');
