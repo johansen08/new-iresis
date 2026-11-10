@@ -20,14 +20,13 @@ class Cs_new extends MY_Controller
     }
 
 
-    // Daftar acuan (harus sinkron dengan enum di tblcs_complain)
+    // Daftar acuan untuk form dan filter (enum tblcs_complain tetap memuat 'Barang Rusak' agar data lama aman; tidak lagi ditawarkan sejak 10 Nov 2026)
     private $complain_kategori = [
         'Kurang Kirim',
         'Reject',
         'Paket Kosong',
         'Salah Kirim',
         'Tidak Sesuai Deskripsi',
-        'Barang Rusak',
         'Paket Hilang',
         'Telat Kirim',
         'Salah Alamat',
