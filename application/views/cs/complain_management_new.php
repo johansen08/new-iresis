@@ -1318,8 +1318,9 @@
                         : '') +
                 '</dd></div>' +
                 (resp.retur_info
-                    ? pvRow('fa-inbox', 'Terima Retur', resp.retur_info.terima ? ('Sudah' + (resp.retur_info.tgl_terima ? ' — ' + resp.retur_info.tgl_terima : '')) : 'Belum') +
-                      pvRow('fa-folder-open-o', 'Buka Retur', resp.retur_info.buka ? ('Sudah' + (resp.retur_info.hasil ? ' — ' + resp.retur_info.hasil : '')) : 'Belum')
+                    ? pvRow('fa-inbox', 'Terima Retur', 'Sudah' + (resp.retur_info.tgl_terima ? ' — ' + resp.retur_info.tgl_terima : '')) +
+                      pvRow('fa-folder-open-o', 'Buka Retur', resp.retur_info.buka ? ('Sudah' + (resp.retur_info.tgl_buka ? ' — ' + resp.retur_info.tgl_buka : '') + (resp.retur_info.hasil ? ' — ' + resp.retur_info.hasil : '')) : 'Belum') +
+                      pvRow('fa-barcode', 'Resi retur', resp.retur_info.resi + (resp.retur_info.cocok === 'pesanan' ? ' (dicocokkan lewat no. pesanan)' : ''))
                     : (inf.tahap ? pvRow('fa-info-circle', 'Tahap retur', inf.tahap) : '')) +
                 (inf.telat ? '<div class="kp-dr-row"><i class="fa fa-clock-o" style="color:#b91c1c"></i><dt>Peringatan</dt><dd class="kp-telat">Barang retur belum dibuka lebih dari 14 hari</dd></div>' : '') +
                 ((c.status_komplain === 'DANA_BARANG' || c.no_resi_retur)
