@@ -91,31 +91,150 @@ class Cs_new extends MY_Controller
             . "WHERE r.noresi = CONVERT(c.no_resi USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
     }
 
+    /** Panjang minimum no. pesanan komplain agar boleh dicocokkan sebagian (di bawah itu terlalu rawan salah cocok). */
+    const MIN_PESANAN_SEBAGIAN = 6;
+
     /**
-     * Penanda Terima Retur / Buka Retur untuk sel Status tabel. Dibaca dari baris tblresiretur terbaru
-     * milik resi asli ("status|detail|tanggal"). Buka Retur berarti sudah pernah diterima juga.
-     * Kosong bila belum ada baris retur dan komplain bukan Dana dan Barang.
+     * Cari catatan Terima Retur (tblresiretur) dan Buka Retur (tblbukaretur) untuk sekumpulan komplain.
+     *
+     * Urutan pencocokan per komplain:
+     *  1. resi asli (no_resi) = tblresiretur.noresi;
+     *  2. bila tidak ada: no. pesanan komplain dicocokkan dengan no. pesanan resi yang masuk retur komplain
+     *     (tbldetailprintresi.no_pesanan), boleh SEBAGIAN (mis. "123" untuk "SP-123" atau "TT-123-XX"),
+     *     minimal MIN_PESANAN_SEBAGIAN karakter dan hanya diterima bila tepat satu resi yang cocok.
+     * Buka Retur = ada baris tblbukaretur dengan resi_buka = resi retur itu (atau status_retur sudah Buka Retur).
+     *
+     * @return array [id_complain => null | ['terima','buka','hasil','tgl_terima','tgl_buka','resi','cocok'=>'resi'|'pesanan']]
+     */
+    private function _peta_retur(array $komplain)
+    {
+        $hasil = [];
+        if (!$komplain) {
+            return $hasil;
+        }
+
+        // 1. resi asli
+        $resi = [];
+        foreach ($komplain as $k) {
+            if ($k['no_resi'] !== null && $k['no_resi'] !== '') {
+                $resi[] = $k['no_resi'];
+            }
+        }
+        $baris_resi = [];
+        if ($resi) {
+            $q = $this->db->select('id_resiretur, noresi, status_retur, status_detail, tanggal_resiretur')
+                ->where_in('noresi', array_values(array_unique($resi)))
+                ->order_by('id_resiretur', 'ASC')->get('tblresiretur')->result_array();
+            foreach ($q as $r) {
+                $baris_resi[strtoupper($r['noresi'])] = $r; // yang terakhir = terbaru
+            }
+        }
+
+        // 2. no. pesanan (sebagian) untuk yang belum ketemu lewat resi
+        $butuh_pesanan = false;
+        foreach ($komplain as $k) {
+            if (!isset($baris_resi[strtoupper((string) $k['no_resi'])]) && mb_strlen(trim((string) $k['no_pesanan'])) >= self::MIN_PESANAN_SEBAGIAN) {
+                $butuh_pesanan = true;
+                break;
+            }
+        }
+        $baris_pesanan = [];
+        if ($butuh_pesanan) {
+            $baris_pesanan = $this->db->query(
+                "SELECT r.id_resiretur, r.noresi, r.status_retur, r.status_detail, r.tanggal_resiretur, d.no_pesanan "
+                . "FROM tblresiretur r JOIN tbldetailprintresi d ON d.id_resi = r.id_resi "
+                . "WHERE r.is_komplain = 1 AND d.no_pesanan <> ''"
+            )->result_array();
+        }
+
+        $cocok = []; // id_complain => [baris retur, cara]
+        foreach ($komplain as $k) {
+            $id = (int) $k['id_complain'];
+            $kunci = strtoupper((string) $k['no_resi']);
+            if (isset($baris_resi[$kunci])) {
+                $cocok[$id] = [$baris_resi[$kunci], 'resi'];
+                continue;
+            }
+            $p = strtoupper(trim((string) $k['no_pesanan']));
+            if (mb_strlen($p) < self::MIN_PESANAN_SEBAGIAN || !$baris_pesanan) {
+                continue;
+            }
+            $kandidat = [];
+            foreach ($baris_pesanan as $b) {
+                if (strpos(strtoupper($b['no_pesanan']), $p) !== false) {
+                    $nr = strtoupper($b['noresi']);
+                    if (!isset($kandidat[$nr]) || (int) $b['id_resiretur'] > (int) $kandidat[$nr]['id_resiretur']) {
+                        $kandidat[$nr] = $b;
+                    }
+                }
+            }
+            if (count($kandidat) === 1) {
+                $cocok[$id] = [reset($kandidat), 'pesanan'];
+            }
+        }
+
+        // 3. Buka Retur dari tblbukaretur
+        $buka = [];
+        $resi_retur = [];
+        foreach ($cocok as $c) {
+            $resi_retur[$c[0]['noresi']] = true;
+        }
+        if ($resi_retur) {
+            $q = $this->db->query(
+                "SELECT resi_buka, MAX(tanggal_buka_retur) AS tgl, "
+                . "SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(status_detail_buka, '') ORDER BY id_bukaretur DESC SEPARATOR '|'), '|', 1) AS hasil "
+                . "FROM tblbukaretur WHERE resi_buka IN (" . implode(',', array_map([$this->db, 'escape'], array_keys($resi_retur))) . ") "
+                . "GROUP BY resi_buka"
+            )->result_array();
+            foreach ($q as $r) {
+                $buka[strtoupper($r['resi_buka'])] = $r;
+            }
+        }
+
+        foreach ($komplain as $k) {
+            $id = (int) $k['id_complain'];
+            if (!isset($cocok[$id])) {
+                $hasil[$id] = null;
+                continue;
+            }
+            list($b, $cara) = $cocok[$id];
+            $bk = $buka[strtoupper($b['noresi'])] ?? null;
+            $sudah_buka = $bk !== null || $b['status_retur'] === 'Buka Retur';
+            $detail = $bk !== null && $bk['hasil'] !== '' ? $bk['hasil'] : (string) $b['status_detail'];
+            $hasil[$id] = [
+                'terima'     => true,
+                'buka'       => $sudah_buka,
+                'hasil'      => $detail !== '' ? ucfirst(strtolower(str_replace('_', ' ', $detail))) : '',
+                'tgl_terima' => $b['tanggal_resiretur'] ? date('d/m/Y H:i', strtotime($b['tanggal_resiretur'])) : '',
+                'tgl_buka'   => $bk !== null && $bk['tgl'] ? date('d/m/Y H:i', strtotime($bk['tgl'])) : '',
+                'resi'       => $b['noresi'],
+                'cocok'      => $cara,
+            ];
+        }
+        return $hasil;
+    }
+
+    /**
+     * Penanda Terima Retur / Buka Retur untuk sel Status tabel (hasil _peta_retur).
+     * Kosong bila tidak ada catatan retur dan komplain bukan Dana dan Barang.
      */
     private function _penanda_retur($retur, $status_komplain)
     {
-        $retur = (string) $retur;
-        if ($retur === '' && $status_komplain !== 'DANA_BARANG') {
+        if ($retur === null && $status_komplain !== 'DANA_BARANG') {
             return '';
         }
-        list($st, $det, $tgl) = array_pad(explode('|', $retur, 3), 3, '');
-        $buka   = $st === 'Buka Retur';
-        $terima = $buka || $st === 'Terima Retur';
-        $waktu  = $tgl !== '' ? date('d/m/Y H:i', strtotime($tgl)) : '';
+        $terima = $retur !== null && $retur['terima'];
+        $buka   = $retur !== null && $retur['buka'];
+        $via    = $retur !== null && $retur['cocok'] === 'pesanan' ? ' (dicocokkan lewat no. pesanan, resi ' . $retur['resi'] . ')' : '';
 
         $html = '<div class="kp-st-meta ' . ($terima ? 'kp-rt-ok' : 'kp-rt-belum') . '" title="'
-            . ($terima ? 'Paket retur diterima' . ($waktu !== '' ? ' ' . $waktu : '') : 'Paket retur belum diterima') . '">'
+            . htmlspecialchars(($terima ? 'Paket retur diterima ' . $retur['tgl_terima'] . $via : 'Paket retur belum diterima'), ENT_QUOTES, 'UTF-8') . '">'
             . '<i class="fa ' . ($terima ? 'fa-check-circle' : 'fa-circle-o') . '"></i><span>'
-            . ($terima ? 'Terima' . ($waktu !== '' ? ' ' . date('d/m', strtotime($tgl)) : '') : 'Belum terima') . '</span></div>';
-        $hasil = $det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $det))) : '';
+            . ($terima ? 'Terima' . ($retur['tgl_terima'] !== '' ? ' ' . substr($retur['tgl_terima'], 0, 5) : '') : 'Belum terima') . '</span></div>';
         $html .= '<div class="kp-st-meta ' . ($buka ? 'kp-rt-ok' : 'kp-rt-belum') . '" title="'
-            . ($buka ? 'Sudah Buka Retur' . ($hasil !== '' ? ': ' . $hasil : '') : 'Belum Buka Retur') . '">'
+            . htmlspecialchars(($buka ? 'Sudah Buka Retur ' . $retur['tgl_buka'] . ($retur['hasil'] !== '' ? ': ' . $retur['hasil'] : '') : 'Belum Buka Retur'), ENT_QUOTES, 'UTF-8') . '">'
             . '<i class="fa ' . ($buka ? 'fa-check-circle' : 'fa-circle-o') . '"></i><span>'
-            . ($buka ? 'Buka' . ($hasil !== '' ? ': ' . htmlspecialchars($hasil) : '') : 'Belum buka') . '</span></div>';
+            . ($buka ? 'Buka' . ($retur['hasil'] !== '' ? ': ' . htmlspecialchars($retur['hasil']) : '') : 'Belum buka') . '</span></div>';
         return $html;
     }
 
@@ -294,6 +413,7 @@ class Cs_new extends MY_Controller
         $nada_hasil = ['QC Salah' => 'red', 'QC Benar' => 'green', 'Tidak Terlihat CCTV' => 'amber', 'CCTV Tidak Bisa Diakses' => 'slate'];
 
         $data_table = [];
+        $peta_retur = $this->_peta_retur($items);
         foreach ($items as $item) {
             $id_complain = (int) $item['id_complain'];
 
@@ -352,7 +472,7 @@ class Cs_new extends MY_Controller
             }
             $status_cell = '<div class="kp-st"><div class="kp-st-top"><span class="kp-pill kp-pill-' . $info['nada'] . '">'
                 . htmlspecialchars($info['label']) . '</span>' . $tombol_status . '</div>';
-            $penanda_retur = $this->_penanda_retur($item['retur_terbaru'], $item['status_komplain']);
+            $penanda_retur = $this->_penanda_retur($peta_retur[$id_complain] ?? null, $item['status_komplain']);
             if ($penanda_retur !== '') {
                 $status_cell .= $penanda_retur;
             } elseif ($info['tahap'] !== '') {
@@ -756,16 +876,7 @@ class Cs_new extends MY_Controller
         $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, ''), '|', COALESCE(tanggal_resiretur, '')) AS s FROM tblresiretur "
             . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
         $retur_terbaru = $r['s'] ?? null;
-        $retur_info = null;
-        if ($retur_terbaru !== null) {
-            list($r_st, $r_det, $r_tgl) = array_pad(explode('|', $retur_terbaru, 3), 3, '');
-            $retur_info = [
-                'terima'      => $r_st === 'Terima Retur' || $r_st === 'Buka Retur',
-                'buka'        => $r_st === 'Buka Retur',
-                'hasil'       => $r_det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $r_det))) : '',
-                'tgl_terima'  => $r_tgl !== '' ? date('d/m/Y H:i', strtotime($r_tgl)) : '',
-            ];
-        }
+        $retur_info = $this->_peta_retur([$complain])[(int) $id_complain] ?? null;
         $info_status = $this->_info_status($complain['status_komplain'], $complain['created_at'], $complain['tgl_status'], $retur_terbaru);
         $riwayat_status = $this->db->select('l.status_dari, l.status_ke, l.catatan, l.waktu, u.name AS nama_user')
                                    ->from('tblcs_complain_status_log l')
