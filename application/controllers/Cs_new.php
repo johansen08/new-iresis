@@ -25,15 +25,20 @@ class Cs_new extends MY_Controller
         'Kurang Kirim',
         'Reject',
         'Paket Kosong',
-        'Salah Kirim',
+        'Salah Kirim QC',
+        'Salah Kirim Ekspedisi',
         'Tidak Sesuai Deskripsi',
         'Paket Hilang',
         'Telat Kirim',
         'Salah Alamat',
         'Barang Tidak Original',
-        'Bukan Barang Kita',
         'Lainnya'
     ];
+
+    // Kategori yang sudah tidak ditawarkan di form, tetapi nilainya masih ada di data lama (enum tidak dikurangi).
+    // Hanya 'Salah Kirim' yang masih punya data, jadi hanya itu yang tetap muncul di filter.
+    private $complain_kategori_lama = ['Barang Rusak', 'Salah Kirim', 'Bukan Barang Kita'];
+    private $complain_kategori_filter_lama = ['Salah Kirim'];
 
     private $complain_sumber = [
         'Chat Marketplace',
@@ -312,6 +317,7 @@ class Cs_new extends MY_Controller
         $data['stores'] = $this->_daftar_toko();
 
         $data['kategori_list'] = $this->complain_kategori;
+        $data['kategori_filter_list'] = array_merge($this->complain_kategori, $this->complain_kategori_filter_lama);
         $data['sumber_list']   = $this->complain_sumber;
         $data['status_list']   = $this->complain_status;
         $data['jenis_list']    = $this->complain_jenis;
@@ -406,7 +412,7 @@ class Cs_new extends MY_Controller
 
         // Nada pil per kategori / hasil (kelas kp-pill-*, didefinisikan di view)
         $nada_kategori = [
-            'Kurang Kirim' => 'amber', 'Reject' => 'red', 'Paket Kosong' => 'slate', 'Salah Kirim' => 'indigo',
+            'Kurang Kirim' => 'amber', 'Reject' => 'red', 'Paket Kosong' => 'slate', 'Salah Kirim' => 'indigo', 'Salah Kirim QC' => 'indigo', 'Salah Kirim Ekspedisi' => 'sky',
             'Tidak Sesuai Deskripsi' => 'sky', 'Barang Rusak' => 'red', 'Paket Hilang' => 'red', 'Telat Kirim' => 'amber',
             'Salah Alamat' => 'indigo', 'Barang Tidak Original' => 'red', 'Bukan Barang Kita' => 'sky', 'Lainnya' => 'slate'
         ];
@@ -594,7 +600,7 @@ class Cs_new extends MY_Controller
         }
 
         // Filter multi-pilih: hanya nilai yang dikenal yang dipakai
-        $kategori = array_values(array_intersect($filters['kategori'] ?? [], $this->complain_kategori));
+        $kategori = array_values(array_intersect($filters['kategori'] ?? [], array_merge($this->complain_kategori, $this->complain_kategori_lama)));
         if ($kategori) {
             $this->db->where_in('c.kategori_komplain', $kategori);
         }
@@ -1021,7 +1027,13 @@ class Cs_new extends MY_Controller
             exit;
         }
 
-        if (!in_array($kategori_komplain, $this->complain_kategori)) {
+        // Kategori lama hanya boleh dipertahankan saat mengedit komplain yang memang memakainya
+        $kategori_lama_sah = false;
+        if ($is_edit && $id_complain > 0 && in_array($kategori_komplain, $this->complain_kategori_lama, true)) {
+            $kategori_lama_sah = $this->db->where(['id_complain' => $id_complain, 'kategori_komplain' => $kategori_komplain])
+                ->count_all_results('tblcs_complain') > 0;
+        }
+        if (!in_array($kategori_komplain, $this->complain_kategori) && !$kategori_lama_sah) {
             echo json_encode(['code' => 400, 'message' => 'Kategori komplain tidak dikenali.']);
             exit;
         }
