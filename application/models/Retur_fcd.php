@@ -3075,6 +3075,7 @@ class Retur_fcd extends CI_Model
         'Tidak Sesuai Deskripsi' => 'KE_DISPLAY',
         'Telat Kirim'            => 'KE_DISPLAY',
         'Salah Alamat'           => 'KE_DISPLAY',
+        'Lainnya'                => 'ALASAN_LAINNYA',
     ];
 
     /**
