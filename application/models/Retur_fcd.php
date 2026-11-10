@@ -3191,4 +3191,180 @@ class Retur_fcd extends CI_Model
             'per_sku'     => $per_sku,
         ];
     }
+    /** Kode status detail dari kategori komplain (+ hasil CCTV untuk "Salah Kirim" lama); null = tanpa saran. */
+    public function kode_saran_kategori($kategori, $hasil)
+    {
+        if ($kategori === 'Salah Kirim') {
+            return ['QC Benar' => 'BUKAN_BARANG_KITA', 'QC Salah' => 'KE_DISPLAY'][$hasil] ?? null;
+        }
+        return self::SARAN_STATUS_DETAIL[$kategori] ?? null;
+    }
+
+    /**
+     * Rencana tab "Buka Retur Otomatis" (docs/RANCANGAN_BUKA_RETUR_OTOMATIS.md): hasil matching resi <-> komplain,
+     * daftar SKU resi beserta sisa qty, dan baris rencana (status detail + pemisahan qty) untuk sisa qty saja.
+     * Hanya MEMBACA data. Penulisan tetap lewat Retur::save_buka_otomatis -> simpan_buka_sku (sama dengan Buka Retur manual).
+     *
+     * @return array|null null bila resi tidak ada
+     */
+    public function rencana_buka_otomatis($noresi)
+    {
+        $resi = $this->db->select('p.id_printresi, p.noresi, p.toko, m.nama_marketplace')
+            ->from('tblprintresi p')->join('tblmarketplace m', 'm.id_marketplace = p.id_marketplace', 'left')
+            ->where('p.noresi', $noresi)->get()->row_array();
+        if (!$resi) {
+            return null;
+        }
+        $id = (int) $resi['id_printresi'];
+
+        $pesanan = array_column($this->db->distinct()->select('no_pesanan')->where('id_resi', $id)
+            ->where("no_pesanan <> ''", null, false)->get('tbldetailprintresi')->result_array(), 'no_pesanan');
+        $terima = $this->db->select('tanggal_resiretur')->where(['id_resi' => $id, 'is_komplain' => 1])
+            ->order_by('id_resiretur', 'DESC')->limit(1)->get('tblresiretur')->row_array();
+
+        // --- komplain aktif yang cocok (resi asli, atau no. pesanan komplain boleh sebagian >= 6 karakter)
+        $this->db->select('id_complain, kategori_komplain, hasil_investigasi, no_resi, no_pesanan, no_resi_retur')
+            ->from('tblcs_complain')->where('is_deleted', 0)->group_start()->where('no_resi', $noresi);
+        foreach ($pesanan as $pn) {
+            $this->db->or_where('no_pesanan', $pn);
+            $this->db->or_where('(CHAR_LENGTH(TRIM(no_pesanan)) >= 6 AND LOCATE(TRIM(no_pesanan), ' . $this->db->escape($pn) . ') > 0)', null, false);
+        }
+        $komplain = $this->db->group_end()->order_by('id_complain', 'ASC')->limit(5)->get()->result_array();
+        foreach ($komplain as &$kp) {
+            if (strtoupper(trim((string) $kp['no_resi'])) === strtoupper($noresi)) {
+                $kp['via'] = 'resi';
+            } elseif (in_array(trim((string) $kp['no_pesanan']), $pesanan, true)) {
+                $kp['via'] = 'no. pesanan';
+            } else {
+                $kp['via'] = 'no. pesanan sebagian';
+            }
+            $kp['items'] = $this->db->select('sku, SUM(qty) AS qty', false)->where('id_complain', (int) $kp['id_complain'])
+                ->where('is_deleted', 0)->where("sku <> ''", null, false)->group_by('sku')->get('tblcs_complain_detail')->result_array();
+        }
+        unset($kp);
+
+        // --- sudah diproses di Buka Retur komplain: per SKU, bagian BUKAN_RETUR dan bagian lain
+        $sudah = [];
+        foreach ($this->db->select('sku, status_detail_buka, SUM(qty) AS q', false)->where(['resi_buka' => $noresi, 'is_komplain' => 1])
+            ->group_by(['sku', 'status_detail_buka'])->get('tblbukaretur')->result_array() as $r) {
+            $kunci = strtoupper(trim((string) $r['sku']));
+            $jenis = $r['status_detail_buka'] === 'BUKAN_RETUR' ? 'bukan' : 'lain';
+            $sudah[$kunci][$jenis] = ($sudah[$kunci][$jenis] ?? 0) + (int) $r['q'];
+        }
+
+        // --- SKU resi + sisa qty
+        $items = [];
+        foreach ($this->get_receipt_for_buka_retur(['start' => 0, 'length' => 0], $noresi) as $r) {
+            $sku = trim((string) ($r->sku ?? ''));
+            if ($sku === '') {
+                continue;
+            }
+            $kunci = strtoupper($sku);
+            $qty = (int) $r->original_jumlah;
+            $proses = ($sudah[$kunci]['bukan'] ?? 0) + ($sudah[$kunci]['lain'] ?? 0);
+            $items[] = [
+                'sku'        => $sku,
+                'nama'       => trim((string) ($r->nama_sku ?? '')),
+                'qty'        => $qty,
+                'sisa'       => $qty - $proses,
+                'foto'       => (string) ($r->link_foto ?? ''),
+                'foto_lokal' => foto_sku_lokal_url((string) ($r->link_foto ?? ''), $r->foto_lokal ?? ''),
+                'rak'        => (string) ($r->no_rak ?? ''),
+            ];
+        }
+
+        // --- rencana
+        $baris = [];
+        $peringatan = [];
+        $otomatis = false;
+        $tambah = function ($sku, $qty, $status, $sumber, $catatan = '', $perg = '') use (&$baris) {
+            $baris[] = ['sku' => $sku, 'qty' => $qty, 'status' => $status, 'alasan' => '', 'perg' => $perg, 'sumber' => $sumber, 'catatan' => $catatan];
+        };
+        if (count($komplain) === 0) {
+            $peringatan[] = 'Tidak ada komplain yang cocok. Isi status detail manual.';
+            foreach ($items as $it) {
+                if ($it['sisa'] > 0) {
+                    $tambah($it['sku'], $it['sisa'], '', 'manual');
+                }
+            }
+        } elseif (count($komplain) > 1) {
+            $peringatan[] = 'Ada ' . count($komplain) . ' komplain aktif yang cocok (' . implode(', ', array_map(function ($c) {
+                return 'K-' . str_pad($c['id_complain'], 5, '0', STR_PAD_LEFT);
+            }, $komplain)) . '). Tidak diisi otomatis; tentukan manual.';
+            foreach ($items as $it) {
+                if ($it['sisa'] > 0) {
+                    $tambah($it['sku'], $it['sisa'], '', 'manual');
+                }
+            }
+        } else {
+            $otomatis = true;
+            $kp = $komplain[0];
+            $kode = $this->kode_saran_kategori($kp['kategori_komplain'], $kp['hasil_investigasi']) ?: '';
+            $qk = [];
+            $qr = [];
+            foreach ($kp['items'] as $i) {
+                $qk[strtoupper(trim($i['sku']))] = ($qk[strtoupper(trim($i['sku']))] ?? 0) + (int) $i['qty'];
+            }
+            foreach ($items as $i) {
+                $qr[strtoupper($i['sku'])] = ($qr[strtoupper($i['sku'])] ?? 0) + $i['qty'];
+            }
+            $lebih_resi = array_values(array_filter($items, function ($i) use ($qk) {
+                return !isset($qk[strtoupper($i['sku'])]);
+            }));
+            $lebih_kom = array_values(array_filter($kp['items'], function ($i) use ($qr) {
+                return !isset($qr[strtoupper(trim($i['sku']))]);
+            }));
+            foreach ($items as $it) {
+                $key = strtoupper($it['sku']);
+                $sisa = $it['sisa'];
+                if ($sisa <= 0) {
+                    continue;
+                }
+                if (isset($qk[$key])) {
+                    $jk = $qk[$key];
+                    $jr = $qr[$key];
+                    if ($jk > $jr) {
+                        $peringatan[] = 'SKU ' . $it['sku'] . ': qty komplain (' . $jk . ') lebih besar dari qty resi (' . $jr . ').';
+                    }
+                    $sisa_kom = max(0, min($jk, $jr) - ($sudah[$key]['lain'] ?? 0));
+                    $sisa_bukan = max(0, ($jr - $jk) - ($sudah[$key]['bukan'] ?? 0));
+                    $pakai = $sisa;
+                    if ($sisa_kom > 0) {
+                        $q = min($sisa_kom, $pakai);
+                        $tambah($it['sku'], $q, $kode, 'auto', $jr > $jk ? 'Komplain ' . $jk . ' dari ' . $jr . ' pcs' : '');
+                        $pakai -= $q;
+                    }
+                    if ($sisa_bukan > 0 && $pakai > 0) {
+                        $tambah($it['sku'], min($sisa_bukan, $pakai), 'BUKAN_RETUR', 'auto', 'Sisa di luar qty komplain');
+                    }
+                } elseif (!$lebih_kom) {
+                    $tambah($it['sku'], $sisa, 'BUKAN_RETUR', 'auto', 'Tidak ada di komplain');
+                } elseif (count($lebih_resi) === 1 && count($lebih_kom) === 1) {
+                    $tambah($it['sku'], $sisa, 'REQUEST_DARI_PEMBELI', 'auto', '', trim($lebih_kom[0]['sku']));
+                } else {
+                    $tambah($it['sku'], $sisa, '', 'manual');
+                    $peringatan[] = 'SKU ' . $it['sku'] . ' tidak berpasangan jelas dengan SKU komplain.';
+                }
+            }
+        }
+
+        return [
+            'noresi'     => $resi['noresi'],
+            'pesanan'    => $pesanan ? $pesanan[0] : '',
+            'toko'       => (string) $resi['toko'],
+            'marketplace' => (string) $resi['nama_marketplace'],
+            'terima'     => $terima ? date('d/m/Y H:i', strtotime($terima['tanggal_resiretur'])) : null,
+            'komplain'   => array_map(function ($c) {
+                return ['id' => (int) $c['id_complain'], 'kategori' => $c['kategori_komplain'], 'hasil' => (string) $c['hasil_investigasi'],
+                    'via' => $c['via'], 'no_resi_retur' => (string) $c['no_resi_retur'],
+                    'items' => array_map(function ($i) { return ['sku' => trim($i['sku']), 'qty' => (int) $i['qty']]; }, $c['items'])];
+            }, $komplain),
+            'items'      => $items,
+            'baris'      => $baris,
+            'peringatan' => $peringatan,
+            'otomatis'   => $otomatis,
+            'sisa_total' => array_sum(array_map(function ($i) { return max(0, $i['sisa']); }, $items)),
+            'total_qty'  => array_sum(array_column($items, 'qty')),
+        ];
+    }
 }

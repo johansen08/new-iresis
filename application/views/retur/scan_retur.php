@@ -5,6 +5,9 @@
       <ul class="nav nav-tabs nav-justified">
         <li class="<?= (!isset($active_tab) || $active_tab == 'terima-retur') ? 'active' : '' ?>"><a href="#tab-terima-retur" data-toggle="tab">Terima Retur</a></li>
         <li class="<?= (isset($active_tab) && $active_tab == 'buka-retur') ? 'active' : '' ?>"><a href="#tab-buka-retur" data-toggle="tab">Buka Retur</a></li>
+        <?php if (!empty($is_komplain) && empty($is_update)): ?>
+        <li><a href="#tab-buka-otomatis" data-toggle="tab">Buka Retur Otomatis</a></li>
+        <?php endif; ?>
       </ul>
       <div class="panel-body tab-content">
           <!-- ==================== TAB 1: TERIMA RETUR ==================== -->
@@ -124,6 +127,7 @@
               </div>
             </div>
       </div>
+          <?php if (!empty($is_komplain) && empty($is_update)) { $this->load->view('retur/_buka_otomatis'); } ?>
     </div>
     </div>
   </div>
