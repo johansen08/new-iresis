@@ -63,6 +63,19 @@ if (!function_exists('resolusi_noresi_retur')) {
 				return $noresi;
 			}
 
+			// Resi paket pengembalian marketplace yang diisi CS saat status komplain
+			// "Pengembalian Dana dan Barang" (tblcs_complain.no_resi_retur) -> resi asli pesanan.
+			// Hanya bila memetakan ke tepat satu resi asli.
+			$kom = $CI->db->distinct()->select('no_resi')
+				->where('no_resi_retur', $noresi)
+				->where('is_deleted', 0)
+				->where("no_resi <> ''", null, false)
+				->limit(2)->get('tblcs_complain')->result();
+			if (count($kom) === 1) {
+				pastikan_resi_live($kom[0]->no_resi);
+				return $kom[0]->no_resi;
+			}
+
 			$jub = $CI->db->select('no_pesanan')
 				->where('no_resi', $noresi)
 				->where("no_pesanan <> ''", null, false)
