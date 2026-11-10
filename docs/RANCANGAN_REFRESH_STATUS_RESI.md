@@ -242,3 +242,14 @@ Uji kering dengan ukuran malam 6 Nov:
 
 Catatan: sinkron harian `auto_upload_resi_api.py` memakai paginasi offset yang sama (halaman 200), jadi
 berpotensi kehilangan sebagian order H-3..hari ini tiap tarikan. Perlu dipertimbangkan memakai jendela yang sama.
+
+### Pembaruan 10 Nov 2026
+
+- Run 8-10 Nov bersih (selesai 05.10-05.14, tanpa 429). Backlog >60 hari sudah habis; antrean mingguan
+  turun dari ±397 ribu (6 Nov) ke ±211 ribu, habis ±16 Nov.
+- Batas kandidat harian dinaikkan 25.000 -> 90.000 (jatah detail tetap 12.000): dengan 25.000 hanya resi
+  terbaru yang dicek tiap hari dan resi umur ±9-14 hari terlewat sampai masuk mingguan.
+- `RETURNED` naik dari 7.777 ke 22.181 karena status lama baru ter-update. 2.730 di antaranya kosong
+  `tanggal_retur`: wajar, kolom itu hanya diisi dari Excel pesanan (TGL_RETUR/WAKTU_RETUR), bukan dari API
+  Jubelio. Daftar Retur sudah punya cadangan tanggal (`tanggal_pengiriman`, lalu tanggal order), jadi
+  tidak perlu diisi paksa.

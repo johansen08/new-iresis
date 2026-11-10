@@ -73,7 +73,7 @@ MODE_DEFAULT = {
     # mode: (maks_detail, batas_kandidat)
     # Anggaran dinaikkan 5 Nov 2026: ~9 ribu resi/hari masuk umur 15-60 hari, jadi jatah mingguan
     # harus > itu supaya antrean menyusut (resi terhapus dari prod oleh purna setelah ~150 hari).
-    'harian':   (12000, 25000),
+    'harian':   (12000, 90000),   # 10 Nov 2026: daftar murah (±45 dtk/25 rb), semua resi 4-14 hari dicek tiap hari
     'mingguan': (45000, 80000),   # 7 Nov 2026: daftar per jendela hemat ±1,5 jam/malam -> jatah naik
     'backlog':  (6000, 10000),
 }
