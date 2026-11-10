@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-10.1';
+    const BOOTSTRAP_VERSI = '2026-11-10.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -806,6 +806,14 @@ class MY_Controller extends CI_Controller
         if ($this->db->table_exists('tblcs_complain')
             && $this->db->query("SHOW INDEX FROM `tblcs_complain` WHERE Key_name = 'idx_cs_complain_deleted_created'")->num_rows() === 0) {
             $this->db->query("ALTER TABLE `tblcs_complain` ADD INDEX `idx_cs_complain_deleted_created` (`is_deleted`, `created_at`, `id_complain`)");
+        }
+
+        // Kategori komplain baru "Bukan Barang Kita" (nilai enum ditambahkan di ujung: tanpa membangun ulang tabel)
+        if ($this->db->table_exists('tblcs_complain')) {
+            $kol = $this->db->query("SHOW COLUMNS FROM `tblcs_complain` LIKE 'kategori_komplain'")->row_array();
+            if ($kol && stripos((string) $kol['Type'], "'Bukan Barang Kita'") === false) {
+                $this->db->query("ALTER TABLE `tblcs_complain` MODIFY COLUMN `kategori_komplain` ENUM('Kurang Kirim','Reject','Paket Kosong','Salah Kirim','Tidak Sesuai Deskripsi','Barang Rusak','Paket Hilang','Telat Kirim','Salah Alamat','Barang Tidak Original','Lainnya','Bukan Barang Kita') NOT NULL");
+            }
         }
 
         // Pemetaan resi pengembalian -> resi asli saat scan Terima/Buka Retur (resolusi_noresi_retur)
