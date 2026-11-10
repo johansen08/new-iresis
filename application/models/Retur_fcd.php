@@ -3071,9 +3071,10 @@ class Retur_fcd extends CI_Model
         'Reject'                 => 'REJECT',
         'Kurang Kirim'           => 'REFUND',
         'Paket Kosong'           => 'BARANG_TIDAK_ADA',
-        'Barang Tidak Original'  => 'BUKAN_BARANG_KITA',
-        'Bukan Barang Kita'      => 'BUKAN_BARANG_KITA',
+        'Barang Tidak Original'  => 'KE_DISPLAY',
         'Tidak Sesuai Deskripsi' => 'KE_DISPLAY',
+        'Telat Kirim'            => 'KE_DISPLAY',
+        'Salah Alamat'           => 'KE_DISPLAY',
     ];
 
     /**
