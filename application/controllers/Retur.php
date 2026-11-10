@@ -637,7 +637,9 @@ class Retur extends MY_Controller
             // Clear output buffer to prevent HTML/whitespace corruption
             while (ob_get_level() > 0) ob_end_clean();
             header('Content-Type: application/json');
-            echo json_encode(['status' => 'ok', 'items' => $result, 'total' => count($result)]);
+            // Saran Status Detail dari komplain aktif resi ini (hanya untuk retur komplain)
+            $saran = $is_complain ? $this->retur_fcd->saran_status_detail($noresi) : null;
+            echo json_encode(['status' => 'ok', 'items' => $result, 'total' => count($result), 'saran' => $saran]);
         } catch (Exception $e) {
             while (ob_get_level() > 0) ob_end_clean();
             header('Content-Type: application/json');

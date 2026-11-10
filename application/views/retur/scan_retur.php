@@ -203,6 +203,7 @@
                 <?php endif; ?>
                 <option value="ALASAN_LAINNYA">ALASAN LAINNYA</option>
               </select>
+              <small id="saran_hint_modal" class="text-info" style="display:block;margin-top:4px;"></small>
             </div>
           </div>
 
@@ -283,6 +284,7 @@
                 <?php endif; ?>
                 <option value="ALASAN_LAINNYA">ALASAN LAINNYA</option>
               </select>
+              <small id="saran_hint_bulk" class="text-info" style="display:block;margin-top:4px;"></small>
             </div>
           </div>
 
@@ -498,6 +500,7 @@ $(document).ready(function() {
             type: 'GET',
             dataType: 'json',
             success: function(response) {
+                window.saranBuka = response.saran || null;
                 $tbody.empty();
                 $('#check-all-buka').prop('checked', false);
                 updateBulkButtonState();
@@ -573,6 +576,15 @@ $(document).ready(function() {
     // ==================== MODAL BUKA RETUR (PER SKU) ====================
     var currentBukaReturBtn = null;
 
+    // Saran Status Detail dari komplain (diisi saat resi discan, dipakai saat modal dibuka)
+    function terapkanSaranBuka(selSelector, hintSelector) {
+        var s = window.saranBuka;
+        $(hintSelector).text('');
+        if (!s || !s.kode || !$(selSelector + ' option[value="' + s.kode + '"]').length) { return; }
+        $(selSelector).val(s.kode).trigger('change');
+        $(hintSelector).text('Disarankan dari komplain K-' + ('00000' + s.id_complain).slice(-5) + ' (' + s.kategori + '). Ganti bila isi paket berbeda.');
+    }
+
     $(document).on('click', '.prosesBukaRetur', function(event) {
         event.preventDefault();
         currentBukaReturBtn = $(this);
@@ -616,6 +628,7 @@ $(document).ready(function() {
 
         // Show
         $('#bukaReturModal').fadeIn();
+        terapkanSaranBuka('#modal_status_detail', '#saran_hint_modal');
     });
 
     $(document).on('click', '.btn-qty-minus', function() {
@@ -832,6 +845,7 @@ $(document).ready(function() {
         $('#bulk_selected_items_list').html(htmlList);
 
         $('#bukaReturBulkModal').fadeIn();
+        terapkanSaranBuka('#bulk_status_detail', '#saran_hint_bulk');
     });
 
     $(document).on('click', '.btn-cancel-bulk-popup', function() {
