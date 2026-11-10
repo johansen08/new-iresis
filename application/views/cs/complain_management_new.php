@@ -675,7 +675,7 @@
             <div class="kp-filter" data-key="kategori">
               <button type="button" class="kp-chip"><span class="kp-chip-label">Kategori</span><span class="kp-chip-count"></span><i class="fa fa-angle-down"></i></button>
               <div class="kp-pop">
-                <?php foreach ($kategori_list as $k): ?>
+                <?php foreach ($kategori_filter_list as $k): ?>
                   <label class="kp-opt"><input type="checkbox" value="<?= htmlspecialchars($k) ?>"><span><?= htmlspecialchars($k) ?></span></label>
                 <?php endforeach; ?>
                 <div class="kp-pop-foot"><button type="button" class="kp-pop-clear">Hapus pilihan</button></div>
@@ -2065,6 +2065,10 @@
                     ensureOption('#toko', comp.toko);
                     $('#toko').val(comp.toko);
 
+                    // Kategori lama yang sudah tidak ditawarkan tetap dipertahankan saat mengedit komplain yang memakainya
+                    if (comp.kategori_komplain && !$('#kategori_komplain option').filter(function() { return this.value === comp.kategori_komplain; }).length) {
+                        $('#kategori_komplain').append($('<option>').val(comp.kategori_komplain).text(comp.kategori_komplain + ' (lama)'));
+                    }
                     $('#kategori_komplain').val(comp.kategori_komplain);
                     $('#detail_lainnya').val(comp.detail_lainnya || '').prop('required', comp.kategori_komplain === 'Lainnya');
                     $('#tanda-wajib-keterangan').toggle(comp.kategori_komplain === 'Lainnya');

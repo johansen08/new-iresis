@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-10.2';
+    const BOOTSTRAP_VERSI = '2026-11-10.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -813,6 +813,14 @@ class MY_Controller extends CI_Controller
             $kol = $this->db->query("SHOW COLUMNS FROM `tblcs_complain` LIKE 'kategori_komplain'")->row_array();
             if ($kol && stripos((string) $kol['Type'], "'Bukan Barang Kita'") === false) {
                 $this->db->query("ALTER TABLE `tblcs_complain` MODIFY COLUMN `kategori_komplain` ENUM('Kurang Kirim','Reject','Paket Kosong','Salah Kirim','Tidak Sesuai Deskripsi','Barang Rusak','Paket Hilang','Telat Kirim','Salah Alamat','Barang Tidak Original','Lainnya','Bukan Barang Kita') NOT NULL");
+            }
+        }
+
+        // Kategori "Salah Kirim QC" dan "Salah Kirim Ekspedisi" (menggantikan "Salah Kirim"; nilai lama tetap ada di enum)
+        if ($this->db->table_exists('tblcs_complain')) {
+            $kol = $this->db->query("SHOW COLUMNS FROM `tblcs_complain` LIKE 'kategori_komplain'")->row_array();
+            if ($kol && stripos((string) $kol['Type'], "'Salah Kirim Ekspedisi'") === false) {
+                $this->db->query("ALTER TABLE `tblcs_complain` MODIFY COLUMN `kategori_komplain` ENUM('Kurang Kirim','Reject','Paket Kosong','Salah Kirim','Tidak Sesuai Deskripsi','Barang Rusak','Paket Hilang','Telat Kirim','Salah Alamat','Barang Tidak Original','Lainnya','Bukan Barang Kita','Salah Kirim QC','Salah Kirim Ekspedisi') NOT NULL");
             }
         }
 
