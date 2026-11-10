@@ -358,6 +358,16 @@ class Top_level_fcd extends CI_Model
             }
         }
 
+        // Keluar manual tidak boleh menyela request yang slipnya sudah dicetak (lihat pesan_slip_berjalan).
+        if ($keluar) {
+            foreach (array_keys($skus) as $s) {
+                $tolak = $this->pesan_slip_berjalan($s);
+                if ($tolak !== '') {
+                    return array('ok' => false, 'pesan' => $tolak);
+                }
+            }
+        }
+
         // Guard duplikat: SKU + no rak yang sudah tersimpan dengan qty bukan nol tidak boleh diinput lagi.
         // Input ini bukan penambahan; koreksi stok memakai Edit di Stok Top Level. Arah KELUAR tidak memakai guard ini.
         $dobel = $keluar ? array() : $this->cek_duplikat($bersih);
@@ -491,6 +501,20 @@ class Top_level_fcd extends CI_Model
         )->row_array();
     }
 
+    /**
+     * Pesan penolakan bila SKU punya request yang slipnya sudah dicetak (DITUGASKAN), '' bila bebas. Selama itu stok SKU tidak
+     * boleh diubah lewat menu lain (pindah rak, koreksi, keluar manual): slip membekukan stok rak saat dicetak, dan input qty
+     * di selesai() mengikuti angka itu, jadi perubahan di sela-sela membuat stok sistem berbeda dengan fisik.
+     */
+    private function pesan_slip_berjalan($sku)
+    {
+        $r = $this->db->query("SELECT id FROM tbltoplevel_request WHERE sku = ? AND status = 'DITUGASKAN' ORDER BY id DESC LIMIT 1", array($sku))->row_array();
+        if (!$r) {
+            return '';
+        }
+        return 'SKU ' . $sku . ' masih punya request ' . $this->nomor_tampil($r['id']) . ' yang slipnya sudah dicetak. Input qty-nya di menu Request Top Level, atau batalkan request itu dulu, baru ubah stok.';
+    }
+
     /** Hasil klik Cek: ada stok top level atau tidak, dan apakah sudah ada request aktif untuk SKU itu. */
     public function cek_sku($sku, $noresi, $oleh)
     {
@@ -582,7 +606,10 @@ class Top_level_fcd extends CI_Model
         return array('ok' => true, 'kode' => self::kode($id), 'nomor' => $this->nomor_tampil($id));
     }
 
-    /** Hanya request yang belum dicetak yang boleh dibatalkan. */
+    /**
+     * Request yang belum selesai boleh dibatalkan, termasuk yang slipnya sudah dicetak (DITUGASKAN): stok baru berubah
+     * saat selesai(), jadi pembatalan tidak menyentuh stok. Memberi jalan keluar bila stok berubah sesudah slip dicetak.
+     */
     public function batal($id, $oleh)
     {
         $r = $this->db->get_where('tbltoplevel_request', array('id' => (int) $id))->row_array();
@@ -590,19 +617,20 @@ class Top_level_fcd extends CI_Model
             return array('ok' => false, 'pesan' => 'Request tidak ditemukan.');
         }
         $this->db->trans_start();
-        $this->db->where(array('id' => (int) $id, 'status' => 'DIAJUKAN'))
+        $this->db->where('id', (int) $id)->where_in('status', self::AKTIF)
             ->update('tbltoplevel_request', array('status' => 'BATAL', 'batal_at' => date('Y-m-d H:i:s')));
         if ($this->db->affected_rows() < 1) {
             $this->db->trans_complete();
-            return array('ok' => false, 'pesan' => 'Request sudah dicetak, tidak bisa dibatalkan.');
+            return array('ok' => false, 'pesan' => 'Request sudah selesai atau sudah dibatalkan.');
         }
+        $sudah_cetak = $r['cetak_at'] !== null;
         // TTL keluar milik request ini belum punya baris (qty baru diisi saat selesai): tandai batal, tanpa DELETE dan tanpa mengubah stok.
         $t = $this->db->query("SELECT id, tahun FROM tbltoplevel_transfer WHERE sumber = 'REQUEST' AND ref = ? AND aktif_key = 1 AND jumlah_baris = 0 FOR UPDATE", array(self::kode($id)))->row_array();
         if ($t) {
-            $this->db->query('UPDATE tbltoplevel_transfer SET aktif_key = NULL, batal_at = NOW(), batal_by = ?, batal_alasan = ? WHERE id = ?', array($oleh, 'Request dibatalkan sebelum dicetak', (int) $t['id']));
+            $this->db->query('UPDATE tbltoplevel_transfer SET aktif_key = NULL, batal_at = NOW(), batal_by = ?, batal_alasan = ? WHERE id = ?', array($oleh, $sudah_cetak ? 'Request dibatalkan setelah slip dicetak' : 'Request dibatalkan sebelum dicetak', (int) $t['id']));
             $this->db->query('UPDATE tbltoplevel_nomor SET urut = (SELECT COALESCE(MAX(urut), 0) FROM tbltoplevel_transfer WHERE tahun = ? AND aktif_key = 1) WHERE tahun = ?', array((int) $t['tahun'], (int) $t['tahun']));
         }
-        $this->catat('REQUEST', $r['sku'], null, null, null, $oleh, self::kode($id), 'Request dibatalkan');
+        $this->catat('REQUEST', $r['sku'], null, null, null, $oleh, self::kode($id), $sudah_cetak ? 'Request dibatalkan setelah slip dicetak' : 'Request dibatalkan');
         $this->db->trans_complete();
         return array('ok' => $this->db->trans_status() !== false);
     }
@@ -715,6 +743,13 @@ class Top_level_fcd extends CI_Model
             $resi[] = $x->noresi;
         }
         $slip = $r['slip'] !== null ? json_decode($r['slip'], true) : null;
+        if (is_array($slip) && $r['status'] === 'DITUGASKAN') {
+            // Stok saat ini per rak, untuk peringatan di form qty bila berbeda dengan angka yang dibekukan di slip.
+            foreach ($slip as $i => $s) {
+                $q = $this->db->query('SELECT qty FROM tbltoplevel WHERE sku = ? AND no_rak = ?', array($r['sku'], self::rapikan_rak(isset($s['rak']) ? $s['rak'] : '')))->row();
+                $slip[$i]['live'] = $q ? (int) $q->qty : 0;
+            }
+        }
         $rak_display = $this->db->query('SELECT COALESCE(NULLIF(TRIM(no_rak), ""), "-") AS v FROM tblsku WHERE id_sku = ?', array($r['sku']))->row();
         // Petugas list (nama_tim) dan petugas input (nama_input) tersimpan di TTL keluar milik request ini, terisi saat selesai.
         $ttl = $this->db->select('nama_tim, nama_input')->where(array('sumber' => 'REQUEST', 'ref' => self::kode($r['id']), 'aktif_key' => 1))->get('tbltoplevel_transfer')->row();
@@ -788,6 +823,15 @@ class Top_level_fcd extends CI_Model
         }
         $sku = $r['sku'];
         $kode = self::kode($id);
+        $slip_stok = array(); // rak => stok yang dibekukan saat slip dicetak
+        $slip_json = $r['slip'] !== null ? json_decode($r['slip'], true) : null;
+        if (is_array($slip_json)) {
+            foreach ($slip_json as $s) {
+                if (isset($s['rak'], $s['stok'])) {
+                    $slip_stok[self::rapikan_rak($s['rak'])] = (int) $s['stok'];
+                }
+            }
+        }
 
         $kunci = $this->kunci($sku);
         if (!$kunci) {
@@ -820,6 +864,12 @@ class Top_level_fcd extends CI_Model
                     return array('ok' => false, 'pesan' => 'Rak ' . $rak . ' tidak punya stok SKU ini.');
                 }
                 $sys = (int) $row->qty;
+                // Stok rak harus sama dengan yang dibekukan di slip. Kalau sudah berubah (pindah rak, keluar manual, dsb.),
+                // 'sisa' dari form berasal dari slip lama dan menimpa stok dengan angka usang (stok hantu).
+                if (isset($slip_stok[$rak]) && $slip_stok[$rak] !== $sys) {
+                    $this->db->trans_rollback();
+                    return array('ok' => false, 'pesan' => 'Stok rak ' . $rak . ' berubah sejak slip dicetak (slip ' . $slip_stok[$rak] . ', sekarang ' . $sys . '). Batalkan request ini lalu buat request baru.');
+                }
                 if ($amb > $sys) {
                     $this->db->trans_rollback();
                     return array('ok' => false, 'pesan' => 'Qty diambil rak ' . $rak . ' melebihi stok sistem (' . $sys . ').');
@@ -1009,6 +1059,10 @@ class Top_level_fcd extends CI_Model
             return array('ok' => false, 'pesan' => 'Sistem sibuk, coba lagi.');
         }
         try {
+            $tolak = $this->pesan_slip_berjalan($sku);
+            if ($tolak !== '') {
+                return array('ok' => false, 'pesan' => $tolak);
+            }
             $this->db->trans_start();
             $berubah = 0;
             $masuk = array();
@@ -1133,6 +1187,13 @@ class Top_level_fcd extends CI_Model
                 $aktif = $this->db->query("SELECT id FROM tbltoplevel_request WHERE sku = ? AND status IN ('DIAJUKAN','DITUGASKAN') LIMIT 1", array($sku))->row();
                 if ($aktif) {
                     return array('ok' => false, 'pesan' => 'SKU ' . $sku . ' masih punya request aktif (' . self::kode($aktif->id) . '). Selesaikan atau batalkan dulu.');
+                }
+            }
+            // Pindah rak, ganti qty, dan SKU tujuan juga tidak boleh menyela slip yang sudah dicetak.
+            foreach ($nama_kunci as $k) {
+                $tolak = $this->pesan_slip_berjalan($k);
+                if ($tolak !== '') {
+                    return array('ok' => false, 'pesan' => $tolak);
                 }
             }
             $this->db->trans_start();
