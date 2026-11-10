@@ -3067,7 +3067,7 @@ class Retur_fcd extends CI_Model
     const SARAN_STATUS_DETAIL = [
         'Salah Kirim QC'         => 'KE_DISPLAY',
         'Salah Kirim Ekspedisi'  => 'BUKAN_BARANG_KITA',
-        'Salah Kirim'            => 'KE_DISPLAY', // kategori lama
+        // 'Salah Kirim' (kategori lama) ditentukan hasil CCTV, lihat saran_status_detail()
         'Reject'                 => 'REJECT',
         'Kurang Kirim'           => 'KE_DISPLAY',
         'Paket Kosong'           => 'BARANG_TIDAK_ADA',
@@ -3094,7 +3094,7 @@ class Retur_fcd extends CI_Model
             ->where('id_resi', $resi->id_printresi)->where("no_pesanan <> ''", null, false)
             ->get('tbldetailprintresi')->result_array(), 'no_pesanan');
 
-        $this->db->select('id_complain, kategori_komplain')->from('tblcs_complain')->where('is_deleted', 0)
+        $this->db->select('id_complain, kategori_komplain, hasil_investigasi')->from('tblcs_complain')->where('is_deleted', 0)
             ->group_start()->where('no_resi', $noresi);
         foreach ($pesanan as $p) {
             $this->db->or_where('no_pesanan', $p);
@@ -3102,11 +3102,21 @@ class Retur_fcd extends CI_Model
         }
         $rows = $this->db->group_end()->limit(2)->get()->result_array();
 
-        if (count($rows) !== 1 || !isset(self::SARAN_STATUS_DETAIL[$rows[0]['kategori_komplain']])) {
+        if (count($rows) !== 1) {
+            return null;
+        }
+        $kategori = $rows[0]['kategori_komplain'];
+        if ($kategori === 'Salah Kirim') {
+            // Kategori lama: QC Benar = salah kirim bukan dari kita; QC Salah = barang kita sendiri yang tertukar
+            $kode = ['QC Benar' => 'BUKAN_BARANG_KITA', 'QC Salah' => 'KE_DISPLAY'][$rows[0]['hasil_investigasi']] ?? null;
+        } else {
+            $kode = self::SARAN_STATUS_DETAIL[$kategori] ?? null;
+        }
+        if ($kode === null) {
             return null;
         }
         return [
-            'kode'        => self::SARAN_STATUS_DETAIL[$rows[0]['kategori_komplain']],
+            'kode'        => $kode,
             'kategori'    => $rows[0]['kategori_komplain'],
             'id_complain' => (int) $rows[0]['id_complain'],
         ];
