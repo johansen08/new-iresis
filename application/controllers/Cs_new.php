@@ -87,8 +87,36 @@ class Cs_new extends MY_Controller
      */
     private function _sql_retur_terbaru()
     {
-        return "(SELECT CONCAT(r.status_retur, '|', COALESCE(r.status_detail, '')) FROM tblresiretur r "
+        return "(SELECT CONCAT(r.status_retur, '|', COALESCE(r.status_detail, ''), '|', COALESCE(r.tanggal_resiretur, '')) FROM tblresiretur r "
             . "WHERE r.noresi = CONVERT(c.no_resi USING latin1) ORDER BY r.id_resiretur DESC LIMIT 1)";
+    }
+
+    /**
+     * Penanda Terima Retur / Buka Retur untuk sel Status tabel. Dibaca dari baris tblresiretur terbaru
+     * milik resi asli ("status|detail|tanggal"). Buka Retur berarti sudah pernah diterima juga.
+     * Kosong bila belum ada baris retur dan komplain bukan Dana dan Barang.
+     */
+    private function _penanda_retur($retur, $status_komplain)
+    {
+        $retur = (string) $retur;
+        if ($retur === '' && $status_komplain !== 'DANA_BARANG') {
+            return '';
+        }
+        list($st, $det, $tgl) = array_pad(explode('|', $retur, 3), 3, '');
+        $buka   = $st === 'Buka Retur';
+        $terima = $buka || $st === 'Terima Retur';
+        $waktu  = $tgl !== '' ? date('d/m/Y H:i', strtotime($tgl)) : '';
+
+        $html = '<div class="kp-st-meta ' . ($terima ? 'kp-rt-ok' : 'kp-rt-belum') . '" title="'
+            . ($terima ? 'Paket retur diterima' . ($waktu !== '' ? ' ' . $waktu : '') : 'Paket retur belum diterima') . '">'
+            . '<i class="fa ' . ($terima ? 'fa-check-circle' : 'fa-circle-o') . '"></i><span>'
+            . ($terima ? 'Terima' . ($waktu !== '' ? ' ' . date('d/m', strtotime($tgl)) : '') : 'Belum terima') . '</span></div>';
+        $hasil = $det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $det))) : '';
+        $html .= '<div class="kp-st-meta ' . ($buka ? 'kp-rt-ok' : 'kp-rt-belum') . '" title="'
+            . ($buka ? 'Sudah Buka Retur' . ($hasil !== '' ? ': ' . $hasil : '') : 'Belum Buka Retur') . '">'
+            . '<i class="fa ' . ($buka ? 'fa-check-circle' : 'fa-circle-o') . '"></i><span>'
+            . ($buka ? 'Buka' . ($hasil !== '' ? ': ' . htmlspecialchars($hasil) : '') : 'Belum buka') . '</span></div>';
+        return $html;
     }
 
     /** Kondisi SQL per tab (null = semua). Aman terhadap NULL. */
@@ -134,7 +162,7 @@ class Cs_new extends MY_Controller
             return ['kode' => $status, 'label' => 'Selesai (lama)', 'nada' => 'slate', 'tahap' => '', 'telat' => false, 'tab' => 'selesai'];
         }
         // DANA_BARANG: tahap dibaca dari alur retur (Terima Retur -> Buka Retur)
-        list($st, $det) = array_pad(explode('|', (string) $retur, 2), 2, '');
+        list($st, $det) = array_pad(explode('|', (string) $retur, 3), 3, '');
         if ($st === 'Buka Retur') {
             $hasil = $det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $det))) : 'tanpa keterangan';
             return ['kode' => $status, 'label' => 'Dana dan Barang', 'nada' => 'green', 'tahap' => 'Retur selesai: ' . $hasil, 'telat' => false, 'tab' => 'selesai'];
@@ -324,7 +352,10 @@ class Cs_new extends MY_Controller
             }
             $status_cell = '<div class="kp-st"><div class="kp-st-top"><span class="kp-pill kp-pill-' . $info['nada'] . '">'
                 . htmlspecialchars($info['label']) . '</span>' . $tombol_status . '</div>';
-            if ($info['tahap'] !== '') {
+            $penanda_retur = $this->_penanda_retur($item['retur_terbaru'], $item['status_komplain']);
+            if ($penanda_retur !== '') {
+                $status_cell .= $penanda_retur;
+            } elseif ($info['tahap'] !== '') {
                 $status_cell .= '<div class="kp-st-meta"><i class="fa fa-info-circle"></i><span>' . htmlspecialchars($info['tahap']) . '</span></div>';
             }
             // Resi pengembalian: tampil bila sudah ada (apa pun statusnya), atau bila status Dana dan Barang (kosong = peringatan)
@@ -405,7 +436,7 @@ class Cs_new extends MY_Controller
             $this->db->select('c.id_complain, c.no_resi, c.no_pesanan, c.toko, c.kategori_komplain, c.jenis_komplain, c.hasil_investigasi, '
                 . 'c.id_masalahpacker, c.id_resiretur, c.nominal_total, c.nama_qc, c.nama_packer, c.nama_picker, '
                 . 'c.no_absen_input, c.nama_penginput, c.created_at, c.status_komplain, c.tgl_status, c.no_resi_retur, '
-                . "CASE WHEN c.status_komplain = 'DANA_BARANG' THEN " . $this->_sql_retur_terbaru() . ' END AS retur_terbaru, '
+                . $this->_sql_retur_terbaru() . ' AS retur_terbaru, '
                 . 'm.nama_marketplace, u.name AS nama_user_input, COALESCE(c.tgl_komplain, DATE(c.created_at)) AS tgl_efektif', false);
         }
         $this->db->from('tblcs_complain c');
@@ -722,11 +753,18 @@ class Cs_new extends MY_Controller
                                   ->get()
                                   ->result_array();
 
-        $retur_terbaru = null;
-        if ($complain['status_komplain'] === 'DANA_BARANG') {
-            $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, '')) AS s FROM tblresiretur "
-                . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
-            $retur_terbaru = $r['s'] ?? null;
+        $r = $this->db->query("SELECT CONCAT(status_retur, '|', COALESCE(status_detail, ''), '|', COALESCE(tanggal_resiretur, '')) AS s FROM tblresiretur "
+            . "WHERE noresi = CONVERT(? USING latin1) ORDER BY id_resiretur DESC LIMIT 1", [$complain['no_resi']])->row_array();
+        $retur_terbaru = $r['s'] ?? null;
+        $retur_info = null;
+        if ($retur_terbaru !== null) {
+            list($r_st, $r_det, $r_tgl) = array_pad(explode('|', $retur_terbaru, 3), 3, '');
+            $retur_info = [
+                'terima'      => $r_st === 'Terima Retur' || $r_st === 'Buka Retur',
+                'buka'        => $r_st === 'Buka Retur',
+                'hasil'       => $r_det !== '' ? ucfirst(strtolower(str_replace('_', ' ', $r_det))) : '',
+                'tgl_terima'  => $r_tgl !== '' ? date('d/m/Y H:i', strtotime($r_tgl)) : '',
+            ];
         }
         $info_status = $this->_info_status($complain['status_komplain'], $complain['created_at'], $complain['tgl_status'], $retur_terbaru);
         $riwayat_status = $this->db->select('l.status_dari, l.status_ke, l.catatan, l.waktu, u.name AS nama_user')
@@ -740,6 +778,7 @@ class Cs_new extends MY_Controller
             'success' => true,
             'complain' => $complain,
             'info_status' => $info_status,
+            'retur_info' => $retur_info,
             'riwayat_status' => $riwayat_status,
             'boleh_ubah_status' => $this->_boleh_ubah_status(),
             'items' => $items,
