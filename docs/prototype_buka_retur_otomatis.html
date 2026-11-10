@@ -65,6 +65,8 @@
   .alok { font-size: 12px; font-weight: 600; white-space: nowrap; padding-top: 2px; }
   .lines { display: grid; gap: 8px; }
   .line { display: grid; align-items: start; gap: 8px 10px; grid-template-columns: 124px minmax(170px, 1.1fr) minmax(140px, 1fr) 100px; }
+  .line > .stepper { grid-column: 1; grid-row: 1; } .line > .st { grid-column: 2; grid-row: 1; } .line > .ket { grid-column: 3; grid-row: 1; } .line > .act { grid-column: 4; grid-row: 1; }
+  .line > .ket.perlu { grid-column: 1 / -1; grid-row: 2; }
   .stepper { display: grid; grid-template-columns: 32px 1fr 32px; }
   .stepper button { padding: 0; height: 36px; font-size: 18px; line-height: 1; }
   .stepper button:first-child { border-radius: 7px 0 0 7px; } .stepper button:last-child { border-radius: 0 7px 7px 0; }
@@ -77,6 +79,10 @@
   .dot.manual { background: var(--warn); } .dot.edit { background: var(--primary); }
   .err { color: var(--bad); font-size: 12px; flex-basis: 100%; padding-left: 14px; }
   .ket input { width: 100%; height: 36px; }
+  .ket textarea { width: 100%; min-height: 76px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); font: inherit; resize: vertical; }
+  .ket.perlu .lbl-ket { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .ket.perlu input { height: 40px; }
+  .icon svg { width: 17px; height: 17px; display: block; margin: auto; }
   .ket .cat { font-size: 12px; color: var(--muted); line-height: 36px; }
   .act { display: flex; justify-content: flex-end; gap: 2px; }
   .icon { border: 0; background: none; color: var(--muted); width: 32px; height: 36px; padding: 0; font-size: 16px; }
@@ -87,12 +93,11 @@
     .foto { width: 56px; height: 56px; }
     .eye { width: 22px; height: 22px; } .eye svg { width: 12px; height: 12px; }
     .line { grid-template-columns: 124px minmax(0, 1fr) auto; }
-    .line .st { grid-column: 1 / -1; order: 3; }
-    .line .ket { grid-column: 1 / -1; order: 4; }
-    .line .act { order: 2; grid-column: 3; }
-    .line .stepper { order: 1; }
+    .line > .stepper { grid-column: 1; grid-row: 1; } .line > .act { grid-column: 3; grid-row: 1; }
+    .line > .st { grid-column: 1 / -1; grid-row: 2; }
+    .line > .ket, .line > .ket.perlu { grid-column: 1 / -1; grid-row: 3; }
   }
-  @media (max-width: 420px) { .line { grid-template-columns: 1fr auto; } .line .stepper { max-width: 150px; } .line .act { grid-column: 2; } }
+  @media (max-width: 420px) { .line { grid-template-columns: 1fr auto; } .line > .stepper { max-width: 150px; } .line > .act { grid-column: 2; } }
 
   .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .foot .kiri { display: flex; flex-direction: column; gap: 2px; }
@@ -223,6 +228,11 @@
     'Telat Kirim': 'KE_DISPLAY', 'Salah Alamat': 'KE_DISPLAY', 'Lainnya': 'ALASAN_LAINNYA'
   };
   var MIN_PESANAN_SEBAGIAN = 6;
+  var IKON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    pecah: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>',
+    hapus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
   var IKON_MATA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
   // Foto contoh dibuat otomatis (SVG). Di aplikasi sebenarnya: foto SKU dari tblsku (URL asli, cadangan foto lokal).
@@ -496,13 +506,13 @@
           '<button type="button" data-act="qty+" aria-label="Tambah qty"' + (qn >= maks ? ' disabled' : '') + '>+</button></div>' +
           '<div class="st"><span class="dot ' + kls + '" title="' + judul + '"></span><select data-f="status" aria-label="Status detail"><option value="">— pilih status —</option>' +
           Object.keys(STATUS).map(function (k) { return '<option value="' + k + '"' + (b.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>'; }).join('') +
-          '</select>' + (e.length ? '<span class="err">' + esc(e[0]) + '</span>' : '') + '</div><div class="ket">';
-        if (WAJIB_ALASAN[b.status]) t += '<input type="text" data-f="alasan" placeholder="' + WAJIB_ALASAN[b.status] + '" value="' + esc(b.alasan) + '">';
-        else if (WAJIB_PERGANTIAN[b.status]) t += '<input type="text" data-f="perg" placeholder="SKU pergantian" value="' + esc(b.perg) + '">';
+          '</select>' + (e.length ? '<span class="err">' + esc(e[0]) + '</span>' : '') + '</div><div class="ket' + (WAJIB_ALASAN[b.status] || WAJIB_PERGANTIAN[b.status] ? ' perlu' : '') + '">';
+        if (WAJIB_ALASAN[b.status]) t += '<label class="lbl-ket">' + WAJIB_ALASAN[b.status] + ' <span style="color:var(--bad)">*</span></label><textarea data-f="alasan" rows="3" maxlength="255" placeholder="Jelaskan alasannya (wajib)">' + esc(b.alasan) + '</textarea>';
+        else if (WAJIB_PERGANTIAN[b.status]) t += '<label class="lbl-ket">SKU pergantian <span style="color:var(--bad)">*</span></label><input type="text" data-f="perg" maxlength="255" placeholder="Masukkan SKU pergantian (wajib)" value="' + esc(b.perg) + '">';
         else if (b.catatan) t += '<span class="cat">' + esc(b.catatan) + '</span>';
-        t += '</div><div class="act"><button type="button" class="icon ok-i" data-act="simpan-baris" title="Simpan baris ini saja" aria-label="Simpan baris ini saja">✓</button>' +
-          '<button type="button" class="icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru" aria-label="Pecah">⑂</button>' +
-          '<button type="button" class="icon" data-act="hapus" title="Hapus baris" aria-label="Hapus baris">✕</button></div></div>';
+        t += '</div><div class="act"><button type="button" class="icon ok-i" data-act="simpan-baris" title="Simpan baris ini saja" aria-label="Simpan baris ini saja">' + IKON.ok + '</button>' +
+          '<button type="button" class="icon" data-act="pecah" title="Pecah: pindahkan 1 pcs ke baris baru" aria-label="Pecah">' + IKON.pecah + '</button>' +
+          '<button type="button" class="icon" data-act="hapus" title="Hapus baris" aria-label="Hapus baris">' + IKON.hapus + '</button></div></div>';
       });
       if (sisa > 0) t += '<div><button type="button" class="link" data-act="tambah" data-sku="' + esc(it.sku) + '">+ tambah baris</button></div>';
       t += '</div></div></div>';
@@ -577,6 +587,8 @@
     b[f] = e.target.value;
     b.diubah = true;
     perbaruiFoot();
+    var tr = e.target.closest('[data-id]'), el = tr && tr.querySelector('.err');
+    if (el) el.textContent = (validasi().per[b.id] || [])[0] || ''; // pesan galat baris ikut hilang saat sudah benar
   });
   document.addEventListener('change', function (e) {
     var f = e.target.getAttribute && e.target.getAttribute('data-f');
