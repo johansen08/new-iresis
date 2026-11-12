@@ -25,7 +25,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   $r.html(
     '<div class="tl-ph"><div class="t"><h1>Stok Top Level</h1>' +
-    T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian, lalu Edit untuk koreksi qty, ganti no rak, atau ganti SKU.\nSKU baru wajib ada di master (Jubelio).\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
+    T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian dan histori.\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
     '</div></div><div class="tls-seg" id="tls-tab" style="margin-bottom:10px"></div><div class="tls-kpi" id="tls-kpi"></div>' +
     '<section class="tl-panel tls-panel"><div class="tls-tb">' +
     '<label class="tl-search tls-cari">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
@@ -115,8 +115,10 @@ $this->load->view('top_level/_dasar'); ?>
     return '<div class="tls-gh ' + (c || '') + (k ? ' srt' : '') + '"' + (k ? ' data-s="' + k + '"' : '') + '>' + teks + (sortK === k && k ? (sortD > 0 ? ' &#9650;' : ' &#9660;') : '') + '</div>';
   }
   function salinIkon(t, judul) { return ' <i class="tls-cp" data-cp="' + T.esc(t) + '" title="' + judul + '">' + SV.cp + '</i>'; }
+  // Tombol Edit disembunyikan: koreksi stok top level tidak boleh lewat UI web. Ubah ke true untuk menampilkannya lagi.
+  var BOLEH_EDIT = false;
   function aksi(sku, rak) {
-    return '<div class="c n"><button type="button" class="tls-ab" data-e="' + T.esc(sku) + '">' + SV.pen + ' Edit</button> <button type="button" class="tls-ab" data-h="' + T.esc(sku) + '" data-rak="' + T.esc(rak) + '">' + SV.clk + ' Histori</button></div>';
+    return '<div class="c n">' + (BOLEH_EDIT ? '<button type="button" class="tls-ab" data-e="' + T.esc(sku) + '">' + SV.pen + ' Edit</button> ' : '') + '<button type="button" class="tls-ab" data-h="' + T.esc(sku) + '" data-rak="' + T.esc(rak) + '">' + SV.clk + ' Histori</button></div>';
   }
   function strip(attr, kunci, label, terbuka) {
     var t = terbuka ? 'Tutup' : 'Lihat rincian';
@@ -324,7 +326,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   // ---------- peristiwa ----------
   $r.on('click', '[data-cp]', function (e) { e.stopPropagation(); salin($(this).data('cp')); });
-  $r.on('click', '[data-e]', function (e) { e.stopPropagation(); edit($(this).data('e')); });
+  $r.on('click', '[data-e]', function (e) { e.stopPropagation(); if (BOLEH_EDIT) edit($(this).data('e')); });
   $r.on('click', '[data-h]', function (e) { e.stopPropagation(); histori($(this).data('h'), $(this).data('rak')); });
   $r.on('click', '[data-b]', function (e) { e.stopPropagation(); buku($(this).data('b')); });
   $r.on('click', '[data-o]', function () { var s = $(this).attr('data-o'); bukaSku = bukaSku === s ? null : s; gambar(); });
