@@ -25,7 +25,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   $r.html(
     '<div class="tl-ph"><div class="t"><h1>Stok Top Level</h1>' +
-    T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian, lalu Edit untuk koreksi qty, ganti no rak, atau ganti SKU.\nSKU baru wajib ada di master (Jubelio).\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
+    T.info('Stok top level per SKU dan per rak.\nKlik baris untuk melihat rincian dan histori.\nStok bertambah lewat Upload Top Level dan berkurang saat CS input qty dari slip.') +
     '</div></div><div class="tls-seg" id="tls-tab" style="margin-bottom:10px"></div><div class="tls-kpi" id="tls-kpi"></div>' +
     '<section class="tl-panel tls-panel"><div class="tls-tb">' +
     '<label class="tl-search tls-cari">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari SKU atau nomor rak" autocomplete="off"></label>' +
@@ -50,21 +50,12 @@ $this->load->view('top_level/_dasar'); ?>
   }
 
   // ---------- kartu ringkasan ----------
-  // SKU yang disembunyikan hanya muncul di tab Disembunyikan; tab lain dan kartu ringkasan tidak menghitungnya.
-  function lolosTab(d) {
-    if (tab === 'sembunyi') return !!d.sembunyi;
-    if (d.sembunyi) return false;
-    return tab === 'ada' ? d.total > 0 : tab === 'kosong' ? d.total <= 0 : true;
-  }
+  function lolosTab(d) { return tab === 'ada' ? d.total > 0 : tab === 'kosong' ? d.total <= 0 : true; }
 
   function tabs() {
-    var n = { semua: 0, ada: 0, kosong: 0, sembunyi: 0 };
-    $.each(data, function (i, d) {
-      if (d.sembunyi) { n.sembunyi++; return; }
-      n.semua++;
-      if (d.total > 0) n.ada++; else n.kosong++;
-    });
-    var def = [['semua', 'Semua'], ['ada', 'Ada stok'], ['kosong', 'Stok kosong'], ['sembunyi', 'Disembunyikan']], h = '';
+    var n = { semua: data.length, ada: 0, kosong: 0 };
+    $.each(data, function (i, d) { if (d.total > 0) n.ada++; else n.kosong++; });
+    var def = [['semua', 'Semua'], ['ada', 'Ada stok'], ['kosong', 'Stok kosong']], h = '';
     $.each(def, function (i, t) { h += '<button type="button" data-t="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + ' (' + n[t[0]].toLocaleString('id-ID') + ')</button>'; });
     $('#tls-tab').html(h);
   }
@@ -124,8 +115,10 @@ $this->load->view('top_level/_dasar'); ?>
     return '<div class="tls-gh ' + (c || '') + (k ? ' srt' : '') + '"' + (k ? ' data-s="' + k + '"' : '') + '>' + teks + (sortK === k && k ? (sortD > 0 ? ' &#9650;' : ' &#9660;') : '') + '</div>';
   }
   function salinIkon(t, judul) { return ' <i class="tls-cp" data-cp="' + T.esc(t) + '" title="' + judul + '">' + SV.cp + '</i>'; }
+  // Tombol Edit disembunyikan: koreksi stok top level tidak boleh lewat UI web. Ubah ke true untuk menampilkannya lagi.
+  var BOLEH_EDIT = false;
   function aksi(sku, rak) {
-    return '<div class="c n"><button type="button" class="tls-ab" data-e="' + T.esc(sku) + '">' + SV.pen + ' Edit</button> <button type="button" class="tls-ab" data-h="' + T.esc(sku) + '" data-rak="' + T.esc(rak) + '">' + SV.clk + ' Histori</button></div>';
+    return '<div class="c n">' + (BOLEH_EDIT ? '<button type="button" class="tls-ab" data-e="' + T.esc(sku) + '">' + SV.pen + ' Edit</button> ' : '') + '<button type="button" class="tls-ab" data-h="' + T.esc(sku) + '" data-rak="' + T.esc(rak) + '">' + SV.clk + ' Histori</button></div>';
   }
   function strip(attr, kunci, label, terbuka) {
     var t = terbuka ? 'Tutup' : 'Lihat rincian';
@@ -237,12 +230,12 @@ $this->load->view('top_level/_dasar'); ?>
   function edit(sku) {
     var d = cari(sku);
     if (!d) return;
-    var ed = { sku: sku, skuBaru: sku, skuCek: 'ok', sembunyi: !!d.sembunyi, rows: $.map(d.rak, function (z) { return { asal: z.rak, rak: z.rak, lama: z.stok, qty: String(z.stok) }; }) };
+    var ed = { sku: sku, skuBaru: sku, skuCek: 'ok', rows: $.map(d.rak, function (z) { return { asal: z.rak, rak: z.rak, lama: z.stok, qty: String(z.stok) }; }) };
     var $m = T.modal({ judul: 'Edit stok top level', body: '' });
 
     function qtyOk(x) { return /^\d+$/.test($.trim(x.qty)); }
     function kosong(x) { return x.asal === '' && $.trim(x.rak) === '' && $.trim(x.qty) === ''; }
-    function dataKotor() {
+    function kotor() {
       if (ed.skuBaru !== ed.sku) return true;
       var k = false;
       $.each(ed.rows, function (i, x) {
@@ -251,8 +244,6 @@ $this->load->view('top_level/_dasar'); ?>
       });
       return k;
     }
-    function flagKotor() { return ed.sembunyi !== !!d.sembunyi; }
-    function kotor() { return dataKotor() || flagKotor(); }
     function boleh() {
       if (!kotor()) return false;
       if (ed.skuBaru !== ed.sku && ed.skuCek !== 'ok') return false;
@@ -295,9 +286,7 @@ $this->load->view('top_level/_dasar'); ?>
         b += '<div class="tls-er" data-i="' + i + '"><div><input type="text" class="tls-rn mono" value="' + T.esc(x.rak) + '" placeholder="No rak baru, mis. TL-F3"><small class="tls-dari"></small></div><input type="number" min="0" class="tls-qty" value="' + T.esc(x.qty) + '"></div>';
       });
       b += '<div><button type="button" class="tl-btn sm ghost" data-rak>' + T.ic('plus', 14) + 'Tambah rak</button></div>' +
-        '<div class="tl-fld">Alasan<select id="tl-alasan">' + $.map(ALASAN, function (a) { return '<option' + (a === ed.alasan ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' +
-        '<label class="tls-fl" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px"><input type="checkbox" id="tls-hide"' + (ed.sembunyi ? ' checked' : '') + '> Sembunyikan SKU ini dari daftar</label>' +
-        '<small class="muted">Hanya menyembunyikan tampilan; stok tetap ada. SKU muncul di tab Disembunyikan.</small></div>' +
+        '<div class="tl-fld">Alasan<select id="tl-alasan">' + $.map(ALASAN, function (a) { return '<option' + (a === ed.alasan ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div></div>' +
         '<div class="tl-df"><span id="tls-sum" class="tls-sum"></span><button type="button" class="tl-btn" data-tl-tutup>Batal</button><button type="button" class="tl-btn pri" data-simpan disabled>Simpan</button></div>';
       $m.find('.tl-body').html(b);
       T.combo($m.find('#tls-sk'), function (teks, kirim) {
@@ -316,7 +305,6 @@ $this->load->view('top_level/_dasar'); ?>
     $m.on('input', '.tls-rn', function () { ed.rows[+$(this).closest('.tls-er').data('i')].rak = this.value; ringkas(); });
     $m.on('input', '.tls-qty', function () { ed.rows[+$(this).closest('.tls-er').data('i')].qty = this.value; ringkas(); });
     $m.on('change', '#tl-alasan', function () { ed.alasan = this.value; });
-    $m.on('change', '#tls-hide', function () { ed.sembunyi = this.checked; ringkas(); });
     $m.on('click', '[data-rak]', function () {
       ed.alasan = $m.find('#tl-alasan').val();
       ed.rows.push({ asal: '', rak: '', lama: null, qty: '' });
@@ -327,18 +315,10 @@ $this->load->view('top_level/_dasar'); ?>
       var kirim = [];
       $.each(ed.rows, function (i, x) { if (!kosong(x)) kirim.push({ asal: x.asal, rak: $.trim(x.rak), qty: $.trim(x.qty) }); });
       $(this).prop('disabled', true);
-      // Penanda sembunyi disimpan terpisah, sesudah data stok (kalau ada yang berubah) berhasil; ikut SKU baru bila SKU diganti.
-      var kirimFlag = flagKotor() || (ed.skuBaru !== ed.sku && ed.sembunyi);   // ganti SKU: penanda ikut pindah ke SKU baru
-      function simpanFlag(pesan) {
-        if (!kirimFlag) { T.closeModal(); T.toast(pesan); muat(); return; }
-        T.post('cs/stok-top-level/sembunyi', { sku: ed.skuBaru, sembunyi: ed.sembunyi ? 1 : 0 }, function (r, j) {
-          T.closeModal(); T.toast(pesan ? pesan + ' ' + j.message : j.message); muat();
-        }, function (m) { T.closeModal(); T.galat('Stok tersimpan, tetapi penanda sembunyi gagal: ' + m); muat(); });
-      }
-      if (!dataKotor()) { simpanFlag(''); return; }
       T.post('cs/stok-top-level/simpan', { sku: ed.sku, sku_baru: ed.skuBaru, alasan: $m.find('#tl-alasan').val(), rows: kirim }, function (r, j) {
+        T.closeModal(); T.toast(j.message);
         if (bukaSku === ed.sku) bukaSku = ed.skuBaru;
-        simpanFlag(j.message);
+        muat();
       }, function (m) { T.galat(m); ringkas(); });
     });
     render();
@@ -346,7 +326,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   // ---------- peristiwa ----------
   $r.on('click', '[data-cp]', function (e) { e.stopPropagation(); salin($(this).data('cp')); });
-  $r.on('click', '[data-e]', function (e) { e.stopPropagation(); edit($(this).data('e')); });
+  $r.on('click', '[data-e]', function (e) { e.stopPropagation(); if (BOLEH_EDIT) edit($(this).data('e')); });
   $r.on('click', '[data-h]', function (e) { e.stopPropagation(); histori($(this).data('h'), $(this).data('rak')); });
   $r.on('click', '[data-b]', function (e) { e.stopPropagation(); buku($(this).data('b')); });
   $r.on('click', '[data-o]', function () { var s = $(this).attr('data-o'); bukaSku = bukaSku === s ? null : s; gambar(); });

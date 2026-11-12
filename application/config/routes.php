@@ -653,7 +653,6 @@ $route['cs/stok-top-level/sku']        = 'top_level/stok_sku';
 $route['cs/stok-top-level/riwayat']    = 'top_level/stok_riwayat';
 $route['cs/stok-top-level/buku']       = 'top_level/stok_buku';
 $route['cs/stok-top-level/simpan']     = 'top_level/stok_simpan';
-$route['cs/stok-top-level/sembunyi']   = 'top_level/stok_sembunyi';
 $route['cs/input-top-level']           = 'top_level/input_form';
 $route['cs/input-top-level/tim']       = 'top_level/input_tim';
 $route['cs/input-top-level/sku']       = 'top_level/input_sku';

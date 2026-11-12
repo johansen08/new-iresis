@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-12.2';
+    const BOOTSTRAP_VERSI = '2026-11-10.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -3278,18 +3278,6 @@ class MY_Controller extends CI_Controller
             KEY idx_sku (sku),
             KEY idx_ref (ref)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        // SKU yang disembunyikan dari daftar Stok Top Level (hanya tampilan; stok dan history tidak berubah).
-        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_sembunyi (
-            sku VARCHAR(100) NOT NULL,
-            aktif TINYINT(1) NOT NULL DEFAULT 1,
-            oleh VARCHAR(100) NULL,
-            waktu DATETIME NOT NULL,
-            PRIMARY KEY (sku)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        if (!$this->db->field_exists('aktif', 'tbltoplevel_sembunyi')) {
-            $this->db->query('ALTER TABLE tbltoplevel_sembunyi ADD COLUMN aktif TINYINT(1) NOT NULL DEFAULT 1 AFTER sku');
-        }
 
         // Nomor transfer top level TTL-TAHUN-NNNNN untuk setiap stok masuk dan keluar.
         $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_nomor (

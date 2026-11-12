@@ -424,15 +424,6 @@ class Top_level extends MY_Controller
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? $pesan : $h['pesan']);
     }
 
-    /** Sembunyikan (sembunyi=1) atau tampilkan lagi (sembunyi=0) satu SKU di daftar Stok Top Level. */
-    public function stok_sembunyi()
-    {
-        $this->_wajib(self::URI_STOK);
-        $sembunyi = (int) $this->input->post('sembunyi') === 1;
-        $h = $this->top_level_fcd->atur_sembunyi(trim((string) $this->input->post('sku')), $sembunyi, $this->_oleh());
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? ($sembunyi ? 'SKU disembunyikan dari daftar.' : 'SKU ditampilkan lagi.') : $h['pesan']);
-    }
-
     // ------------------------------------------------------------ Upload Top Level
 
     /**
