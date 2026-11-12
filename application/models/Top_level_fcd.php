@@ -1025,9 +1025,14 @@ class Top_level_fcd extends CI_Model
             $this->db->like('sku', $cari);
         }
         $rows = $this->db->order_by('(SUM(qty) <= 0)', 'ASC', false)->order_by('sku', 'ASC')->limit(5000)->get()->result_array();
+        $sembunyi = array();
+        foreach ($this->db->select('sku')->where('aktif', 1)->get('tbltoplevel_sembunyi')->result() as $s) {
+            $sembunyi[strtolower($s->sku)] = true;
+        }
         $peta = array();
         foreach ($rows as $i => $r) {
             $rows[$i]['total'] = (int) $r['total'];
+            $rows[$i]['sembunyi'] = isset($sembunyi[strtolower($r['sku'])]);
             $rows[$i]['rak'] = array();
             $peta[$r['sku']] = $i;
         }
@@ -1041,6 +1046,23 @@ class Top_level_fcd extends CI_Model
             }
         }
         return $rows;
+    }
+
+    /**
+     * Sembunyikan / tampilkan lagi satu SKU di daftar Stok Top Level. Hanya tanda tampilan: stok, history, export,
+     * dan Cek Top Level tidak terpengaruh. Tanpa DELETE: tampilkan lagi = aktif 0 pada tabel penanda.
+     */
+    public function atur_sembunyi($sku, $sembunyi, $oleh)
+    {
+        $sku = trim((string) $sku);
+        if ($sku === '' || !$this->db->where('sku', $sku)->count_all_results('tbltoplevel')) {
+            return array('ok' => false, 'pesan' => 'SKU tidak ditemukan di stok top level.');
+        }
+        $this->db->trans_start();
+        $this->db->query('INSERT INTO tbltoplevel_sembunyi (sku, aktif, oleh, waktu) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE aktif = VALUES(aktif), oleh = VALUES(oleh), waktu = VALUES(waktu)', array($sku, $sembunyi ? 1 : 0, $oleh));
+        $this->catat('SEMBUNYI', $sku, null, null, null, $oleh, null, $sembunyi ? 'SKU disembunyikan dari daftar' : 'SKU ditampilkan lagi di daftar');
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? array('ok' => true) : array('ok' => false, 'pesan' => 'Gagal menyimpan, coba lagi.');
     }
 
     /**
