@@ -367,6 +367,10 @@ class Top_level_fcd extends CI_Model
             return array('ok' => false, 'pesan' => $ksl['pesan']);
         }
         $kor = ($ksl !== null);
+        // "Tidak Diketahui" = petugas list yang tidak bisa dilacak; hanya masuk akal untuk transfer koreksi.
+        if (!$kor && mb_strtolower($nama_tim) === 'tidak diketahui') {
+            return array('ok' => false, 'pesan' => 'Petugas list "Tidak Diketahui" hanya untuk transfer yang ditandai sebagai kesalahan.');
+        }
 
         // Keluar manual tidak boleh menyela request yang slipnya sudah dicetak (lihat pesan_slip_berjalan).
         if ($keluar) {
