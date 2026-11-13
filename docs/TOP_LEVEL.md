@@ -18,6 +18,7 @@ ditulis tangan di slip, lalu diinput CS.
 | Stok Top Level | TIM CS | `cs/stok-top-level` | `Top_level::stok` | CS |
 | Input Top Level | TIM CS | `cs/input-top-level` | `Top_level::input_form` | CS |
 | Daftar Transfer Top Level | TIM CS | `cs/daftar-transfer-top-level` | `Top_level::transfer_form` | CS |
+| Kesalahan List/Input Top Level | TIM CS | `cs/kesalahan-top-level` | `Top_level::kesalahan_form` | CS (urutan 68, migrasi 2026-11-13.2) |
 
 Menu dan tabel dibuat `MY_Controller::run_top_level_migration()` (`BOOTSTRAP_VERSI` 2026-10-23.1).
 Cek Top Level semula di TIM PICKER dan dipindah ke TIM CS pada migrasi 2026-10-24.2 (hanya induk dan urutan menu; URI dan
@@ -163,6 +164,14 @@ transfer pertama tersimpan, tombol **Buat transfer pasangan** membuka form denga
 rekap menghitung `COUNT(DISTINCT kesalahan_id)`. Menu Daftar Transfer menampilkan badge koreksi / penambahan stok, detail transfer
 memuat kesalahan dan transfer terkait, dan tombol **Rekap kesalahan** merangkum kejadian per petugas dan jenis pada rentang tanggal.
 Endpoint baru: `cs/input-top-level/transfer` (saran transfer asal), `cs/daftar-transfer-top-level/rekap`. Migrasi 2026-11-13.1.
+
+**Menu Kesalahan List/Input Top Level** (`cs/kesalahan-top-level`, migrasi 2026-11-13.2) menampilkan semua kejadian kesalahan, satu baris per
+`KSL-nnnn`. Bentuknya mengikuti Manajemen Komplain CS New (CSS berawalan `kt-`, salinan pola `kp-`): periode (kosong = semua tanggal),
+empat kartu ringkasan (total, salah petugas list, salah petugas input, jenis terbanyak), tab Semua / Petugas List / Petugas Input, pencarian
+(kode, petugas, nomor transfer, SKU, rak, keterangan), chip filter Jenis dan Arah koreksi, tabel DataTables server-side dengan sel yang
+dirender di PHP, dan drawer detail di kanan (ringkasan, keterangan, tiap transfer koreksi beserta baris dan stok sebelum/sesudah).
+Export mengunduh CSV sesuai filter aktif. Tombol Catat Kesalahan membuka Input Top Level, karena kesalahan dicatat lewat tanda di sana.
+Endpoint: `/data`, `/ringkasan`, `/detail`, `/export` di bawah `cs/kesalahan-top-level`; hanya kejadian yang masih punya transfer aktif yang tampil.
 
 ## Daftar Transfer Top Level
 

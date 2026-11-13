@@ -661,6 +661,12 @@ $route['cs/input-top-level/simpan']    = 'top_level/input_simpan';
 $route['cs/input-top-level/cek']       = 'top_level/input_cek';
 $route['cs/input-top-level/transfer']  = 'top_level/input_transfer';
 $route['cs/daftar-transfer-top-level/rekap'] = 'top_level/transfer_rekap';
+// Kesalahan List/Input Top Level (docs/TOP_LEVEL.md): daftar kejadian kesalahan, bentuk menu mengikuti Manajemen Komplain CS New
+$route['cs/kesalahan-top-level']            = 'top_level/kesalahan_form';
+$route['cs/kesalahan-top-level/data']       = 'top_level/kesalahan_data';
+$route['cs/kesalahan-top-level/ringkasan']  = 'top_level/kesalahan_ringkasan';
+$route['cs/kesalahan-top-level/detail']     = 'top_level/kesalahan_detail';
+$route['cs/kesalahan-top-level/export']     = 'top_level/kesalahan_export';
 $route['cs/daftar-transfer-top-level']        = 'top_level/transfer_form';
 $route['cs/daftar-transfer-top-level/data']   = 'top_level/transfer_data';
 $route['cs/daftar-transfer-top-level/detail'] = 'top_level/transfer_detail';

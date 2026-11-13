@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-13.1';
+    const BOOTSTRAP_VERSI = '2026-11-13.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -3411,6 +3411,8 @@ class MY_Controller extends CI_Controller
                 'Daftar nomor transfer TTL-TAHUN-NNNNN (masuk dan keluar) beserta rincian per SKU dan rak.', 'masalah-picker-new'),
             array('TIM CS', 'Input Top Level', 'cs/input-top-level', 'fa fa-pencil-square-o', 65,
                 'Input manual stok top level dari tim Restok; menghasilkan nomor transfer TTL-TAHUN-NNNNN.', 'masalah-picker-new'),
+            array('TIM CS', 'Kesalahan List/Input Top Level', 'cs/kesalahan-top-level', 'fa fa-exclamation-triangle', 68,
+                'Daftar kesalahan petugas list dan petugas input yang ditandai saat Input Top Level, dihitung per kejadian.', 'masalah-picker-new'),
         );
 
         foreach ($daftar as $m) {
