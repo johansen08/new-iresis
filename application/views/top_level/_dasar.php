@@ -6,8 +6,8 @@
 <link rel="stylesheet" type="text/css" href="assets/css/top_level.css?v=<?= @filemtime(FCPATH . 'assets/css/top_level.css') ?: '1' ?>" />
 <script>
 (function () {
-  if (window.TL && window.TL.v >= 2) return; // naikkan v bila helper berubah, supaya sesi yang sudah terbuka memuat ulang helper
-  var T = window.TL = { v: 2 };
+  if (window.TL && window.TL.v >= 3) return; // naikkan v bila helper berubah, supaya sesi yang sudah terbuka memuat ulang helper
+  var T = window.TL = { v: 3 };
 
   var IC = {
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -20,6 +20,7 @@
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     file: '<path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    tambahstok: '<path d="M12 14V4M8 8l4-4 4 4"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     alert: '<path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17h.01"/>',
     inbox: '<path d="M4 13l2-8h12l2 8v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/>',

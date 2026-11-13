@@ -137,6 +137,33 @@ Menghapus transfer harus lewat SQL manual (tidak ada tombol hapus); balikkan jug
 panel detail request, riwayat upload, dan pesan koreksi; baris per rak ada di `tbltoplevel_transfer_baris`
 (`qty_sebelum`, `qty_sesudah`).
 
+## Koreksi kesalahan dan penambahan stok (13 Nov 2026)
+
+Dua tanda di Input Top Level untuk catatan yang tidak lolos aturan biasa. Keduanya hanya berlaku untuk sumber `INPUT`.
+
+**Tandai penambahan stok** (per baris, arah Masuk). Masuk ke SKU + rak yang stoknya tidak nol ditandai merah sebagai duplikat dan tidak
+bisa disimpan. Baris itu menampilkan checkbox dengan ikon tambah stok; bila dicentang (stok benar-benar bertambah, bukan input
+dobel) baris kembali normal. Tanda hanya berlaku untuk SKU + rak saat dicentang (`tambahKey`), hilang sendiri bila SKU atau rak diganti.
+Disimpan di `tbltoplevel_transfer_baris.is_penambahan`; log stok bernama `PENAMBAHAN`. Bukan kesalahan, tidak masuk rekap.
+
+**Tandai sebagai kesalahan** (per transfer, arah Masuk atau Keluar). Dipakai bila petugas list atau petugas input salah:
+lupa tulis, lupa input, salah SKU, salah qty, salah no rak, atau tercatat padahal tidak ada / dobel. Isian: siapa yang salah
+(list, input, keduanya), jenis (boleh lebih dari satu), nilai untuk keterangan (ditulis / diinput / seharusnya; SKU dan rak memberi
+rekomendasi), transfer asal yang dikoreksi, keterangan. Keterangan terisi otomatis satu kalimat per jenis ("Salah SKU ditulis A
+seharusnya B", "Salah Qty diinput 21 seharusnya 11") dan tetap bisa diedit. Transfer asal wajib, kecuali jenisnya hanya lupa tulis /
+lupa input (tidak punya transfer asal); nomornya harus transfer aktif yang ada.
+
+Prinsip pencatatan: koreksi = fisik yang benar − yang sudah diinput, per SKU + rak. Selisih positif dicatat sebagai transfer
+Masuk, negatif sebagai transfer Keluar. Catatan lama tidak diubah. Koreksi Masuk melewati guard duplikat; koreksi Keluar tetap tidak
+boleh membuat stok minus dan tetap ditolak bila slip request picker SKU itu sedang berjalan. Log stok: `KOREKSI_MASUK` / `KOREKSI_KELUAR`.
+
+**Satu kejadian = satu kesalahan.** Pihak, jenis, keterangan, dan transfer asal disimpan sekali di `tbltoplevel_kesalahan` (`KSL-nnnn`);
+transfer menunjuk lewat `tbltoplevel_transfer.kesalahan_id`. Salah SKU dan salah rak butuh dua transfer (Keluar lalu Masuk): setelah
+transfer pertama tersimpan, tombol **Buat transfer pasangan** membuka form dengan arah dibalik dan catatan kesalahan yang sama, jadi
+rekap menghitung `COUNT(DISTINCT kesalahan_id)`. Menu Daftar Transfer menampilkan badge koreksi / penambahan stok, detail transfer
+memuat kesalahan dan transfer terkait, dan tombol **Rekap kesalahan** merangkum kejadian per petugas dan jenis pada rentang tanggal.
+Endpoint baru: `cs/input-top-level/transfer` (saran transfer asal), `cs/daftar-transfer-top-level/rekap`. Migrasi 2026-11-13.1.
+
 ## Daftar Transfer Top Level
 
 Tabel semua nomor transfer `TTL-TAHUN-NNNNN`, terbaru di atas. Tata letak (redesain 24 Okt 2026, prototipe di `docs/prototype/`):

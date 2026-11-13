@@ -139,6 +139,35 @@
 .tl-line.bad .tl-dupmsg{display:flex}
 .tl .tl-line.bad input{border-color:var(--tl-bad);background:#fff}
 .tl-line.bad .tl-ib{color:var(--tl-bad)}
+/* Tandai penambahan stok (per baris Masuk yang SKU + rak-nya sudah ada stoknya) */
+.tl-tmbrow{grid-column:1/-1;display:none}
+.tl-tmbrow.on{display:block}
+.tl-tmb{display:inline-flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--tl-ink);background:#fff;border:1px solid var(--tl-line);border-radius:6px;padding:6px 10px}
+.tl-tmb input{margin:3px 0 0}
+.tl-tmb .tl-ic{color:var(--tl-ok);flex:none;margin-top:1px}
+.tl-tmb small{display:block;font-weight:400;color:var(--tl-muted);font-size:12px}
+.tl-tmb.cek{border-color:var(--tl-ok);background:var(--tl-ok-bg)}
+.tl-line.tmb{background:var(--tl-ok-bg)}
+/* Tandai sebagai kesalahan */
+.tl-ksl-h{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:600}
+.tl-ksl-h .tl-ic{color:var(--tl-warn);margin-top:2px;flex:none}
+.tl-ksl-h small{display:block;font-weight:400;color:var(--tl-muted)}
+.tl-ksl{display:flex;flex-direction:column;gap:14px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--tl-line)}
+.tl-ksl[hidden]{display:none}
+.tl-ksl-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:700px){.tl-ksl-2{grid-template-columns:minmax(0,1fr)}}
+.tl-chk{display:flex;align-items:center;gap:8px;font-weight:400;margin:4px 0;cursor:pointer}
+.tl-chk .chip{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--tl-warn-bg);color:var(--tl-warn)}
+.tl-ksl-nilai{display:flex;flex-direction:column;gap:10px;background:var(--tl-soft);border-radius:8px;padding:12px}
+.tl-ksl-nilai .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tl-ksl label.tl-lbl,.tl-ksl .tl-lbl{font-size:12px;font-weight:600;color:var(--tl-muted);display:block;margin-bottom:4px}
+.tl-ksl textarea{width:100%;min-height:84px;border:1px solid var(--tl-line);border-radius:6px;padding:8px 10px;font:inherit;font-size:14px;resize:vertical}
+.tl-ksl-pasangan{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--tl-info-bg);color:var(--tl-info);border-radius:8px;padding:10px 12px;font-size:13px}
+.tl-wajib{font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;background:var(--tl-bad-bg);color:var(--tl-bad);margin-left:4px}
+.tl-wajib.ok{background:var(--tl-soft);color:var(--tl-muted)}
+.tl .tl-ksl input.bad{border-color:var(--tl-bad);background:var(--tl-bad-bg)}
+.tl-badge-k{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:9px;padding:1px 7px;margin-left:6px;background:var(--tl-warn-bg);color:var(--tl-warn)}
+.tl-badge-k.tmb{background:var(--tl-ok-bg);color:var(--tl-ok)}
 .tl-cards2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 @media (max-width:700px){.tl-cards2{grid-template-columns:minmax(0,1fr)}}
 .tl-pair{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:6px 10px}

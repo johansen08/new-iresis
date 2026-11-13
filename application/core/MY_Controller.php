@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-10.3';
+    const BOOTSTRAP_VERSI = '2026-11-13.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -3374,6 +3374,28 @@ class MY_Controller extends CI_Controller
             PRIMARY KEY (id),
             KEY idx_transfer (id_transfer)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // 2026-11-13.1: koreksi kesalahan input. Satu kejadian kesalahan = satu baris tbltoplevel_kesalahan; transfer Keluar dan Masuk
+        // dari kejadian yang sama menunjuk ke baris itu lewat kesalahan_id, jadi rekap menghitung kejadian, bukan transfer.
+        // pihak = LIST / INPUT / LIST,INPUT; jenis = daftar jenis dipisah koma. is_penambahan = baris Masuk ke SKU + rak yang
+        // sudah ada stoknya dan ditandai petugas sebagai penambahan stok (bukan input dobel). Hanya menambah, tidak mengubah isi lama.
+        $this->db->query("CREATE TABLE IF NOT EXISTS tbltoplevel_kesalahan (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            pihak VARCHAR(20) NOT NULL,
+            jenis VARCHAR(120) NOT NULL,
+            keterangan VARCHAR(500) NULL,
+            ref_nomor VARCHAR(20) NULL,
+            dibuat_at DATETIME NOT NULL,
+            dibuat_by VARCHAR(100) NULL,
+            PRIMARY KEY (id),
+            KEY idx_dibuat (dibuat_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer LIKE 'kesalahan_id'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer ADD COLUMN kesalahan_id INT UNSIGNED NULL, ADD KEY idx_kesalahan (kesalahan_id)");
+        }
+        if (!$this->db->query("SHOW COLUMNS FROM tbltoplevel_transfer_baris LIKE 'is_penambahan'")->num_rows()) {
+            $this->db->query("ALTER TABLE tbltoplevel_transfer_baris ADD COLUMN is_penambahan TINYINT NOT NULL DEFAULT 0");
+        }
 
         // [induk, nama, uri, ikon, urutan, deskripsi, uri saudara untuk menyalin hak akses]
         $daftar = array(
