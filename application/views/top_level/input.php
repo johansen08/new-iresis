@@ -18,6 +18,7 @@ $this->load->view('top_level/_dasar'); ?>
   // Tandai sebagai kesalahan: pihak, jenis, nilai untuk keterangan, transfer asal, keterangan. pasangan = transfer kedua dari kejadian yang sama.
   var KSL0 = function () { return { on: false, pihak: [], jenis: [], fv: {}, ref: '', ket: '', kotor: false, pasangan: null }; };
   var ksl = KSL0();
+  var TDK = 'Tidak Diketahui';
   var JENIS = [['LUPA_TULIS', 'Lupa tulis'], ['LUPA_INPUT', 'Lupa input'], ['SALAH_SKU', 'Salah SKU'], ['SALAH_QTY', 'Salah qty'], ['SALAH_RAK', 'Salah no. rak'], ['TIDAK_ADA', 'Tercatat padahal tidak ada / dobel']];
   var NAMA_J = {}; $.each(JENIS, function (i, j) { NAMA_J[j[0]] = j[1]; });
   var FJ = { SALAH_SKU: ['SKU', 'sku'], SALAH_QTY: ['Qty', 'qty'], SALAH_RAK: ['no. rak', 'rak'] };
@@ -39,17 +40,19 @@ $this->load->view('top_level/_dasar'); ?>
       return;
     }
     // Kartu = nama petugas (dengan saran) + tanggalnya. Petugas List <-> TGL LIST, Petugas Input <-> TGL INPUT di Excel upload.
-    var kartu = function (judulKartu, idIn, labelTgl, idTgl) {
+    var kartu = function (judulKartu, idIn, labelTgl, idTgl, extra) {
       return '<section class="tl-panel tl-pad"><div class="tl-pair">' +
         '<label for="' + idIn + '" class="tl-lbl">' + judulKartu + '</label><label for="' + idTgl + '" class="tl-lbl">' + labelTgl + '</label>' +
-        '<div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%"></div>' +
+        '<div><input type="text" id="' + idIn + '" placeholder="Ketik nama, atau pilih dari saran" autocomplete="off" style="width:100%">' + (extra || '') + '</div>' +
         '<div><input type="date" id="' + idTgl + '" max="' + hariIni() + '" style="width:100%"></div></div></section>';
     };
+    // Petugas list yang tidak bisa dilacak: hanya untuk transfer yang ditandai sebagai kesalahan (tombol muncul setelah tanda dicentang).
+    var tombolTdk = '<button type="button" class="tl-btn sm ghost" id="tl-list-tdk" style="display:none;margin-top:6px" data-tip="Dipakai bila petugas list tidak bisa dilacak. Hanya untuk transfer yang ditandai sebagai kesalahan.">' + T.ic('alert', 14) + 'Tidak diketahui</button>';
     var h = judul() + '<div class="tl-cards3"><section class="tl-panel tl-pad"><label class="tl-lbl" for="tl-arah">Arah</label>' +
       '<select id="tl-arah" class="tl-arah ' + arah.toLowerCase() + '"><option value=""' + (arah ? '' : ' selected') + '>Pilih arah</option>' +
       '<option value="MASUK"' + (arah === 'MASUK' ? ' selected' : '') + '>Masuk</option>' +
       '<option value="KELUAR"' + (arah === 'KELUAR' ? ' selected' : '') + '>Keluar</option></select></section>' +
-      kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list') +
+      kartu('Petugas List', 'tl-list', 'Tanggal list', 'tl-tgl-list', tombolTdk) +
       kartu('Petugas Input', 'tl-pinput', 'Tanggal input', 'tl-tgl') + '</div>' +
       '<section class="tl-panel tl-pad" id="tl-ksl-box"></section>' +
       '<section class="tl-panel"><div class="tl-line tl-line-h"><span>SKU</span><span>No rak top level</span><span>Qty</span><span></span></div><div id="tl-baris"></div>' +
@@ -67,7 +70,10 @@ $this->load->view('top_level/_dasar'); ?>
     $.each([['#tl-list', '__tlList'], ['#tl-pinput', '__tlInput']], function (i, p) {
       T.combo($(p[0]), function (q, kirim) {
         T.post('cs/input-top-level/tim', { q: q }, function (d) {
-          kirim($.map(d.rows, function (x) { return { nilai: x.nama, label: x.nama, grup: x.dari === 'terakhir' ? 'Terakhir dipakai' : 'Pegawai' }; }));
+          var daftar = $.map(d.rows, function (x) { return { nilai: x.nama, label: x.nama, grup: x.dari === 'terakhir' ? 'Terakhir dipakai' : 'Pegawai' }; });
+          // Petugas list boleh "Tidak Diketahui" bila transfer ditandai sebagai kesalahan.
+          if (p[0] === '#tl-list' && ksl.on && TDK.toLowerCase().indexOf(q.toLowerCase()) > -1) daftar.unshift({ nilai: TDK, label: TDK, sub: 'tidak bisa dilacak', grup: 'Khusus kesalahan' });
+          kirim(daftar);
         }, function () { kirim([]); });
       }, function () { window[p[1]] = $(p[0]).val(); });
       $(p[0]).on('input', function () { window[p[1]] = this.value; });
@@ -247,6 +253,7 @@ $this->load->view('top_level/_dasar'); ?>
   function gambarKsl() {
     var $b = $('#tl-ksl-box');
     if (!$b.length) return;
+    $('#tl-list-tdk').toggle(ksl.on);
     var h = '<label class="tl-ksl-h"><input type="checkbox" id="tl-ksl-on"' + (ksl.on ? ' checked' : '') + ' style="margin-top:4px">' + T.ic('alert', 18) +
       '<span>Tandai sebagai kesalahan<small>Transfer ini memperbaiki catatan yang salah karena petugas list atau petugas input.</small></span></label>';
     if (ksl.on && ksl.pasangan) {
@@ -333,6 +340,7 @@ $this->load->view('top_level/_dasar'); ?>
     window.__tlList = pl; window.__tlInput = pi; window.__tlTgl = tgl; window.__tlTglList = tglL;
     if (!arah) { $('#tl-gal').text('Pilih arah: Masuk atau Keluar.'); $('#tl-arah').focus(); return; }
     if (!pl) { $('#tl-gal').text('Isi nama petugas list.'); $('#tl-list').focus(); return; }
+    if (pl.toLowerCase() === TDK.toLowerCase() && !ksl.on) { $('#tl-gal').text('Petugas list "Tidak Diketahui" hanya untuk transfer yang ditandai sebagai kesalahan.'); $('#tl-list').focus(); return; }
     if (!pi) { $('#tl-gal').text('Isi nama petugas input.'); $('#tl-pinput').focus(); return; }
     if (!tglL) { $('#tl-gal').text('Isi tanggal list.'); $('#tl-tgl-list').focus(); return; }
     if (!tgl) { $('#tl-gal').text('Isi tanggal input.'); $('#tl-tgl').focus(); return; }
@@ -392,7 +400,8 @@ $this->load->view('top_level/_dasar'); ?>
   $r.on('click', '[data-tambah]', function () { baris.push(KOSONG()); gambarBaris(); $('#tl-baris .tl-line:last .f-sku').focus(); });
   $r.on('click', '[data-hapus]', function () { baris.splice(+$(this).closest('.tl-line').data('i'), 1); if (!baris.length) baris.push(KOSONG()); gambarBaris(); ringkas(); cekDb(); });
   $r.on('click', '[data-simpan]', simpan);
-  $r.on('click', '[data-lagi]', function () { selesai = null; ksl = KSL0(); baris = [KOSONG(), KOSONG(), KOSONG()]; paint(); });
+  $r.on('click', '#tl-list-tdk', function () { window.__tlList = TDK; $('#tl-list').val(TDK); $('.tl-combo-list').hide(); });
+  $r.on('click', '[data-lagi]', function () { if (window.__tlList === TDK) window.__tlList = ''; selesai = null; ksl = KSL0(); baris = [KOSONG(), KOSONG(), KOSONG()]; paint(); });
   // Transfer pasangan: arah dibalik, catatan kesalahan yang sama dipakai ulang (satu kejadian = satu kesalahan).
   $r.on('click', '[data-pasangan]', function () {
     var s = selesai;

@@ -153,6 +153,9 @@ lupa tulis, lupa input, salah SKU, salah qty, salah no rak, atau tercatat padaha
 rekomendasi), transfer asal yang dikoreksi, keterangan. Keterangan terisi otomatis satu kalimat per jenis ("Salah SKU ditulis A
 seharusnya B", "Salah Qty diinput 21 seharusnya 11") dan tetap bisa diedit. Transfer asal wajib, kecuali jenisnya hanya lupa tulis /
 lupa input (tidak punya transfer asal); nomornya harus transfer aktif yang ada.
+Petugas list boleh diisi **Tidak Diketahui** (tombol di bawah isian petugas list dan saran di daftar, muncul setelah tanda kesalahan
+dicentang) bila yang menulis list tidak bisa dilacak. Nilai ini ditolak di klien dan server untuk transfer yang tidak ditandai sebagai kesalahan;
+di rekap dan daftar kesalahan ia tampil sebagai petugas list bernama "Tidak Diketahui".
 
 Prinsip pencatatan: koreksi = fisik yang benar − yang sudah diinput, per SKU + rak. Selisih positif dicatat sebagai transfer
 Masuk, negatif sebagai transfer Keluar. Catatan lama tidak diubah. Koreksi Masuk melewati guard duplikat; koreksi Keluar tetap tidak
