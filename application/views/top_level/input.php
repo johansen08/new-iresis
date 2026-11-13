@@ -232,7 +232,7 @@ $this->load->view('top_level/_dasar'); ?>
           L.push('Salah ' + f[0] + ' ' + (p === 'LIST' ? 'ditulis' : 'diinput') + ' ' + (ksl.fv[j + '_' + p] || '…') + ' seharusnya ' + (ksl.fv[j + '_benar'] || '…'));
         });
       } else if (j === 'TIDAK_ADA') L.push(barangTeks() + ' tercatat padahal tidak ada');
-      else L.push(NAMA_J[j] + ' ' + barangTeks());
+      else L.push(NAMA_J[j] + ' ' + (arah === 'KELUAR' ? 'keluar' : arah === 'MASUK' ? 'tambah' : '…') + ' ' + barangTeks()); // lupa tulis / lupa input: barangnya keluar atau tambah
     });
     return L.join('\n');
   }

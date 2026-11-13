@@ -151,7 +151,8 @@ Disimpan di `tbltoplevel_transfer_baris.is_penambahan`; log stok bernama `PENAMB
 lupa tulis, lupa input, salah SKU, salah qty, salah no rak, atau tercatat padahal tidak ada / dobel. Isian: siapa yang salah
 (list, input, keduanya), jenis (boleh lebih dari satu), nilai untuk keterangan (ditulis / diinput / seharusnya; SKU dan rak memberi
 rekomendasi), transfer asal yang dikoreksi, keterangan. Keterangan terisi otomatis satu kalimat per jenis ("Salah SKU ditulis A
-seharusnya B", "Salah Qty diinput 21 seharusnya 11") dan tetap bisa diedit. Transfer asal wajib, kecuali jenisnya hanya lupa tulis /
+seharusnya B", "Salah Qty diinput 21 seharusnya 11"; lupa tulis dan lupa input menyebut arahnya: "Lupa tulis tambah A rak R-01 qty 5" untuk
+transfer Masuk, "Lupa input keluar A rak R-01 qty 5" untuk transfer Keluar) dan tetap bisa diedit. Transfer asal wajib, kecuali jenisnya hanya lupa tulis /
 lupa input (tidak punya transfer asal); nomornya harus transfer aktif yang ada.
 Petugas list boleh diisi **Tidak Diketahui** (tombol di bawah isian petugas list dan saran di daftar, muncul setelah tanda kesalahan
 dicentang) bila yang menulis list tidak bisa dilacak. Nilai ini ditolak di klien dan server untuk transfer yang tidak ditandai sebagai kesalahan;
