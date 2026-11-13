@@ -79,7 +79,7 @@ class Top_level_fcd extends CI_Model
      * @param array  $baris  [['sku'=>, 'rak'=>, 'qty'=>, 'sebelum'=>, 'sesudah'=>], ...]
      * @return string nomor transfer
      */
-    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris, $tgl_input = null, $nama_input = null, $tgl_list = null)
+    private function buat_transfer($arah, $sumber, $nama_tim, $ref, $oleh, array $baris, $tgl_input = null, $nama_input = null, $tgl_list = null, $kesalahan_id = null)
     {
         $tahun = (int) date('Y');
         $this->db->query('INSERT IGNORE INTO tbltoplevel_nomor (tahun, urut) VALUES (?, 0)', array($tahun));
@@ -100,7 +100,7 @@ class Top_level_fcd extends CI_Model
             'nama_input' => $nama_input !== null ? mb_substr($nama_input, 0, 150) : null, 'ref' => $ref,
             'tgl_list' => $tgl_list,
             'tgl_input' => $tgl_input !== null ? $tgl_input : date('Y-m-d'),
-            'dibuat_at' => date('Y-m-d H:i:s'), 'dibuat_by' => $oleh, 'diinput_at' => $baris ? date('Y-m-d H:i:s') : null,
+            'dibuat_at' => date('Y-m-d H:i:s'), 'dibuat_by' => $oleh, 'diinput_at' => $baris ? date('Y-m-d H:i:s') : null, 'kesalahan_id' => $kesalahan_id,
             'jumlah_baris' => count($baris), 'jumlah_qty' => $qty,
         ));
         $id = (int) $this->db->insert_id();
@@ -108,6 +108,7 @@ class Top_level_fcd extends CI_Model
             $this->db->insert('tbltoplevel_transfer_baris', array(
                 'id_transfer' => $id, 'sku' => $b['sku'], 'no_rak' => $b['rak'], 'qty' => $b['qty'],
                 'qty_sebelum' => $b['sebelum'], 'qty_sesudah' => $b['sesudah'],
+                'is_penambahan' => !empty($b['tambah']) ? 1 : 0,
             ));
         }
         $this->catat('TRANSFER', null, null, null, null, $oleh, $nomor, 'Transfer ' . strtolower($arah) . ' ' . $nomor . ' (' . $sumber . ($ref ? ' ' . $ref : '') . '), ' . count($baris) . ' baris, ' . $qty . ' pcs');
@@ -278,8 +279,11 @@ class Top_level_fcd extends CI_Model
      * @param string $tanggal_list  tanggal list 'Y-m-d' (bawaan hari ini); tidak boleh di masa depan
      *                              dan tidak boleh setelah tanggal input
      */
-    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '', $nama_input = '', $tanggal_list = '', $arah = 'MASUK')
+    public function input_masuk($nama_tim, array $baris, $oleh, $tanggal = '', $nama_input = '', $tanggal_list = '', $arah = 'MASUK', $koreksi = null)
     {
+        // $koreksi (opsional): ['aktif'=>1, 'pihak'=>[LIST,INPUT], 'jenis'=>[...], 'keterangan'=>, 'ref'=>nomor TTL asal] untuk transfer yang
+        // memperbaiki catatan salah, atau ['aktif'=>1, 'kesalahan_id'=>id] untuk transfer pasangan dari kejadian yang sudah dicatat.
+        // Koreksi Masuk melewati guard duplikat. Baris Masuk bertanda 'tambah' = penambahan stok ke SKU + rak yang sudah ada stoknya.
         // KELUAR: stok rak dikurangi (qty transfer disimpan minus, sama seperti TTL keluar dari request).
         $keluar = ($arah === 'KELUAR');
         $nama_tim = trim(preg_replace('/\s+/', ' ', (string) $nama_tim));
@@ -339,7 +343,7 @@ class Top_level_fcd extends CI_Model
                 return array('ok' => false, 'pesan' => 'Baris ' . $no . ': SKU, rak, dan qty sama persis dengan baris ' . $persis[$kunci_baris] . '.');
             }
             $persis[$kunci_baris] = $no;
-            $bersih[] = array('sku' => $sku, 'rak' => $rak, 'qty' => (int) $qty, 'baris' => $no);
+            $bersih[] = array('sku' => $sku, 'rak' => $rak, 'qty' => (int) $qty, 'baris' => $no, 'tambah' => !empty($b['tambah']) && $b['tambah'] !== 'false' && $b['tambah'] !== '0');
             $skus[$sku] = true;
         }
         if (!$bersih) {
@@ -358,6 +362,12 @@ class Top_level_fcd extends CI_Model
             }
         }
 
+        $ksl = $this->siapkan_kesalahan($koreksi);
+        if ($ksl !== null && !$ksl['ok']) {
+            return array('ok' => false, 'pesan' => $ksl['pesan']);
+        }
+        $kor = ($ksl !== null);
+
         // Keluar manual tidak boleh menyela request yang slipnya sudah dicetak (lihat pesan_slip_berjalan).
         if ($keluar) {
             foreach (array_keys($skus) as $s) {
@@ -370,13 +380,14 @@ class Top_level_fcd extends CI_Model
 
         // Guard duplikat: SKU + no rak yang sudah tersimpan dengan qty bukan nol tidak boleh diinput lagi.
         // Input ini bukan penambahan; koreksi stok memakai Edit di Stok Top Level. Arah KELUAR tidak memakai guard ini.
-        $dobel = $keluar ? array() : $this->cek_duplikat($bersih);
+        // Dilewati untuk koreksi, dan untuk baris yang ditandai penambahan stok.
+        $dobel = ($keluar || $kor) ? array() : $this->cek_duplikat(array_values(array_filter($bersih, function ($x) { return empty($x['tambah']); })));
         if ($dobel) {
             $baris_dobel = array();
             foreach ($bersih as $b) {
-                if (isset($dobel[$b['sku'] . '|' . $b['rak']])) $baris_dobel[] = $b['baris'];
+                if (isset($dobel[$b['sku'] . '|' . $b['rak']]) && empty($b['tambah'])) $baris_dobel[] = $b['baris'];
             }
-            return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU dan no rak di baris ' . implode(', ', $baris_dobel) . ' sudah tersimpan dengan stok. Koreksi lewat Edit di Stok Top Level.');
+            return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU dan no rak di baris ' . implode(', ', $baris_dobel) . ' sudah tersimpan dengan stok. Centang Tandai penambahan stok di baris itu bila stoknya memang bertambah, atau pakai Tandai sebagai kesalahan untuk memperbaiki catatan.');
         }
 
         $this->db->trans_start();
@@ -389,7 +400,7 @@ class Top_level_fcd extends CI_Model
                 $berjalan[$kb] = $row ? (int) $row->qty : 0;
                 if ($keluar) {
                     // dicek per baris di bawah terhadap stok berjalan
-                } elseif ($berjalan[$kb] !== 0) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
+                } elseif ($berjalan[$kb] !== 0 && !$kor && empty($b['tambah'])) { // diperiksa ulang di dalam transaksi: ada yang menyimpan di sela pemeriksaan di atas
                     $this->db->trans_rollback();
                     return array('ok' => false, 'duplikat' => true, 'pesan' => 'Duplikat: SKU ' . $b['sku'] . ' di rak ' . $b['rak'] . ' baru saja tersimpan dengan stok ' . $berjalan[$kb] . '.');
                 }
@@ -403,7 +414,7 @@ class Top_level_fcd extends CI_Model
                 $this->db->query('UPDATE tbltoplevel SET qty = qty - ?, updated_at = NOW() WHERE sku = ? AND no_rak = ?', array($b['qty'], $b['sku'], $b['rak']));
                 $berjalan[$kb] = $lama - $b['qty'];
                 $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => -$b['qty'], 'sebelum' => $lama, 'sesudah' => $lama - $b['qty']);
-                $this->catat('KELUAR', $b['sku'], $b['rak'], $lama, $lama - $b['qty'], $oleh, null, 'Keluar top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
+                $this->catat($kor ? 'KOREKSI_KELUAR' : 'KELUAR', $b['sku'], $b['rak'], $lama, $lama - $b['qty'], $oleh, null, ($kor ? 'Koreksi keluar top level' : 'Keluar top level') . ', petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
                 continue;
             }
             $this->db->query(
@@ -412,17 +423,194 @@ class Top_level_fcd extends CI_Model
                 array($b['sku'], $b['rak'], $b['qty'])
             );
             $berjalan[$kb] = $lama + $b['qty'];
-            $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty']);
-            $this->catat('INPUT', $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null, 'Input top level, petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
+            // Penambahan stok: hanya bermakna bila SKU + rak itu memang sudah ada stoknya (kalau tidak, ini input biasa).
+            $tambah = !$kor && $lama !== 0 && !empty($b['tambah']);
+            $lines[] = array('sku' => $b['sku'], 'rak' => $b['rak'], 'qty' => $b['qty'], 'sebelum' => $lama, 'sesudah' => $lama + $b['qty'], 'tambah' => $tambah);
+            $this->catat($kor ? 'KOREKSI_MASUK' : ($tambah ? 'PENAMBAHAN' : 'INPUT'), $b['sku'], $b['rak'], $lama, $lama + $b['qty'], $oleh, null,
+                ($kor ? 'Koreksi masuk top level' : ($tambah ? 'Penambahan stok top level' : 'Input top level')) . ', petugas list ' . $nama_tim . ', petugas input ' . $nama_input);
         }
-        $nomor = $this->buat_transfer($keluar ? 'KELUAR' : 'MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal, $nama_input, $tanggal_list);
+        $kesalahan_id = $kor ? $this->simpan_kesalahan($ksl, $oleh) : null;
+        $nomor = $this->buat_transfer($keluar ? 'KELUAR' : 'MASUK', 'INPUT', $nama_tim, null, $oleh, $lines, $tanggal, $nama_input, $tanggal_list, $kesalahan_id);
         $this->db->trans_complete();
         if ($this->db->trans_status() === false) {
             return array('ok' => false, 'pesan' => 'Penyimpanan gagal; tidak ada stok yang berubah.');
         }
         $qty = 0;
         foreach ($lines as $l) $qty += abs($l['qty']);
-        return array('ok' => true, 'nomor' => $nomor, 'baris' => count($lines), 'qty' => $qty, 'tanggal' => $tanggal, 'tanggal_list' => $tanggal_list);
+        return array('ok' => true, 'nomor' => $nomor, 'baris' => count($lines), 'qty' => $qty, 'tanggal' => $tanggal, 'tanggal_list' => $tanggal_list,
+            'kesalahan_id' => (int) $kesalahan_id, 'kesalahan' => $kesalahan_id ? self::kode_kesalahan($kesalahan_id) : '');
+    }
+
+    // ------------------------------------------------------------ Koreksi kesalahan input
+
+    const JENIS_KESALAHAN = array('LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'TIDAK_ADA');
+
+    public static function kode_kesalahan($id)
+    {
+        return 'KSL-' . str_pad((string) $id, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Memeriksa data kesalahan dari form. NULL = bukan transfer koreksi. Kalau 'kesalahan_id' diisi, transfer ini pasangan dari
+     * kejadian yang sudah dicatat (mis. Keluar dan Masuk untuk salah SKU) dan tidak membuat catatan kejadian baru, sehingga
+     * satu kejadian tetap terhitung satu kali.
+     *
+     * @return array|null ['ok'=>bool, 'pesan'=>, 'id'=>id kejadian yang sudah ada atau 0, 'pihak'=>, 'jenis'=>, 'ket'=>, 'ref'=>]
+     */
+    private function siapkan_kesalahan($k)
+    {
+        if (!is_array($k) || empty($k['aktif']) || $k['aktif'] === 'false' || $k['aktif'] === '0') {
+            return null;
+        }
+        $kid = isset($k['kesalahan_id']) ? (int) $k['kesalahan_id'] : 0;
+        if ($kid > 0) {
+            $ada = $this->db->query('SELECT id FROM tbltoplevel_kesalahan WHERE id = ?', array($kid))->row();
+            return $ada ? array('ok' => true, 'id' => $kid) : array('ok' => false, 'pesan' => 'Catatan kesalahan ' . self::kode_kesalahan($kid) . ' tidak ditemukan.');
+        }
+        $pihak = array_values(array_intersect(array('LIST', 'INPUT'), isset($k['pihak']) && is_array($k['pihak']) ? $k['pihak'] : array()));
+        $jenis = array_values(array_intersect(self::JENIS_KESALAHAN, isset($k['jenis']) && is_array($k['jenis']) ? $k['jenis'] : array()));
+        if (!$pihak) {
+            return array('ok' => false, 'pesan' => 'Pilih siapa yang salah: petugas list, petugas input, atau keduanya.');
+        }
+        if (!$jenis) {
+            return array('ok' => false, 'pesan' => 'Pilih minimal satu jenis kesalahan.');
+        }
+        // Lupa tulis dan lupa input tidak punya transfer asal; jenis lain wajib menunjuk transfer yang dikoreksi.
+        $ref = trim((string) (isset($k['ref']) ? $k['ref'] : ''));
+        $wajib = count(array_diff($jenis, array('LUPA_TULIS', 'LUPA_INPUT'))) > 0;
+        if ($ref === '' && $wajib) {
+            return array('ok' => false, 'pesan' => 'Isi transfer asal yang dikoreksi.');
+        }
+        if ($ref !== '') {
+            $t = $this->db->query('SELECT id FROM tbltoplevel_transfer WHERE nomor = ? AND aktif_key = 1', array($ref))->row();
+            if (!$t) {
+                return array('ok' => false, 'pesan' => 'Transfer asal ' . $ref . ' tidak ditemukan. Pilih dari rekomendasi.');
+            }
+        }
+        return array('ok' => true, 'id' => 0, 'pihak' => implode(',', $pihak), 'jenis' => implode(',', $jenis),
+            'ket' => mb_substr(trim((string) (isset($k['keterangan']) ? $k['keterangan'] : '')), 0, 500), 'ref' => $ref);
+    }
+
+    /** Menyimpan catatan kejadian kesalahan (di dalam transaksi pemanggil); id lama dipakai ulang untuk transfer pasangan. */
+    private function simpan_kesalahan(array $ksl, $oleh)
+    {
+        if (!empty($ksl['id'])) {
+            return (int) $ksl['id'];
+        }
+        $this->db->insert('tbltoplevel_kesalahan', array(
+            'pihak' => $ksl['pihak'], 'jenis' => $ksl['jenis'], 'keterangan' => $ksl['ket'] !== '' ? $ksl['ket'] : null,
+            'ref_nomor' => $ksl['ref'] !== '' ? $ksl['ref'] : null, 'dibuat_at' => date('Y-m-d H:i:s'), 'dibuat_by' => $oleh,
+        ));
+        return (int) $this->db->insert_id();
+    }
+
+    /**
+     * Saran transfer asal yang dikoreksi: transfer aktif yang sudah punya baris, terbaru dulu; yang memuat $sku (SKU di form)
+     * ditaruh di atas. $q menyaring nomor, SKU, atau rak.
+     * @return array [['nomor','arah','tgl','petugas','ringkas','cocok'], ...]
+     */
+    public function cari_transfer($q, $sku = '')
+    {
+        $q = trim((string) $q);
+        $sku = trim((string) $sku);
+        $w = 't.aktif_key = 1 AND t.jumlah_baris > 0';
+        $p = array();
+        if ($q !== '') {
+            $like = '%' . $this->db->escape_like_str($q) . '%';
+            $w .= ' AND (t.nomor LIKE ? OR EXISTS (SELECT 1 FROM tbltoplevel_transfer_baris b WHERE b.id_transfer = t.id AND b.dibatalkan = 0 AND (b.sku LIKE ? OR b.no_rak LIKE ?)))';
+            $p = array($like, $like, $like);
+        }
+        $urut = 't.id DESC';
+        $cocok = '0';
+        if ($sku !== '') {
+            $cocok = '(EXISTS (SELECT 1 FROM tbltoplevel_transfer_baris b2 WHERE b2.id_transfer = t.id AND b2.dibatalkan = 0 AND b2.sku = ?))';
+            $urut = 'cocok DESC, t.id DESC';
+            array_unshift($p, $sku);
+        }
+        $rows = $this->db->query(
+            "SELECT t.id, t.nomor, t.arah, t.tgl_input AS tgl, t.nama_tim, t.nama_input, $cocok AS cocok
+             FROM tbltoplevel_transfer t WHERE $w ORDER BY $urut LIMIT 8", $p
+        )->result_array();
+        if (!$rows) {
+            return array();
+        }
+        $ids = array_map('intval', array_column($rows, 'id'));
+        $baris = array();
+        foreach ($this->db->query(
+            'SELECT id_transfer, sku, no_rak, ABS(qty) AS qty FROM tbltoplevel_transfer_baris WHERE dibatalkan = 0 AND id_transfer IN (' . implode(',', $ids) . ') ORDER BY id'
+        )->result_array() as $b) {
+            $baris[$b['id_transfer']][] = $b;
+        }
+        $hasil = array();
+        foreach ($rows as $r) {
+            $bs = isset($baris[$r['id']]) ? $baris[$r['id']] : array();
+            $ringkas = array();
+            foreach (array_slice($bs, 0, 2) as $b) {
+                $ringkas[] = $b['sku'] . ' ' . $b['no_rak'] . ' ×' . $b['qty'];
+            }
+            if (count($bs) > 2) {
+                $ringkas[] = '+' . (count($bs) - 2) . ' baris';
+            }
+            $hasil[] = array('nomor' => $r['nomor'], 'arah' => $r['arah'], 'tgl' => $r['tgl'], 'petugas' => trim($r['nama_tim'] . ' / ' . $r['nama_input'], ' /'),
+                'ringkas' => implode(', ', $ringkas), 'cocok' => (int) $r['cocok'] === 1);
+        }
+        return $hasil;
+    }
+
+    /** Satu kejadian kesalahan beserta transfer-transfernya yang masih berlaku; NULL bila tidak ada. */
+    public function info_kesalahan($id)
+    {
+        $k = $this->db->get_where('tbltoplevel_kesalahan', array('id' => (int) $id))->row_array();
+        if (!$k) {
+            return null;
+        }
+        $k['kode'] = self::kode_kesalahan($k['id']);
+        $k['transfer'] = $this->db->query('SELECT id, nomor, arah FROM tbltoplevel_transfer WHERE kesalahan_id = ? AND aktif_key = 1 ORDER BY id', array((int) $id))->result_array();
+        return $k;
+    }
+
+    /**
+     * Rekap kesalahan per kejadian (bukan per transfer) pada rentang tanggal kejadian dibuat. Kejadian yang semua transfernya
+     * dibatalkan tidak dihitung. Petugas list diambil dari nama_tim dan petugas input dari nama_input transfer pertama kejadian;
+     * kejadian yang menyalahkan dua pihak dihitung satu kali untuk tiap pihak.
+     * @return array ['kejadian'=>[...], 'petugas'=>[['nama','peran','total','jenis'=>[JENIS=>n]], ...], 'total'=>n]
+     */
+    public function rekap_kesalahan($dari, $sampai)
+    {
+        $tgl_ok = function ($t) { $d = \DateTime::createFromFormat('Y-m-d', (string) $t); return $d && $d->format('Y-m-d') === $t; };
+        if (!$tgl_ok($sampai)) $sampai = date('Y-m-d');
+        if (!$tgl_ok($dari)) $dari = date('Y-m-d', strtotime($sampai . ' -29 days'));
+        $rows = $this->db->query(
+            "SELECT k.id, k.pihak, k.jenis, k.keterangan, k.ref_nomor, k.dibuat_at, k.dibuat_by,
+                (SELECT t.nama_tim FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1 ORDER BY t.id LIMIT 1) AS nama_tim,
+                (SELECT t.nama_input FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1 ORDER BY t.id LIMIT 1) AS nama_input,
+                (SELECT COUNT(*) FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1) AS jumlah_transfer,
+                (SELECT GROUP_CONCAT(t.nomor ORDER BY t.id SEPARATOR ', ') FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1) AS nomor
+             FROM tbltoplevel_kesalahan k
+             WHERE DATE(k.dibuat_at) BETWEEN ? AND ?
+               AND EXISTS (SELECT 1 FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1)
+             ORDER BY k.id DESC LIMIT 500", array($dari, $sampai)
+        )->result_array();
+        $petugas = array();
+        foreach ($rows as &$r) {
+            $r['kode'] = self::kode_kesalahan($r['id']);
+            foreach (explode(',', $r['pihak']) as $p) {
+                $nama = trim((string) ($p === 'LIST' ? $r['nama_tim'] : $r['nama_input']));
+                if ($nama === '') continue;
+                $kunci = $p . '|' . mb_strtolower($nama);
+                if (!isset($petugas[$kunci])) {
+                    $petugas[$kunci] = array('nama' => $nama, 'peran' => $p === 'LIST' ? 'Petugas list' : 'Petugas input', 'total' => 0, 'jenis' => array_fill_keys(self::JENIS_KESALAHAN, 0));
+                }
+                $petugas[$kunci]['total']++;
+                foreach (explode(',', $r['jenis']) as $j) {
+                    if (isset($petugas[$kunci]['jenis'][$j])) $petugas[$kunci]['jenis'][$j]++;
+                }
+            }
+        }
+        unset($r);
+        $petugas = array_values($petugas);
+        usort($petugas, function ($a, $b) { return $b['total'] - $a['total'] ?: strcmp($a['nama'], $b['nama']); });
+        return array('dari' => $dari, 'sampai' => $sampai, 'kejadian' => $rows, 'petugas' => $petugas, 'total' => count($rows));
     }
 
     // ------------------------------------------------------------ Picker: Cek Top Level
@@ -1573,7 +1761,8 @@ class Top_level_fcd extends CI_Model
         $total = (int) $this->db->from('tbltoplevel_transfer t')->count_all_results();
 
         $saring();
-        $rows = $this->db->select('t.id, t.nomor, t.arah, t.sumber, t.nama_tim, t.nama_input, t.ref, t.tgl_list, t.tgl_input, t.diinput_at, t.dibuat_at, t.dibuat_by, t.jumlah_baris, t.jumlah_qty,
+        $rows = $this->db->select('t.id, t.nomor, t.arah, t.sumber, t.nama_tim, t.nama_input, t.ref, t.tgl_list, t.tgl_input, t.diinput_at, t.dibuat_at, t.dibuat_by, t.jumlah_baris, t.jumlah_qty, t.kesalahan_id,
+            (SELECT COUNT(*) FROM tbltoplevel_transfer_baris bt WHERE bt.id_transfer = t.id AND bt.dibatalkan = 0 AND bt.is_penambahan = 1) AS jumlah_tambah,
             (SELECT COUNT(*) FROM tbltoplevel_transfer_edit e WHERE e.id_transfer = t.id) AS jumlah_edit,
             (t.jumlah_baris = 0 AND t.diinput_at IS NULL AND NOT EXISTS (SELECT 1 FROM tbltoplevel_request rq WHERE t.sumber = \'REQUEST\' AND rq.status = \'SELESAI\' AND t.ref = CONCAT(\'RT-\', LPAD(rq.id, 4, \'0\')))) AS menunggu', false)
             ->from('tbltoplevel_transfer t')->order_by('t.id', 'DESC')->limit($ukuran, ($halaman - 1) * $ukuran)->get()->result_array();
@@ -1681,9 +1870,10 @@ class Top_level_fcd extends CI_Model
             return null;
         }
         $t['baris'] = $this->db->query(
-            'SELECT id, sku, no_rak AS rak, ABS(qty) AS qty, qty_sebelum AS sebelum, qty_sesudah AS sesudah
+            'SELECT id, sku, no_rak AS rak, ABS(qty) AS qty, qty_sebelum AS sebelum, qty_sesudah AS sesudah, is_penambahan
              FROM tbltoplevel_transfer_baris WHERE id_transfer = ? AND dibatalkan = 0 ORDER BY id', array((int) $id)
         )->result_array();
+        $t['kesalahan'] = !empty($t['kesalahan_id']) ? $this->info_kesalahan($t['kesalahan_id']) : null;
         $t['waktu_input'] = $this->waktu_input($t);
         // Menunggu qty = nomor sudah dibuat saat request diajukan, qty belum diisi. Qty 0 yang sudah diisi (request selesai tanpa
         // barang diambil dari top level) bukan menunggu: transfernya sah dan boleh diedit (petugas, tanggal, keterangan).

@@ -40,7 +40,8 @@ $this->load->view('top_level/_dasar'); ?>
     '<div class="tlt-tabs" id="tl-arah" role="tablist"></div>' +
     '<div class="tlt-fl"><div class="tlt-fld"><small>Sumber</small><div class="tlt-ms" id="tl-ms"></div></div>' +
     '<div class="tlt-fld"><small>Tanggal input</small><div class="tlt-dr" id="tl-dr"></div></div>' +
-    '<div class="tlt-fld grow"><small>Pencarian</small><label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari nomor, petugas, atau SKU" autocomplete="off"></label></div></div>' +
+    '<div class="tlt-fld grow"><small>Pencarian</small><label class="tl-search">' + T.ic('search') + '<input type="text" id="tl-q" placeholder="Cari nomor, petugas, atau SKU" autocomplete="off"></label></div>' +
+    '<div class="tlt-fld"><small>&nbsp;</small><button type="button" class="tl-btn" data-rekap data-tip="Jumlah kesalahan input per petugas dan per jenis pada rentang tanggal di atas.">' + T.ic('alert', 15) + 'Rekap kesalahan</button></div></div>' +
     '<section class="tl-panel" id="tl-tabel"></section><div class="tl-pager" id="tl-pager"></div>'
   );
 
@@ -111,7 +112,9 @@ $this->load->view('top_level/_dasar'); ?>
     $.each(d.rows, function (i, t) {
       h += '<tr class="go ' + (t.arah === 'MASUK' ? 'in' : 'out') + '" data-id="' + t.id + '"><td class="nowrap"><b class="mono">' + T.esc(t.nomor) + '</b>' +
         '<button type="button" class="tlt-cp" data-salin="' + T.esc(t.nomor) + '" data-tip="Salin nomor transfer" aria-label="Salin nomor ' + T.esc(t.nomor) + '">' + IC_SALIN + '</button>' +
-        (+t.jumlah_edit > 0 ? '<span class="tlt-ed" data-tip="Transfer ini pernah diedit. Riwayat ada di Detail.">diedit</span>' : '') + '</td>' +
+        (+t.jumlah_edit > 0 ? '<span class="tlt-ed" data-tip="Transfer ini pernah diedit. Riwayat ada di Detail.">diedit</span>' : '') +
+        (+t.kesalahan_id ? '<span class="tl-badge-k" data-tip="Transfer koreksi: memperbaiki catatan yang salah. Rinciannya ada di Detail.">koreksi</span>' : '') +
+        (+t.jumlah_tambah > 0 ? '<span class="tl-badge-k tmb" data-tip="Ada baris yang ditandai penambahan stok (SKU dan rak sudah punya stok, stok benar-benar bertambah).">penambahan stok</span>' : '') + '</td>' +
         '<td>' + dua(t.nama_tim, t.tgl_list) + '</td><td>' + dua(t.nama_input, t.waktu_input) + '</td><td class="n">' + qtyTeks(t) + '</td>' +
         '<td class="act"><button type="button" class="tl-btn sm" data-detail="' + t.id + '">Detail</button> <button type="button" class="tl-btn sm" data-edit="' + t.id + '"' + (+t.menunggu ? ' disabled data-tip="Belum bisa diedit: qty belum diisi dari slip."' : '') + '>' + T.ic('edit', 14) + 'Edit</button></td></tr>';
     });
@@ -168,12 +171,12 @@ $this->load->view('top_level/_dasar'); ?>
     var b = '<div class="tl-db">' + kepala(t) +
       '<dl class="tl-kv"><dt>Petugas list</dt><dd>' + T.esc(t.nama_tim || '—') + (t.tgl_list ? ' · ' + T.tgl(t.tgl_list) : '') + '</dd>' +
       '<dt>Petugas input</dt><dd>' + T.esc(t.nama_input || '—') + (t.waktu_input ? ' · ' + T.tgl(t.waktu_input) : '') + '</dd>' +
-      (t.keterangan ? '<dt>Keterangan</dt><dd>' + T.esc(t.keterangan) + '</dd>' : '') +
+      (t.keterangan ? '<dt>Keterangan</dt><dd>' + T.esc(t.keterangan) + '</dd>' : '') + kslDetail(t) +
       '<dt>Dibuat</dt><dd class="mono">' + T.tgl(t.dibuat_at) + (t.dibuat_by ? ' · ' + T.esc(t.dibuat_by) : '') + '</dd>' +
       '<dt>Total</dt><dd><b>' + (masuk ? '+' : '−') + total.toLocaleString('id-ID') + ' pcs</b> · ' + t.baris.length + ' baris</dd></dl>' +
       '<div class="tl-tw tl-panel" style="max-height:320px"><table class="tl-tbl"><thead><tr><th>SKU</th><th>No rak</th><th class="n">Qty</th><th class="n">Stok sebelum</th><th class="n">Stok sesudah</th></tr></thead><tbody>' +
       (t.baris.length ? '' : '<tr><td colspan="5" class="muted">' + (t.menunggu ? 'Menunggu CS input qty dari slip.' : 'Qty 0: tidak ada barang yang dipindah dari top level (mis. sudah direstok atas inisiatif tim Restok sebelum TL diterbitkan).') + '</td></tr>') +
-      $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + '</td><td class="n"><b>' + (masuk ? '+' : '−') + x.qty + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
+      $.map(t.baris, function (x) { return '<tr><td class="mono">' + T.esc(x.sku) + '</td><td class="mono">' + T.esc(x.rak) + (+x.is_penambahan ? ' ' + T.pill('penambahan stok', 'ok') : '') + '</td><td class="n"><b>' + (masuk ? '+' : '−') + x.qty + '</b></td><td class="n">' + x.sebelum + '</td><td class="n">' + x.sesudah + '</td></tr>'; }).join('') +
       '</tbody></table></div>' + riwayat(t) + '</div>' +
       '<div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button>' +
       (t.bisa_edit ? '<button type="button" class="tl-btn pri" data-ke-edit>' + T.ic('edit', 14) + 'Edit transfer</button>' : '') + '</div>';
@@ -181,6 +184,40 @@ $this->load->view('top_level/_dasar'); ?>
     $m.find('h2').text('Detail transfer');
     $m.find('.tl-body').html(b);
     $m.off('click.tltdet').on('click.tltdet', '[data-ke-edit]', function () { tampilEdit($m); });
+  }
+
+  // ---------- kesalahan input (koreksi) ----------
+  var NAMA_JENIS = { LUPA_TULIS: 'Lupa tulis', LUPA_INPUT: 'Lupa input', SALAH_SKU: 'Salah SKU', SALAH_QTY: 'Salah qty', SALAH_RAK: 'Salah no. rak', TIDAK_ADA: 'Tercatat padahal tidak ada' };
+  function namaPihak(s) { return $.map(String(s || '').split(','), function (p) { return p === 'LIST' ? 'Petugas list' : p === 'INPUT' ? 'Petugas input' : null; }).join(' + '); }
+  function namaJenis(s) { return $.map(String(s || '').split(','), function (j) { return NAMA_JENIS[j] || null; }).join(', '); }
+  function kslDetail(t) {
+    var k = t.kesalahan;
+    if (!k) return '';
+    var lain = $.map(k.transfer, function (x) { return x.nomor === t.nomor ? null : '<span class="mono">' + T.esc(x.nomor) + '</span> (' + (x.arah === 'MASUK' ? 'masuk' : 'keluar') + ')'; });
+    return '<dt>Kesalahan</dt><dd><b class="mono">' + T.esc(k.kode) + '</b> · ' + T.esc(namaPihak(k.pihak)) + ' · ' + T.esc(namaJenis(k.jenis)) +
+      (k.ref_nomor ? '<br>Transfer asal <span class="mono">' + T.esc(k.ref_nomor) + '</span>' : '') +
+      (lain.length ? '<br>Transfer terkait kesalahan ini: ' + lain.join(', ') : '') +
+      (k.keterangan ? '<br><span class="muted">' + T.esc(k.keterangan).replace(/\n/g, '<br>') + '</span>' : '') + '</dd>';
+  }
+  function bukaRekap() {
+    T.post(URL + '/rekap', { dari: dari, sampai: sampai }, function (r) {
+      var kol = ['LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'TIDAK_ADA'];
+      var b = '<div class="tl-db"><p class="muted" style="margin:0">Dihitung per kejadian kesalahan, bukan per transfer: salah SKU yang butuh dua transfer tetap satu kesalahan. Kejadian yang menyalahkan dua pihak dihitung satu kali untuk tiap pihak. ' +
+        lbl(r.dari) + ' – ' + lbl(r.sampai) + ' · <b>' + r.total + ' kejadian</b></p>';
+      if (!r.total) b += T.empty('list', 'Belum ada kesalahan pada rentang tanggal ini');
+      else {
+        b += '<div class="tl-tw tl-panel" style="max-height:220px"><table class="tl-tbl"><thead><tr><th>Petugas</th><th>Peran</th><th class="n">Kesalahan</th>' +
+          $.map(kol, function (j) { return '<th class="n">' + NAMA_JENIS[j] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          $.map(r.petugas, function (p) { return '<tr><td>' + T.esc(p.nama) + '</td><td>' + p.peran + '</td><td class="n"><b>' + p.total + '</b></td>' + $.map(kol, function (j) { return '<td class="n">' + (+p.jenis[j] || '') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
+          '<div class="tl-tw tl-panel" style="max-height:260px"><table class="tl-tbl"><thead><tr><th>Kejadian</th><th>Jenis</th><th>Pihak</th><th>Transfer</th><th>Keterangan</th></tr></thead><tbody>' +
+          $.map(r.kejadian, function (k) {
+            return '<tr><td class="mono nowrap">' + T.esc(k.kode) + '<br><span class="muted">' + T.tgl(k.dibuat_at) + '</span></td><td>' + T.esc(namaJenis(k.jenis)) + '</td><td>' + T.esc(namaPihak(k.pihak)) + '</td>' +
+              '<td class="mono">' + T.esc(k.nomor || '') + '</td><td>' + T.esc(k.keterangan || '').replace(/\n/g, '<br>') + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      }
+      b += '</div><div class="tl-df"><button type="button" class="tl-btn" data-tl-tutup>Tutup</button></div>';
+      T.modal({ judul: 'Rekap kesalahan input', wide: true, body: b });
+    }, T.galat);
   }
 
   function riwayat(t) {
@@ -341,6 +378,7 @@ $this->load->view('top_level/_dasar'); ?>
 
   $r.on('click', '[data-arah]', function () { arah = String($(this).data('arah')); halaman = 1; muat(); });
   $r.on('click', '[data-salin]', function (e) { e.stopPropagation(); salin($(this).attr('data-salin'), $(this)); });
+  $r.on('click', '[data-rekap]', function (e) { e.stopPropagation(); bukaRekap(); });
   $r.on('click', '[data-detail]', function (e) { e.stopPropagation(); bukaTransfer($(this).data('detail'), false); });
   $r.on('click', '[data-edit]', function (e) { e.stopPropagation(); bukaTransfer($(this).data('edit'), true); });
   $r.on('click', 'tr.go', function (e) { if ($(e.target).closest('button, a, input').length) return; bukaTransfer($(this).data('id'), false); });

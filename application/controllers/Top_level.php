@@ -88,8 +88,23 @@ class Top_level extends MY_Controller
             return;
         }
         $rows = $this->input->post('rows');
-        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'), $arah);
-        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal'], 'tanggal_list' => $h['tanggal_list']) : array());
+        $koreksi = $this->input->post('koreksi');
+        $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'), $arah, is_array($koreksi) ? $koreksi : null);
+        $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal'], 'tanggal_list' => $h['tanggal_list'], 'kesalahan' => $h['kesalahan'], 'kesalahan_id' => $h['kesalahan_id']) : array());
+    }
+
+    /** Saran transfer asal untuk koreksi: transfer aktif terbaru, yang memuat SKU di form ditaruh di atas. */
+    public function input_transfer()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_transfer($this->input->post('q'), (string) $this->input->post('sku'))));
+    }
+
+    /** Rekap kesalahan per kejadian dan per petugas pada rentang tanggal (dipakai tombol Rekap kesalahan di Daftar Transfer). */
+    public function transfer_rekap()
+    {
+        $this->_wajib(self::URI_TRANSFER);
+        $this->make_ajax_response(200, 'OK', $this->top_level_fcd->rekap_kesalahan((string) $this->input->post('dari'), (string) $this->input->post('sampai')));
     }
 
     // ------------------------------------------------------------ Daftar Transfer Top Level
