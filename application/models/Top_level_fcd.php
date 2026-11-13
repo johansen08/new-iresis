@@ -613,6 +613,146 @@ class Top_level_fcd extends CI_Model
         return array('dari' => $dari, 'sampai' => $sampai, 'kejadian' => $rows, 'petugas' => $petugas, 'total' => count($rows));
     }
 
+    /**
+     * Penyaring daftar kesalahan (menu Kesalahan List/Input Top Level). Hanya kejadian yang masih punya transfer aktif.
+     * $f = ['dari','sampai' (Y-m-d, kosong = semua), 'tab' (LIST/INPUT/lain = semua), 'jenis'=>[], 'arah'=>[MASUK/KELUAR], 'q'].
+     * $pakai_tab = false dipakai untuk menghitung jumlah tiap tab. Mengembalikan [klausa WHERE, bind].
+     */
+    private function where_kesalahan(array $f, $pakai_tab = true)
+    {
+        $tgl_ok = function ($t) { $d = \DateTime::createFromFormat('Y-m-d', (string) $t); return $d && $d->format('Y-m-d') === $t; };
+        $w = array('EXISTS (SELECT 1 FROM tbltoplevel_transfer t0 WHERE t0.kesalahan_id = k.id AND t0.aktif_key = 1)');
+        $b = array();
+        if ($tgl_ok($f['dari'])) {
+            $w[] = 'k.dibuat_at >= ?';
+            $b[] = $f['dari'] . ' 00:00:00';
+        }
+        if ($tgl_ok($f['sampai'])) {
+            $w[] = 'k.dibuat_at <= ?';
+            $b[] = $f['sampai'] . ' 23:59:59';
+        }
+        $jenis = array_values(array_intersect(self::JENIS_KESALAHAN, $f['jenis']));
+        if ($jenis) {
+            $or = array();
+            foreach ($jenis as $j) {
+                $or[] = 'FIND_IN_SET(?, k.jenis)';
+                $b[] = $j;
+            }
+            $w[] = '(' . implode(' OR ', $or) . ')';
+        }
+        $arah = array_values(array_intersect(array('MASUK', 'KELUAR'), $f['arah']));
+        if ($arah) {
+            $w[] = 'EXISTS (SELECT 1 FROM tbltoplevel_transfer t3 WHERE t3.kesalahan_id = k.id AND t3.aktif_key = 1 AND t3.arah IN (' . implode(',', array_fill(0, count($arah), '?')) . '))';
+            $b = array_merge($b, $arah);
+        }
+        if ($pakai_tab && in_array($f['tab'], array('LIST', 'INPUT'), true)) {
+            $w[] = 'FIND_IN_SET(?, k.pihak)';
+            $b[] = $f['tab'];
+        }
+        $q = trim($f['q']);
+        if ($q !== '') {
+            $like = '%' . $this->db->escape_like_str($q) . '%';
+            $kode = preg_match('/^(?:KSL-?)?0*(\d+)$/i', $q, $m) ? (int) $m[1] : 0;
+            $w[] = '(k.keterangan LIKE ? OR k.ref_nomor LIKE ? OR k.dibuat_by LIKE ? OR k.id = ?
+                OR EXISTS (SELECT 1 FROM tbltoplevel_transfer t1 WHERE t1.kesalahan_id = k.id AND t1.aktif_key = 1 AND (t1.nomor LIKE ? OR t1.nama_tim LIKE ? OR t1.nama_input LIKE ?))
+                OR EXISTS (SELECT 1 FROM tbltoplevel_transfer t2 JOIN tbltoplevel_transfer_baris b2 ON b2.id_transfer = t2.id AND b2.dibatalkan = 0
+                           WHERE t2.kesalahan_id = k.id AND t2.aktif_key = 1 AND (b2.sku LIKE ? OR b2.no_rak LIKE ?)))';
+            array_push($b, $like, $like, $like, $kode, $like, $like, $like, $like, $like);
+        }
+        return array(implode(' AND ', $w), $b);
+    }
+
+    /**
+     * Satu halaman daftar kesalahan, terbaru dulu. Nama petugas list dan input diambil dari transfer pertama kejadian.
+     * @return array ['rows'=>[... + 'kode', 'nama_tim', 'nama_input', 'transfer'=>[['nomor','arah','jumlah_qty']]], 'total'=>n]
+     */
+    public function daftar_kesalahan(array $f, $start, $length, $kolom = 0, $arah = 'DESC')
+    {
+        list($w, $b) = $this->where_kesalahan($f);
+        $total = (int) $this->db->query("SELECT COUNT(*) AS n FROM tbltoplevel_kesalahan k WHERE $w", $b)->row()->n;
+        $urut = array(0 => 'k.id', 1 => 'k.jenis', 2 => 'nama_tim', 3 => 'nomor', 4 => 'k.ref_nomor', 5 => 'k.keterangan', 6 => 'k.dibuat_by');
+        $kol = isset($urut[$kolom]) ? $urut[$kolom] : 'k.id';
+        $arah = $arah === 'ASC' ? 'ASC' : 'DESC';
+        $start = max(0, (int) $start);
+        $length = (int) $length > 0 ? min((int) $length, 20000) : 25;
+        $rows = $this->db->query(
+            "SELECT k.id, k.pihak, k.jenis, k.keterangan, k.ref_nomor, k.dibuat_at, k.dibuat_by,
+                (SELECT t.nama_tim FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1 ORDER BY t.id LIMIT 1) AS nama_tim,
+                (SELECT t.nama_input FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1 ORDER BY t.id LIMIT 1) AS nama_input,
+                (SELECT MIN(t.nomor) FROM tbltoplevel_transfer t WHERE t.kesalahan_id = k.id AND t.aktif_key = 1) AS nomor
+             FROM tbltoplevel_kesalahan k WHERE $w ORDER BY $kol $arah, k.id DESC LIMIT $start, $length", $b
+        )->result_array();
+        $peta = array();
+        if ($rows) {
+            $ids = array_map('intval', array_column($rows, 'id'));
+            foreach ($this->db->query('SELECT kesalahan_id, nomor, arah, jumlah_qty FROM tbltoplevel_transfer WHERE aktif_key = 1 AND kesalahan_id IN (' . implode(',', $ids) . ') ORDER BY id')->result_array() as $t) {
+                $peta[$t['kesalahan_id']][] = $t;
+            }
+        }
+        foreach ($rows as &$r) {
+            $r['kode'] = self::kode_kesalahan($r['id']);
+            $r['transfer'] = isset($peta[$r['id']]) ? $peta[$r['id']] : array();
+        }
+        unset($r);
+        return array('rows' => $rows, 'total' => $total);
+    }
+
+    /**
+     * Kartu ringkasan dan jumlah tab, mengikuti periode dan filter yang aktif. Dihitung per kejadian: kejadian yang menyalahkan
+     * dua pihak dihitung satu kali di tiap pihak.
+     */
+    public function ringkasan_kesalahan(array $f)
+    {
+        list($w, $b) = $this->where_kesalahan($f);
+        $rows = $this->db->query("SELECT k.pihak, k.jenis FROM tbltoplevel_kesalahan k WHERE $w", $b)->result_array();
+        $h = array('total' => count($rows), 'list' => 0, 'input' => 0, 'jenis' => array_fill_keys(self::JENIS_KESALAHAN, 0));
+        foreach ($rows as $r) {
+            $p = explode(',', $r['pihak']);
+            if (in_array('LIST', $p, true)) $h['list']++;
+            if (in_array('INPUT', $p, true)) $h['input']++;
+            foreach (explode(',', $r['jenis']) as $j) {
+                if (isset($h['jenis'][$j])) $h['jenis'][$j]++;
+            }
+        }
+        arsort($h['jenis']);
+        $teratas = key($h['jenis']);
+        $h['jenis_top'] = $h['jenis'][$teratas] > 0 ? array('kode' => $teratas, 'n' => $h['jenis'][$teratas]) : null;
+        list($w2, $b2) = $this->where_kesalahan($f, false);
+        $h['tab'] = array('semua' => 0, 'LIST' => 0, 'INPUT' => 0);
+        foreach ($this->db->query("SELECT k.pihak FROM tbltoplevel_kesalahan k WHERE $w2", $b2)->result_array() as $r) {
+            $h['tab']['semua']++;
+            $p = explode(',', $r['pihak']);
+            if (in_array('LIST', $p, true)) $h['tab']['LIST']++;
+            if (in_array('INPUT', $p, true)) $h['tab']['INPUT']++;
+        }
+        return $h;
+    }
+
+    /** Detail satu kejadian: catatan kesalahan, transfer-transfernya beserta baris, dan transfer asal. NULL bila tidak ada. */
+    public function detail_kesalahan($id)
+    {
+        $k = $this->info_kesalahan($id);
+        if (!$k) {
+            return null;
+        }
+        $ids = array_map('intval', array_column($k['transfer'], 'id'));
+        $k['transfer'] = array();
+        if ($ids) {
+            $k['transfer'] = $this->db->query('SELECT id, nomor, arah, nama_tim, nama_input, tgl_list, tgl_input, dibuat_at, dibuat_by, jumlah_baris, jumlah_qty FROM tbltoplevel_transfer WHERE id IN (' . implode(',', $ids) . ') ORDER BY id')->result_array();
+            foreach ($k['transfer'] as &$t) {
+                $t['baris'] = $this->db->query(
+                    'SELECT sku, no_rak AS rak, ABS(qty) AS qty, qty_sebelum AS sebelum, qty_sesudah AS sesudah FROM tbltoplevel_transfer_baris WHERE id_transfer = ? AND dibatalkan = 0 ORDER BY id', array((int) $t['id'])
+                )->result_array();
+            }
+            unset($t);
+        }
+        $k['asal'] = null;
+        if (!empty($k['ref_nomor'])) {
+            $k['asal'] = $this->db->query('SELECT nomor, arah, nama_tim, nama_input, tgl_input FROM tbltoplevel_transfer WHERE nomor = ? AND aktif_key = 1', array($k['ref_nomor']))->row_array() ?: null;
+        }
+        return $k;
+    }
+
     // ------------------------------------------------------------ Picker: Cek Top Level
 
     /**

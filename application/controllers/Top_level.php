@@ -17,6 +17,7 @@ class Top_level extends MY_Controller
     const URI_STOK    = 'cs/stok-top-level';
     const URI_INPUT   = 'cs/input-top-level';
     const URI_TRANSFER = 'cs/daftar-transfer-top-level';
+    const URI_KESALAHAN = 'cs/kesalahan-top-level';
 
     public function __construct()
     {
@@ -91,6 +92,136 @@ class Top_level extends MY_Controller
         $koreksi = $this->input->post('koreksi');
         $h = $this->top_level_fcd->input_masuk((string) $this->input->post('petugas_list'), is_array($rows) ? array_values($rows) : array(), $this->_oleh(), (string) $this->input->post('tanggal'), (string) $this->input->post('petugas_input'), (string) $this->input->post('tanggal_list'), $arah, is_array($koreksi) ? $koreksi : null);
         $this->make_ajax_response($h['ok'] ? 200 : 409, $h['ok'] ? 'Tersimpan, transfer ' . $h['nomor'] . '.' : $h['pesan'], $h['ok'] ? array('nomor' => $h['nomor'], 'baris' => $h['baris'], 'qty' => $h['qty'], 'tanggal' => $h['tanggal'], 'tanggal_list' => $h['tanggal_list'], 'kesalahan' => $h['kesalahan'], 'kesalahan_id' => $h['kesalahan_id']) : array());
+    }
+
+    // ------------------------------------------------------------ Kesalahan List/Input Top Level
+
+    const NADA_JENIS = array('LUPA_TULIS' => 'amber', 'LUPA_INPUT' => 'amber', 'SALAH_SKU' => 'indigo', 'SALAH_QTY' => 'sky', 'SALAH_RAK' => 'sky', 'TIDAK_ADA' => 'red');
+    const NAMA_JENIS = array('LUPA_TULIS' => 'Lupa tulis', 'LUPA_INPUT' => 'Lupa input', 'SALAH_SKU' => 'Salah SKU', 'SALAH_QTY' => 'Salah qty', 'SALAH_RAK' => 'Salah no. rak', 'TIDAK_ADA' => 'Tercatat padahal tidak ada');
+
+    public function kesalahan_form()
+    {
+        $this->show(array('akses_ditolak' => !$this->_boleh(self::URI_KESALAHAN), 'jenis_list' => self::NAMA_JENIS), 'top_level/kesalahan');
+    }
+
+    /** Penyaring dari request: rentang tanggal "Y-m-d - Y-m-d" (kosong = semua), tab, chip Jenis dan Arah, pencarian. */
+    private function _filter_kesalahan()
+    {
+        $dari = '';
+        $sampai = '';
+        if (preg_match('/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/', (string) $this->input->post('reportrange'), $m)) {
+            $dari = $m[1];
+            $sampai = $m[2];
+        }
+        $arr = function ($k) { $v = $this->input->post($k); return is_array($v) ? array_values($v) : array(); };
+        $cari = $this->input->post('search_text');
+        if ($cari === null) {
+            $s = $this->input->post('search');
+            $cari = is_array($s) && isset($s['value']) ? $s['value'] : '';
+        }
+        return array('dari' => $dari, 'sampai' => $sampai, 'tab' => (string) $this->input->post('tab'),
+            'jenis' => $arr('f_jenis'), 'arah' => $arr('f_arah'), 'q' => (string) $cari);
+    }
+
+    /** DataTables server-side: sel dirender di PHP (pola Manajemen Komplain CS New). */
+    public function kesalahan_data()
+    {
+        $this->_wajib(self::URI_KESALAHAN);
+        $order = $this->input->post('order');
+        $h = $this->top_level_fcd->daftar_kesalahan(
+            $this->_filter_kesalahan(), (int) $this->input->post('start'), (int) $this->input->post('length'),
+            is_array($order) && isset($order[0]['column']) ? (int) $order[0]['column'] : 0,
+            is_array($order) && isset($order[0]['dir']) && strtolower($order[0]['dir']) === 'asc' ? 'ASC' : 'DESC'
+        );
+        $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $bulan = array('', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des');
+        $data = array();
+        foreach ($h['rows'] as $r) {
+            $t = strtotime($r['dibuat_at']);
+            $kolom_id = '<span class="kt-id">' . $e($r['kode']) . '</span><span class="kt-sub">' . date('j', $t) . ' ' . $bulan[(int) date('n', $t)] . ' ' . date('Y H:i', $t) . '</span>';
+            $jenis = '';
+            foreach (explode(',', $r['jenis']) as $j) {
+                if (isset(self::NAMA_JENIS[$j])) {
+                    $jenis .= '<span class="kt-pill kt-pill-' . self::NADA_JENIS[$j] . '">' . $e(self::NAMA_JENIS[$j]) . '</span> ';
+                }
+            }
+            $pihak = '';
+            foreach (explode(',', $r['pihak']) as $p) {
+                $nama = $p === 'LIST' ? $r['nama_tim'] : $r['nama_input'];
+                $pihak .= '<span class="kt-person" title="' . ($p === 'LIST' ? 'Petugas list' : 'Petugas input') . '"><span class="kt-avatar">' . ($p === 'LIST' ? 'L' : 'I') . '</span>'
+                    . $e($nama !== null && $nama !== '' ? $nama : '-') . '</span>';
+            }
+            $transfer = '';
+            foreach ($r['transfer'] as $tr) {
+                $masuk = $tr['arah'] === 'MASUK';
+                $transfer .= '<span class="kt-trf"><i class="kt-dot ' . ($masuk ? 'kt-dot-in' : 'kt-dot-out') . '" title="' . ($masuk ? 'Masuk' : 'Keluar') . '"></i><span class="kt-mono">' . $e($tr['nomor']) . '</span>'
+                    . '<button type="button" class="kt-copy" data-copy="' . $e($tr['nomor']) . '" title="Salin"><i class="fa fa-files-o"></i></button></span>';
+            }
+            $ket = (string) $r['keterangan'];
+            $data[] = array(
+                $kolom_id,
+                $jenis,
+                '<div class="kt-duo">' . $pihak . '</div>',
+                $transfer,
+                $r['ref_nomor'] ? '<span class="kt-mono">' . $e($r['ref_nomor']) . '</span>' : '<span class="kt-muted">&ndash;</span>',
+                $ket !== '' ? '<span class="kt-ket" title="' . $e($ket) . '">' . $e(mb_strlen($ket) > 90 ? mb_substr($ket, 0, 90) . '…' : $ket) . '</span>' : '<span class="kt-muted">&ndash;</span>',
+                '<span class="kt-sub" style="margin:0">' . $e($r['dibuat_by'] ?: '-') . '</span>',
+                '<div class="kt-actions"><button type="button" class="kt-icon-btn" data-detail="' . (int) $r['id'] . '" title="Lihat detail"><i class="fa fa-eye"></i></button></div>',
+            );
+        }
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        echo json_encode(array('draw' => (int) $this->input->post('draw'), 'recordsTotal' => $h['total'], 'recordsFiltered' => $h['total'], 'data' => $data));
+        exit();
+    }
+
+    public function kesalahan_ringkasan()
+    {
+        $this->_wajib(self::URI_KESALAHAN);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json');
+        echo json_encode($this->top_level_fcd->ringkasan_kesalahan($this->_filter_kesalahan()));
+        exit();
+    }
+
+    public function kesalahan_detail()
+    {
+        $this->_wajib(self::URI_KESALAHAN);
+        $d = $this->top_level_fcd->detail_kesalahan((int) $this->input->post('id'));
+        $d === null ? $this->make_ajax_response(404, 'Kesalahan tidak ditemukan.') : $this->make_ajax_response(200, 'OK', array('d' => $d));
+    }
+
+    /** Unduh CSV (dibuka Excel) sesuai filter yang aktif: satu baris per kejadian. */
+    public function kesalahan_export()
+    {
+        $this->_wajib(self::URI_KESALAHAN);
+        $h = $this->top_level_fcd->daftar_kesalahan($this->_filter_kesalahan(), 0, 20000, 0, 'DESC');
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="kesalahan_top_level_' . date('Ymd_His') . '.csv"');
+        $f = fopen('php://output', 'w');
+        fwrite($f, "\xEF\xBB\xBF");
+        fputcsv($f, array('Kejadian', 'Tanggal', 'Jenis', 'Pihak yang salah', 'Petugas list', 'Petugas input', 'Transfer', 'Transfer asal', 'Keterangan', 'Dicatat oleh'));
+        foreach ($h['rows'] as $r) {
+            $jenis = array();
+            foreach (explode(',', $r['jenis']) as $j) {
+                $jenis[] = isset(self::NAMA_JENIS[$j]) ? self::NAMA_JENIS[$j] : $j;
+            }
+            $pihak = array();
+            foreach (explode(',', $r['pihak']) as $p) {
+                $pihak[] = $p === 'LIST' ? 'Petugas list' : 'Petugas input';
+            }
+            fputcsv($f, array($r['kode'], $r['dibuat_at'], implode(', ', $jenis), implode(' + ', $pihak), $r['nama_tim'], $r['nama_input'],
+                implode(', ', array_column($r['transfer'], 'nomor')), $r['ref_nomor'], $r['keterangan'], $r['dibuat_by']));
+        }
+        fclose($f);
+        exit();
     }
 
     /** Saran transfer asal untuk koreksi: transfer aktif terbaru, yang memuat SKU di form ditaruh di atas. */
