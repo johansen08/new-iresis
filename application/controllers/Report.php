@@ -1690,6 +1690,20 @@ class Report extends MY_Controller
             }
             $sheet->getStyle('A' . $baris . ':' . $akhir_kol . $baris)->getFont()->setBold(true);
         }
+        // Legend warna di kolom H (contoh warna) dan I (keterangan)
+        $legend = [[1, 'FFFF00', 'SPESIAL'], [2, 'FF9999', 'OFF/TIDAK ADA DATA']];
+        foreach ($legend as $lg) {
+            $sheet->setCellValue('I' . $lg[0], $lg[2]);
+            $sheet->getStyle('H' . $lg[0])->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB($lg[1]);
+        }
+        $sheet->getStyle('H1:I2')->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getColumnDimension('H')->setWidth(6);
+        $sheet->getColumnDimension('I')->setAutoSize(true);
+
         foreach (range('A', $akhir_kol) as $kol) {
             $sheet->getColumnDimension($kol)->setAutoSize(true);
         }
