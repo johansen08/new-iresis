@@ -45,7 +45,7 @@
         <input type="text" name="reportrange" id="reportrange-production-team-tab0" class="form-control ptr-range" />
         <button type="button" class="btn btn-info" id="btn-search-production-team-tab0"><i class="fa fa-refresh"></i> Tampilkan</button>
         <button type="submit" class="btn btn-primary" id="btn-export-excel-production-team-tab0"><i class="fa fa-download"></i> Ekspor ke Excel</button>
-        <button type="button" class="btn btn-success" id="btn-export-per-nama-tab0" style="display:none;"><i class="fa fa-file-excel-o"></i> Ekspor Nama (xlsx)</button>
+        <button type="button" class="btn btn-success" id="btn-export-per-nama-tab0" style="display:none;"><i class="fa fa-file-excel-o"></i> Ekspor Filter</button>
         <div class="ptr-total" id="ptr-total-tab0"><span class="ptr-total-label">Total</span><span class="ptr-total-angka" id="grand-total-tab0">-</span></div>
     </div>
 </form>

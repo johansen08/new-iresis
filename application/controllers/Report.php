@@ -1617,9 +1617,9 @@ class Report extends MY_Controller
         });
 
         $tampil_nama = count($pegawai_unik) > 1;
-        $judul = ['Tanggal', 'Total', '1_SKU_PICKER', 'NORMAL_PICKER', 'Jam Mulai', 'Jam Selesai'];
+        $judul = ['TANGGAL', 'TOTAL', '1_SKU_PICKER', 'NORMAL_PICKER', 'JAM MULAI', 'JAM SELESAI'];
         if ($tampil_nama) {
-            array_unshift($judul, 'Pegawai');
+            array_unshift($judul, 'PEGAWAI');
         }
 
         $xls   = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -1628,6 +1628,9 @@ class Report extends MY_Controller
         $sheet->fromArray($judul, null, 'A1');
         $akhir_kol = $tampil_nama ? 'G' : 'F';
         $sheet->getStyle('A1:' . $akhir_kol . '1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:' . $akhir_kol . '1')->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('DCE9F7');
 
         $baris = 2;
         foreach ($per_hari as $h) {
@@ -1641,10 +1644,20 @@ class Report extends MY_Controller
                 array_unshift($isi, $h['pegawai']);
             }
             $sheet->fromArray($isi, null, 'A' . $baris);
+            // Kuning: 1_SKU_PICKER lebih banyak dari NORMAL_PICKER (termasuk NORMAL kosong)
+            if ($h['sku1'] > $h['normal']) {
+                $sheet->getStyle('A' . $baris . ':' . $akhir_kol . $baris)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('FFFF00');
+            }
             $baris++;
         }
         $foot = max($baris - 1, 2);
         $kol_angka = $tampil_nama ? ['C', 'D', 'E'] : ['B', 'C', 'D'];
+        $sheet->getStyle($kol_angka[0] . '2:' . $kol_angka[2] . $baris)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('A1:' . $akhir_kol . $baris)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         if ($baris > 2) {
             $sheet->setCellValue('A' . $baris, 'TOTAL');
             foreach ($kol_angka as $kol) {
