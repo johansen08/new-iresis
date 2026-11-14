@@ -281,6 +281,7 @@ $route['report/get-production-team-report-data-tab0'] = 'report/get_production_t
 $route['report/get-production-team-report-data-tab1'] = 'report/get_production_team_report_data_tab1';
 $route['report/get-production-team-report-data-tab2'] = 'report/get_production_team_report_data_tab2';
 $route['report/export-to-excel-production-team-report-tab0'] = 'report/export_to_excel_production_team_report_tab0';
+$route['report/export-picker-per-nama'] = 'report/export_picker_per_nama';
 $route['report/get-picker-performance-detail-summary'] = 'report/get_picker_performance_detail_summary';
 $route['report/get-picker-sku-summary'] = 'report/get_picker_sku_summary';
 $route['report/get-picker-resi-list-by-sku'] = 'report/get_picker_resi_list_by_sku';

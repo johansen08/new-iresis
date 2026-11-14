@@ -1564,6 +1564,111 @@ class Report extends MY_Controller
         $this->load->view('template_report/production_team_report_tab0', $data);
     }
 
+    /**
+     * Ekspor xlsx Laporan Picker untuk nama yang difilter (kotak pencarian tabel).
+     * Satu baris per tanggal: total, jumlah 1_SKU_PICKER, jumlah NORMAL_PICKER,
+     * jam mulai (scan paling awal) dan jam selesai (scan paling akhir).
+     * Kolom Pegawai hanya muncul bila filter cocok dengan lebih dari satu orang.
+     */
+    public function export_picker_per_nama()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+
+        $start_date = (string) $this->input->get('start_date');
+        $end_date   = (string) $this->input->get('end_date');
+        $search     = trim((string) $this->input->get('search'));
+
+        if ($search === '' || strtotime($start_date) === false || strtotime($end_date) === false) {
+            $this->make_ajax_response(400, 'Isi filter nama dan rentang waktu yang valid.');
+        }
+
+        $rows = $this->receipt_fcd->get_data_production_team_tab0(['search' => $search], $start_date, $end_date)->result_array();
+
+        $per_hari = [];
+        $pegawai_unik = [];
+        foreach ($rows as $r) {
+            $kunci = $r['pegawai'] . '|' . $r['tanggal_resiambilbarang'];
+            if (!isset($per_hari[$kunci])) {
+                $per_hari[$kunci] = [
+                    'pegawai' => $r['pegawai'], 'tanggal' => $r['tanggal_resiambilbarang'],
+                    'total' => 0, 'sku1' => 0, 'normal' => 0, 'mulai' => null, 'selesai' => null,
+                ];
+            }
+            $h =& $per_hari[$kunci];
+            $total = (int) $r['total'];
+            $h['total'] += $total;
+            if ($r['status_performa'] === '1_SKU_PICKER') {
+                $h['sku1'] += $total;
+            } elseif ($r['status_performa'] === 'NORMAL_PICKER') {
+                $h['normal'] += $total;
+            }
+            if ($h['mulai'] === null || $r['waktu_scan_picker'] < $h['mulai']) {
+                $h['mulai'] = $r['waktu_scan_picker'];
+            }
+            if ($h['selesai'] === null || $r['waktu_scan_selesai'] > $h['selesai']) {
+                $h['selesai'] = $r['waktu_scan_selesai'];
+            }
+            unset($h);
+            $pegawai_unik[$r['pegawai']] = true;
+        }
+        usort($per_hari, function ($a, $b) {
+            return strcmp($a['pegawai'] . $a['tanggal'], $b['pegawai'] . $b['tanggal']);
+        });
+
+        $tampil_nama = count($pegawai_unik) > 1;
+        $judul = ['Tanggal', 'Total', '1_SKU_PICKER', 'NORMAL_PICKER', 'Jam Mulai', 'Jam Selesai'];
+        if ($tampil_nama) {
+            array_unshift($judul, 'Pegawai');
+        }
+
+        $xls   = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $xls->getActiveSheet();
+        $sheet->setTitle('Laporan Picker');
+        $sheet->fromArray($judul, null, 'A1');
+        $akhir_kol = $tampil_nama ? 'G' : 'F';
+        $sheet->getStyle('A1:' . $akhir_kol . '1')->getFont()->setBold(true);
+
+        $baris = 2;
+        foreach ($per_hari as $h) {
+            $isi = [
+                date('d-m-Y', strtotime($h['tanggal'])),
+                $h['total'], $h['sku1'], $h['normal'],
+                $h['mulai'] ? date('H:i:s', strtotime($h['mulai'])) : '-',
+                $h['selesai'] ? date('H:i:s', strtotime($h['selesai'])) : '-',
+            ];
+            if ($tampil_nama) {
+                array_unshift($isi, $h['pegawai']);
+            }
+            $sheet->fromArray($isi, null, 'A' . $baris);
+            $baris++;
+        }
+        $foot = max($baris - 1, 2);
+        $kol_angka = $tampil_nama ? ['C', 'D', 'E'] : ['B', 'C', 'D'];
+        if ($baris > 2) {
+            $sheet->setCellValue('A' . $baris, 'TOTAL');
+            foreach ($kol_angka as $kol) {
+                $sheet->setCellValue($kol . $baris, '=SUM(' . $kol . '2:' . $kol . $foot . ')');
+            }
+            $sheet->getStyle('A' . $baris . ':' . $akhir_kol . $baris)->getFont()->setBold(true);
+        }
+        foreach (range('A', $akhir_kol) as $kol) {
+            $sheet->getColumnDimension($kol)->setAutoSize(true);
+        }
+
+        $nama_file = 'laporan_picker_' . preg_replace('/[^A-Za-z0-9]+/', '_', $search) . '_'
+            . date('d-m-Y', strtotime($start_date)) . '_' . date('d-m-Y', strtotime($end_date)) . '.xlsx';
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama_file . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($xls))->save('php://output');
+        exit();
+    }
+
     public function export_to_excel_production_team_report_tab1()
     {
         ini_set('memory_limit', '-1');
