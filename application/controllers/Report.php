@@ -1694,15 +1694,24 @@ class Report extends MY_Controller
         $legend = [[1, 'FFFF00', 'SPESIAL'], [2, 'FF9999', 'OFF/TIDAK ADA DATA']];
         foreach ($legend as $lg) {
             $sheet->setCellValue('I' . $lg[0], $lg[2]);
-            $sheet->getStyle('H' . $lg[0])->getFill()
+            // Seluruh sel legend (H dan I) diwarnai agar menonjol
+            $sheet->getStyle('H' . $lg[0] . ':I' . $lg[0])->getFill()
                 ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
                 ->getStartColor()->setRGB($lg[1]);
         }
         $sheet->getStyle('H1:I2')->getAlignment()
             ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getColumnDimension('H')->setWidth(6);
+        $sheet->getStyle('H1:I2')->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('H1:I2')->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
+        $sheet->getColumnDimension('H')->setWidth(10);
         $sheet->getColumnDimension('I')->setAutoSize(true);
+
+        // Garis horizontal dan vertikal untuk seluruh tabel data
+        $baris_akhir = ($baris > 2) ? $baris : 1;
+        $sheet->getStyle('A1:' . $akhir_kol . $baris_akhir)->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
         foreach (range('A', $akhir_kol) as $kol) {
             $sheet->getColumnDimension($kol)->setAutoSize(true);
