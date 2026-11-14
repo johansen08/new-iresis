@@ -1612,9 +1612,22 @@ class Report extends MY_Controller
             unset($h);
             $pegawai_unik[$r['pegawai']] = true;
         }
-        usort($per_hari, function ($a, $b) {
-            return strcmp($a['pegawai'] . $a['tanggal'], $b['pegawai'] . $b['tanggal']);
-        });
+        // Lengkapi semua tanggal dalam rentang untuk tiap pegawai; tanggal tanpa data
+        // diberi flag 'kosong' (baris merah) supaya hari yang terlewat langsung terlihat.
+        $hari_awal  = strtotime(date('Y-m-d', strtotime($start_date)));
+        $hari_akhir = strtotime(date('Y-m-d', strtotime($end_date)));
+        $nama_list = array_keys($pegawai_unik);
+        sort($nama_list);
+        $lengkap = [];
+        foreach ($nama_list as $nm) {
+            for ($t = $hari_awal; $t <= $hari_akhir; $t = strtotime('+1 day', $t)) {
+                $tgl = date('Y-m-d', $t);
+                $kunci = $nm . '|' . $tgl;
+                $lengkap[] = isset($per_hari[$kunci]) ? $per_hari[$kunci]
+                    : ['pegawai' => $nm, 'tanggal' => $tgl, 'kosong' => true];
+            }
+        }
+        $per_hari = $lengkap;
 
         $tampil_nama = count($pegawai_unik) > 1;
         $judul = ['TANGGAL', 'TOTAL', '1_SKU_PICKER', 'NORMAL_PICKER', 'JAM MULAI', 'JAM SELESAI'];
@@ -1634,6 +1647,18 @@ class Report extends MY_Controller
 
         $baris = 2;
         foreach ($per_hari as $h) {
+            if (!empty($h['kosong'])) {
+                $isi = [date('d-m-Y', strtotime($h['tanggal'])), '', '', '', '', ''];
+                if ($tampil_nama) {
+                    array_unshift($isi, $h['pegawai']);
+                }
+                $sheet->fromArray($isi, null, 'A' . $baris);
+                $sheet->getStyle('A' . $baris . ':' . $akhir_kol . $baris)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('FF9999');
+                $baris++;
+                continue;
+            }
             $isi = [
                 date('d-m-Y', strtotime($h['tanggal'])),
                 $h['total'], $h['sku1'], $h['normal'],
