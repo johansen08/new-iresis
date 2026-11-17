@@ -129,6 +129,36 @@ class Jubelio_stok
         return $out;
     }
 
+    /**
+     * Satu halaman daftar stok SELURUH item (baca-saja), untuk menu Cabut SKU. Tanpa cache: dipanggil hanya saat
+     * tombol Perbarui diklik. Stok total = total_stocks.on_hand Jubelio (jumlah semua lokasi yang ditampilkan).
+     *
+     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, stok_total}]}
+     */
+    public function daftar_stok($halaman, $ukuran = 200)
+    {
+        $j = $this->get('/inventory/v2/?' . http_build_query(array(
+            'page' => max(1, (int) $halaman), 'page_size' => max(1, (int) $ukuran), 'sort_direction' => 'NONE', 'q' => '',
+            'location_ids' => array_keys(self::$LOKASI),
+        )));
+        $items = array();
+        foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
+            if (empty($d['item_code'])) {
+                continue;
+            }
+            if (isset($d['total_stocks']['on_hand'])) {
+                $stok = (float) $d['total_stocks']['on_hand'];
+            } else {
+                $stok = 0;
+                foreach ((isset($d['location_stocks']) && is_array($d['location_stocks'])) ? $d['location_stocks'] : array() as $ls) {
+                    $stok += (float) (isset($ls['on_hand']) ? $ls['on_hand'] : 0);
+                }
+            }
+            $items[] = array('sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'stok_total' => (int) round($stok));
+        }
+        return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
+    }
+
     private function bersih($sku)
     {
         $sku = trim((string) $sku);

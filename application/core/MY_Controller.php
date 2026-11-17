@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-17.1';
+    const BOOTSTRAP_VERSI = '2026-11-17.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -195,6 +195,7 @@ class MY_Controller extends CI_Controller
         $this->run_gdbr_migration();
         $this->run_sinkron_rak_migration();
         $this->run_terima_retur_ho_migration();
+        $this->run_cabut_sku_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1869,6 +1870,60 @@ class MY_Controller extends CI_Controller
         }
 
         foreach ([1, 2, 6] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM MONITORING -> "Cabut SKU" (uri `cabut-sku`): SKU berkategori EOL / WP EOL / CUT dengan stok total
+     * Jubelio <= 10. Stok disimpan di tblcabut_sku_stok dan hanya diperbarui saat tombol Perbarui diklik.
+     * Juga memastikan kolom tblsku.kategori_sku ada (diisi dari Excel KATEGORI SKU, 17 Nov 2026).
+     * Hak akses: hanya webmaster (1) -- harus sejalan dengan Cabut_sku::ROLE_BOLEH. Alur: docs/CABUT_SKU.md.
+     */
+    protected function run_cabut_sku_migration()
+    {
+        if (!in_array('kategori_sku', $this->db->list_fields('tblsku'))) {
+            $this->db->query("ALTER TABLE tblsku ADD COLUMN kategori_sku VARCHAR(50) NULL DEFAULT NULL");
+        }
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tblcabut_sku_stok (
+            id_sku VARCHAR(100) NOT NULL,
+            item_id INT DEFAULT NULL,
+            stok_total INT NOT NULL DEFAULT 0 COMMENT 'total_stocks.on_hand Jubelio',
+            diperbarui DATETIME NOT NULL,
+            PRIMARY KEY (id_sku),
+            KEY idx_cabut_stok (stok_total)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $uri = 'cabut-sku';
+
+        // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $this->db->insert('menu', [
+                'name'      => 'Cabut SKU',
+                'parentid'  => 83, // TIM MONITORING
+                'uri'       => $uri,
+                'icon'      => 'fa fa-scissors',
+                'sortorder' => 13, // setelah Rekap Resi GD-BR (12)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [
