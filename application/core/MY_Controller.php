@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-13.2';
+    const BOOTSTRAP_VERSI = '2026-11-17.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1302,7 +1302,7 @@ class MY_Controller extends CI_Controller
      * bersama.
      *
      * Hak aksesnya: webmaster (roleid 1) sejak uji coba, lalu client packer
-     * (roleid 4) sejak 2026-09-16. Jangan disamakan dengan hak akses menu Scan
+     * (roleid 4) sejak 2026-09-16, lalu client orders (roleid 11) sejak 2026-11-17. Jangan disamakan dengan hak akses menu Scan
      * Resi Packer (menuid 25) yang dipegang hampir semua role.
      *
      * Kalau dibuka untuk role lain lagi, tambahkan roleid-nya di $role_boleh
@@ -1340,7 +1340,7 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        $role_boleh = [1, 4];
+        $role_boleh = [1, 4, 11];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
@@ -1779,7 +1779,7 @@ class MY_Controller extends CI_Controller
             $menu_id = $menu->id;
         }
 
-        $role_boleh = [1, 4];
+        $role_boleh = [1, 4, 11];
         foreach ($role_boleh as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
