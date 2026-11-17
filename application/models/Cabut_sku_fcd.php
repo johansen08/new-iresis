@@ -17,12 +17,12 @@ class Cabut_sku_fcd extends CI_Model
     public function daftar()
     {
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
-        // Rak Jubelio kosong tetap tampil (belum dicabut); yang sudah CABUT disembunyikan.
+        // Rak Jubelio kosong tetap tampil (belum dicabut); rak CABUT atau berawalan KR- dianggap sudah dicabut dan disembunyikan.
         $sql = "SELECT s.id_sku, s.kategori_sku, k.rak_jubelio, k.stok_total
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
                 WHERE s.kategori_sku IN ($in) AND k.stok_total BETWEEN ? AND ?
-                  AND (k.rak_jubelio IS NULL OR UPPER(TRIM(k.rak_jubelio)) <> 'CABUT')
+                  AND (k.rak_jubelio IS NULL OR (UPPER(TRIM(k.rak_jubelio)) <> 'CABUT' AND UPPER(TRIM(k.rak_jubelio)) NOT LIKE 'KR-%'))
                 ORDER BY k.stok_total DESC, s.id_sku ASC";
         $bind = array_merge(self::KATEGORI, [self::STOK_MIN, self::BATAS_STOK]);
         return $this->db->query($sql, $bind)->result_array();
