@@ -1,0 +1,64 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/**
+ * Menu TIM MONITORING -> "Cabut SKU": daftar SKU yang layak dicabut dari rak.
+ * Syarat tampil: tblsku.kategori_sku di KATEGORI dan stok total Jubelio <= BATAS_STOK.
+ * Stok disalin dari Jubelio ke tblcabut_sku_stok hanya saat tombol Perbarui diklik (Cabut_sku::perbarui).
+ */
+class Cabut_sku_fcd extends CI_Model
+{
+    const KATEGORI = ['EOL', 'WP EOL', 'CUT'];
+    const BATAS_STOK = 10;
+    const UKURAN_HALAMAN = 200;
+
+    /** SKU yang memenuhi syarat, stok paling sedikit lebih dulu. */
+    public function daftar()
+    {
+        $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
+        $sql = "SELECT s.id_sku, s.nama_sku, s.variasi, s.no_rak, s.kategori_sku, k.stok_total
+                FROM tblsku s
+                JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
+                WHERE s.kategori_sku IN ($in) AND k.stok_total <= ?
+                ORDER BY k.stok_total ASC, s.id_sku ASC";
+        $bind = array_merge(self::KATEGORI, [self::BATAS_STOK]);
+        return $this->db->query($sql, $bind)->result_array();
+    }
+
+    /** Waktu perbarui terakhir dan jumlah SKU berkategori yang belum punya data stok. */
+    public function ringkasan()
+    {
+        $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
+        $terakhir = $this->db->query("SELECT MAX(diperbarui) AS t FROM tblcabut_sku_stok")->row();
+        $belum = $this->db->query(
+            "SELECT COUNT(*) AS n FROM tblsku s LEFT JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
+             WHERE s.kategori_sku IN ($in) AND k.id_sku IS NULL",
+            self::KATEGORI
+        )->row();
+        return [
+            'diperbarui' => $terakhir && $terakhir->t ? $terakhir->t : null,
+            'belum_ada'  => (int) $belum->n,
+        ];
+    }
+
+    /** Upsert satu halaman hasil Jubelio_stok::daftar_stok. Mengembalikan jumlah baris yang diproses. */
+    public function simpan_halaman(array $items)
+    {
+        if (!$items) {
+            return 0;
+        }
+        $now = date('Y-m-d H:i:s');
+        $ph = [];
+        $bind = [];
+        foreach ($items as $it) {
+            $ph[] = '(?, ?, ?, ?)';
+            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $now);
+        }
+        $this->db->query(
+            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, diperbarui) VALUES " . implode(',', $ph) .
+            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), diperbarui = VALUES(diperbarui)",
+            $bind
+        );
+        return count($items);
+    }
+}
