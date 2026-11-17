@@ -307,7 +307,7 @@ class Packer extends MY_Controller
 	 * dibuka langsung. Penolakannya lewat show() supaya responsnya tetap JSON
 	 * yang valid -- show_404() mengirim halaman HTML dan merusak parsing SPA.
 	 */
-	const ROLE_BOLEH_WEBCAM = [1, 4];
+	const ROLE_BOLEH_WEBCAM = [1, 4, 11];
 
 	public function scan_packer_webcam()
 	{
