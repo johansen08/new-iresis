@@ -311,3 +311,22 @@ perlu impor ulang dari Jubelio, dan jalur update hanya menulis bila
 hanya bila hasilnya ≤ NOW() dan ≥ `tanggal_pesan` (bukan `tanggal_printresi`,
 karena itu waktu unggah dan bisa lebih lambat dari pengiriman), prod dulu baru
 arsip (sinkron malam tidak membawa UPDATE tanpa `modified_at`).
+
+### Pembaruan 17 Nov 2026 — daftar order per jendela waktu
+
+`scripts/auto_upload_resi_api.py` tidak lagi memakai paginasi offset (`fetch_all_orders`, tetap ada di
+file untuk rujukan) melainkan `fetch_orders_jendela()`: jendela 6 jam, satu halaman 10.000 baris, dibelah
+dua bila lebih padat. Alasan dan ukurannya ada di `docs/RANCANGAN_REFRESH_STATUS_RESI.md` (7 Nov 2026).
+
+Uji 17 Nov 2026 untuk rentang H-3 s/d hari ini (daftar saja, tanpa menulis):
+
+| Cara | Order unik | Waktu |
+|---|---|---|
+| Lama (halaman 200) | 25.185 | 142 dtk |
+| Jendela waktu | 33.805 | 14 dtk |
+
+Cara lama melewatkan ±25% order; tidak ada order yang hanya muncul di cara lama. 7.524 resi tambahan
+semuanya sudah tercatat di IRESIS (terselamatkan run hari-hari berikutnya), jadi dampaknya lebih ke
+keterlambatan masuknya resi baru. Batas atas rentang kini tengah malam BESOK (sebelumnya tengah malam hari
+ini, sehingga order hari ini baru terambil besok). `get_with_backoff()` kini juga mencoba ulang error
+jaringan (dipakai bersama `refresh_status_resi.py`); gagal total mengembalikan `None`.
