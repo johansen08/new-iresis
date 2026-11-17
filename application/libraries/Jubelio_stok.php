@@ -159,6 +159,28 @@ class Jubelio_stok
         return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
     }
 
+    /**
+     * Satu halaman daftar variasi seluruh item (baca-saja) dengan No Rak Jubelio (`rack_no`, bisa null), untuk menu
+     * Cabut SKU. Endpoint /variations/v2/ memuat rack_no, sedangkan /inventory/v2/ tidak. Tanpa cache.
+     *
+     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, rak}]}
+     */
+    public function daftar_rak($halaman, $ukuran = 200)
+    {
+        $j = $this->get('/variations/v2/?' . http_build_query(array(
+            'page' => max(1, (int) $halaman), 'q' => '', 'page_size' => max(1, (int) $ukuran), 'sort_direction' => 'NONE',
+        )));
+        $items = array();
+        foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
+            if (empty($d['item_code'])) {
+                continue;
+            }
+            $rak = isset($d['rack_no']) ? trim((string) $d['rack_no']) : '';
+            $items[] = array('sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'rak' => $rak === '' ? null : $rak);
+        }
+        return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
+    }
+
     private function bersih($sku)
     {
         $sku = trim((string) $sku);
