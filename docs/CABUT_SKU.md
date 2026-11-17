@@ -4,7 +4,7 @@ Menu **Cabut SKU** (uri `cabut-sku`, anak TIM MONITORING, hanya webmaster / role
 
 - `tblsku.kategori_sku` ∈ `EOL`, `WP EOL`, `CUT`, **dan**
 - stok total Jubelio `1..10` (stok 0 tidak tampil), **dan**
-- No Rak Jubelio **bukan** `CABUT` (rak kosong tetap tampil).
+- No Rak Jubelio **bukan** `CABUT` dan tidak berawalan `KR-` (keduanya dianggap sudah dicabut; rak kosong tetap tampil).
 Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total; urut stok terbanyak.
 
 ## Alur
