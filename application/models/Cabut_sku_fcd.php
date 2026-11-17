@@ -16,10 +16,12 @@ class Cabut_sku_fcd extends CI_Model
     public function daftar()
     {
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
-        $sql = "SELECT s.id_sku, s.nama_sku, s.variasi, s.no_rak, s.kategori_sku, k.stok_total
+        // Rak Jubelio kosong tetap tampil (belum dicabut); yang sudah CABUT disembunyikan.
+        $sql = "SELECT s.id_sku, s.nama_sku, s.variasi, k.rak_jubelio, s.kategori_sku, k.stok_total
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
                 WHERE s.kategori_sku IN ($in) AND k.stok_total <= ?
+                  AND (k.rak_jubelio IS NULL OR UPPER(TRIM(k.rak_jubelio)) <> 'CABUT')
                 ORDER BY k.stok_total ASC, s.id_sku ASC";
         $bind = array_merge(self::KATEGORI, [self::BATAS_STOK]);
         return $this->db->query($sql, $bind)->result_array();
@@ -57,6 +59,27 @@ class Cabut_sku_fcd extends CI_Model
         $this->db->query(
             "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, diperbarui) VALUES " . implode(',', $ph) .
             " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), diperbarui = VALUES(diperbarui)",
+            $bind
+        );
+        return count($items);
+    }
+
+    /** Upsert satu halaman hasil Jubelio_stok::daftar_rak (hanya kolom rak_jubelio). */
+    public function simpan_rak_halaman(array $items)
+    {
+        if (!$items) {
+            return 0;
+        }
+        $now = date('Y-m-d H:i:s');
+        $ph = [];
+        $bind = [];
+        foreach ($items as $it) {
+            $ph[] = '(?, ?, ?, ?)';
+            array_push($bind, $it['sku'], $it['item_id'], $it['rak'], $now);
+        }
+        $this->db->query(
+            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, rak_jubelio, diperbarui) VALUES " . implode(',', $ph) .
+            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), rak_jubelio = VALUES(rak_jubelio), diperbarui = VALUES(diperbarui)",
             $bind
         );
         return count($items);

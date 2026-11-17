@@ -66,6 +66,7 @@ class Cabut_sku extends MY_Controller
         try {
             $this->load->library('jubelio_stok');
             $hasil = $this->jubelio_stok->daftar_stok($halaman, Cabut_sku_fcd::UKURAN_HALAMAN);
+            $rak   = $this->jubelio_stok->daftar_rak($halaman, Cabut_sku_fcd::UKURAN_HALAMAN);
         } catch (RuntimeException $e) {
             $this->make_ajax_response(502, $e->getMessage());
         }
@@ -74,6 +75,7 @@ class Cabut_sku extends MY_Controller
         $this->db->db_debug = FALSE;
         $this->db->trans_start();
         $n = $this->cabut_sku_fcd->simpan_halaman($hasil['items']);
+        $this->cabut_sku_fcd->simpan_rak_halaman($rak['items']);
         $this->db->trans_complete();
         $this->db->db_debug = $db_debug;
         if ($this->db->trans_status() === FALSE) {

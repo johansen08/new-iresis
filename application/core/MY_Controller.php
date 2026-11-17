@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-17.2';
+    const BOOTSTRAP_VERSI = '2026-11-17.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1897,11 +1897,17 @@ class MY_Controller extends CI_Controller
         $this->db->query("CREATE TABLE IF NOT EXISTS tblcabut_sku_stok (
             id_sku VARCHAR(100) NOT NULL,
             item_id INT DEFAULT NULL,
-            stok_total INT NOT NULL DEFAULT 0 COMMENT 'total_stocks.on_hand Jubelio',
+            stok_total INT NULL DEFAULT NULL COMMENT 'total_stocks.on_hand Jubelio',
+            rak_jubelio VARCHAR(100) NULL DEFAULT NULL COMMENT 'rack_no Jubelio (/variations/v2/)',
             diperbarui DATETIME NOT NULL,
             PRIMARY KEY (id_sku),
             KEY idx_cabut_stok (stok_total)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+        // Tabel versi pertama (2026-11-17.2) belum punya rak_jubelio dan stok_total-nya NOT NULL.
+        if (!in_array('rak_jubelio', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN rak_jubelio VARCHAR(100) NULL DEFAULT NULL AFTER stok_total");
+        }
+        $this->db->query("ALTER TABLE tblcabut_sku_stok MODIFY stok_total INT NULL DEFAULT NULL");
 
         $uri = 'cabut-sku';
 

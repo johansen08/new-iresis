@@ -3,13 +3,15 @@
 Menu **Cabut SKU** (uri `cabut-sku`, anak TIM MONITORING, hanya webmaster / role 1) menampilkan SKU yang layak dicabut dari rak:
 
 - `tblsku.kategori_sku` ∈ `EOL`, `WP EOL`, `CUT`, **dan**
-- stok total Jubelio `<= 10`.
+- stok total Jubelio `<= 10`, **dan**
+- No Rak Jubelio **bukan** `CABUT` (rak kosong tetap tampil).
 
 ## Alur
 
 1. `Cabut_sku::get_data` hanya membaca tabel `tblcabut_sku_stok` (salinan stok) digabung `tblsku`. Tidak menyentuh Jubelio.
 2. Tombol **Perbarui** memanggil `cabut-sku/perbarui` berulang per halaman (200 item, ±59 halaman, ±1 menit) lewat `Jubelio_stok::daftar_stok()`, lalu upsert ke `tblcabut_sku_stok`. Stok baru hanya berubah kalau tombol ini diklik.
-3. Stok total = `total_stocks.on_hand` Jubelio (jumlah semua lokasi: Display, Gudang Utama, Transit).
+3. Tiap halaman Perbarui juga mengambil `rack_no` dari `GET /variations/v2/` (endpoint `/inventory/v2/` tidak memuat rak) ke kolom `rak_jubelio`.
+4. Stok total = `total_stocks.on_hand` Jubelio (jumlah semua lokasi: Display, Gudang Utama, Transit).
 
 ## Data
 
