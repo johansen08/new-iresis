@@ -3,27 +3,28 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
  * Menu TIM MONITORING -> "Cabut SKU": daftar SKU yang layak dicabut dari rak.
- * Syarat tampil: tblsku.kategori_sku di KATEGORI dan stok total Jubelio <= BATAS_STOK.
+ * Syarat tampil: tblsku.kategori_sku di KATEGORI dan stok total Jubelio antara STOK_MIN dan BATAS_STOK, urut stok terbanyak.
  * Stok disalin dari Jubelio ke tblcabut_sku_stok hanya saat tombol Perbarui diklik (Cabut_sku::perbarui).
  */
 class Cabut_sku_fcd extends CI_Model
 {
     const KATEGORI = ['EOL', 'WP EOL', 'CUT'];
+    const STOK_MIN = 1;
     const BATAS_STOK = 10;
     const UKURAN_HALAMAN = 200;
 
-    /** SKU yang memenuhi syarat, stok paling sedikit lebih dulu. */
+    /** SKU yang memenuhi syarat, stok paling banyak lebih dulu. */
     public function daftar()
     {
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
         // Rak Jubelio kosong tetap tampil (belum dicabut); yang sudah CABUT disembunyikan.
-        $sql = "SELECT s.id_sku, s.nama_sku, s.variasi, k.rak_jubelio, s.kategori_sku, k.stok_total
+        $sql = "SELECT s.id_sku, s.kategori_sku, k.rak_jubelio, k.stok_total
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
-                WHERE s.kategori_sku IN ($in) AND k.stok_total <= ?
+                WHERE s.kategori_sku IN ($in) AND k.stok_total BETWEEN ? AND ?
                   AND (k.rak_jubelio IS NULL OR UPPER(TRIM(k.rak_jubelio)) <> 'CABUT')
-                ORDER BY k.stok_total ASC, s.id_sku ASC";
-        $bind = array_merge(self::KATEGORI, [self::BATAS_STOK]);
+                ORDER BY k.stok_total DESC, s.id_sku ASC";
+        $bind = array_merge(self::KATEGORI, [self::STOK_MIN, self::BATAS_STOK]);
         return $this->db->query($sql, $bind)->result_array();
     }
 

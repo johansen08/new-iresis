@@ -44,6 +44,7 @@ class Cabut_sku extends MY_Controller
     {
         $this->show([
             'kategori' => Cabut_sku_fcd::KATEGORI,
+            'stok_min' => Cabut_sku_fcd::STOK_MIN,
             'batas'    => Cabut_sku_fcd::BATAS_STOK,
         ], 'cabut_sku/index');
     }

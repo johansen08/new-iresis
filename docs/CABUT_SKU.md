@@ -3,8 +3,9 @@
 Menu **Cabut SKU** (uri `cabut-sku`, anak TIM MONITORING, hanya webmaster / role 1) menampilkan SKU yang layak dicabut dari rak:
 
 - `tblsku.kategori_sku` ∈ `EOL`, `WP EOL`, `CUT`, **dan**
-- stok total Jubelio `<= 10`, **dan**
+- stok total Jubelio `1..10` (stok 0 tidak tampil), **dan**
 - No Rak Jubelio **bukan** `CABUT` (rak kosong tetap tampil).
+Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total; urut stok terbanyak.
 
 ## Alur
 

@@ -23,21 +23,21 @@ if (!empty($akses_ditolak)) : ?>
 <div id="cs-root">
   <div class="panel panel-default">
     <div class="panel-heading"><h3 class="panel-title"><strong>Cabut SKU</strong>
-      <small>&nbsp; kategori <?= htmlspecialchars(implode(', ', $kategori)) ?> dengan stok total Jubelio &le; <?= (int) $batas ?>, rak Jubelio bukan CABUT</small></h3></div>
+      <small>&nbsp; kategori <?= htmlspecialchars(implode(', ', $kategori)) ?> dengan stok total Jubelio <?= (int) $stok_min ?>&ndash;<?= (int) $batas ?>, rak Jubelio bukan CABUT</small></h3></div>
     <div class="panel-body">
       <div class="cs-bar">
         <button type="button" class="btn btn-primary" id="cs-perbarui"><i class="fa fa-refresh"></i> Perbarui</button>
         <select id="cs-kat" class="form-control"><option value="">Semua kategori</option>
           <?php foreach ($kategori as $k) : ?><option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option><?php endforeach; ?>
         </select>
-        <input type="text" id="cs-cari" class="form-control" placeholder="Cari SKU / nama / rak" style="width:240px">
+        <input type="text" id="cs-cari" class="form-control" placeholder="Cari SKU / rak" style="width:240px">
         <span class="cs-info" id="cs-status"></span>
       </div>
       <div class="cs-prog" id="cs-prog"><div></div></div>
       <div class="table-responsive">
         <table class="table table-bordered table-striped table-condensed">
-          <thead><tr><th>#</th><th>SKU</th><th>Nama</th><th>Variasi</th><th>No Rak Jubelio</th><th>Kategori</th><th class="cs-num">Stok Total</th></tr></thead>
-          <tbody id="cs-body"><tr><td colspan="7" class="text-center cs-info">Memuat...</td></tr></tbody>
+          <thead><tr><th>#</th><th>SKU</th><th>Kategori SKU</th><th>No Rak</th><th class="cs-num">Stok Total</th></tr></thead>
+          <tbody id="cs-body"><tr><td colspan="5" class="text-center cs-info">Memuat...</td></tr></tbody>
         </table>
       </div>
       <div class="cs-bar">
@@ -58,16 +58,16 @@ if (!empty($akses_ditolak)) : ?>
     var kat = $('#cs-kat').val(), q = $.trim($('#cs-cari').val()).toLowerCase();
     tampil = semua.filter(function (r) {
       if (kat && r.kategori_sku !== kat) { return false; }
-      return !q || (r.id_sku + ' ' + (r.nama_sku || '') + ' ' + (r.rak_jubelio || '')).toLowerCase().indexOf(q) !== -1;
+      return !q || (r.id_sku + ' ' + (r.rak_jubelio || '')).toLowerCase().indexOf(q) !== -1;
     });
     var total = Math.max(1, Math.ceil(tampil.length / UKURAN));
     if (hal > total) { hal = total; }
     var awal = (hal - 1) * UKURAN, html = '';
     tampil.slice(awal, awal + UKURAN).forEach(function (r, i) {
-      html += '<tr><td>' + (awal + i + 1) + '</td><td>' + esc(r.id_sku) + '</td><td>' + esc(r.nama_sku) + '</td><td>' + esc(r.variasi) +
-        '</td><td>' + esc(r.rak_jubelio) + '</td><td>' + esc(r.kategori_sku) + '</td><td class="cs-num">' + esc(r.stok_total) + '</td></tr>';
+      html += '<tr><td>' + (awal + i + 1) + '</td><td>' + esc(r.id_sku) + '</td><td>' + esc(r.kategori_sku) +
+        '</td><td>' + esc(r.rak_jubelio) + '</td><td class="cs-num">' + esc(r.stok_total) + '</td></tr>';
     });
-    $('#cs-body').html(html || '<tr><td colspan="7" class="text-center cs-info">Tidak ada SKU yang memenuhi syarat. Klik Perbarui bila stok belum pernah diambil.</td></tr>');
+    $('#cs-body').html(html || '<tr><td colspan="5" class="text-center cs-info">Tidak ada SKU yang memenuhi syarat. Klik Perbarui bila stok belum pernah diambil.</td></tr>');
     $('#cs-hal').text('Halaman ' + hal + ' / ' + total + ' · ' + tampil.length + ' SKU');
     $('#cs-prev').prop('disabled', hal <= 1);
     $('#cs-next').prop('disabled', hal >= total);
