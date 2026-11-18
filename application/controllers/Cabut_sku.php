@@ -90,4 +90,36 @@ class Cabut_sku extends MY_Controller
             'tersimpan'     => $n,
         ]);
     }
+
+    /**
+     * Simpan qty real satu SKU. POST: sku, qty_real. Guard: hanya bilangan bulat >= 0 (digit saja, maks 9 digit);
+     * desimal ("9,2" / "9.2"), huruf ("sembilan"), tanda minus, spasi di tengah, dan kosong ditolak.
+     */
+    public function simpan_qty_real()
+    {
+        $sku = trim((string) $this->input->post('sku'));
+        $raw = trim((string) $this->input->post('qty_real'));
+
+        if ($sku === '') {
+            $this->make_ajax_response(400, 'SKU tidak boleh kosong.');
+        }
+        if ($raw === '') {
+            $this->make_ajax_response(400, 'Qty real wajib diisi.');
+        }
+        if (!preg_match('/^[0-9]{1,9}$/D', $raw)) {
+            $this->make_ajax_response(400, 'Qty real harus bilangan bulat (contoh: 9). Desimal seperti 9,2 atau huruf seperti sembilan ditolak.');
+        }
+
+        $oleh = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
+        if (!$this->cabut_sku_fcd->simpan_qty_real($sku, (int) $raw, $oleh)) {
+            $this->make_ajax_response(404, 'SKU ' . $sku . ' tidak ditemukan di data Cabut SKU. Klik Perbarui lalu coba lagi.');
+        }
+
+        $this->make_ajax_response(200, 'Qty real disimpan.', [
+            'sku'      => $sku,
+            'qty_real' => (int) $raw,
+            'oleh'     => $oleh,
+            'waktu'    => date('Y-m-d H:i:s'),
+        ]);
+    }
 }

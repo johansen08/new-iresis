@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-17.3';
+    const BOOTSTRAP_VERSI = '2026-11-18.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1908,6 +1908,13 @@ class MY_Controller extends CI_Controller
             $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN rak_jubelio VARCHAR(100) NULL DEFAULT NULL AFTER stok_total");
         }
         $this->db->query("ALTER TABLE tblcabut_sku_stok MODIFY stok_total INT NULL DEFAULT NULL");
+        // Qty real: hitungan fisik yang diisi user lewat pop-up menu Cabut SKU (tidak ditimpa tombol Perbarui).
+        if (!in_array('qty_real', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok
+                ADD COLUMN qty_real INT UNSIGNED NULL DEFAULT NULL COMMENT 'hitungan fisik, bilangan bulat >= 0',
+                ADD COLUMN qty_real_oleh VARCHAR(100) NULL DEFAULT NULL,
+                ADD COLUMN qty_real_at DATETIME NULL DEFAULT NULL");
+        }
 
         $uri = 'cabut-sku';
 
