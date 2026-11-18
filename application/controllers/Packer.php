@@ -415,6 +415,22 @@ class Packer extends MY_Controller
                     $data['nama_picker'] = $picker_detail->nama_pegawai;
                     $data['komputer_picker'] = $picker_detail->nama_komputer;
                 }
+            } elseif ($resi_tampil !== '' && $this->resi_ada_webcam($resi_tampil)) {
+                // Resi manual (mis. RESELLER) memang tidak punya detail SKU,
+                // tapi tetap resi sah: layar packing dan rekaman jalan seperti biasa.
+                $data['noresi'] = $resi_tampil;
+                $first = $this->db->select('id_printresi')->get_where('tblprintresi', ['noresi' => $resi_tampil], 1)->row();
+                $data['id_printresi'] = $first ? $first->id_printresi : null;
+                $data['items'] = [];
+                $data['sku'] = '-';
+                $data['qty'] = 0;
+                $data['no_rak'] = '-';
+                $data['total_qty'] = 0;
+                $data['total_items'] = 0;
+                if ($picker_detail) {
+                    $data['nama_picker'] = $picker_detail->nama_pegawai;
+                    $data['komputer_picker'] = $picker_detail->nama_komputer;
+                }
             } elseif ($resi_tampil !== '') {
                 // Handle case where no detail records exist
                 $data['noresi'] = $resi_tampil;
@@ -427,7 +443,7 @@ class Packer extends MY_Controller
         // saat halaman dibuka lagi setelah tab packer mati di tengah packing.
         $data['video_noresi'] = $this->resi_untuk_rekaman(
             isset($resi_tampil) ? $resi_tampil : null,
-            isset($receipts) ? !empty($receipts) : null
+            isset($resi_tampil) ? ($resi_tampil !== '' && $this->resi_ada_webcam($resi_tampil)) : null
         );
 
         // Resi yang masih menunggu scan kedua, dipakai view untuk menampilkan
@@ -473,7 +489,22 @@ class Packer extends MY_Controller
 
         // Request GET (halaman dibuka lagi): pastikan dulu resinya punya detail
         // sebelum kamera disuruh merekam.
-        return $this->detail_resi_webcam($resi)->num_rows() > 0 ? $resi : '';
+        return $this->resi_ada_webcam($resi) ? $resi : '';
+    }
+
+    /**
+     * Resi dianggap ada kalau punya detail SKU ATAU barisnya ada di tblprintresi.
+     * Resi manual (RESELLER, MANUAL*) dibuat tim Resi tanpa detail SKU, jadi
+     * detail kosong bukan tanda salah scan. Yang bukan resi sama sekali (barcode
+     * produk, label rak) tidak punya baris di tblprintresi dan tetap ditolak.
+     */
+    private function resi_ada_webcam($noresi)
+    {
+        if ($this->detail_resi_webcam($noresi)->num_rows() > 0) {
+            return TRUE;
+        }
+
+        return $this->db->where('noresi', $noresi)->count_all_results('tblprintresi') > 0;
     }
 
     /**
@@ -1673,7 +1704,7 @@ class Packer extends MY_Controller
         // produk, label rak, apa pun yang bukan resi -- akan mengunci packer:
         // siklusnya terbuka atas nama resi hantu dan semua scan berikutnya
         // ditolak sampai Batal Scan ditekan.
-        if ($resi_aktif === null && $this->detail_resi_webcam($noresi)->num_rows() === 0) {
+        if ($resi_aktif === null && !$this->resi_ada_webcam($noresi)) {
             return [
                 'feedback' => [
                     'status'     => 'resi_tidak_dikenal',
