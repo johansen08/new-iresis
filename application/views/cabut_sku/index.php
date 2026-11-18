@@ -127,7 +127,58 @@ if (!empty($akses_ditolak)) : ?>
   #cb-modal .cb-hint { margin:6px 0 0; font-size:12px; color:var(--cb-muted); }
   #cb-modal .cb-err { margin:6px 0 0; min-height:18px; font-size:12.5px; font-weight:600; color:#dc2626; }
 
-  @media (max-width: 767px) { #cb-root .cb-kpis { grid-template-columns:1fr; } #cb-root .cb-count { margin-left:0; } }
+  /* foto bukti di pop-up */
+  #cb-modal .cb-fotobox { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px; border:2px dashed #cbd5e1; border-radius:10px; background:var(--cb-bg); }
+  #cb-modal .cb-fotobox.salah { border-color:#ef4444; }
+  #cb-modal .cb-fotobox img { display:none; width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid var(--cb-line); background:#fff; }
+  #cb-modal .cb-fotonama { font-size:12px; color:var(--cb-muted); word-break:break-all; }
+  #cb-modal .cb-srv { margin:8px 0 0; min-height:0; font-size:12.5px; font-weight:600; color:#dc2626; }
+  #cb-root .cb-fotolink { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; color:#047857; background:#ecfdf5; text-decoration:none; }
+  #cb-root .cb-fotolink:hover { background:#d1fae5; color:#047857; }
+
+  /* ===== responsif: tablet & HP ===== */
+  @media (max-width: 991px) {
+    #cb-root .cb-kpis { grid-template-columns:repeat(3,1fr); gap:10px; }
+    #cb-root .cb-kpi-val { font-size:24px; }
+  }
+  @media (max-width: 767px) {
+    #cb-root .cb-head { flex-direction:column; align-items:stretch; }
+    #cb-root .cb-head-act { justify-content:space-between; }
+    #cb-root .cb-btn { min-height:44px; }
+    #cb-root .cb-kpis { grid-template-columns:1fr; gap:8px; }
+    #cb-root .cb-kpi { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; }
+    #cb-root .cb-kpi-val { margin:0; font-size:22px; }
+    #cb-root .cb-kpi-note { display:none; }
+    #cb-root .cb-body { padding:12px 12px 8px; }
+    #cb-root .cb-tabs { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    #cb-root .cb-tab { white-space:nowrap; padding:10px 12px; }
+    #cb-root .cb-toolbar { flex-direction:column; align-items:stretch; }
+    #cb-root .cb-search { max-width:none; flex:none; }
+    #cb-root .cb-search input, #cb-root .cb-select { height:44px; font-size:16px; width:100%; }
+    #cb-root .cb-count { margin-left:0; }
+    /* tabel -> kartu per SKU */
+    #cb-root .cb-table-wrap { border:0; overflow:visible; background:transparent; }
+    #cb-root .cb-table, #cb-root .cb-table tbody { display:block; }
+    #cb-root .cb-table thead { display:none; }
+    #cb-root .cb-table > tbody > tr { display:block; margin-bottom:10px; border:1px solid var(--cb-line); border-radius:12px; background:#fff; padding:6px 12px; }
+    #cb-root .cb-table > tbody > tr > td { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #f1f5f9; background:transparent !important; text-align:right; }
+    #cb-root .cb-table > tbody > tr > td:last-child { border-bottom:0; }
+    #cb-root .cb-table > tbody > tr > td::before { content:attr(data-label); font-size:11.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--cb-muted); text-align:left; flex:none; }
+    #cb-root .cb-table > tbody > tr > td.cb-no { display:none; }
+    #cb-root .cb-table > tbody > tr > td.cb-sku { font-size:15px; }
+    #cb-root .cb-table > tbody > tr > td.cb-empty { display:block; text-align:center; }
+    #cb-root .cb-table > tbody > tr > td.cb-empty::before { content:none; }
+    #cb-root .cb-iconbtn, #cb-root .cb-fotolink { width:40px; height:40px; font-size:16px; }
+    #cb-root .cb-qty { gap:10px; }
+    #cb-root .cb-pager { justify-content:center; }
+    #cb-root .cb-pg { min-width:44px; height:40px; }
+    #cb-root .cb-pager select { height:40px; }
+    #cb-modal .modal-dialog { margin:10px; }
+    #cb-modal .modal-body { padding:16px 16px 6px; }
+    #cb-modal .modal-footer { padding:12px 16px 16px; display:flex; gap:8px; }
+    #cb-modal .modal-footer .cb-btn { flex:1; }
+    #cb-modal .cb-input { font-size:18px; }
+  }
 </style>
 
 <div id="cb-root">
@@ -210,6 +261,16 @@ if (!empty($akses_ditolak)) : ?>
           <input type="text" class="cb-input" id="cb-m-qty" inputmode="numeric" maxlength="9" placeholder="Contoh: 9">
           <p class="cb-hint">Hasil hitung fisik di rak. Hanya bilangan bulat, tanpa koma atau titik.</p>
           <p class="cb-err" id="cb-m-err"></p>
+          <label class="cb-label" style="margin-top:8px">Foto bukti <span class="cb-req">*</span></label>
+          <input type="file" id="cb-m-foto" accept="image/jpeg,image/png,image/webp" style="display:none">
+          <div class="cb-fotobox" id="cb-m-fotobox">
+            <button type="button" class="cb-btn cb-btn-sec" id="cb-m-pilihfoto"><i class="fa fa-camera"></i> Ambil / pilih foto</button>
+            <img id="cb-m-preview" alt="Pratinjau foto">
+            <span class="cb-fotonama" id="cb-m-fotonama"></span>
+          </div>
+          <p class="cb-hint" id="cb-m-fotohint">Foto hitungan fisik di rak. JPG, PNG, atau WebP; otomatis dikecilkan sebelum dikirim.</p>
+          <p class="cb-err" id="cb-m-foto-err"></p>
+          <p class="cb-srv" id="cb-m-srv"></p>
         </div>
         <div class="modal-footer">
           <button type="button" class="cb-btn cb-btn-sec" data-dismiss="modal">Batal</button>
@@ -224,6 +285,7 @@ if (!empty($akses_ditolak)) : ?>
 (function () {
   var semua = [], tampil = [], hal = 1, sedang = false, kat = '', tab = 'isi', skuAktif = null;
   var RE_BULAT = /^[0-9]+$/;
+  var FOTO_URL = '<?= htmlspecialchars($foto_url, ENT_QUOTES) ?>';
 
   function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
   function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
@@ -278,14 +340,16 @@ if (!empty($akses_ditolak)) : ?>
       var sel = '';
       if (tab === 'adj') {
         var d = parseInt(r.qty_real, 10) - parseInt(r.stok_total, 10);
-        sel = '<td class="cb-num ' + (d > 0 ? 'cb-selisih-plus' : 'cb-selisih-min') + '">' + (d > 0 ? '+' : '') + d + '</td>';
+        sel = '<td data-label="Selisih" class="cb-num ' + (d > 0 ? 'cb-selisih-plus' : 'cb-selisih-min') + '">' + (d > 0 ? '+' : '') + d + '</td>';
       }
-      html += '<tr><td class="cb-kosong">' + (awal + i + 1) + '</td>' +
-        '<td class="cb-sku">' + esc(r.id_sku) + '</td>' +
-        '<td>' + pil(r.kategori_sku) + '</td>' +
-        '<td class="cb-rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
-        '<td class="cb-num cb-stok">' + esc(r.stok_total) + '</td>' +
-        '<td class="cb-num"><span class="cb-qty">' + qty +
+      var foto = r.qty_real_foto
+        ? '<a class="cb-fotolink" href="' + escAttr(FOTO_URL + r.qty_real_foto) + '" target="_blank" rel="noopener" title="Lihat foto bukti"><i class="fa fa-camera"></i></a>' : '';
+      html += '<tr><td class="cb-kosong cb-no">' + (awal + i + 1) + '</td>' +
+        '<td class="cb-sku" data-label="SKU">' + esc(r.id_sku) + '</td>' +
+        '<td data-label="Kategori SKU">' + pil(r.kategori_sku) + '</td>' +
+        '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
+        '<td class="cb-num cb-stok" data-label="Stok Total">' + esc(r.stok_total) + '</td>' +
+        '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
           '<button type="button" class="cb-iconbtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + '</tr>';
     });
     var kosong = tab === 'isi'
@@ -347,14 +411,58 @@ if (!empty($akses_ditolak)) : ?>
     v = $.trim(v);
     if (v === '') { return 'Qty real wajib diisi.'; }
     if (/[.,]/.test(v)) { return 'Tidak boleh desimal. Isi bilangan bulat, contoh: 9.'; }
-    if (!RE_BULAT.test(v)) { return 'Hanya boleh angka bulat (0–9). Huruf, spasi, atau tanda lain ditolak.'; }
+    if (!RE_BULAT.test(v)) { return 'Hanya boleh angka bulat (0\u20139). Huruf, spasi, atau tanda lain ditolak.'; }
     return '';
   }
 
+  var TIPE_FOTO = ['image/jpeg', 'image/png', 'image/webp'], MAKS_ASLI = 20 * 1024 * 1024, MAKS_KIRIM = 5 * 1024 * 1024, SISI_MAKS = 1600;
+  var fotoBlob = null, fotoUrl = null, qtyGalat = '', fotoGalat = '', menyimpan = false;
+
+  /** Tombol Simpan aktif hanya bila qty valid DAN foto valid sudah dipilih. */
+  function segarkan() {
+    var kosong = $.trim($('#cb-m-qty').val()) === '';
+    $('#cb-m-simpan').prop('disabled', menyimpan || qtyGalat !== '' || fotoGalat !== '' || kosong || !fotoBlob);
+  }
   function tampilGalat(pesan) {
+    qtyGalat = pesan;
     $('#cb-m-err').text(pesan);
     $('#cb-m-qty').toggleClass('salah', pesan !== '');
-    $('#cb-m-simpan').prop('disabled', pesan !== '');
+    segarkan();
+  }
+  function tampilGalatFoto(pesan) {
+    fotoGalat = pesan;
+    $('#cb-m-foto-err').text(pesan);
+    $('#cb-m-fotobox').toggleClass('salah', pesan !== '');
+    segarkan();
+  }
+  function resetFoto() {
+    if (fotoUrl) { URL.revokeObjectURL(fotoUrl); fotoUrl = null; }
+    fotoBlob = null;
+    $('#cb-m-foto').val('');
+    $('#cb-m-preview').hide().attr('src', '');
+    $('#cb-m-fotonama').text('');
+    tampilGalatFoto('');
+  }
+
+  /** Perkecil foto (maks 1600 px, JPEG) supaya ringan dikirim lewat HP. cb(blob, galat, urlPratinjau). */
+  function kompres(f, cb) {
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (w < 200 || h < 200) { URL.revokeObjectURL(url); cb(null, 'Foto terlalu kecil (minimal 200 x 200 piksel).'); return; }
+      var skala = Math.min(1, SISI_MAKS / Math.max(w, h));
+      if (skala === 1 && f.size <= MAKS_KIRIM && f.type === 'image/jpeg') { cb(f, null, url); return; }
+      var c = document.createElement('canvas'); c.width = Math.round(w * skala); c.height = Math.round(h * skala);
+      var ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      var selesaiBlob = function (b) {
+        if (!b) { URL.revokeObjectURL(url); cb(null, 'Foto tidak bisa diproses di browser ini.'); return; }
+        if (b.size > MAKS_KIRIM) { URL.revokeObjectURL(url); cb(null, 'Ukuran foto masih terlalu besar setelah dikecilkan (maks 5 MB).'); return; }
+        cb(b, null, url);
+      };
+      if (c.toBlob) { c.toBlob(selesaiBlob, 'image/jpeg', 0.82); } else { selesaiBlob(null); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); cb(null, 'Berkas bukan foto yang valid atau tidak bisa dibuka.'); };
+    img.src = url;
   }
 
   $('#cb-body').on('click', '.cb-iconbtn', function () {
@@ -364,32 +472,63 @@ if (!empty($akses_ditolak)) : ?>
     $('#cb-m-sku').text(r.id_sku);
     $('#cb-m-stok').text(r.stok_total);
     $('#cb-m-qty').val(r.qty_real !== null && r.qty_real !== undefined ? r.qty_real : '');
+    $('#cb-m-srv').text('');
+    $('#cb-m-fotohint').text(r.qty_real_foto
+      ? 'Sudah ada foto sebelumnya. Mengubah qty real tetap wajib mengunggah foto baru.'
+      : 'Foto hitungan fisik di rak. JPG, PNG, atau WebP; otomatis dikecilkan sebelum dikirim.');
+    resetFoto();
     tampilGalat('');
     $('#cb-modal').modal('show');
   });
   $('#cb-modal').on('shown.bs.modal', function () { $('#cb-m-qty').trigger('focus').select(); });
+  $('#cb-modal').on('hidden.bs.modal', function () { resetFoto(); });
   // validasi langsung saat mengetik / menempel; field kosong tidak menampilkan galat sampai disimpan
   $('#cb-m-qty').on('input paste keyup', function () {
     var el = this;
     setTimeout(function () { var v = $.trim(el.value); tampilGalat(v === '' ? '' : cekQty(v)); }, 0);
   });
 
+  $('#cb-m-pilihfoto').on('click', function () { $('#cb-m-foto').trigger('click'); });
+  $('#cb-m-foto').on('change', function () {
+    var f = this.files[0];
+    if (!f) { resetFoto(); return; }
+    if (fotoUrl) { URL.revokeObjectURL(fotoUrl); fotoUrl = null; }
+    fotoBlob = null; $('#cb-m-preview').hide();
+    if (TIPE_FOTO.indexOf(f.type) === -1) { tampilGalatFoto('Format foto harus JPG, PNG, atau WebP.'); return; }
+    if (f.size === 0) { tampilGalatFoto('Berkas foto kosong (0 KB).'); return; }
+    if (f.size > MAKS_ASLI) { tampilGalatFoto('Ukuran foto ' + (f.size / 1048576).toFixed(1) + ' MB terlalu besar (maks 20 MB).'); return; }
+    tampilGalatFoto('');
+    $('#cb-m-fotonama').text('Memproses foto...');
+    kompres(f, function (blob, galat, url) {
+      if (galat) { $('#cb-m-fotonama').text(''); tampilGalatFoto(galat); return; }
+      fotoBlob = blob; fotoUrl = url;
+      $('#cb-m-preview').attr('src', url).show();
+      $('#cb-m-fotonama').text(f.name + ' \u00b7 ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB');
+      tampilGalatFoto('');
+    });
+  });
+
   $('#cb-form').on('submit', function (e) {
     e.preventDefault();
+    if (menyimpan) { return; }
     var v = $.trim($('#cb-m-qty').val()), salah = cekQty(v);
-    if (salah) { tampilGalat(salah); $('#cb-m-simpan').prop('disabled', true); return; }
-    var tombol = $('#cb-m-simpan').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
-    $.ajax({ url: 'cabut-sku/simpan-qty-real', type: 'POST', dataType: 'json', data: { sku: skuAktif, qty_real: v }, timeout: 30000,
+    if (salah) { tampilGalat(salah); return; }
+    if (!fotoBlob) { tampilGalatFoto(fotoGalat || 'Foto wajib diunggah sebagai bukti qty real.'); return; }
+    menyimpan = true; segarkan();
+    $('#cb-m-simpan').html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
+    $('#cb-m-srv').text('');
+    var fd = new FormData(); fd.append('sku', skuAktif); fd.append('qty_real', v); fd.append('foto', fotoBlob, 'foto.jpg');
+    $.ajax({ url: 'cabut-sku/simpan-qty-real', type: 'POST', data: fd, processData: false, contentType: false, dataType: 'json', timeout: 60000,
       success: function (r) {
-        if (r.code !== 200) { tampilGalat(r.message); return; }
+        if (r.code !== 200) { $('#cb-m-srv').text(r.message); return; }
         var row = cariRow(skuAktif);
-        if (row) { row.qty_real = r.data.qty_real; row.qty_real_oleh = r.data.oleh; row.qty_real_at = r.data.waktu; }
+        if (row) { row.qty_real = r.data.qty_real; row.qty_real_oleh = r.data.oleh; row.qty_real_at = r.data.waktu; row.qty_real_foto = r.data.foto; }
         $('#cb-modal').modal('hide');
         ringkasan();
         render();
       },
-      error: function (xhr) { tampilGalat('Gagal menyimpan. ' + (xhr.responseText || '').substring(0, 120)); },
-      complete: function () { tombol.html('<i class="fa fa-save"></i> Simpan'); if ($('#cb-m-err').text() === '') { tombol.prop('disabled', false); } }
+      error: function (xhr, st) { $('#cb-m-srv').text(st === 'timeout' ? 'Waktu habis. Periksa sinyal lalu coba lagi.' : 'Gagal menyimpan. ' + (xhr.responseText || '').substring(0, 120)); },
+      complete: function () { menyimpan = false; $('#cb-m-simpan').html('<i class="fa fa-save"></i> Simpan'); segarkan(); }
     });
   });
 

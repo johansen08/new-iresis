@@ -9,6 +9,10 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 
 **Tab**: (1) *Perlu Isi* = qty real belum diisi; (2) *Perlu Penyesuaian* = qty real sudah diisi dan beda dengan stok total Jubelio (ada kolom Selisih = qty real - stok). SKU yang qty real-nya sama dengan stok tidak masuk tab mana pun. Filter kategori ada di dropdown toolbar. Perbandingan memakai stok dari Perbarui terakhir.
 
+**Foto qty real**: setiap input/ubah qty real WAJIB menyertakan foto. Browser memperkecil foto (maks 1600 px, JPEG) sebelum kirim; server memeriksa isi berkas (bukan ekstensi): JPG/PNG/WebP, maks 5 MB, minimal 200x200 px. Disimpan di assets/uploads/cabut_sku/ (nama acak), nama berkas di tblcabut_sku_stok.qty_real_foto; ikon kamera di baris membuka foto.
+
+**Responsif**: di bawah 768 px tabel berubah menjadi kartu per SKU, tombol dan input berukuran sentuh (44 px), tab bisa digeser.
+
 **Qty Real**: ikon pensil di kolom Qty Real membuka pop-up isian hitung fisik. Guard: hanya bilangan bulat >= 0 (digit saja, maks 9 digit). Desimal (`9,2`, `9.2`), huruf (`sembilan`), minus, spasi, dan kosong ditolak, di browser dan di server (`Cabut_sku::simpan_qty_real`, route `cabut-sku/simpan-qty-real`). Disimpan di `tblcabut_sku_stok.qty_real` (+ `qty_real_oleh`, `qty_real_at`); tombol Perbarui tidak menimpanya.
 
 ## Alur
@@ -21,6 +25,6 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 ## Data
 
 - `tblsku.kategori_sku` VARCHAR(50): diisi dari Excel KATEGORI SKU (17 Nov 2026). SKU di luar Excel bernilai NULL, jadi tidak tampil. Kategori kosong di Excel = `P<30`.
-- `tblcabut_sku_stok` (`id_sku` PK, `item_id`, `stok_total`, `rak_jubelio`, `qty_real`, `qty_real_oleh`, `qty_real_at`, `diperbarui`), dibuat oleh `MY_Controller::run_cabut_sku_migration()`.
+- `tblcabut_sku_stok` (`id_sku` PK, `item_id`, `stok_total`, `rak_jubelio`, `qty_real`, `qty_real_oleh`, `qty_real_at`, `qty_real_foto`, `diperbarui`), dibuat oleh `MY_Controller::run_cabut_sku_migration()`.
 - Jubelio bisa punya dua item yang hanya beda huruf besar/kecil (mis. `MICKEY` dan `mickey`); PK tidak membedakannya, jadi yang diproses terakhir menang.
 - SKU kategori tersebut yang tidak ada di Jubelio tidak punya baris stok dan tidak tampil; jumlahnya ditampilkan di baris status.
