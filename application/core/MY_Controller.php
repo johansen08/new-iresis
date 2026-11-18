@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-18.1';
+    const BOOTSTRAP_VERSI = '2026-11-18.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -196,6 +196,7 @@ class MY_Controller extends CI_Controller
         $this->run_sinkron_rak_migration();
         $this->run_terima_retur_ho_migration();
         $this->run_cabut_sku_migration();
+        $this->run_kategori_sku_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1915,6 +1916,10 @@ class MY_Controller extends CI_Controller
                 ADD COLUMN qty_real_oleh VARCHAR(100) NULL DEFAULT NULL,
                 ADD COLUMN qty_real_at DATETIME NULL DEFAULT NULL");
         }
+        // Foto bukti qty real (nama berkas di assets/uploads/cabut_sku/).
+        if (!in_array('qty_real_foto', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN qty_real_foto VARCHAR(100) NULL DEFAULT NULL");
+        }
 
         $uri = 'cabut-sku';
 
@@ -1937,6 +1942,66 @@ class MY_Controller extends CI_Controller
         }
 
         foreach ([1] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PURCHASING -> "Update Kategori SKU" (uri `purchasing/update-kategori-sku`): upload Excel (SKU, Kategori)
+     * untuk mengisi tblsku.kategori_sku. Nilai lama dicatat di tblkategori_sku_riwayat per batch.
+     * Hak akses: webmaster (1) dan tim purchasing (7) -- sejalan dengan Kategori_sku::ROLE_BOLEH.
+     * Alur: docs/KATEGORI_SKU.md.
+     */
+    protected function run_kategori_sku_migration()
+    {
+        if (!in_array('kategori_sku', $this->db->list_fields('tblsku'))) {
+            $this->db->query("ALTER TABLE tblsku ADD COLUMN kategori_sku VARCHAR(50) NULL DEFAULT NULL");
+        }
+
+        $this->db->query("CREATE TABLE IF NOT EXISTS tblkategori_sku_riwayat (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            batch VARCHAR(30) NOT NULL,
+            id_sku VARCHAR(100) NOT NULL,
+            kategori_lama VARCHAR(50) NULL DEFAULT NULL,
+            kategori_baru VARCHAR(50) NULL DEFAULT NULL,
+            id_user INT NULL DEFAULT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY idx_katriwayat_batch (batch),
+            KEY idx_katriwayat_sku (id_sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        $uri  = 'purchasing/update-kategori-sku';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PURCHASING'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'      => 'Update Kategori SKU',
+                'parentid'  => $induk->id,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-tags',
+                'sortorder' => 9, // setelah Persetujuan Stok AKS27 (8)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 7] as $roleid) {
             $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
             if (!$akses_ada) {
                 $this->db->insert('roleaccess', [

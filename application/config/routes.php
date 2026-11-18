@@ -149,6 +149,9 @@ $route['lost-scan-picker/get-data'] = 'lost_scan_picker/get_data';
 $route['lost-scan-picker/tambah-picker'] = 'lost_scan_picker/tambah_picker';
 
 // TIM PICKER -> Bonus Picker (laporan hasil hitung bonus, baca-saja)
+$route['purchasing/update-kategori-sku'] = 'kategori_sku/index';
+$route['purchasing/update-kategori-sku/template'] = 'kategori_sku/template';
+$route['purchasing/update-kategori-sku/upload'] = 'kategori_sku/upload';
 $route['cabut-sku'] = 'cabut_sku/index';
 $route['cabut-sku/get-data'] = 'cabut_sku/get_data';
 $route['cabut-sku/perbarui'] = 'cabut_sku/perbarui';

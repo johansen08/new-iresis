@@ -9,6 +9,7 @@ class Cabut_sku extends MY_Controller
 {
     /** Sejalan dengan MY_Controller::run_cabut_sku_migration(). */
     const ROLE_BOLEH = [1];
+    const MAKS_FOTO_BYTE = 5242880; // 5 MB
 
     public function __construct()
     {
@@ -46,6 +47,7 @@ class Cabut_sku extends MY_Controller
             'kategori' => Cabut_sku_fcd::KATEGORI,
             'stok_min' => Cabut_sku_fcd::STOK_MIN,
             'batas'    => Cabut_sku_fcd::BATAS_STOK,
+            'foto_url' => base_url('assets/uploads/cabut_sku/'),
         ], 'cabut_sku/index');
     }
 
@@ -92,8 +94,9 @@ class Cabut_sku extends MY_Controller
     }
 
     /**
-     * Simpan qty real satu SKU. POST: sku, qty_real. Guard: hanya bilangan bulat >= 0 (digit saja, maks 9 digit);
-     * desimal ("9,2" / "9.2"), huruf ("sembilan"), tanda minus, spasi di tengah, dan kosong ditolak.
+     * Simpan qty real satu SKU. POST multipart: sku, qty_real, foto. Guard qty: hanya bilangan bulat >= 0 (digit saja,
+     * maks 9 digit); desimal ("9,2" / "9.2"), huruf ("sembilan"), tanda minus, spasi di tengah, dan kosong ditolak.
+     * Guard foto: wajib, JPG/PNG/WebP (dicek isi berkas, bukan ekstensi), maks 5 MB, minimal 200x200 piksel.
      */
     public function simpan_qty_real()
     {
@@ -110,9 +113,46 @@ class Cabut_sku extends MY_Controller
             $this->make_ajax_response(400, 'Qty real harus bilangan bulat (contoh: 9). Desimal seperti 9,2 atau huruf seperti sembilan ditolak.');
         }
 
-        $oleh = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
-        if (!$this->cabut_sku_fcd->simpan_qty_real($sku, (int) $raw, $oleh)) {
+        if (!$this->cabut_sku_fcd->ada($sku)) {
             $this->make_ajax_response(404, 'SKU ' . $sku . ' tidak ditemukan di data Cabut SKU. Klik Perbarui lalu coba lagi.');
+        }
+
+        // Foto bukti wajib. Diperiksa sebelum disimpan ke disk supaya tidak ada berkas yatim.
+        $f = isset($_FILES['foto']) ? $_FILES['foto'] : null;
+        if (!$f || $f['error'] === UPLOAD_ERR_NO_FILE) {
+            $this->make_ajax_response(400, 'Foto wajib diunggah sebagai bukti qty real.');
+        }
+        if ($f['error'] !== UPLOAD_ERR_OK) {
+            $this->make_ajax_response(400, ($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE)
+                ? 'Ukuran foto melebihi batas server (maks 5 MB).'
+                : 'Foto gagal terunggah (kode ' . (int) $f['error'] . '). Coba lagi.');
+        }
+        if ($f['size'] > self::MAKS_FOTO_BYTE) {
+            $this->make_ajax_response(400, 'Ukuran foto ' . round($f['size'] / 1048576, 1) . ' MB melebihi batas 5 MB.');
+        }
+        $mime = function_exists('finfo_open') ? finfo_file(finfo_open(FILEINFO_MIME_TYPE), $f['tmp_name']) : '';
+        $ekstensi = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($ekstensi[$mime])) {
+            $this->make_ajax_response(400, 'Format foto harus JPG, PNG, atau WebP.');
+        }
+        $ukuran = @getimagesize($f['tmp_name']);
+        if (!$ukuran || $ukuran[0] < 200 || $ukuran[1] < 200) {
+            $this->make_ajax_response(400, 'Berkas bukan foto yang valid atau terlalu kecil (minimal 200 x 200 piksel).');
+        }
+
+        $dir = FCPATH . 'assets/uploads/cabut_sku/';
+        if (!is_dir($dir) && !@mkdir($dir, 0775, TRUE)) {
+            $this->make_ajax_response(500, 'Folder foto tidak bisa dibuat di server.');
+        }
+        $nama = 'cabut_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '.' . $ekstensi[$mime];
+        if (!@move_uploaded_file($f['tmp_name'], $dir . $nama)) {
+            $this->make_ajax_response(500, 'Foto gagal disimpan di server.');
+        }
+
+        $oleh = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
+        if (!$this->cabut_sku_fcd->simpan_qty_real($sku, (int) $raw, $oleh, $nama)) {
+            @unlink($dir . $nama);
+            $this->make_ajax_response(500, 'Gagal menyimpan qty real ke database. Coba lagi.');
         }
 
         $this->make_ajax_response(200, 'Qty real disimpan.', [
@@ -120,6 +160,7 @@ class Cabut_sku extends MY_Controller
             'qty_real' => (int) $raw,
             'oleh'     => $oleh,
             'waktu'    => date('Y-m-d H:i:s'),
+            'foto'     => $nama,
         ]);
     }
 }
