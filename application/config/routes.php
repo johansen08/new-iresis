@@ -152,6 +152,7 @@ $route['lost-scan-picker/tambah-picker'] = 'lost_scan_picker/tambah_picker';
 $route['cabut-sku'] = 'cabut_sku/index';
 $route['cabut-sku/get-data'] = 'cabut_sku/get_data';
 $route['cabut-sku/perbarui'] = 'cabut_sku/perbarui';
+$route['cabut-sku/simpan-qty-real'] = 'cabut_sku/simpan_qty_real';
 $route['bonus-picker'] = 'bonus_picker/index';
 $route['bonus-picker/get-data'] = 'bonus_picker/get_data';
 $route['bonus-picker/export-excel'] = 'bonus_picker/export_excel';

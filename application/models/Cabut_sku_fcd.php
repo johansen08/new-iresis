@@ -18,7 +18,7 @@ class Cabut_sku_fcd extends CI_Model
     {
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
         // Rak Jubelio kosong tetap tampil (belum dicabut); rak CABUT atau berawalan KR- dianggap sudah dicabut dan disembunyikan.
-        $sql = "SELECT s.id_sku, s.kategori_sku, k.rak_jubelio, k.stok_total
+        $sql = "SELECT s.id_sku, s.kategori_sku, k.rak_jubelio, k.stok_total, k.qty_real, k.qty_real_oleh, k.qty_real_at
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
                 WHERE s.kategori_sku IN ($in) AND k.stok_total BETWEEN ? AND ?
@@ -84,5 +84,22 @@ class Cabut_sku_fcd extends CI_Model
             $bind
         );
         return count($items);
+    }
+
+    /**
+     * Simpan qty real satu SKU (UPDATE satu baris, pencocokan persis). $qty sudah divalidasi bilangan bulat >= 0
+     * oleh controller. Mengembalikan FALSE bila SKU tidak ada di tblcabut_sku_stok.
+     */
+    public function simpan_qty_real($sku, $qty, $oleh)
+    {
+        $ada = $this->db->query("SELECT 1 FROM tblcabut_sku_stok WHERE id_sku = ? AND BINARY id_sku = BINARY ?", [$sku, $sku])->row();
+        if (!$ada) {
+            return FALSE;
+        }
+        $this->db->query(
+            "UPDATE tblcabut_sku_stok SET qty_real = ?, qty_real_oleh = ?, qty_real_at = ? WHERE id_sku = ? AND BINARY id_sku = BINARY ?",
+            [(int) $qty, $oleh, date('Y-m-d H:i:s'), $sku, $sku]
+        );
+        return TRUE;
     }
 }
