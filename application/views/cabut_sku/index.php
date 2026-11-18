@@ -47,6 +47,11 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-ic-indigo { background:#eef2ff; color:#4338ca; }
   #cb-root .cb-ic-amber { background:#fffbeb; color:#b45309; }
   #cb-root .cb-ic-green { background:#ecfdf5; color:#047857; }
+  #cb-root .cb-ic-red { background:#fef2f2; color:#b91c1c; }
+  #cb-root .cb-select { height:38px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#fff; color:var(--cb-text); font-size:13.5px; }
+  #cb-root .cb-selisih-plus { color:#047857; font-weight:700; }
+  #cb-root .cb-selisih-min { color:#b91c1c; font-weight:700; }
+  #cb-root .cb-tab .cb-tab-n.ada { background:#fffbeb; color:#b45309; }
   #cb-root .cb-kpi-label { font-size:13px; font-weight:600; color:var(--cb-text); }
   #cb-root .cb-kpi-val { margin-top:10px; font-size:28px; line-height:1.1; font-weight:700; color:var(--cb-ink); font-variant-numeric:tabular-nums; }
   #cb-root .cb-kpi-note { margin-top:4px; font-size:12px; color:var(--cb-muted); }
@@ -146,32 +151,33 @@ if (!empty($akses_ditolak)) : ?>
       <div class="cb-kpi-note">memenuhi semua syarat di atas</div>
     </div>
     <div class="cb-kpi">
-      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-amber"><i class="fa fa-archive"></i></span><span class="cb-kpi-label">Total Stok</span></div>
-      <div class="cb-kpi-val" id="cb-k-stok">&ndash;</div>
-      <div class="cb-kpi-note">jumlah stok Jubelio semua SKU di daftar</div>
+      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-amber"><i class="fa fa-pencil-square-o"></i></span><span class="cb-kpi-label">Perlu Isi</span></div>
+      <div class="cb-kpi-val" id="cb-k-isi">&ndash;</div>
+      <div class="cb-kpi-note">qty real belum diisi</div>
     </div>
     <div class="cb-kpi">
-      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-green"><i class="fa fa-check-square-o"></i></span><span class="cb-kpi-label">Qty Real Terisi</span></div>
-      <div class="cb-kpi-val" id="cb-k-qty">&ndash;</div>
-      <div class="cb-kpi-note" id="cb-k-qty-note">&nbsp;</div>
+      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-red"><i class="fa fa-exchange"></i></span><span class="cb-kpi-label">Perlu Penyesuaian</span></div>
+      <div class="cb-kpi-val" id="cb-k-adj">&ndash;</div>
+      <div class="cb-kpi-note" id="cb-k-adj-note">qty real beda dengan stok Jubelio</div>
     </div>
   </div>
 
   <div class="cb-body">
     <div class="cb-tabs" id="cb-tabs">
-      <button type="button" class="cb-tab aktif" data-kat="">Semua<span class="cb-tab-n">&ndash;</span></button>
-      <?php foreach ($kategori as $k) : ?>
-      <button type="button" class="cb-tab" data-kat="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?><span class="cb-tab-n">&ndash;</span></button>
-      <?php endforeach; ?>
+      <button type="button" class="cb-tab aktif" data-tab="isi">Perlu Isi<span class="cb-tab-n" id="cb-n-isi">&ndash;</span></button>
+      <button type="button" class="cb-tab" data-tab="adj">Perlu Penyesuaian<span class="cb-tab-n" id="cb-n-adj">&ndash;</span></button>
     </div>
     <div class="cb-toolbar">
       <div class="cb-search"><i class="fa fa-search"></i><input type="text" id="cb-cari" placeholder="Cari SKU atau No Rak" autocomplete="off"></div>
+      <select id="cb-kat" class="cb-select" title="Filter kategori SKU"><option value="">Semua kategori</option>
+        <?php foreach ($kategori as $k) : ?><option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option><?php endforeach; ?>
+      </select>
       <span class="cb-count" id="cb-count"></span>
     </div>
     <div class="cb-table-wrap">
       <table class="cb-table">
-        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>Kategori SKU</th><th>No Rak</th><th class="cb-num">Stok Total</th><th class="cb-num">Qty Real</th></tr></thead>
-        <tbody id="cb-body"><tr><td colspan="6" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
+        <thead><tr id="cb-thead"></tr></thead>
+        <tbody id="cb-body"><tr><td colspan="7" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
     <div class="cb-pager">
@@ -216,7 +222,7 @@ if (!empty($akses_ditolak)) : ?>
 
 <script>
 (function () {
-  var semua = [], tampil = [], hal = 1, sedang = false, kat = '', skuAktif = null;
+  var semua = [], tampil = [], hal = 1, sedang = false, kat = '', tab = 'isi', skuAktif = null;
   var RE_BULAT = /^[0-9]+$/;
 
   function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
@@ -229,27 +235,36 @@ if (!empty($akses_ditolak)) : ?>
   }
 
   // ---------- ringkasan & tab ----------
+  function terisi(r) { return r.qty_real !== null && r.qty_real !== undefined; }
+  /** Perlu penyesuaian: qty real sudah diisi dan beda dengan stok total Jubelio. */
+  function perluAdj(r) { return terisi(r) && parseInt(r.qty_real, 10) !== parseInt(r.stok_total, 10); }
+
   function ringkasan() {
-    var stok = 0, terisi = 0, hitungKat = {};
+    var isi = 0, adj = 0, selisih = 0;
     semua.forEach(function (r) {
-      stok += parseInt(r.stok_total, 10) || 0;
-      if (r.qty_real !== null && r.qty_real !== undefined) { terisi++; }
-      hitungKat[r.kategori_sku] = (hitungKat[r.kategori_sku] || 0) + 1;
+      if (!terisi(r)) { isi++; }
+      else if (perluAdj(r)) { adj++; selisih += Math.abs(parseInt(r.qty_real, 10) - parseInt(r.stok_total, 10)); }
     });
     $('#cb-k-sku').text(fmt(semua.length));
-    $('#cb-k-stok').text(fmt(stok));
-    $('#cb-k-qty').text(fmt(terisi));
-    $('#cb-k-qty-note').text(semua.length ? 'dari ' + fmt(semua.length) + ' SKU (' + Math.round(terisi / semua.length * 100) + '%)' : ' ');
-    $('#cb-tabs .cb-tab').each(function () {
-      var k = $(this).attr('data-kat');
-      $(this).find('.cb-tab-n').text(fmt(k === '' ? semua.length : (hitungKat[k] || 0)));
-    });
+    $('#cb-k-isi').text(fmt(isi));
+    $('#cb-k-adj').text(fmt(adj));
+    $('#cb-k-adj-note').text(adj ? 'total selisih ' + fmt(selisih) + ' pcs' : 'qty real beda dengan stok Jubelio');
+    $('#cb-n-isi').text(fmt(isi)).toggleClass('ada', isi > 0);
+    $('#cb-n-adj').text(fmt(adj)).toggleClass('ada', adj > 0);
   }
 
   // ---------- tabel ----------
+  function kepala() {
+    var h = '<th style="width:56px">#</th><th>SKU</th><th>Kategori SKU</th><th>No Rak</th><th class="cb-num">Stok Total</th><th class="cb-num">Qty Real</th>';
+    if (tab === 'adj') { h += '<th class="cb-num">Selisih</th>'; }
+    $('#cb-thead').html(h);
+    return tab === 'adj' ? 7 : 6;
+  }
+
   function render() {
-    var q = $.trim($('#cb-cari').val()).toLowerCase(), ukuran = parseInt($('#cb-ukuran').val(), 10) || 100;
+    var q = $.trim($('#cb-cari').val()).toLowerCase(), ukuran = parseInt($('#cb-ukuran').val(), 10) || 100, kolom = kepala();
     tampil = semua.filter(function (r) {
+      if (tab === 'isi' ? terisi(r) : !perluAdj(r)) { return false; }
       if (kat && r.kategori_sku !== kat) { return false; }
       return !q || (r.id_sku + ' ' + (r.rak_jubelio || '')).toLowerCase().indexOf(q) !== -1;
     });
@@ -257,18 +272,26 @@ if (!empty($akses_ditolak)) : ?>
     if (hal > total) { hal = total; }
     var awal = (hal - 1) * ukuran, html = '';
     tampil.slice(awal, awal + ukuran).forEach(function (r, i) {
-      var qty = (r.qty_real !== null && r.qty_real !== undefined)
+      var qty = terisi(r)
         ? '<span class="cb-qty-val" title="' + escAttr('Diisi ' + (r.qty_real_oleh || '-') + ' · ' + fmtWaktu(r.qty_real_at)) + '">' + esc(r.qty_real) + '</span>'
         : '<span class="cb-kosong">&ndash;</span>';
+      var sel = '';
+      if (tab === 'adj') {
+        var d = parseInt(r.qty_real, 10) - parseInt(r.stok_total, 10);
+        sel = '<td class="cb-num ' + (d > 0 ? 'cb-selisih-plus' : 'cb-selisih-min') + '">' + (d > 0 ? '+' : '') + d + '</td>';
+      }
       html += '<tr><td class="cb-kosong">' + (awal + i + 1) + '</td>' +
         '<td class="cb-sku">' + esc(r.id_sku) + '</td>' +
         '<td>' + pil(r.kategori_sku) + '</td>' +
         '<td class="cb-rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
         '<td class="cb-num cb-stok">' + esc(r.stok_total) + '</td>' +
         '<td class="cb-num"><span class="cb-qty">' + qty +
-          '<button type="button" class="cb-iconbtn" data-sku="' + escAttr(r.id_sku) + '" title="Isi qty real"><i class="fa fa-pencil"></i></button></span></td></tr>';
+          '<button type="button" class="cb-iconbtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + '</tr>';
     });
-    $('#cb-body').html(html || '<tr><td colspan="6" class="cb-empty"><i class="fa fa-inbox"></i>Tidak ada SKU yang memenuhi syarat. Klik Perbarui bila stok belum pernah diambil.</td></tr>');
+    var kosong = tab === 'isi'
+      ? '<i class="fa fa-check-circle"></i>Semua SKU di daftar sudah terisi qty real. Klik Perbarui bila stok belum pernah diambil.'
+      : '<i class="fa fa-check-circle"></i>Tidak ada SKU yang perlu penyesuaian: qty real yang diisi sama dengan stok Jubelio.';
+    $('#cb-body').html(html || '<tr><td colspan="' + kolom + '" class="cb-empty">' + kosong + '</td></tr>');
     $('#cb-count').text(fmt(tampil.length) + ' SKU');
     $('#cb-hal').text('Halaman ' + hal + ' / ' + total);
     $('#cb-prev').prop('disabled', hal <= 1);
@@ -289,7 +312,7 @@ if (!empty($akses_ditolak)) : ?>
       },
       error: function (xhr) {
         $('#cb-updated').text('Gagal memuat data.');
-        $('#cb-body').html('<tr><td colspan="6" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
+        $('#cb-body').html('<tr><td colspan="7" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
       }
     });
   }
@@ -379,8 +402,9 @@ if (!empty($akses_ditolak)) : ?>
     $('#cb-updated').text('Menghubungi Jubelio...');
     halaman(1);
   });
+  $('#cb-kat').on('change', function () { kat = $(this).val(); hal = 1; render(); });
   $('#cb-tabs').on('click', '.cb-tab', function () {
-    kat = $(this).attr('data-kat');
+    tab = $(this).attr('data-tab');
     $('#cb-tabs .cb-tab').removeClass('aktif');
     $(this).addClass('aktif');
     hal = 1; render();

@@ -7,6 +7,8 @@ Menu **Cabut SKU** (uri `cabut-sku`, anak TIM MONITORING, hanya webmaster / role
 - No Rak Jubelio **bukan** `CABUT` dan tidak berawalan `KR-` (keduanya dianggap sudah dicabut; rak kosong tetap tampil).
 Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terbanyak. Tampilan mengikuti CS -> Manajemen Komplain (New): kartu ringkasan, tab kategori, pencarian, tabel dengan pil kategori.
 
+**Tab**: (1) *Perlu Isi* = qty real belum diisi; (2) *Perlu Penyesuaian* = qty real sudah diisi dan beda dengan stok total Jubelio (ada kolom Selisih = qty real - stok). SKU yang qty real-nya sama dengan stok tidak masuk tab mana pun. Filter kategori ada di dropdown toolbar. Perbandingan memakai stok dari Perbarui terakhir.
+
 **Qty Real**: ikon pensil di kolom Qty Real membuka pop-up isian hitung fisik. Guard: hanya bilangan bulat >= 0 (digit saja, maks 9 digit). Desimal (`9,2`, `9.2`), huruf (`sembilan`), minus, spasi, dan kosong ditolak, di browser dan di server (`Cabut_sku::simpan_qty_real`, route `cabut-sku/simpan-qty-real`). Disimpan di `tblcabut_sku_stok.qty_real` (+ `qty_real_oleh`, `qty_real_at`); tombol Perbarui tidak menimpanya.
 
 ## Alur
