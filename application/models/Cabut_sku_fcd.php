@@ -18,14 +18,58 @@ class Cabut_sku_fcd extends CI_Model
     {
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
         // Rak Jubelio kosong tetap tampil (belum dicabut); rak CABUT atau berawalan KR- dianggap sudah dicabut dan disembunyikan.
-        $sql = "SELECT s.id_sku, s.kategori_sku, k.rak_jubelio, k.stok_total, k.qty_real, k.qty_real_oleh, k.qty_real_at, k.qty_real_foto
+        $sql = "SELECT s.id_sku, s.kategori_sku, s.link_foto, s.foto_lokal, k.rak_jubelio, k.stok_total, k.stok_display, k.stok_gudang,
+                       k.qty_real, k.qty_real_oleh, k.qty_real_at, k.qty_real_foto, k.pindah_ke, k.pindah_ke_oleh, k.pindah_ke_at
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
                 WHERE s.kategori_sku IN ($in) AND k.stok_total BETWEEN ? AND ?
                   AND (k.rak_jubelio IS NULL OR (UPPER(TRIM(k.rak_jubelio)) <> 'CABUT' AND UPPER(TRIM(k.rak_jubelio)) NOT LIKE 'KR-%'))
                 ORDER BY k.stok_total DESC, s.id_sku ASC";
         $bind = array_merge(self::KATEGORI, [self::STOK_MIN, self::BATAS_STOK]);
-        return $this->db->query($sql, $bind)->result_array();
+        $rows = $this->db->query($sql, $bind)->result_array();
+        foreach ($rows as &$r) {
+            // Foto SKU untuk klien: URL asli + salinan lokal (assets/js/foto_sku.js memilih yang bisa dimuat).
+            $r['foto']       = trim((string) $r['link_foto']);
+            $r['foto_lokal'] = foto_sku_lokal_url($r['link_foto'], $r['foto_lokal']);
+            unset($r['link_foto']);
+        }
+        unset($r);
+        return $rows;
+    }
+
+    /** Tab tempat satu baris berada: isi (qty real kosong), adj (beda dgn stok), rak (sama dgn stok -> isi no rak tujuan). */
+    public static function tab_baris(array $r)
+    {
+        if ($r['qty_real'] === null) {
+            return 'isi';
+        }
+        return (int) $r['qty_real'] !== (int) $r['stok_total'] ? 'adj' : 'rak';
+    }
+
+    /**
+     * Baris satu tab dengan filter yang sama seperti layar: kategori (array, kosong = semua) dan kata kunci
+     * (SKU / no rak / rak tujuan). Dipakai ekspor Excel supaya isinya persis yang dilihat user.
+     */
+    public function daftar_tab($tab, array $kategori = [], $q = '')
+    {
+        $q = mb_strtolower(trim((string) $q), 'UTF-8');
+        $out = [];
+        foreach ($this->daftar() as $r) {
+            if (self::tab_baris($r) !== $tab) {
+                continue;
+            }
+            if ($kategori && !in_array($r['kategori_sku'], $kategori, TRUE)) {
+                continue;
+            }
+            if ($q !== '' && mb_strpos(mb_strtolower($r['id_sku'] . ' ' . $r['rak_jubelio'] . ' ' . $r['pindah_ke'], 'UTF-8'), $q) === FALSE) {
+                continue;
+            }
+            $out[] = $r;
+        }
+        if ($tab === 'rak') { // yang belum diisi dulu
+            usort($out, function ($a, $b) { return ($a['pindah_ke'] !== null) <=> ($b['pindah_ke'] !== null); });
+        }
+        return $out;
     }
 
     /** Waktu perbarui terakhir dan jumlah SKU berkategori yang belum punya data stok. */
@@ -54,12 +98,12 @@ class Cabut_sku_fcd extends CI_Model
         $ph = [];
         $bind = [];
         foreach ($items as $it) {
-            $ph[] = '(?, ?, ?, ?)';
-            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $now);
+            $ph[] = '(?, ?, ?, ?, ?, ?)';
+            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $it['stok_display'], $it['stok_gudang'], $now);
         }
         $this->db->query(
-            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, diperbarui) VALUES " . implode(',', $ph) .
-            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), diperbarui = VALUES(diperbarui)",
+            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, stok_display, stok_gudang, diperbarui) VALUES " . implode(',', $ph) .
+            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), stok_display = VALUES(stok_display), stok_gudang = VALUES(stok_gudang), diperbarui = VALUES(diperbarui)",
             $bind
         );
         return count($items);
@@ -100,6 +144,27 @@ class Cabut_sku_fcd extends CI_Model
             [(int) $qty, $oleh, date('Y-m-d H:i:s'), $foto, $sku, $sku]
         );
         return TRUE;
+    }
+
+    /**
+     * Simpan no rak tujuan (kolom "Pindah ke") satu SKU. Hanya untuk SKU yang berada di tab Perlu Isi No. Rak:
+     * qty real sudah diisi dan sama dengan stok total. Mengembalikan '' bila sukses, atau pesan galat.
+     * Format ($rak) sudah divalidasi controller: tanpa spasi, hanya huruf, angka, '-' dan '/', 1-50 karakter.
+     */
+    public function simpan_pindah_ke($sku, $rak, $oleh)
+    {
+        $baris = $this->db->query("SELECT stok_total, qty_real FROM tblcabut_sku_stok WHERE id_sku = ? AND BINARY id_sku = BINARY ?", [$sku, $sku])->row_array();
+        if (!$baris) {
+            return 'SKU ' . $sku . ' tidak ditemukan di data Cabut SKU.';
+        }
+        if ($baris['qty_real'] === null || (int) $baris['qty_real'] !== (int) $baris['stok_total']) {
+            return 'SKU ini belum masuk tab Perlu Isi No. Rak (qty real harus sudah diisi dan sama dengan stok total Jubelio).';
+        }
+        $this->db->query(
+            "UPDATE tblcabut_sku_stok SET pindah_ke = ?, pindah_ke_oleh = ?, pindah_ke_at = ? WHERE id_sku = ? AND BINARY id_sku = BINARY ?",
+            [$rak, $oleh, date('Y-m-d H:i:s'), $sku, $sku]
+        );
+        return '';
     }
 
     /** Apakah SKU (persis) ada di tblcabut_sku_stok. */

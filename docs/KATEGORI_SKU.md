@@ -23,3 +23,8 @@ Bila lolos: `UPDATE tblsku SET kategori_sku` per SKU (pencocokan `BINARY`) dalam
 ## Riwayat
 
 `tblkategori_sku_riwayat` (batch, id_sku, kategori_lama, kategori_baru, id_user, created_at) mencatat setiap SKU yang nilainya berubah, per kode batch, sebagai dasar pengembalian manual. Tabel dibuat oleh `MY_Controller::run_kategori_sku_migration()`.
+
+## Menu Kategori SKU (daftar baca-saja)
+
+Menu **TIM PURCHASING -> Kategori SKU** (uri `purchasing/kategori-sku`, webmaster dan purchasing; `Daftar_kategori_sku` + `Daftar_kategori_sku_fcd`, view `kategori_sku/daftar.php`) menampilkan seluruh `tblsku`: SKU, gambar (ikon mata membuka gambar penuh), No Rak (`tblsku.no_rak`) dan Kategori. Pencarian memotong SKU atau no rak (tidak peka huruf besar-kecil); filter kategori multi-pilih dengan jumlah SKU per kategori, termasuk pilihan "(Belum ada kategori)" untuk SKU yang `kategori_sku`-nya NULL/kosong. Paging di server (25/50/100 baris) urut SKU. Responsif: di HP tabel menjadi kartu. Mengubah kategori tetap lewat menu Update Kategori SKU.
+

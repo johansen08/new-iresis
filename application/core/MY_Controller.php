@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-18.2';
+    const BOOTSTRAP_VERSI = '2026-11-18.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -197,6 +197,7 @@ class MY_Controller extends CI_Controller
         $this->run_terima_retur_ho_migration();
         $this->run_cabut_sku_migration();
         $this->run_kategori_sku_migration();
+        $this->run_daftar_kategori_sku_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -1921,6 +1922,19 @@ class MY_Controller extends CI_Controller
             $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN qty_real_foto VARCHAR(100) NULL DEFAULT NULL");
         }
 
+        // Rincian stok per gudang (Display Barang & Gudang Utama) dan no rak tujuan pemindahan (tab Perlu Isi No. Rak).
+        if (!in_array('stok_display', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok
+                ADD COLUMN stok_display INT NULL DEFAULT NULL COMMENT 'on_hand Display Barang (location -1)',
+                ADD COLUMN stok_gudang INT NULL DEFAULT NULL COMMENT 'on_hand Gudang Utama (location 1)'");
+        }
+        if (!in_array('pindah_ke', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok
+                ADD COLUMN pindah_ke VARCHAR(50) NULL DEFAULT NULL COMMENT 'no rak tujuan, tanpa spasi',
+                ADD COLUMN pindah_ke_oleh VARCHAR(100) NULL DEFAULT NULL,
+                ADD COLUMN pindah_ke_at DATETIME NULL DEFAULT NULL");
+        }
+
         $uri = 'cabut-sku';
 
         // Urutan dikunci ke id terkecil -- lihat catatan di run_menu_scan_packer_webcam.
@@ -1992,6 +2006,48 @@ class MY_Controller extends CI_Controller
                 'uri'       => $uri,
                 'icon'      => 'fa fa-tags',
                 'sortorder' => 9, // setelah Persetujuan Stok AKS27 (8)
+                'isactive'  => 1,
+                'createdby' => 1,
+                'created'   => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        foreach ([1, 7] as $roleid) {
+            $akses_ada = $this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row();
+            if (!$akses_ada) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Menu TIM PURCHASING -> "Kategori SKU" (uri `purchasing/kategori-sku`): daftar SKU + gambar + no rak + kategori,
+     * baca-saja, dengan pencarian dan filter kategori multi-pilih. Tidak ada tabel baru.
+     * Hak akses: webmaster (1) dan tim purchasing (7) -- sejalan dengan Daftar_kategori_sku::ROLE_BOLEH.
+     */
+    protected function run_daftar_kategori_sku_migration()
+    {
+        $uri  = 'purchasing/kategori-sku';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $induk = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['name' => 'TIM PURCHASING'])->row();
+            if (!$induk) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'      => 'Kategori SKU',
+                'parentid'  => $induk->id,
+                'uri'       => $uri,
+                'icon'      => 'fa fa-list-alt',
+                'sortorder' => 10, // setelah Update Kategori SKU (9)
                 'isactive'  => 1,
                 'createdby' => 1,
                 'created'   => date('Y-m-d H:i:s')
