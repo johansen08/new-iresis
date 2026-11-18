@@ -208,6 +208,14 @@ class Cabut_sku extends MY_Controller
             $w = isset($lebar[$i]) ? $lebar[$i] : ($nama === 'Diisi oleh' ? 22 : ($nama === 'Waktu diisi' ? 18 : 16));
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
+        // Warna sub-kolom stok sama dengan layar: Display biru, Gudang oranye, Total hijau.
+        foreach (['E' => 'DBEAFE', 'F' => 'FFEDD5', 'G' => 'DCFCE7'] as $h => $warna) {
+            $ws->getStyle($h . '2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($warna);
+            $ws->getStyle($h . '2')->getFont()->getColor()->setRGB(['E' => '1D4ED8', 'F' => 'C2410C', 'G' => '15803D'][$h]);
+            if ($terakhir >= 3) {
+                $ws->getStyle($h . '3:' . $h . $terakhir)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB(['E' => 'EFF6FF', 'F' => 'FFF7ED', 'G' => 'F0FDF4'][$h]);
+            }
+        }
         $ws->freezePane('A3');
         if ($r > 3) {
             $ws->setAutoFilter('A2:' . $akhir . $terakhir);
