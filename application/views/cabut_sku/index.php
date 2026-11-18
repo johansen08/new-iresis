@@ -123,6 +123,13 @@ if (!empty($akses_ditolak)) : ?>
   .cb-mod.cb-lb .modal-body { padding:12px; text-align:center; background:#0f172a; border-radius:0 0 14px 14px; }
   .cb-mod.cb-lb .modal-body img { max-width:100%; max-height:75vh; border-radius:8px; background:#fff; }
 
+  /* warna stok Jubelio: Display biru, Gudang oranye, Total hijau (header + angka) */
+  #cb-root .cb-table > thead > tr + tr > th.cb-c-disp { background:#dbeafe; color:#1d4ed8; }
+  #cb-root .cb-table > thead > tr + tr > th.cb-c-gud { background:#ffedd5; color:#c2410c; }
+  #cb-root .cb-table > thead > tr + tr > th.cb-c-tot { background:#dcfce7; color:#15803d; }
+  #cb-root .cb-table > tbody > tr > td.cb-c-disp { background:#eff6ff !important; color:#1d4ed8; font-weight:700; }
+  #cb-root .cb-table > tbody > tr > td.cb-c-gud { background:#fff7ed !important; color:#c2410c; font-weight:700; }
+  #cb-root .cb-table > tbody > tr > td.cb-c-tot { background:#f0fdf4 !important; color:#15803d; font-weight:700; }
   /* header tabel dua baris (grup Stok Jubelio) */
   #cb-root .cb-table > thead > tr > th.cb-grp { text-align:center; border-bottom:1px solid var(--cb-line); border-left:1px solid var(--cb-line); border-right:1px solid var(--cb-line); background:#eef2ff; color:#4338ca; }
   #cb-root .cb-table > thead > tr + tr > th { text-align:right; }
@@ -427,7 +434,7 @@ if (!empty($akses_ditolak)) : ?>
       '<th colspan="3" class="cb-grp">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
     if (tab === 'adj') { r1 += '<th rowspan="2" class="cb-num">Selisih</th>'; }
     if (tab === 'rak') { r1 += '<th rowspan="2">Pindah ke</th>'; }
-    $('#cb-thead').html('<tr>' + r1 + '</tr><tr><th class="cb-num">Display</th><th class="cb-num">Gudang</th><th class="cb-num">Total</th></tr>');
+    $('#cb-thead').html('<tr>' + r1 + '</tr><tr><th class="cb-num cb-c-disp">Display</th><th class="cb-num cb-c-gud">Gudang</th><th class="cb-num cb-c-tot">Total</th></tr>');
     return tab === 'isi' ? 8 : 9;
   }
 
@@ -475,9 +482,9 @@ if (!empty($akses_ditolak)) : ?>
         '<td class="cb-sku" data-label="SKU"><span class="cb-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '</span></span></td>' +
         '<td data-label="Kategori SKU">' + pil(r.kategori_sku) + '</td>' +
         '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
-        '<td class="cb-num" data-label="Stok Display">' + angka(r.stok_display) + '</td>' +
-        '<td class="cb-num" data-label="Stok Gudang">' + angka(r.stok_gudang) + '</td>' +
-        '<td class="cb-num cb-stok" data-label="Stok Total">' + esc(r.stok_total) + '</td>' +
+        '<td class="cb-num cb-c-disp" data-label="Stok Display">' + angka(r.stok_display) + '</td>' +
+        '<td class="cb-num cb-c-gud" data-label="Stok Gudang">' + angka(r.stok_gudang) + '</td>' +
+        '<td class="cb-num cb-stok cb-c-tot" data-label="Stok Total">' + esc(r.stok_total) + '</td>' +
         '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
           '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + pindah + '</tr>';
     });
