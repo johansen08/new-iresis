@@ -48,6 +48,20 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-ic-amber { background:#fffbeb; color:#b45309; }
   #cb-root .cb-ic-green { background:#ecfdf5; color:#047857; }
   #cb-root .cb-ic-red { background:#fef2f2; color:#b91c1c; }
+  #cb-root .cb-ms { position:relative; }
+  #cb-root .cb-chip { display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:var(--cb-text); font-size:13.5px; font-weight:500; cursor:pointer; white-space:nowrap; }
+  #cb-root .cb-chip:hover { background:var(--cb-bg); }
+  #cb-root .cb-chip .fa-angle-down { color:#94a3b8; }
+  #cb-root .cb-chip-count { display:none; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--cb-primary); color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center; }
+  #cb-root .cb-ms.aktif .cb-chip { border-color:#a5b4fc; background:#eef2ff; color:#3730a3; }
+  #cb-root .cb-ms.aktif .cb-chip-count { display:inline-block; }
+  #cb-root .cb-ms-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; min-width:200px; padding:6px; background:#fff; border:1px solid var(--cb-line); border-radius:10px; box-shadow:0 10px 15px -3px rgba(0,0,0,.12); }
+  #cb-root .cb-ms.buka .cb-ms-panel { display:block; }
+  #cb-root .cb-ms-opt { display:flex; align-items:center; gap:10px; margin:0; padding:9px 10px; border-radius:8px; font-size:13.5px; font-weight:500; color:var(--cb-text); cursor:pointer; }
+  #cb-root .cb-ms-opt:hover { background:var(--cb-primary-light); }
+  #cb-root .cb-ms-opt input { width:16px; height:16px; margin:0; accent-color:var(--cb-primary); }
+  #cb-root .cb-ms-foot { margin-top:4px; padding:6px 4px 2px; border-top:1px solid var(--cb-line); text-align:right; }
+  #cb-root .cb-ms-foot button { border:0; background:none; color:var(--cb-primary); font-size:12.5px; font-weight:600; cursor:pointer; padding:4px 6px; }
   #cb-root .cb-select { height:38px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#fff; color:var(--cb-text); font-size:13.5px; }
   #cb-root .cb-selisih-plus { color:#047857; font-weight:700; }
   #cb-root .cb-selisih-min { color:#b91c1c; font-weight:700; }
@@ -155,6 +169,10 @@ if (!empty($akses_ditolak)) : ?>
     #cb-root .cb-toolbar { flex-direction:column; align-items:stretch; }
     #cb-root .cb-search { max-width:none; flex:none; }
     #cb-root .cb-search input, #cb-root .cb-select { height:44px; font-size:16px; width:100%; }
+    #cb-root .cb-ms { width:100%; }
+    #cb-root .cb-chip { width:100%; height:44px; justify-content:space-between; font-size:15px; }
+    #cb-root .cb-ms-panel { left:0; right:0; }
+    #cb-root .cb-ms-opt { padding:12px 10px; font-size:15px; }
     #cb-root .cb-count { margin-left:0; }
     /* tabel -> kartu per SKU */
     #cb-root .cb-table-wrap { border:0; overflow:visible; background:transparent; }
@@ -220,9 +238,17 @@ if (!empty($akses_ditolak)) : ?>
     </div>
     <div class="cb-toolbar">
       <div class="cb-search"><i class="fa fa-search"></i><input type="text" id="cb-cari" placeholder="Cari SKU atau No Rak" autocomplete="off"></div>
-      <select id="cb-kat" class="cb-select" title="Filter kategori SKU"><option value="">Semua kategori</option>
-        <?php foreach ($kategori as $k) : ?><option value="<?= htmlspecialchars($k) ?>"><?= htmlspecialchars($k) ?></option><?php endforeach; ?>
-      </select>
+      <div class="cb-ms" id="cb-ms">
+        <button type="button" class="cb-chip" id="cb-ms-btn" aria-haspopup="true" aria-expanded="false" title="Filter kategori SKU (bisa pilih lebih dari satu)">
+          <span class="cb-chip-label">Kategori</span><span class="cb-chip-count" id="cb-ms-n"></span><i class="fa fa-angle-down"></i>
+        </button>
+        <div class="cb-ms-panel" id="cb-ms-panel" role="group" aria-label="Pilih kategori">
+          <?php foreach ($kategori as $k) : ?>
+          <label class="cb-ms-opt"><input type="checkbox" class="cb-ms-cek" value="<?= htmlspecialchars($k) ?>"><span><?= htmlspecialchars($k) ?></span></label>
+          <?php endforeach; ?>
+          <div class="cb-ms-foot"><button type="button" id="cb-ms-reset">Reset</button></div>
+        </div>
+      </div>
       <span class="cb-count" id="cb-count"></span>
     </div>
     <div class="cb-table-wrap">
@@ -283,7 +309,7 @@ if (!empty($akses_ditolak)) : ?>
 
 <script>
 (function () {
-  var semua = [], tampil = [], hal = 1, sedang = false, kat = '', tab = 'isi', skuAktif = null;
+  var semua = [], tampil = [], hal = 1, sedang = false, kat = [], tab = 'isi', skuAktif = null;
   var RE_BULAT = /^[0-9]+$/;
   var FOTO_URL = '<?= htmlspecialchars($foto_url, ENT_QUOTES) ?>';
 
@@ -327,7 +353,7 @@ if (!empty($akses_ditolak)) : ?>
     var q = $.trim($('#cb-cari').val()).toLowerCase(), ukuran = parseInt($('#cb-ukuran').val(), 10) || 100, kolom = kepala();
     tampil = semua.filter(function (r) {
       if (tab === 'isi' ? terisi(r) : !perluAdj(r)) { return false; }
-      if (kat && r.kategori_sku !== kat) { return false; }
+      if (kat.length && kat.indexOf(r.kategori_sku) === -1) { return false; }
       return !q || (r.id_sku + ' ' + (r.rak_jubelio || '')).toLowerCase().indexOf(q) !== -1;
     });
     var total = Math.max(1, Math.ceil(tampil.length / ukuran));
@@ -541,7 +567,25 @@ if (!empty($akses_ditolak)) : ?>
     $('#cb-updated').text('Menghubungi Jubelio...');
     halaman(1);
   });
-  $('#cb-kat').on('change', function () { kat = $(this).val(); hal = 1; render(); });
+  // filter kategori multi-pilih: tanpa centang = semua kategori
+  function segarkanKategori() {
+    kat = $('#cb-ms .cb-ms-cek:checked').map(function () { return this.value; }).get();
+    $('#cb-ms').toggleClass('aktif', kat.length > 0);
+    $('#cb-ms-n').text(kat.length || '');
+    hal = 1; render();
+  }
+  function tutupKategori() { $('#cb-ms').removeClass('buka'); $('#cb-ms-btn').attr('aria-expanded', 'false'); }
+  $('#cb-ms-btn').on('click', function (e) {
+    e.stopPropagation();
+    var buka = !$('#cb-ms').hasClass('buka');
+    $('#cb-ms').toggleClass('buka', buka); $(this).attr('aria-expanded', buka ? 'true' : 'false');
+  });
+  $('#cb-ms-panel').on('click', function (e) { e.stopPropagation(); });
+  $('#cb-ms').on('change', '.cb-ms-cek', segarkanKategori);
+  $('#cb-ms-reset').on('click', function () { $('#cb-ms .cb-ms-cek').prop('checked', false); segarkanKategori(); });
+  // klik di luar / Esc menutup; handler dokumen diberi namespace agar tidak menumpuk saat halaman dimuat ulang (SPA)
+  $(document).off('click.cbms').on('click.cbms', tutupKategori);
+  $(document).off('keydown.cbms').on('keydown.cbms', function (e) { if (e.key === 'Escape') { tutupKategori(); } });
   $('#cb-tabs').on('click', '.cb-tab', function () {
     tab = $(this).attr('data-tab');
     $('#cb-tabs .cb-tab').removeClass('aktif');

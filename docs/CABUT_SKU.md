@@ -7,7 +7,7 @@ Menu **Cabut SKU** (uri `cabut-sku`, anak TIM MONITORING, hanya webmaster / role
 - No Rak Jubelio **bukan** `CABUT` dan tidak berawalan `KR-` (keduanya dianggap sudah dicabut; rak kosong tetap tampil).
 Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terbanyak. Tampilan mengikuti CS -> Manajemen Komplain (New): kartu ringkasan, tab kategori, pencarian, tabel dengan pil kategori.
 
-**Tab**: (1) *Perlu Isi* = qty real belum diisi; (2) *Perlu Penyesuaian* = qty real sudah diisi dan beda dengan stok total Jubelio (ada kolom Selisih = qty real - stok). SKU yang qty real-nya sama dengan stok tidak masuk tab mana pun. Filter kategori ada di dropdown toolbar. Perbandingan memakai stok dari Perbarui terakhir.
+**Tab**: (1) *Perlu Isi* = qty real belum diisi; (2) *Perlu Penyesuaian* = qty real sudah diisi dan beda dengan stok total Jubelio (ada kolom Selisih = qty real - stok). SKU yang qty real-nya sama dengan stok tidak masuk tab mana pun. Filter kategori (EOL, WP EOL, CUT) berupa dropdown **multi-pilih** dengan kotak centang; tanpa centang = semua kategori, badge menunjukkan jumlah yang dipilih, tombol Reset mengosongkan pilihan. Perbandingan memakai stok dari Perbarui terakhir.
 
 **Foto qty real**: setiap input/ubah qty real WAJIB menyertakan foto. Browser memperkecil foto (maks 1600 px, JPEG) sebelum kirim; server memeriksa isi berkas (bukan ekstensi): JPG/PNG/WebP, maks 5 MB, minimal 200x200 px. Disimpan di assets/uploads/cabut_sku/ (nama acak), nama berkas di tblcabut_sku_stok.qty_real_foto; ikon kamera di baris membuka foto.
 
