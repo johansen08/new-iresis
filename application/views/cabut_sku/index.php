@@ -1,5 +1,5 @@
 <?php
-// View menu TIM MONITORING -> Cabut SKU. Dimuat lewat AJAX (SPA); selector diawali #cb-root / #cb-modal.
+// View menu TIM MONITORING -> Cabut SKU. Dimuat lewat AJAX (SPA); selector diawali #cb-root / .cb-mod.
 // Gaya mengikuti CS -> Manajemen Komplain (New): kartu ringkasan, tab, toolbar, tabel bersih, pil status, modal.
 if (!empty($akses_ditolak)) : ?>
 <div class="row"><div class="col-md-12">
@@ -14,12 +14,12 @@ if (!empty($akses_ditolak)) : ?>
 </div></div>
 <?php return; endif; ?>
 <style>
-  #cb-root, #cb-modal {
+  #cb-root, .cb-mod {
     --cb-primary:#4f46e5; --cb-primary-hover:#4338ca; --cb-primary-light:rgba(79,70,229,.1);
     --cb-bg:#f8fafc; --cb-line:#e2e8f0; --cb-text:#334155; --cb-muted:#64748b; --cb-ink:#0f172a;
     font-family:'Inter','Segoe UI',sans-serif; color:#1e293b;
   }
-  #cb-root input, #cb-root select, #cb-root button, #cb-modal input, #cb-modal button { font-family:inherit; }
+  #cb-root input, #cb-root select, #cb-root button, .cb-mod input, .cb-mod button { font-family:inherit; }
 
   /* tombol */
   .cb-btn { display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 18px; border:1px solid transparent; border-radius:8px; background:var(--cb-primary); color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s ease; }
@@ -40,7 +40,7 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-prog > div { height:100%; width:0; background:var(--cb-primary); transition:width .2s; }
 
   /* kartu ringkasan */
-  #cb-root .cb-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  #cb-root .cb-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
   #cb-root .cb-kpi { border:1px solid var(--cb-line); border-radius:12px; padding:14px 16px 12px; background:#fff; }
   #cb-root .cb-kpi-top { display:flex; align-items:center; gap:8px; }
   #cb-root .cb-kpi-ic { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:8px; font-size:14px; }
@@ -114,6 +114,25 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-iconbtn { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--cb-line); border-radius:6px; background:#fff; color:var(--cb-muted); cursor:pointer; transition:all .15s; padding:0; }
   #cb-root .cb-iconbtn:hover { background:var(--cb-primary-light); border-color:var(--cb-primary); color:var(--cb-primary); }
 
+  /* gambar SKU + ikon mata */
+  #cb-root .cb-skucell { display:flex; align-items:center; gap:10px; }
+  #cb-root .cb-thumb { position:relative; flex:none; width:48px; height:48px; border-radius:8px; border:1px solid var(--cb-line); background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:20px; }
+  #cb-root .cb-thumb img { width:100%; height:100%; object-fit:cover; border-radius:7px; display:block; }
+  #cb-root .cb-eye { position:absolute; right:-6px; bottom:-6px; width:22px; height:22px; padding:0; border:1px solid var(--cb-line); border-radius:50%; background:#fff; color:var(--cb-primary); font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.18); }
+  #cb-root .cb-eye:hover { background:var(--cb-primary); color:#fff; border-color:var(--cb-primary); }
+  .cb-mod.cb-lb .modal-body { padding:12px; text-align:center; background:#0f172a; border-radius:0 0 14px 14px; }
+  .cb-mod.cb-lb .modal-body img { max-width:100%; max-height:75vh; border-radius:8px; background:#fff; }
+
+  /* header tabel dua baris (grup Stok Jubelio) */
+  #cb-root .cb-table > thead > tr > th.cb-grp { text-align:center; border-bottom:1px solid var(--cb-line); border-left:1px solid var(--cb-line); border-right:1px solid var(--cb-line); background:#eef2ff; color:#4338ca; }
+  #cb-root .cb-table > thead > tr + tr > th { text-align:right; }
+  #cb-root .cb-table > thead > tr + tr > th:first-child { border-left:1px solid var(--cb-line); }
+  #cb-root .cb-table > thead > tr + tr > th:last-child { border-right:1px solid var(--cb-line); }
+  #cb-root .cb-pindah { display:inline-flex; align-items:center; gap:8px; }
+  #cb-root .cb-pindah-val { font-weight:700; color:#047857; }
+  #cb-root .cb-btn-xls { height:38px; padding:0 14px; font-size:13.5px; margin-left:auto; }
+  #cb-root .cb-toolbar .cb-count { margin-left:0; }
+
   /* pager */
   #cb-root .cb-pager { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:12px 2px 4px; font-size:13px; color:var(--cb-muted); }
   #cb-root .cb-pager-ctl { display:flex; align-items:center; gap:6px; }
@@ -123,36 +142,36 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-pg:disabled { color:#cbd5e1; cursor:not-allowed; }
 
   /* modal qty real */
-  #cb-modal .modal-content { border:none; border-radius:14px; box-shadow:0 24px 60px rgba(15,23,42,.25); }
-  #cb-modal .modal-header { padding:18px 24px 14px; border-bottom:1px solid var(--cb-line); }
-  #cb-modal .modal-title { font-size:17px; font-weight:700; color:var(--cb-ink); font-family:inherit; }
-  #cb-modal .close { margin-top:2px; font-size:26px; opacity:.45; }
-  #cb-modal .modal-body { padding:18px 24px 6px; }
-  #cb-modal .modal-footer { padding:14px 24px 18px; border-top:0; }
-  #cb-modal .cb-info { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
-  #cb-modal .cb-info > div { background:var(--cb-bg); border:1px solid var(--cb-line); border-radius:10px; padding:10px 12px; }
-  #cb-modal .cb-info dt { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--cb-muted); }
-  #cb-modal .cb-info dd { margin:2px 0 0; font-size:15px; font-weight:700; color:var(--cb-ink); word-break:break-all; }
-  #cb-modal .cb-label { display:block; margin:0 0 6px; font-size:12.5px; font-weight:600; color:var(--cb-text); }
-  #cb-modal .cb-req { color:#dc2626; }
-  #cb-modal .cb-input { display:block; width:100%; height:46px; padding:8px 14px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:18px; font-weight:600; color:var(--cb-ink); box-sizing:border-box; transition:border-color .15s, box-shadow .15s; }
-  #cb-modal .cb-input:focus { outline:none; border-color:var(--cb-primary); box-shadow:0 0 0 3px var(--cb-primary-light); }
-  #cb-modal .cb-input.salah { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
-  #cb-modal .cb-hint { margin:6px 0 0; font-size:12px; color:var(--cb-muted); }
-  #cb-modal .cb-err { margin:6px 0 0; min-height:18px; font-size:12.5px; font-weight:600; color:#dc2626; }
+  .cb-mod .modal-content { border:none; border-radius:14px; box-shadow:0 24px 60px rgba(15,23,42,.25); }
+  .cb-mod .modal-header { padding:18px 24px 14px; border-bottom:1px solid var(--cb-line); }
+  .cb-mod .modal-title { font-size:17px; font-weight:700; color:var(--cb-ink); font-family:inherit; }
+  .cb-mod .close { margin-top:2px; font-size:26px; opacity:.45; }
+  .cb-mod .modal-body { padding:18px 24px 6px; }
+  .cb-mod .modal-footer { padding:14px 24px 18px; border-top:0; }
+  .cb-mod .cb-info { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .cb-mod .cb-info > div { background:var(--cb-bg); border:1px solid var(--cb-line); border-radius:10px; padding:10px 12px; }
+  .cb-mod .cb-info dt { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--cb-muted); }
+  .cb-mod .cb-info dd { margin:2px 0 0; font-size:15px; font-weight:700; color:var(--cb-ink); word-break:break-all; }
+  .cb-mod .cb-label { display:block; margin:0 0 6px; font-size:12.5px; font-weight:600; color:var(--cb-text); }
+  .cb-mod .cb-req { color:#dc2626; }
+  .cb-mod .cb-input { display:block; width:100%; height:46px; padding:8px 14px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:18px; font-weight:600; color:var(--cb-ink); box-sizing:border-box; transition:border-color .15s, box-shadow .15s; }
+  .cb-mod .cb-input:focus { outline:none; border-color:var(--cb-primary); box-shadow:0 0 0 3px var(--cb-primary-light); }
+  .cb-mod .cb-input.salah { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
+  .cb-mod .cb-hint { margin:6px 0 0; font-size:12px; color:var(--cb-muted); }
+  .cb-mod .cb-err { margin:6px 0 0; min-height:18px; font-size:12.5px; font-weight:600; color:#dc2626; }
 
   /* foto bukti di pop-up */
-  #cb-modal .cb-fotobox { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px; border:2px dashed #cbd5e1; border-radius:10px; background:var(--cb-bg); }
-  #cb-modal .cb-fotobox.salah { border-color:#ef4444; }
-  #cb-modal .cb-fotobox img { display:none; width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid var(--cb-line); background:#fff; }
-  #cb-modal .cb-fotonama { font-size:12px; color:var(--cb-muted); word-break:break-all; }
-  #cb-modal .cb-srv { margin:8px 0 0; min-height:0; font-size:12.5px; font-weight:600; color:#dc2626; }
+  .cb-mod .cb-fotobox { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px; border:2px dashed #cbd5e1; border-radius:10px; background:var(--cb-bg); }
+  .cb-mod .cb-fotobox.salah { border-color:#ef4444; }
+  .cb-mod .cb-fotobox img { display:none; width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid var(--cb-line); background:#fff; }
+  .cb-mod .cb-fotonama { font-size:12px; color:var(--cb-muted); word-break:break-all; }
+  .cb-mod .cb-srv { margin:8px 0 0; min-height:0; font-size:12.5px; font-weight:600; color:#dc2626; }
   #cb-root .cb-fotolink { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; color:#047857; background:#ecfdf5; text-decoration:none; }
   #cb-root .cb-fotolink:hover { background:#d1fae5; color:#047857; }
 
   /* ===== responsif: tablet & HP ===== */
   @media (max-width: 991px) {
-    #cb-root .cb-kpis { grid-template-columns:repeat(3,1fr); gap:10px; }
+    #cb-root .cb-kpis { grid-template-columns:repeat(2,1fr); gap:10px; }
     #cb-root .cb-kpi-val { font-size:24px; }
   }
   @media (max-width: 767px) {
@@ -160,6 +179,10 @@ if (!empty($akses_ditolak)) : ?>
     #cb-root .cb-head-act { justify-content:space-between; }
     #cb-root .cb-btn { min-height:44px; }
     #cb-root .cb-kpis { grid-template-columns:1fr; gap:8px; }
+    #cb-root .cb-btn-xls { width:100%; justify-content:center; height:44px; margin-left:0; }
+    #cb-root .cb-skucell { gap:12px; }
+    #cb-root .cb-thumb { width:56px; height:56px; }
+    #cb-root .cb-eye { width:28px; height:28px; font-size:13px; }
     #cb-root .cb-kpi { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; }
     #cb-root .cb-kpi-val { margin:0; font-size:22px; }
     #cb-root .cb-kpi-note { display:none; }
@@ -191,11 +214,11 @@ if (!empty($akses_ditolak)) : ?>
     #cb-root .cb-pager { justify-content:center; }
     #cb-root .cb-pg { min-width:44px; height:40px; }
     #cb-root .cb-pager select { height:40px; }
-    #cb-modal .modal-dialog { margin:10px; }
-    #cb-modal .modal-body { padding:16px 16px 6px; }
-    #cb-modal .modal-footer { padding:12px 16px 16px; display:flex; gap:8px; }
-    #cb-modal .modal-footer .cb-btn { flex:1; }
-    #cb-modal .cb-input { font-size:18px; }
+    .cb-mod .modal-dialog { margin:10px; }
+    .cb-mod .modal-body { padding:16px 16px 6px; }
+    .cb-mod .modal-footer { padding:12px 16px 16px; display:flex; gap:8px; }
+    .cb-mod .modal-footer .cb-btn { flex:1; }
+    .cb-mod .cb-input { font-size:18px; }
   }
 </style>
 
@@ -220,7 +243,7 @@ if (!empty($akses_ditolak)) : ?>
       <div class="cb-kpi-note">memenuhi semua syarat di atas</div>
     </div>
     <div class="cb-kpi">
-      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-amber"><i class="fa fa-pencil-square-o"></i></span><span class="cb-kpi-label">Perlu Isi</span></div>
+      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-amber"><i class="fa fa-pencil-square-o"></i></span><span class="cb-kpi-label">Perlu Isi Qty Real</span></div>
       <div class="cb-kpi-val" id="cb-k-isi">&ndash;</div>
       <div class="cb-kpi-note">qty real belum diisi</div>
     </div>
@@ -229,12 +252,18 @@ if (!empty($akses_ditolak)) : ?>
       <div class="cb-kpi-val" id="cb-k-adj">&ndash;</div>
       <div class="cb-kpi-note" id="cb-k-adj-note">qty real beda dengan stok Jubelio</div>
     </div>
+    <div class="cb-kpi">
+      <div class="cb-kpi-top"><span class="cb-kpi-ic cb-ic-green"><i class="fa fa-map-marker"></i></span><span class="cb-kpi-label">Perlu Isi No. Rak</span></div>
+      <div class="cb-kpi-val" id="cb-k-rak">&ndash;</div>
+      <div class="cb-kpi-note">qty real sama dengan stok Jubelio</div>
+    </div>
   </div>
 
   <div class="cb-body">
     <div class="cb-tabs" id="cb-tabs">
-      <button type="button" class="cb-tab aktif" data-tab="isi">Perlu Isi<span class="cb-tab-n" id="cb-n-isi">&ndash;</span></button>
+      <button type="button" class="cb-tab aktif" data-tab="isi">Perlu Isi Qty Real<span class="cb-tab-n" id="cb-n-isi">&ndash;</span></button>
       <button type="button" class="cb-tab" data-tab="adj">Perlu Penyesuaian<span class="cb-tab-n" id="cb-n-adj">&ndash;</span></button>
+      <button type="button" class="cb-tab" data-tab="rak">Perlu Isi No. Rak<span class="cb-tab-n" id="cb-n-rak">&ndash;</span></button>
     </div>
     <div class="cb-toolbar">
       <div class="cb-search"><i class="fa fa-search"></i><input type="text" id="cb-cari" placeholder="Cari SKU atau No Rak" autocomplete="off"></div>
@@ -250,11 +279,12 @@ if (!empty($akses_ditolak)) : ?>
         </div>
       </div>
       <span class="cb-count" id="cb-count"></span>
+      <button type="button" class="cb-btn cb-btn-sec cb-btn-xls" id="cb-export" title="Unduh tab ini (sesuai filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
     <div class="cb-table-wrap">
       <table class="cb-table">
-        <thead><tr id="cb-thead"></tr></thead>
-        <tbody id="cb-body"><tr><td colspan="7" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
+        <thead id="cb-thead"></thead>
+        <tbody id="cb-body"><tr><td colspan="9" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
     <div class="cb-pager">
@@ -270,7 +300,7 @@ if (!empty($akses_ditolak)) : ?>
 </div>
 
 <!-- Pop-up qty real -->
-<div class="modal fade" id="cb-modal" role="dialog" aria-labelledby="cb-modal-judul" aria-hidden="true">
+<div class="modal fade cb-mod" id="cb-modal" role="dialog" aria-labelledby="cb-modal-judul" aria-hidden="true">
   <div class="modal-dialog" role="document" style="max-width:460px;">
     <div class="modal-content">
       <form id="cb-form" novalidate autocomplete="off">
@@ -307,6 +337,48 @@ if (!empty($akses_ditolak)) : ?>
   </div>
 </div>
 
+<!-- Pop-up no rak tujuan (Pindah ke) -->
+<div class="modal fade cb-mod" id="cb-rakmodal" role="dialog" aria-labelledby="cb-rak-judul" aria-hidden="true">
+  <div class="modal-dialog" role="document" style="max-width:440px;">
+    <div class="modal-content">
+      <form id="cb-rakform" novalidate autocomplete="off">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="cb-rak-judul">Isi No. Rak Tujuan</h4>
+        </div>
+        <div class="modal-body">
+          <dl class="cb-info">
+            <div><dt>SKU</dt><dd id="cb-r-sku">-</dd></div>
+            <div><dt>Qty Real</dt><dd id="cb-r-qty">-</dd></div>
+          </dl>
+          <label class="cb-label" for="cb-r-rak">Pindah ke (no. rak) <span class="cb-req">*</span></label>
+          <input type="text" class="cb-input" id="cb-r-rak" maxlength="50" placeholder="Contoh: KR-12/A" autocapitalize="characters" spellcheck="false">
+          <p class="cb-hint">Tanpa spasi. Hanya huruf, angka, tanda - dan /.</p>
+          <p class="cb-err" id="cb-r-err"></p>
+          <p class="cb-srv" id="cb-r-srv"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="cb-btn cb-btn-sec" data-dismiss="modal">Batal</button>
+          <button type="submit" class="cb-btn" id="cb-r-simpan"><i class="fa fa-save"></i> Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Pop-up gambar penuh -->
+<div class="modal fade cb-mod cb-lb" id="cb-lb" role="dialog" aria-labelledby="cb-lb-judul" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="cb-lb-judul">Gambar SKU</h4>
+      </div>
+      <div class="modal-body"><img id="cb-lb-img" alt="Gambar SKU"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var semua = [], tampil = [], hal = 1, sedang = false, kat = [], tab = 'isi', skuAktif = null;
@@ -327,12 +399,20 @@ if (!empty($akses_ditolak)) : ?>
   /** Perlu penyesuaian: qty real sudah diisi dan beda dengan stok total Jubelio. */
   function perluAdj(r) { return terisi(r) && parseInt(r.qty_real, 10) !== parseInt(r.stok_total, 10); }
 
+  /** Tab tempat baris berada (sama dengan Cabut_sku_fcd::tab_baris): isi / adj / rak. */
+  function tabBaris(r) { return !terisi(r) ? 'isi' : (perluAdj(r) ? 'adj' : 'rak'); }
+  function angka(v) { return v === null || v === undefined ? '<span class="cb-kosong">&ndash;</span>' : esc(v); }
+
   function ringkasan() {
-    var isi = 0, adj = 0, selisih = 0;
+    var isi = 0, adj = 0, rak = 0, selisih = 0;
     semua.forEach(function (r) {
-      if (!terisi(r)) { isi++; }
-      else if (perluAdj(r)) { adj++; selisih += Math.abs(parseInt(r.qty_real, 10) - parseInt(r.stok_total, 10)); }
+      var t = tabBaris(r);
+      if (t === 'isi') { isi++; }
+      else if (t === 'adj') { adj++; selisih += Math.abs(parseInt(r.qty_real, 10) - parseInt(r.stok_total, 10)); }
+      else if (!r.pindah_ke) { rak++; } // tab rak: yang masih perlu diisi
     });
+    $('#cb-k-rak').text(fmt(rak));
+    $('#cb-n-rak').text(fmt(rak)).toggleClass('ada', rak > 0);
     $('#cb-k-sku').text(fmt(semua.length));
     $('#cb-k-isi').text(fmt(isi));
     $('#cb-k-adj').text(fmt(adj));
@@ -343,19 +423,34 @@ if (!empty($akses_ditolak)) : ?>
 
   // ---------- tabel ----------
   function kepala() {
-    var h = '<th style="width:56px">#</th><th>SKU</th><th>Kategori SKU</th><th>No Rak</th><th class="cb-num">Stok Total</th><th class="cb-num">Qty Real</th>';
-    if (tab === 'adj') { h += '<th class="cb-num">Selisih</th>'; }
-    $('#cb-thead').html(h);
-    return tab === 'adj' ? 7 : 6;
+    var r1 = '<th rowspan="2" style="width:56px">#</th><th rowspan="2">SKU</th><th rowspan="2">Kategori SKU</th><th rowspan="2">No Rak</th>' +
+      '<th colspan="3" class="cb-grp">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
+    if (tab === 'adj') { r1 += '<th rowspan="2" class="cb-num">Selisih</th>'; }
+    if (tab === 'rak') { r1 += '<th rowspan="2">Pindah ke</th>'; }
+    $('#cb-thead').html('<tr>' + r1 + '</tr><tr><th class="cb-num">Display</th><th class="cb-num">Gudang</th><th class="cb-num">Total</th></tr>');
+    return tab === 'isi' ? 8 : 9;
+  }
+
+  /** Gambar SKU kecil + ikon mata (buka gambar penuh); tanpa foto = kotak kosong. */
+  function thumb(r) {
+    var src = r.foto || r.foto_lokal;
+    if (!src) { return '<span class="cb-thumb" title="Belum ada foto"><i class="fa fa-picture-o"></i></span>'; }
+    return '<span class="cb-thumb"><img src="' + escAttr(src) + '"' + (r.foto && r.foto_lokal ? ' data-foto-lokal="' + escAttr(r.foto_lokal) + '"' : '') + ' alt="" loading="lazy">' +
+      '<button type="button" class="cb-eye" data-sku="' + escAttr(r.id_sku) + '" title="Lihat gambar penuh" aria-label="Lihat gambar penuh"><i class="fa fa-eye"></i></button></span>';
   }
 
   function render() {
     var q = $.trim($('#cb-cari').val()).toLowerCase(), ukuran = parseInt($('#cb-ukuran').val(), 10) || 100, kolom = kepala();
     tampil = semua.filter(function (r) {
-      if (tab === 'isi' ? terisi(r) : !perluAdj(r)) { return false; }
+      if (tabBaris(r) !== tab) { return false; }
       if (kat.length && kat.indexOf(r.kategori_sku) === -1) { return false; }
-      return !q || (r.id_sku + ' ' + (r.rak_jubelio || '')).toLowerCase().indexOf(q) !== -1;
+      return !q || (r.id_sku + ' ' + (r.rak_jubelio || '') + ' ' + (r.pindah_ke || '')).toLowerCase().indexOf(q) !== -1;
     });
+    if (tab === 'rak') { // yang belum diisi dulu (sort stabil: urutan stok tetap)
+      tampil = tampil.map(function (r, i) { return { r: r, i: i }; })
+        .sort(function (a, b) { return (!!a.r.pindah_ke - !!b.r.pindah_ke) || (a.i - b.i); })
+        .map(function (x) { return x.r; });
+    }
     var total = Math.max(1, Math.ceil(tampil.length / ukuran));
     if (hal > total) { hal = total; }
     var awal = (hal - 1) * ukuran, html = '';
@@ -370,17 +465,27 @@ if (!empty($akses_ditolak)) : ?>
       }
       var foto = r.qty_real_foto
         ? '<a class="cb-fotolink" href="' + escAttr(FOTO_URL + r.qty_real_foto) + '" target="_blank" rel="noopener" title="Lihat foto bukti"><i class="fa fa-camera"></i></a>' : '';
+      var pindah = '';
+      if (tab === 'rak') {
+        pindah = '<td data-label="Pindah ke"><span class="cb-pindah">' +
+          (r.pindah_ke ? '<span class="cb-pindah-val" title="' + escAttr('Diisi ' + (r.pindah_ke_oleh || '-') + ' \u00b7 ' + fmtWaktu(r.pindah_ke_at)) + '">' + esc(r.pindah_ke) + '</span>' : '<span class="cb-kosong">&ndash;</span>') +
+          '<button type="button" class="cb-iconbtn cb-rakbtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (r.pindah_ke ? 'Ubah' : 'Isi') + ' no. rak tujuan"><i class="fa fa-pencil"></i></button></span></td>';
+      }
       html += '<tr><td class="cb-kosong cb-no">' + (awal + i + 1) + '</td>' +
-        '<td class="cb-sku" data-label="SKU">' + esc(r.id_sku) + '</td>' +
+        '<td class="cb-sku" data-label="SKU"><span class="cb-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '</span></span></td>' +
         '<td data-label="Kategori SKU">' + pil(r.kategori_sku) + '</td>' +
         '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
+        '<td class="cb-num" data-label="Stok Display">' + angka(r.stok_display) + '</td>' +
+        '<td class="cb-num" data-label="Stok Gudang">' + angka(r.stok_gudang) + '</td>' +
         '<td class="cb-num cb-stok" data-label="Stok Total">' + esc(r.stok_total) + '</td>' +
         '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
-          '<button type="button" class="cb-iconbtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + '</tr>';
+          '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + pindah + '</tr>';
     });
     var kosong = tab === 'isi'
       ? '<i class="fa fa-check-circle"></i>Semua SKU di daftar sudah terisi qty real. Klik Perbarui bila stok belum pernah diambil.'
-      : '<i class="fa fa-check-circle"></i>Tidak ada SKU yang perlu penyesuaian: qty real yang diisi sama dengan stok Jubelio.';
+      : (tab === 'adj'
+        ? '<i class="fa fa-check-circle"></i>Tidak ada SKU yang perlu penyesuaian: qty real yang diisi sama dengan stok Jubelio.'
+        : '<i class="fa fa-info-circle"></i>Belum ada SKU yang qty real-nya sudah diisi dan sama dengan stok Jubelio.');
     $('#cb-body').html(html || '<tr><td colspan="' + kolom + '" class="cb-empty">' + kosong + '</td></tr>');
     $('#cb-count').text(fmt(tampil.length) + ' SKU');
     $('#cb-hal').text('Halaman ' + hal + ' / ' + total);
@@ -402,7 +507,7 @@ if (!empty($akses_ditolak)) : ?>
       },
       error: function (xhr) {
         $('#cb-updated').text('Gagal memuat data.');
-        $('#cb-body').html('<tr><td colspan="7" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
+        $('#cb-body').html('<tr><td colspan="9" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
       }
     });
   }
@@ -491,7 +596,7 @@ if (!empty($akses_ditolak)) : ?>
     img.src = url;
   }
 
-  $('#cb-body').on('click', '.cb-iconbtn', function () {
+  $('#cb-body').on('click', '.cb-qtybtn', function () {
     var sku = $(this).attr('data-sku'), r = cariRow(sku);
     if (!r) { return; }
     skuAktif = sku;
@@ -556,6 +661,101 @@ if (!empty($akses_ditolak)) : ?>
       error: function (xhr, st) { $('#cb-m-srv').text(st === 'timeout' ? 'Waktu habis. Periksa sinyal lalu coba lagi.' : 'Gagal menyimpan. ' + (xhr.responseText || '').substring(0, 120)); },
       complete: function () { menyimpan = false; $('#cb-m-simpan').html('<i class="fa fa-save"></i> Simpan'); segarkan(); }
     });
+  });
+
+  // ---------- gambar penuh ----------
+  $('#cb-body').on('click', '.cb-eye', function () {
+    var r = cariRow($(this).attr('data-sku'));
+    if (!r) { return; }
+    var img = $('#cb-lb-img');
+    img.removeAttr('data-foto-lokal');
+    if (r.foto && r.foto_lokal) { img.attr('data-foto-lokal', r.foto_lokal); }
+    img.attr('src', r.foto || r.foto_lokal);
+    $('#cb-lb-judul').text(r.id_sku);
+    $('#cb-lb').modal('show');
+  });
+  $('#cb-lb').on('hidden.bs.modal', function () { $('#cb-lb-img').attr('src', ''); });
+
+  // ---------- pop-up no rak tujuan (Pindah ke) ----------
+  var rakAktif = null, rakGalat = '', rakSimpan = false;
+  /** Pesan galat untuk no rak, atau '' bila valid: tanpa spasi, hanya huruf/angka/-/ /, maks 50. */
+  function cekRak(v) {
+    if (v === '') { return 'No rak wajib diisi.'; }
+    if (/\s/.test(v)) { return 'No rak tidak boleh mengandung spasi.'; }
+    if (!/^[A-Za-z0-9\/-]+$/.test(v)) { return 'Hanya boleh huruf, angka, tanda - dan /.'; }
+    if (v.length > 50) { return 'Maksimal 50 karakter.'; }
+    return '';
+  }
+  function segarkanRak() {
+    var v = $('#cb-r-rak').val();
+    $('#cb-r-simpan').prop('disabled', rakSimpan || v === '' || rakGalat !== '');
+  }
+  function tampilGalatRak(pesan) {
+    rakGalat = pesan;
+    $('#cb-r-err').text(pesan);
+    $('#cb-r-rak').toggleClass('salah', pesan !== '');
+    segarkanRak();
+  }
+  $('#cb-body').on('click', '.cb-rakbtn', function () {
+    var r = cariRow($(this).attr('data-sku'));
+    if (!r) { return; }
+    rakAktif = r.id_sku;
+    $('#cb-r-sku').text(r.id_sku);
+    $('#cb-r-qty').text(r.qty_real);
+    $('#cb-r-rak').val(r.pindah_ke || '');
+    $('#cb-r-srv').text('');
+    tampilGalatRak('');
+    $('#cb-rakmodal').modal('show');
+  });
+  $('#cb-rakmodal').on('shown.bs.modal', function () { $('#cb-r-rak').trigger('focus').select(); });
+  // validasi langsung saat mengetik / menempel; field kosong tidak menampilkan galat sampai disimpan
+  $('#cb-r-rak').on('input paste keyup', function () {
+    var el = this;
+    setTimeout(function () { tampilGalatRak(el.value === '' ? '' : cekRak(el.value)); }, 0);
+  });
+  $('#cb-rakform').on('submit', function (e) {
+    e.preventDefault();
+    if (rakSimpan) { return; }
+    var v = $('#cb-r-rak').val(), salah = cekRak(v);
+    if (salah) { tampilGalatRak(salah); return; }
+    rakSimpan = true; segarkanRak();
+    $('#cb-r-simpan').html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
+    $('#cb-r-srv').text('');
+    $.ajax({ url: 'cabut-sku/simpan-pindah-ke', type: 'POST', dataType: 'json', data: { sku: rakAktif, rak: v }, timeout: 60000,
+      success: function (r) {
+        if (r.code !== 200) { $('#cb-r-srv').text(r.message); return; }
+        var row = cariRow(rakAktif);
+        if (row) { row.pindah_ke = r.data.pindah_ke; row.pindah_ke_oleh = r.data.oleh; row.pindah_ke_at = r.data.waktu; }
+        $('#cb-rakmodal').modal('hide');
+        ringkasan();
+        render();
+      },
+      error: function (xhr, st) { $('#cb-r-srv').text(st === 'timeout' ? 'Waktu habis. Periksa sinyal lalu coba lagi.' : 'Gagal menyimpan. ' + (xhr.responseText || '').substring(0, 120)); },
+      complete: function () { rakSimpan = false; $('#cb-r-simpan').html('<i class="fa fa-save"></i> Simpan'); segarkanRak(); }
+    });
+  });
+
+  // ---------- export Excel (tab aktif + filter layar) ----------
+  $('#cb-export').on('click', function () {
+    var tombol = $(this);
+    if (!tampil.length) { alert('Tidak ada data di tab ini untuk diekspor.'); return; }
+    var url = 'cabut-sku/export?' + $.param({ tab: tab, q: $.trim($('#cb-cari').val()), kat: kat });
+    tombol.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyiapkan...');
+    var x = new XMLHttpRequest();
+    x.open('GET', url); x.responseType = 'blob'; x.timeout = 120000;
+    var pulih = function () { tombol.prop('disabled', false).html('<i class="fa fa-file-excel-o"></i> Export Excel'); };
+    x.onload = function () {
+      pulih();
+      var tipe = x.getResponseHeader('Content-Type') || '';
+      if (x.status !== 200 || tipe.indexOf('spreadsheetml') === -1) { alert('Export gagal. Muat ulang halaman lalu coba lagi.'); return; }
+      var m = /filename="([^"]+)"/.exec(x.getResponseHeader('Content-Disposition') || '');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(x.response); a.download = m ? m[1] : 'cabut-sku.xlsx';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+    };
+    x.onerror = x.ontimeout = function () { pulih(); alert('Export gagal: koneksi bermasalah atau waktu habis.'); };
+    x.send();
   });
 
   // ---------- kontrol ----------

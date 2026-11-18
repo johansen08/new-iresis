@@ -133,7 +133,7 @@ class Jubelio_stok
      * Satu halaman daftar stok SELURUH item (baca-saja), untuk menu Cabut SKU. Tanpa cache: dipanggil hanya saat
      * tombol Perbarui diklik. Stok total = total_stocks.on_hand Jubelio (jumlah semua lokasi yang ditampilkan).
      *
-     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, stok_total}]}
+     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, stok_total, stok_display, stok_gudang}]}
      */
     public function daftar_stok($halaman, $ukuran = 200)
     {
@@ -146,15 +146,18 @@ class Jubelio_stok
             if (empty($d['item_code'])) {
                 continue;
             }
-            if (isset($d['total_stocks']['on_hand'])) {
-                $stok = (float) $d['total_stocks']['on_hand'];
-            } else {
-                $stok = 0;
-                foreach ((isset($d['location_stocks']) && is_array($d['location_stocks'])) ? $d['location_stocks'] : array() as $ls) {
-                    $stok += (float) (isset($ls['on_hand']) ? $ls['on_hand'] : 0);
-                }
+            $per = array(); // on_hand per lokasi: -1 = Display Barang, 1 = Gudang Utama
+            $jumlah = 0;
+            foreach ((isset($d['location_stocks']) && is_array($d['location_stocks'])) ? $d['location_stocks'] : array() as $ls) {
+                $oh = (float) (isset($ls['on_hand']) ? $ls['on_hand'] : 0);
+                $per[(int) (isset($ls['location_id']) ? $ls['location_id'] : 99)] = $oh;
+                $jumlah += $oh;
             }
-            $items[] = array('sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'stok_total' => (int) round($stok));
+            $stok = isset($d['total_stocks']['on_hand']) ? (float) $d['total_stocks']['on_hand'] : $jumlah;
+            $items[] = array(
+                'sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'stok_total' => (int) round($stok),
+                'stok_display' => (int) round(isset($per[-1]) ? $per[-1] : 0), 'stok_gudang' => (int) round(isset($per[1]) ? $per[1] : 0),
+            );
         }
         return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
     }

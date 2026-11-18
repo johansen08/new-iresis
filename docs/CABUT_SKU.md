@@ -15,6 +15,14 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 
 **Qty Real**: ikon pensil di kolom Qty Real membuka pop-up isian hitung fisik. Guard: hanya bilangan bulat >= 0 (digit saja, maks 9 digit). Desimal (`9,2`, `9.2`), huruf (`sembilan`), minus, spasi, dan kosong ditolak, di browser dan di server (`Cabut_sku::simpan_qty_real`, route `cabut-sku/simpan-qty-real`). Disimpan di `tblcabut_sku_stok.qty_real` (+ `qty_real_oleh`, `qty_real_at`); tombol Perbarui tidak menimpanya.
 
+## Pembaruan 18 Nov 2026 (gambar, stok per gudang, tab No. Rak, export)
+
+- **Gambar SKU**: tiap baris menampilkan gambar kecil (`tblsku.link_foto`, cadangan salinan lokal lewat `assets/js/foto_sku.js`) dan ikon mata untuk membuka gambar penuh di pop-up. Tanpa foto = kotak kosong.
+- **Stok Jubelio** menjadi judul kolom besar dengan tiga kolom anak: **Display** (lokasi Display Barang), **Gudang** (Gudang Utama), **Total** (`total_stocks.on_hand`, yang dipakai syarat <= 10 dan pembanding qty real). Display/Gudang disimpan di `stok_display` / `stok_gudang` saat Perbarui; baris lama tampil `-` sampai Perbarui diklik sekali. Transit ikut Total tetapi tidak punya kolom sendiri, jadi Display + Gudang bisa lebih kecil dari Total.
+- **Tiga tab**: *Perlu Isi Qty Real* (qty real kosong), *Perlu Penyesuaian* (qty real beda dengan stok total), *Perlu Isi No. Rak* (qty real sudah diisi **dan sama** dengan stok total). Baris pindah tab otomatis bila qty real atau stok berubah.
+- **Pindah ke** (tab No. Rak): ikon pensil membuka pop-up no. rak tujuan. Validasi di browser dan server (`Cabut_sku::simpan_pindah_ke`, route `cabut-sku/simpan-pindah-ke`): wajib, **tanpa spasi**, hanya huruf, angka, `-` dan `/`, maks 50 karakter; server juga menolak bila SKU belum di tab No. Rak. Disimpan di `tblcabut_sku_stok.pindah_ke` (+ `pindah_ke_oleh`, `pindah_ke_at`). Ini hanya catatan tujuan: **tidak mengubah rak di Jubelio maupun `tblsku.no_rak`**. SKU yang sudah terisi tetap tampil di tab (urutan paling bawah, nilainya ditampilkan); angka badge/KPI = yang belum diisi.
+- **Export Excel**: tombol di toolbar mengunduh tab aktif dengan filter layar (kategori + pencarian) lewat `Cabut_sku::export` (`cabut-sku/export?tab=&q=&kat[]=`), xlsx: header dua baris (grup "Stok Jubelio" digabung di atas Display/Gudang/Total), semua sel rata tengah, garis tepi horizontal dan vertikal, baris header beku + autofilter. Kolom: No, SKU, Kategori SKU, No Rak, Display, Gudang, Total, Qty Real, (Selisih di tab penyesuaian / Pindah ke di tab No. Rak), Diisi oleh, Waktu diisi.
+
 ## Alur
 
 1. `Cabut_sku::get_data` hanya membaca tabel `tblcabut_sku_stok` (salinan stok) digabung `tblsku`. Tidak menyentuh Jubelio.
@@ -25,6 +33,6 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 ## Data
 
 - `tblsku.kategori_sku` VARCHAR(50): diisi dari Excel KATEGORI SKU (17 Nov 2026). SKU di luar Excel bernilai NULL, jadi tidak tampil. Kategori kosong di Excel = `P<30`.
-- `tblcabut_sku_stok` (`id_sku` PK, `item_id`, `stok_total`, `rak_jubelio`, `qty_real`, `qty_real_oleh`, `qty_real_at`, `qty_real_foto`, `diperbarui`), dibuat oleh `MY_Controller::run_cabut_sku_migration()`.
+- `tblcabut_sku_stok` (`id_sku` PK, `item_id`, `stok_total`, `stok_display`, `stok_gudang`, `rak_jubelio`, `pindah_ke`, `pindah_ke_oleh`, `pindah_ke_at`, `qty_real`, `qty_real_oleh`, `qty_real_at`, `qty_real_foto`, `diperbarui`), dibuat oleh `MY_Controller::run_cabut_sku_migration()`.
 - Jubelio bisa punya dua item yang hanya beda huruf besar/kecil (mis. `MICKEY` dan `mickey`); PK tidak membedakannya, jadi yang diproses terakhir menang.
 - SKU kategori tersebut yang tidak ada di Jubelio tidak punya baris stok dan tidak tampil; jumlahnya ditampilkan di baris status.

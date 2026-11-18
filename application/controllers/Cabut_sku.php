@@ -94,6 +94,137 @@ class Cabut_sku extends MY_Controller
     }
 
     /**
+     * Simpan no rak tujuan ("Pindah ke") satu SKU. POST: sku, rak. Guard: wajib diisi, tanpa spasi (di mana pun),
+     * hanya huruf, angka, '-' dan '/', maks 50 karakter; SKU harus sudah di tab Perlu Isi No. Rak (dicek di model).
+     */
+    public function simpan_pindah_ke()
+    {
+        $sku = trim((string) $this->input->post('sku'));
+        $rak = (string) $this->input->post('rak');
+
+        if ($sku === '') {
+            $this->make_ajax_response(400, 'SKU tidak boleh kosong.');
+        }
+        if (trim($rak) === '') {
+            $this->make_ajax_response(400, 'No rak wajib diisi.');
+        }
+        if (preg_match('/\s/u', $rak)) {
+            $this->make_ajax_response(400, 'No rak tidak boleh mengandung spasi.');
+        }
+        if (!preg_match('/^[A-Za-z0-9\/-]+$/D', $rak)) {
+            $this->make_ajax_response(400, 'No rak hanya boleh huruf, angka, tanda - dan /.');
+        }
+        if (strlen($rak) > 50) {
+            $this->make_ajax_response(400, 'No rak maksimal 50 karakter.');
+        }
+
+        $oleh  = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
+        $galat = $this->cabut_sku_fcd->simpan_pindah_ke($sku, $rak, $oleh);
+        if ($galat !== '') {
+            $this->make_ajax_response(400, $galat);
+        }
+        $this->make_ajax_response(200, 'No rak tujuan disimpan.', [
+            'sku' => $sku, 'pindah_ke' => $rak, 'oleh' => $oleh, 'waktu' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * Ekspor Excel (xlsx) satu tab dengan filter layar. GET: tab (isi|adj|rak), kat[] (kategori), q (kata kunci).
+     * Header dua baris (grup "Stok Jubelio" -> Display / Gudang / Total), rata tengah, garis tepi semua sel.
+     */
+    public function export()
+    {
+        $tab = (string) $this->input->get('tab');
+        $judul = ['isi' => 'Perlu Isi Qty Real', 'adj' => 'Perlu Penyesuaian', 'rak' => 'Perlu Isi No Rak'];
+        if (!isset($judul[$tab])) {
+            $this->make_ajax_response(400, 'Tab tidak dikenal.');
+        }
+        $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
+        $baris = $this->cabut_sku_fcd->daftar_tab($tab, $kat, (string) $this->input->get('q'));
+
+        $kolom = ['No', 'SKU', 'Kategori SKU', 'No Rak', 'Display', 'Gudang', 'Total', 'Qty Real'];
+        if ($tab === 'adj') { $kolom[] = 'Selisih'; }
+        if ($tab === 'rak') { $kolom[] = 'Pindah ke'; }
+        $kolom[] = 'Diisi oleh';
+        $kolom[] = 'Waktu diisi';
+        $n = count($kolom);
+        $col = function ($i) { return \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i); };
+        $akhir = $col($n);
+
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $ws = $ss->getActiveSheet();
+        $ws->setTitle($judul[$tab]);
+
+        // Header dua baris: kolom lain digabung vertikal; "Stok Jubelio" digabung di atas Display/Gudang/Total (E-G).
+        foreach ($kolom as $i => $nama) {
+            $h = $col($i + 1);
+            if ($i >= 4 && $i <= 6) {
+                $ws->setCellValue($h . '2', $nama);
+            } else {
+                $ws->setCellValue($h . '1', $nama);
+                $ws->mergeCells($h . '1:' . $h . '2');
+            }
+        }
+        $ws->setCellValue('E1', 'Stok Jubelio');
+        $ws->mergeCells('E1:G1');
+
+        $r = 3;
+        foreach ($baris as $i => $b) {
+            $nilai = [
+                $i + 1, (string) $b['id_sku'], (string) $b['kategori_sku'], (string) $b['rak_jubelio'],
+                $b['stok_display'] === null ? '' : (int) $b['stok_display'],
+                $b['stok_gudang'] === null ? '' : (int) $b['stok_gudang'],
+                (int) $b['stok_total'],
+                $b['qty_real'] === null ? '' : (int) $b['qty_real'],
+            ];
+            if ($tab === 'adj') { $nilai[] = (int) $b['qty_real'] - (int) $b['stok_total']; }
+            if ($tab === 'rak') { $nilai[] = (string) $b['pindah_ke']; }
+            $nilai[] = (string) $b['qty_real_oleh'];
+            $nilai[] = $b['qty_real_at'] ? date('d/m/Y H:i', strtotime($b['qty_real_at'])) : '';
+            foreach ($nilai as $j => $v) {
+                // Teks eksplisit supaya SKU angka panjang tidak berubah jadi notasi ilmiah / rumus.
+                if (is_string($v)) {
+                    $ws->setCellValueExplicit($col($j + 1) . $r, $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                } else {
+                    $ws->setCellValue($col($j + 1) . $r, $v);
+                }
+            }
+            $r++;
+        }
+        $terakhir = max(3, $r - 1);
+
+        $rentang = 'A1:' . $akhir . $terakhir;
+        $ws->getStyle($rentang)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
+        $ws->getStyle($rentang)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $head = $ws->getStyle('A1:' . $akhir . '2');
+        $head->getFont()->setBold(TRUE)->getColor()->setRGB('FFFFFF');
+        $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
+        $ws->getRowDimension(1)->setRowHeight(22);
+        $ws->getRowDimension(2)->setRowHeight(22);
+        $lebar = [6, 24, 14, 16, 11, 11, 11, 11];
+        foreach ($kolom as $i => $nama) {
+            $w = isset($lebar[$i]) ? $lebar[$i] : ($nama === 'Diisi oleh' ? 22 : ($nama === 'Waktu diisi' ? 18 : 16));
+            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
+        }
+        $ws->freezePane('A3');
+        if ($r > 3) {
+            $ws->setAutoFilter('A2:' . $akhir . $terakhir);
+        }
+
+        $nama_berkas = 'cabut-sku-' . $tab . '-' . date('Ymd-His') . '.xlsx';
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit();
+    }
+
+    /**
      * Simpan qty real satu SKU. POST multipart: sku, qty_real, foto. Guard qty: hanya bilangan bulat >= 0 (digit saja,
      * maks 9 digit); desimal ("9,2" / "9.2"), huruf ("sembilan"), tanda minus, spasi di tengah, dan kosong ditolak.
      * Guard foto: wajib, JPG/PNG/WebP (dicek isi berkas, bukan ekstensi), maks 5 MB, minimal 200x200 piksel.
