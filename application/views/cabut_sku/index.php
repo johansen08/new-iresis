@@ -303,7 +303,7 @@ if (!empty($akses_ditolak)) : ?>
 <div class="modal fade cb-mod" id="cb-modal" role="dialog" aria-labelledby="cb-modal-judul" aria-hidden="true">
   <div class="modal-dialog" role="document" style="max-width:460px;">
     <div class="modal-content">
-      <form id="cb-form" novalidate autocomplete="off">
+      <form id="cb-form" class="nojs" novalidate autocomplete="off">
         <div class="modal-header">
           <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
           <h4 class="modal-title" id="cb-modal-judul">Isi Qty Real</h4>
@@ -341,7 +341,7 @@ if (!empty($akses_ditolak)) : ?>
 <div class="modal fade cb-mod" id="cb-rakmodal" role="dialog" aria-labelledby="cb-rak-judul" aria-hidden="true">
   <div class="modal-dialog" role="document" style="max-width:440px;">
     <div class="modal-content">
-      <form id="cb-rakform" novalidate autocomplete="off">
+      <form id="cb-rakform" class="nojs" novalidate autocomplete="off">
         <div class="modal-header">
           <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
           <h4 class="modal-title" id="cb-rak-judul">Isi No. Rak Tujuan</h4>
