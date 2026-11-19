@@ -60,43 +60,44 @@ class Cabut_sku extends MY_Controller
         ]);
     }
 
-    /** Ambil satu halaman stok dari Jubelio lalu simpan. POST: halaman (mulai 1). */
+    /**
+     * Ambil SELURUH stok + no rak dari Jubelio sekali jalan (request paralel, page size besar; lihat
+     * Jubelio_stok::ambil_semua) lalu simpan dalam satu transaksi.
+     */
     public function perbarui()
     {
-        $halaman = max(1, (int) $this->input->post('halaman'));
-        set_time_limit(60);
+        set_time_limit(180);
+        ini_set('memory_limit', '512M');
+        $mulai = microtime(true);
 
         try {
             $this->load->library('jubelio_stok');
-            $hasil = $this->jubelio_stok->daftar_stok($halaman, Cabut_sku_fcd::UKURAN_HALAMAN);
-            $rak   = $this->jubelio_stok->daftar_rak($halaman, Cabut_sku_fcd::UKURAN_HALAMAN);
+            $hasil = $this->jubelio_stok->ambil_semua();
         } catch (RuntimeException $e) {
             $this->make_ajax_response(502, $e->getMessage());
+        }
+        if (!$hasil['stok']) {
+            $this->make_ajax_response(502, 'Jubelio tidak mengirim data stok. Coba lagi.');
         }
 
         $db_debug = $this->db->db_debug;
         $this->db->db_debug = FALSE;
         $this->db->trans_start();
-        $n = $this->cabut_sku_fcd->simpan_halaman($hasil['items']);
-        $this->cabut_sku_fcd->simpan_rak_halaman($rak['items']);
+        $n = $this->cabut_sku_fcd->simpan_halaman($hasil['stok']);
+        $this->cabut_sku_fcd->simpan_rak_halaman($hasil['rak']);
         $this->db->trans_complete();
         $this->db->db_debug = $db_debug;
         if ($this->db->trans_status() === FALSE) {
-            $this->make_ajax_response(500, 'Gagal menyimpan stok halaman ' . $halaman . ' ke database.');
+            $this->make_ajax_response(500, 'Gagal menyimpan stok ke database.');
         }
 
         $this->make_ajax_response(200, 'OK', [
-            'halaman'       => $halaman,
-            'total_halaman' => (int) max(1, ceil($hasil['total'] / Cabut_sku_fcd::UKURAN_HALAMAN)),
-            'total_item'    => $hasil['total'],
-            'tersimpan'     => $n,
+            'total_item' => $hasil['total'],
+            'tersimpan'  => $n,
+            'detik'      => round(microtime(true) - $mulai, 1),
         ]);
     }
 
-    /**
-     * Simpan no rak tujuan ("Pindah ke") satu SKU. POST: sku, rak. Guard: wajib diisi, tanpa spasi (di mana pun),
-     * hanya huruf, angka, '-' dan '/', maks 50 karakter; SKU harus sudah di tab Perlu Isi No. Rak (dicek di model).
-     */
     public function simpan_pindah_ke()
     {
         $sku = trim((string) $this->input->post('sku'));
@@ -130,7 +131,8 @@ class Cabut_sku extends MY_Controller
 
     /**
      * Ekspor Excel (xlsx) satu tab dengan filter layar. GET: tab (isi|adj|rak), kat[] (kategori), q (kata kunci).
-     * Header dua baris (grup "Stok Jubelio" -> Display / Gudang / Total), rata tengah, garis tepi semua sel.
+     * Header tiga baris (Stok Jubelio -> gudang -> On Hand / On Order / On Reserve / On Available), rata tengah, garis tepi
+     * semua sel; angka diberi warna sama dengan layar (hijau / merah / ungu / biru).
      */
     public function export()
     {
@@ -142,42 +144,72 @@ class Cabut_sku extends MY_Controller
         $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
         $baris = $this->cabut_sku_fcd->daftar_tab($tab, $kat, (string) $this->input->get('q'));
 
-        $kolom = ['No', 'SKU', 'Kategori SKU', 'No Rak', 'Display Barang (F19&F19A)', 'Gudang Utama (F16)', 'Transit', 'Total Stok', 'Qty Real'];
-        if ($tab === 'adj') { $kolom[] = 'Selisih'; }
-        if ($tab === 'rak') { $kolom[] = 'Pindah ke'; }
-        $kolom[] = 'Diisi oleh';
-        $kolom[] = 'Waktu diisi';
-        $n = count($kolom);
+        // Kolom stok: [grup, sub-judul, kunci data, jenis warna]. Transit hanya On Available.
+        $stok = [];
+        foreach ([['Display Barang (F19&F19A)', ['stok_display', 'disp_order', 'disp_reserved', 'disp_available']],
+                  ['Gudang Utama (F16)', ['stok_gudang', 'gud_order', 'gud_reserved', 'gud_available']]] as $g) {
+            foreach (['On Hand', 'On Order', 'On Reserve', 'On Available'] as $i => $nm) {
+                $stok[] = [$g[0], $nm, $g[1][$i], $i];
+            }
+        }
+        $stok[] = ['Transit', 'On Available', 'stok_transit', 3];
+        foreach (['On Hand', 'On Order', 'On Reserve', 'On Available'] as $i => $nm) {
+            $stok[] = ['Total Stok', $nm, ['stok_total', 'tot_order', 'tot_reserved', 'tot_available'][$i], $i];
+        }
+        $n_stok = count($stok); // 13
+
+        $depan = ['No', 'SKU', 'Kategori SKU', 'No Rak'];
+        $belakang = ['Qty Real'];
+        if ($tab === 'adj') { $belakang[] = 'Selisih'; }
+        if ($tab === 'rak') { $belakang[] = 'Pindah ke'; }
+        $belakang[] = 'Diisi oleh';
+        $belakang[] = 'Waktu diisi';
+        $n_depan = count($depan);
+        $n = $n_depan + $n_stok + count($belakang);
         $col = function ($i) { return \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i); };
         $akhir = $col($n);
+        $c_stok1 = $col($n_depan + 1);
+        $c_stok2 = $col($n_depan + $n_stok);
 
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $ws = $ss->getActiveSheet();
         $ws->setTitle($judul[$tab]);
 
-        // Header dua baris: kolom lain digabung vertikal; "Stok Jubelio" digabung di atas Display/Gudang/Total (E-G).
-        foreach ($kolom as $i => $nama) {
+        // Kolom di luar stok: judul di baris 1, digabung vertikal sampai baris 3.
+        foreach (array_merge($depan, [], []) as $i => $nama) {
             $h = $col($i + 1);
-            if ($i >= 4 && $i <= 7) {
-                $ws->setCellValue($h . '2', $nama);
-            } else {
-                $ws->setCellValue($h . '1', $nama);
-                $ws->mergeCells($h . '1:' . $h . '2');
-            }
+            $ws->setCellValue($h . '1', $nama);
+            $ws->mergeCells($h . '1:' . $h . '3');
         }
-        $ws->setCellValue('E1', 'Stok Jubelio');
-        $ws->mergeCells('E1:H1');
+        foreach ($belakang as $i => $nama) {
+            $h = $col($n_depan + $n_stok + $i + 1);
+            $ws->setCellValue($h . '1', $nama);
+            $ws->mergeCells($h . '1:' . $h . '3');
+        }
+        $ws->setCellValue($c_stok1 . '1', 'Stok Jubelio');
+        $ws->mergeCells($c_stok1 . '1:' . $c_stok2 . '1');
+        // Baris 2: nama gudang (digabung per grup); baris 3: jenis stok.
+        $awal = 0;
+        while ($awal < $n_stok) {
+            $akhir_g = $awal;
+            while ($akhir_g + 1 < $n_stok && $stok[$akhir_g + 1][0] === $stok[$awal][0]) { $akhir_g++; }
+            $a1 = $col($n_depan + $awal + 1);
+            $a2 = $col($n_depan + $akhir_g + 1);
+            $ws->setCellValue($a1 . '2', $stok[$awal][0]);
+            if ($akhir_g > $awal) { $ws->mergeCells($a1 . '2:' . $a2 . '2'); }
+            $awal = $akhir_g + 1;
+        }
+        foreach ($stok as $i => $k) {
+            $ws->setCellValue($col($n_depan + $i + 1) . '3', $k[1]);
+        }
 
-        $r = 3;
+        $r = 4;
         foreach ($baris as $i => $b) {
-            $nilai = [
-                $i + 1, (string) $b['id_sku'], (string) $b['kategori_sku'], (string) $b['rak_jubelio'],
-                $b['stok_display'] === null ? '' : (int) $b['stok_display'],
-                $b['stok_gudang'] === null ? '' : (int) $b['stok_gudang'],
-                $b['stok_transit'] === null ? '' : (int) $b['stok_transit'],
-                (int) $b['stok_total'],
-                $b['qty_real'] === null ? '' : (int) $b['qty_real'],
-            ];
+            $nilai = [$i + 1, (string) $b['id_sku'], (string) $b['kategori_sku'], (string) $b['rak_jubelio']];
+            foreach ($stok as $k) {
+                $nilai[] = $b[$k[2]] === null ? '' : (int) $b[$k[2]];
+            }
+            $nilai[] = $b['qty_real'] === null ? '' : (int) $b['qty_real'];
             if ($tab === 'adj') { $nilai[] = (int) $b['qty_real'] - (int) $b['stok_total']; }
             if ($tab === 'rak') { $nilai[] = (string) $b['pindah_ke']; }
             $nilai[] = (string) $b['qty_real_oleh'];
@@ -192,34 +224,41 @@ class Cabut_sku extends MY_Controller
             }
             $r++;
         }
-        $terakhir = max(3, $r - 1);
+        $terakhir = max(4, $r - 1);
 
         $rentang = 'A1:' . $akhir . $terakhir;
         $ws->getStyle($rentang)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
         $ws->getStyle($rentang)->getAlignment()
             ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $head = $ws->getStyle('A1:' . $akhir . '2');
+        $head = $ws->getStyle('A1:' . $akhir . '3');
         $head->getFont()->setBold(TRUE)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
-        $ws->getRowDimension(1)->setRowHeight(22);
-        $ws->getRowDimension(2)->setRowHeight(22);
-        $lebar = [6, 24, 14, 16, 18, 16, 11, 11, 11];
-        foreach ($kolom as $i => $nama) {
-            $w = isset($lebar[$i]) ? $lebar[$i] : ($nama === 'Diisi oleh' ? 22 : ($nama === 'Waktu diisi' ? 18 : 16));
+        foreach ([1, 2, 3] as $br) {
+            $ws->getRowDimension($br)->setRowHeight(22);
+        }
+        // Baris 2 (nama gudang) abu muda; baris 3 dan angka berwarna per jenis: hijau / merah / ungu / biru.
+        $ws->getStyle($c_stok1 . '1:' . $c_stok2 . '1')->getFill()->getStartColor()->setRGB('4338CA');
+        $ws->getStyle($c_stok1 . '2:' . $c_stok2 . '2')->getFill()->getStartColor()->setRGB('E2E8F0');
+        $ws->getStyle($c_stok1 . '2:' . $c_stok2 . '2')->getFont()->getColor()->setRGB('334155');
+        $warna = [['DCFCE7', '15803D'], ['FEE2E2', 'B91C1C'], ['F3E8FF', '7E22CE'], ['DBEAFE', '1D4ED8']];
+        foreach ($stok as $i => $k) {
+            $h = $col($n_depan + $i + 1);
+            $ws->getStyle($h . '3')->getFill()->getStartColor()->setRGB($warna[$k[3]][0]);
+            $ws->getStyle($h . '3')->getFont()->getColor()->setRGB($warna[$k[3]][1]);
+            $ws->getStyle($h . '4:' . $h . $terakhir)->getFont()->setBold(TRUE)->getColor()->setRGB($warna[$k[3]][1]);
+        }
+        foreach (array_merge($depan, array_fill(0, $n_stok, ''), $belakang) as $i => $nama) {
+            if ($i >= $n_depan && $i < $n_depan + $n_stok) {
+                $w = 13;
+            } else {
+                $w = ['No' => 6, 'SKU' => 24, 'Kategori SKU' => 14, 'No Rak' => 16, 'Qty Real' => 11, 'Selisih' => 11, 'Diisi oleh' => 22, 'Waktu diisi' => 18][$nama] ?? 16;
+            }
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
-        // Warna sub-kolom stok sama dengan layar: Display biru, Gudang oranye, Total hijau.
-        foreach (['E' => 'DBEAFE', 'F' => 'FFEDD5', 'G' => 'EDE9FE', 'H' => 'DCFCE7'] as $h => $warna) {
-            $ws->getStyle($h . '2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($warna);
-            $ws->getStyle($h . '2')->getFont()->getColor()->setRGB(['E' => '1D4ED8', 'F' => 'C2410C', 'G' => '6D28D9', 'H' => '15803D'][$h]);
-            if ($terakhir >= 3) {
-                $ws->getStyle($h . '3:' . $h . $terakhir)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB(['E' => 'EFF6FF', 'F' => 'FFF7ED', 'G' => 'F5F3FF', 'H' => 'F0FDF4'][$h]);
-            }
-        }
-        $ws->freezePane('A3');
-        if ($r > 3) {
-            $ws->setAutoFilter('A2:' . $akhir . $terakhir);
+        $ws->freezePane('A4');
+        if ($r > 4) {
+            $ws->setAutoFilter('A3:' . $akhir . $terakhir);
         }
 
         $nama_berkas = 'cabut-sku-' . $tab . '-' . date('Ymd-His') . '.xlsx';

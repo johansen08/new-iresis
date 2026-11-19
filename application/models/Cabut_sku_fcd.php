@@ -11,7 +11,6 @@ class Cabut_sku_fcd extends CI_Model
     const KATEGORI = ['EOL', 'WP EOL', 'CUT'];
     const STOK_MIN = 1;
     const BATAS_STOK = 10;
-    const UKURAN_HALAMAN = 200;
 
     /** SKU yang memenuhi syarat, stok paling banyak lebih dulu. */
     public function daftar()
@@ -19,7 +18,9 @@ class Cabut_sku_fcd extends CI_Model
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
         // Rak Jubelio kosong tetap tampil (belum dicabut); rak CABUT atau berawalan KR- dianggap sudah dicabut dan disembunyikan.
         // SKU yang no. rak Jubelio-nya sudah sama dengan "pindah ke" = selesai dicabut dan dipindah, hilang dari semua tab.
-        $sql = "SELECT s.id_sku, s.kategori_sku, s.link_foto, s.foto_lokal, k.rak_jubelio, k.stok_total, k.stok_display, k.stok_gudang, k.stok_transit,
+        $sql = "SELECT s.id_sku, s.kategori_sku, s.link_foto, s.foto_lokal, k.rak_jubelio, k.stok_total, k.stok_display, k.disp_order, k.disp_reserved, k.disp_available,
+                       k.stok_gudang, k.gud_order, k.gud_reserved, k.gud_available, k.stok_transit,
+                       k.tot_order, k.tot_reserved, k.tot_available,
                        k.qty_real, k.qty_real_oleh, k.qty_real_at, k.qty_real_foto, k.pindah_ke, k.pindah_ke_oleh, k.pindah_ke_at
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
@@ -90,45 +91,66 @@ class Cabut_sku_fcd extends CI_Model
         ];
     }
 
-    /** Upsert satu halaman hasil Jubelio_stok::daftar_stok. Mengembalikan jumlah baris yang diproses. */
+    /** Kolom tblcabut_sku_stok yang diisi dari Jubelio (urutan = urutan di baris hasil Jubelio_stok::ambil_semua). */
+    const KOLOM_STOK = ['id_sku' => 'sku', 'item_id' => 'item_id', 'stok_total' => 'stok_total', 'tot_order' => 'tot_order',
+        'tot_reserved' => 'tot_reserved', 'tot_available' => 'tot_available', 'stok_display' => 'stok_display',
+        'disp_order' => 'disp_order', 'disp_reserved' => 'disp_reserved', 'disp_available' => 'disp_available',
+        'stok_gudang' => 'stok_gudang', 'gud_order' => 'gud_order', 'gud_reserved' => 'gud_reserved',
+        'gud_available' => 'gud_available', 'stok_transit' => 'stok_transit'];
+
+    /** Upsert hasil Jubelio_stok::ambil_semua (stok) dalam potongan 500 baris. Mengembalikan jumlah baris yang diproses. */
     public function simpan_halaman(array $items)
     {
         if (!$items) {
             return 0;
         }
         $now = date('Y-m-d H:i:s');
-        $ph = [];
-        $bind = [];
-        foreach ($items as $it) {
-            $ph[] = '(?, ?, ?, ?, ?, ?, ?)';
-            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $it['stok_display'], $it['stok_gudang'], $it['stok_transit'], $now);
+        $kolom = array_keys(self::KOLOM_STOK);
+        $satu = '(' . implode(', ', array_fill(0, count($kolom) + 1, '?')) . ')';
+        $upd = [];
+        foreach ($kolom as $k) {
+            if ($k !== 'id_sku') {
+                $upd[] = "$k = VALUES($k)";
+            }
         }
-        $this->db->query(
-            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, stok_display, stok_gudang, stok_transit, diperbarui) VALUES " . implode(',', $ph) .
-            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), stok_display = VALUES(stok_display), stok_gudang = VALUES(stok_gudang), stok_transit = VALUES(stok_transit), diperbarui = VALUES(diperbarui)",
-            $bind
-        );
+        $upd[] = 'diperbarui = VALUES(diperbarui)';
+        foreach (array_chunk($items, 500) as $potong) {
+            $bind = [];
+            foreach ($potong as $it) {
+                foreach (self::KOLOM_STOK as $kunci) {
+                    $bind[] = $it[$kunci];
+                }
+                $bind[] = $now;
+            }
+            $this->db->query(
+                "INSERT INTO tblcabut_sku_stok (" . implode(', ', $kolom) . ", diperbarui) VALUES " .
+                implode(',', array_fill(0, count($potong), $satu)) . " ON DUPLICATE KEY UPDATE " . implode(', ', $upd),
+                $bind
+            );
+        }
         return count($items);
     }
 
-    /** Upsert satu halaman hasil Jubelio_stok::daftar_rak (hanya kolom rak_jubelio). */
+    /** Upsert no rak Jubelio (hanya kolom rak_jubelio) dalam potongan 500 baris. */
     public function simpan_rak_halaman(array $items)
     {
         if (!$items) {
             return 0;
         }
         $now = date('Y-m-d H:i:s');
-        $ph = [];
-        $bind = [];
-        foreach ($items as $it) {
-            $ph[] = '(?, ?, ?, ?)';
-            array_push($bind, $it['sku'], $it['item_id'], $it['rak'], $now);
+        foreach (array_chunk($items, 500) as $potong) {
+            $ph = [];
+            $bind = [];
+            foreach ($potong as $it) {
+                $ph[] = '(?, ?, ?, ?)';
+                array_push($bind, $it['sku'], $it['item_id'], $it['rak'], $now);
+            }
+            $this->db->query(
+                "INSERT INTO tblcabut_sku_stok (id_sku, item_id, rak_jubelio, diperbarui) VALUES " . implode(',', $ph) .
+                " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), rak_jubelio = VALUES(rak_jubelio), diperbarui = VALUES(diperbarui)",
+                $bind
+            );
         }
-        $this->db->query(
-            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, rak_jubelio, diperbarui) VALUES " . implode(',', $ph) .
-            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), rak_jubelio = VALUES(rak_jubelio), diperbarui = VALUES(diperbarui)",
-            $bind
-        );
         return count($items);
     }
 

@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-19.1';
+    const BOOTSTRAP_VERSI = '2026-11-19.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1931,6 +1931,19 @@ class MY_Controller extends CI_Controller
         // Stok Transit (location 0), diambil sama seperti Cek Top Level: angka On Available.
         if (!in_array('stok_transit', $this->db->list_fields('tblcabut_sku_stok'))) {
             $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN stok_transit INT NULL DEFAULT NULL COMMENT 'available Transit (location 0)'");
+        }
+        // Empat angka stok per gudang (On Hand sudah ada: stok_display / stok_gudang / stok_total; sisanya di sini).
+        $kol_stok = $this->db->list_fields('tblcabut_sku_stok');
+        $baru = [];
+        foreach (['disp' => 'Display Barang', 'gud' => 'Gudang Utama', 'tot' => 'Total'] as $pfx => $nama) {
+            foreach (['order' => 'on_order', 'reserved' => 'reserved', 'available' => 'available'] as $sfx => $ket) {
+                if (!in_array($pfx . '_' . $sfx, $kol_stok)) {
+                    $baru[] = "ADD COLUMN {$pfx}_{$sfx} INT NULL DEFAULT NULL COMMENT '{$ket} {$nama}'";
+                }
+            }
+        }
+        if ($baru) {
+            $this->db->query('ALTER TABLE tblcabut_sku_stok ' . implode(', ', $baru));
         }
         if (!in_array('pindah_ke', $this->db->list_fields('tblcabut_sku_stok'))) {
             $this->db->query("ALTER TABLE tblcabut_sku_stok
