@@ -251,7 +251,7 @@ if (!empty($akses_ditolak)) : ?>
       <h2 class="cb-title">Cabut SKU</h2>
       <div class="cb-syarat" aria-label="Syarat SKU tampil">
         <span class="cb-syarat-judul">Syarat tampil</span>
-        <span class="cb-sy"><i class="fa fa-tags"></i>Kategori <b><?= htmlspecialchars(implode(' &middot; ', $kategori)) ?></b></span>
+        <span class="cb-sy"><i class="fa fa-tags"></i>Kategori <b><?= implode(' &middot; ', array_map('htmlspecialchars', $kategori)) ?></b></span>
         <span class="cb-sy"><i class="fa fa-cubes"></i>Stok total Jubelio <b><?= (int) $stok_min ?>&ndash;<?= (int) $batas ?></b></span>
         <span class="cb-sy"><i class="fa fa-map-marker"></i>Rak Jubelio belum <b>CABUT</b> / <b>KR-</b></span>
       </div>
