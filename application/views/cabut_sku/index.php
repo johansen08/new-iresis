@@ -511,6 +511,8 @@ if (!empty($akses_ditolak)) : ?>
         semua = d.baris || [];
         var s = rs.diperbarui ? 'Stok Jubelio diperbarui<br><strong>' + fmtWaktu(rs.diperbarui) + '</strong>' : 'Stok belum pernah diambil.<br>Klik Perbarui.';
         if (rs.belum_ada > 0) { s += '<br>' + fmt(rs.belum_ada) + ' SKU berkategori belum punya data stok'; }
+        var kosong = semua.filter(function (r) { return r.stok_display === null || r.stok_gudang === null || r.stok_transit === null; }).length;
+        if (kosong > 0) { s += '<br><strong style="color:#c2410c">' + fmt(kosong) + ' SKU belum punya rincian Display/Gudang/Transit. Klik Perbarui untuk mengisinya.</strong>'; }
         $('#cb-updated').html(s);
         ringkasan();
         render();
