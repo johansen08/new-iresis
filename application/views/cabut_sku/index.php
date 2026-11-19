@@ -151,7 +151,8 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-dot-oh { background:#15803d; } #cb-root .cb-dot-oo { background:#b91c1c; } #cb-root .cb-dot-rs { background:#7e22ce; } #cb-root .cb-dot-av { background:#1d4ed8; }
   #cb-root .cb-lg-note { margin-left:auto; font-size:12px; }
   @media (max-width: 767px) { #cb-root .cb-lg-note { margin-left:0; flex-basis:100%; } #cb-root .cb-sy { white-space:normal; } }
-  #cb-root .cb-pindah { display:inline-flex; align-items:center; gap:8px; }
+  #cb-root .cb-pindah { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+  #cb-root .cb-table td.cb-rak { white-space:nowrap; }
   #cb-root .cb-pindah-val { font-weight:700; color:#047857; }
   #cb-root .cb-btn-xls { height:38px; padding:0 14px; font-size:13.5px; margin-left:auto; }
   #cb-root .cb-toolbar .cb-count { margin-left:0; }

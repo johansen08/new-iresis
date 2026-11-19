@@ -54,7 +54,7 @@ Warna angka: **On Hand hijau, On Order merah, On Reserve ungu, On Available biru
   - Angka: hanya bilangan bulat ≥ 0, digit saja, maks 9 digit. Desimal (`9,2` / `9.2`), huruf, minus, spasi, dan kosong ditolak di browser **dan** server (`Cabut_sku::simpan_qty_real`, route `cabut-sku/simpan-qty-real`).
   - **Foto bukti wajib** setiap input atau ubah. Browser memperkecil (maks 1600 px, JPEG); server memeriksa isi berkas (bukan ekstensi): JPG/PNG/WebP, maks 5 MB, minimal 200×200 px. Disimpan di `assets/uploads/cabut_sku/` dengan nama acak; ikon kamera di baris membuka foto.
   - Disimpan di `qty_real`, `qty_real_oleh`, `qty_real_at`, `qty_real_foto`. Perbarui tidak menimpanya.
-- **Pindah ke** (hanya tab No. Rak, ikon pensil): pop-up no. rak tujuan. Wajib, **tanpa spasi**, hanya huruf, angka, `-` dan `/`, maks 50 karakter (browser + server: `Cabut_sku::simpan_pindah_ke`, route `cabut-sku/simpan-pindah-ke`; server juga menolak bila SKU belum berada di tab No. Rak). Disimpan di `pindah_ke`, `pindah_ke_oleh`, `pindah_ke_at`.
+- **Pindah ke** (hanya tab No. Rak, kolom tepat di samping No Rak, ikon pensil): pop-up no. rak tujuan. Wajib, **tanpa spasi**, hanya huruf, angka, `-` dan `/`, maks 50 karakter (browser + server: `Cabut_sku::simpan_pindah_ke`, route `cabut-sku/simpan-pindah-ke`; server juga menolak bila SKU belum berada di tab No. Rak). Disimpan di `pindah_ke`, `pindah_ke_oleh`, `pindah_ke_at`.
   - Ini **hanya catatan tujuan**: tidak mengubah rak di Jubelio maupun `tblsku.no_rak`.
   - SKU yang sudah terisi tetap tampil di tab (urutan paling bawah, nilainya ditampilkan) sampai No Rak Jubelio berubah menjadi sama dengan tujuan; saat itu SKU selesai dan hilang (aturan 4 di §1). Di layar baris langsung dibuang bila rak tujuan yang disimpan sama dengan rak sekarang.
 
@@ -78,7 +78,7 @@ Tombol **Export Excel** mengunduh **tab aktif** dengan filter layar (kategori + 
 - header **tiga baris**: Stok Jubelio (digabung) → nama gudang (digabung per grup) → On Hand / On Order / On Reserve / On Available; kolom lain digabung vertikal;
 - seluruh sel rata tengah dengan garis tepi horizontal dan vertikal; header berlatar ungu, nama gudang abu muda, sub-header dan angka berwarna sama dengan layar (hijau/merah/ungu/biru);
 - baris header beku + autofilter; SKU ditulis sebagai teks supaya SKU angka panjang tidak jadi notasi ilmiah;
-- kolom: No, SKU, Kategori SKU, No Rak, 13 kolom stok (Display×4, Gudang×4, Transit, Total×4), Qty Real, (Selisih di tab penyesuaian / Pindah ke di tab No. Rak), Diisi oleh, Waktu diisi.
+- kolom: No, SKU, Kategori SKU, No Rak, (Pindah ke, hanya tab No. Rak, tepat di samping No Rak), 13 kolom stok (Display×4, Gudang×4, Transit, Total×4), Qty Real, (Selisih di tab penyesuaian), Diisi oleh, Waktu diisi.
 
 ## 7. Data
 
