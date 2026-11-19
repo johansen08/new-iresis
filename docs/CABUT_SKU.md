@@ -44,3 +44,9 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 ## Pembaruan 19 Nov 2026 (kolom stok)
 
 Kolom **Stok Jubelio** kini empat: Display Barang (F19&F19A), Gudang Utama (F16), Transit, Total Stok (kolom baru `tblcabut_sku_stok.stok_transit`, migrasi ter-gate `BOOTSTRAP_VERSI` 2026-11-19.1). Sumber sama dengan CS -> Cek Top Level (`/inventory/v2/`): Display dan Gudang = On Hand per lokasi, Transit = On Available lokasi 0 (seperti kartu Transit di Cek Top Level), Total = `total_stocks.on_hand`. Transit baru terisi setelah klik Perbarui. Uji A31-AB3: 10 / 0 / 0 / 10. Warna: Display biru, Gudang oranye, Transit ungu, Total hijau (layar dan Excel).
+
+## Pembaruan 19 Nov 2026 (empat angka stok, Perbarui paralel)
+
+- Tiap gudang (Display Barang, Gudang Utama, Total Stok) menampilkan **On Hand (hijau), On Order (merah), On Reserve (ungu), On Available (biru)**; Transit tetap hanya On Available. Kolom baru `disp_/gud_/tot_` + `order/reserved/available` (migrasi `BOOTSTRAP_VERSI` 2026-11-19.2). Header stok tiga baris, rata tengah; Excel ikut (13 kolom stok, warna sama).
+- Ikon papan klip di samping SKU menyalin SKU (execCommand cadangan karena LAN memakai http).
+- **Perbarui** kini satu request ke server: `Jubelio_stok::ambil_semua()` memakai curl_multi paralel (24 sekaligus, ulang otomatis untuk 429/5xx/401). `/inventory/v2/` diminta 2.000 per halaman (diuji menerima >= 20.000; 6 request, ~3 dtk), `/variations/v2/` (rack_no) tetap 200 karena lebih dari itu galat 500 (59 request paralel, ~17-25 dtk). Sebelumnya 118 request berurutan (>1,5 menit). Simpan ke DB per 500 baris dalam satu transaksi.

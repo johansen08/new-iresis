@@ -116,6 +116,7 @@ if (!empty($akses_ditolak)) : ?>
 
   /* gambar SKU + ikon mata */
   #cb-root .cb-skucell { display:flex; align-items:center; gap:10px; }
+  #cb-root .cb-skucell > span { white-space:nowrap; }
   #cb-root .cb-thumb { position:relative; flex:none; width:48px; height:48px; border-radius:8px; border:1px solid var(--cb-line); background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:20px; }
   #cb-root .cb-thumb img { width:100%; height:100%; object-fit:cover; border-radius:7px; display:block; }
   #cb-root .cb-eye { position:absolute; right:-6px; bottom:-6px; width:22px; height:22px; padding:0; border:1px solid var(--cb-line); border-radius:50%; background:#fff; color:var(--cb-primary); font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 3px rgba(15,23,42,.18); }
@@ -525,8 +526,8 @@ if (!empty($akses_ditolak)) : ?>
         semua = d.baris || [];
         var s = rs.diperbarui ? 'Stok Jubelio diperbarui<br><strong>' + fmtWaktu(rs.diperbarui) + '</strong>' : 'Stok belum pernah diambil.<br>Klik Perbarui.';
         if (rs.belum_ada > 0) { s += '<br>' + fmt(rs.belum_ada) + ' SKU berkategori belum punya data stok'; }
-        var kosong = semua.filter(function (r) { return r.stok_display === null || r.stok_gudang === null || r.stok_transit === null; }).length;
-        if (kosong > 0) { s += '<br><strong style="color:#c2410c">' + fmt(kosong) + ' SKU belum punya rincian Display/Gudang/Transit. Klik Perbarui untuk mengisinya.</strong>'; }
+        var kosong = semua.filter(function (r) { return r.stok_display === null || r.stok_gudang === null || r.stok_transit === null || r.disp_available === null || r.tot_available === null; }).length;
+        if (kosong > 0) { s += '<br><strong style="color:#c2410c">' + fmt(kosong) + ' SKU belum punya rincian On Hand/Order/Reserve/Available. Klik Perbarui untuk mengisinya.</strong>'; }
         $('#cb-updated').html(s);
         ringkasan();
         render();

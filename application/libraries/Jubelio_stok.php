@@ -171,7 +171,7 @@ class Jubelio_stok
      *
      * @return array {total, stok: [baris dari baca_item_stok], rak: [{sku, item_id, rak}]}
      */
-    public function ambil_semua($paralel = 8)
+    public function ambil_semua($paralel = 24)
     {
         $ps_stok = self::PAGE_STOK;
         $ps_rak  = self::PAGE_RAK;
@@ -242,7 +242,7 @@ class Jubelio_stok
                     $o[CURLOPT_TIMEOUT] = 90; // halaman 2.000 item bisa ~10 dtk saat banyak request berjalan bersamaan
                     curl_setopt_array($c, $o);
                     curl_multi_add_handle($mh, $c);
-                    $aktif[(int) $c] = array($kunci, $c, $path);
+                    $aktif[spl_object_id($c)] = array($kunci, $c, $path);
                 }
                 do {
                     $st = curl_multi_exec($mh, $jalan);
@@ -251,9 +251,9 @@ class Jubelio_stok
                     curl_multi_select($mh, 1.0);
                 }
                 while (($info = curl_multi_info_read($mh)) !== false) {
-                    $c = $info['easy_handle'];
-                    list($kunci, , $path) = $aktif[(int) $c];
-                    unset($aktif[(int) $c]);
+                    $c = $info['handle'];
+                    list($kunci, , $path) = $aktif[spl_object_id($c)];
+                    unset($aktif[spl_object_id($c)]);
                     $kode = (int) curl_getinfo($c, CURLINFO_HTTP_CODE);
                     $isi = (string) curl_multi_getcontent($c);
                     $galat = (int) $info['result'];
