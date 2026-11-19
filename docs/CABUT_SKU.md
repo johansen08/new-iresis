@@ -31,7 +31,7 @@ Alat bantu: pencarian (SKU / No Rak / rak tujuan), filter kategori **multi-pilih
 
 ## 3. Kolom stok Jubelio
 
-Judul besar **Stok Jubelio** dengan header tiga baris, semuanya rata tengah: nama gudang → jenis angka.
+Judul besar **Stok Jubelio** dengan header **dua baris** rata tengah (Stok Jubelio → nama gudang). Jenis angka (On Hand / On Order / On Reserve / On Available) **tidak dijadikan header**: tiap angka dibuat sempit (maks 2 digit) dan diberi warna; nama jenisnya muncul sebagai tooltip saat angka di-hover (desktop) atau diklik/diketuk (HP, hilang sendiri setelah ± 2 detik).
 
 | Gudang | Lokasi Jubelio | Angka yang tampil |
 |---|---|---|
@@ -40,7 +40,7 @@ Judul besar **Stok Jubelio** dengan header tiga baris, semuanya rata tengah: nam
 | Transit | `location_id` 0 | hanya On Available (sama dengan kartu Transit di CS → Cek Top Level) |
 | Total Stok | `total_stocks` | On Hand, On Order, On Reserve, On Available |
 
-Warna angka: **On Hand hijau, On Order merah, On Reserve ungu, On Available biru** (ada legenda di atas tabel). Sumbernya sama dengan CS → Cek Top Level (`/inventory/v2/`, `location_stocks[].on_hand/on_order/reserved/available`). Contoh A31-AB3: Display 10/0/0/10, Gudang 0/0/0/0, Transit 0, Total 10/0/0/10.
+Warna angka: **On Hand hijau, On Order merah, On Reserve ungu, On Available biru** (urutan di tiap gudang; ada legenda di atas tabel). Sumbernya sama dengan CS → Cek Top Level (`/inventory/v2/`, `location_stocks[].on_hand/on_order/reserved/available`). Contoh A31-AB3: Display 10/0/0/10, Gudang 0/0/0/0, Transit 0, Total 10/0/0/10.
 
 - Syarat tampil (1–10) dan pembanding qty real memakai **Total On Hand**.
 - "–" berarti angka itu belum pernah diambil; klik Perbarui. Bila ada SKU begitu, muncul petunjuk oranye di kanan atas.
@@ -101,4 +101,5 @@ Tombol **Export Excel** mengunduh **tab aktif** dengan filter layar (kategori + 
 ## 9. Riwayat perubahan
 
 - 18 Nov 2026: gambar SKU + ikon mata, stok per gudang, tab No. Rak + Pindah ke, Export Excel.
+- 19 Nov 2026 (sore): kolom stok diringkas: header dua baris, angka sempit berwarna, jenis stok lewat tooltip hover/klik.
 - 19 Nov 2026: SKU rak == pindah ke hilang dari daftar; kolom Transit; empat angka stok per gudang berwarna; ikon salin SKU; Perbarui paralel dengan page size besar; petunjuk bila rincian stok kosong.
