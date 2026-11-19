@@ -317,7 +317,7 @@ if (!empty($akses_ditolak)) : ?>
         <span class="cb-lg"><i class="cb-dot cb-dot-rs"></i>On Reserve</span>
         <span class="cb-lg"><i class="cb-dot cb-dot-av"></i>On Available</span>
       </span>
-      <span class="cb-lg-note">Transit hanya menampilkan On Available, sama seperti Cek Top Level.</span>
+      <span class="cb-lg-note">Transit hanya menampilkan On Available, sama seperti Jubelio.</span>
     </div>
     <div class="cb-table-wrap">
       <table class="cb-table">
