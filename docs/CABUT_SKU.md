@@ -40,3 +40,7 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 ## Pembaruan 19 Nov 2026
 
 - SKU yang no. rak Jubelio-nya sudah sama dengan "Pindah ke" (tanpa peka huruf besar-kecil, spasi tepi diabaikan) dianggap selesai dicabut dan dipindah: hilang dari semua tab dan hitungan. Filter ada di `Cabut_sku_fcd::daftar()`; di layar baris langsung dibuang setelah simpan bila sudah sama.
+
+## Pembaruan 19 Nov 2026 (kolom stok)
+
+Kolom **Stok Jubelio** kini empat: Display Barang (F19&F19A), Gudang Utama (F16), Transit, Total Stok (kolom baru `tblcabut_sku_stok.stok_transit`, migrasi ter-gate `BOOTSTRAP_VERSI` 2026-11-19.1). Sumber sama dengan CS -> Cek Top Level (`/inventory/v2/`): Display dan Gudang = On Hand per lokasi, Transit = On Available lokasi 0 (seperti kartu Transit di Cek Top Level), Total = `total_stocks.on_hand`. Transit baru terisi setelah klik Perbarui. Uji A31-AB3: 10 / 0 / 0 / 10. Warna: Display biru, Gudang oranye, Transit ungu, Total hijau (layar dan Excel).
