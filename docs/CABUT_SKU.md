@@ -36,3 +36,7 @@ Kolom: SKU, Kategori SKU, No Rak (Jubelio), Stok Total, Qty Real; urut stok terb
 - `tblcabut_sku_stok` (`id_sku` PK, `item_id`, `stok_total`, `stok_display`, `stok_gudang`, `rak_jubelio`, `pindah_ke`, `pindah_ke_oleh`, `pindah_ke_at`, `qty_real`, `qty_real_oleh`, `qty_real_at`, `qty_real_foto`, `diperbarui`), dibuat oleh `MY_Controller::run_cabut_sku_migration()`.
 - Jubelio bisa punya dua item yang hanya beda huruf besar/kecil (mis. `MICKEY` dan `mickey`); PK tidak membedakannya, jadi yang diproses terakhir menang.
 - SKU kategori tersebut yang tidak ada di Jubelio tidak punya baris stok dan tidak tampil; jumlahnya ditampilkan di baris status.
+
+## Pembaruan 19 Nov 2026
+
+- SKU yang no. rak Jubelio-nya sudah sama dengan "Pindah ke" (tanpa peka huruf besar-kecil, spasi tepi diabaikan) dianggap selesai dicabut dan dipindah: hilang dari semua tab dan hitungan. Filter ada di `Cabut_sku_fcd::daftar()`; di layar baris langsung dibuang setelah simpan bila sudah sama.

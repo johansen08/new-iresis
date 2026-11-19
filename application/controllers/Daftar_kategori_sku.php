@@ -59,4 +59,59 @@ class Daftar_kategori_sku extends MY_Controller
             (int) $this->input->post('ukuran')
         ));
     }
+
+    /** GET: q, kat[] (sama dengan layar). Unduh semua SKU yang cocok sebagai xlsx rapi: header tebal, rata tengah, garis tegak dan datar. */
+    public function export()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+        $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
+        $baris = $this->daftar_kategori_sku_fcd->semua((string) $this->input->get('q'), $kat);
+
+        $kolom = ['No', 'SKU', 'No Rak', 'Kategori SKU'];
+        $akhir = 'D';
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $ws = $ss->getActiveSheet();
+        $ws->setTitle('Kategori SKU');
+        foreach ($kolom as $i => $nama) {
+            $ws->setCellValueByColumnAndRow($i + 1, 1, $nama);
+        }
+        $r = 2;
+        foreach ($baris as $i => $b) {
+            $ws->setCellValueByColumnAndRow(1, $r, $i + 1);
+            // Teks eksplisit supaya SKU angka panjang tidak berubah jadi notasi ilmiah / rumus.
+            foreach ([2 => (string) $b['id_sku'], 3 => (string) $b['no_rak'], 4 => trim((string) $b['kategori_sku'])] as $c => $v) {
+                $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            }
+            $r++;
+        }
+        $terakhir = max(2, $r - 1);
+
+        $rentang = 'A1:' . $akhir . $terakhir;
+        $ws->getStyle($rentang)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
+        $ws->getStyle($rentang)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $head = $ws->getStyle('A1:' . $akhir . '1');
+        $head->getFont()->setBold(TRUE)->getColor()->setRGB('FFFFFF');
+        $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
+        $ws->getRowDimension(1)->setRowHeight(24);
+        foreach ([6, 26, 18, 18] as $i => $w) {
+            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
+        }
+        $ws->freezePane('A2');
+        if ($r > 2) {
+            $ws->setAutoFilter('A1:' . $akhir . $terakhir);
+        }
+
+        $nama_berkas = 'kategori-sku-' . date('Ymd-His') . '.xlsx';
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit();
+    }
 }

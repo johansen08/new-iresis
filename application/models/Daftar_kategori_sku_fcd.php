@@ -25,13 +25,8 @@ class Daftar_kategori_sku_fcd extends CI_Model
         return $rows;
     }
 
-    /**
-     * Satu halaman SKU. $kategori = array nilai kategori (kosong = semua; BELUM_ADA = tanpa kategori),
-     * $q = kata kunci untuk SKU atau no rak (potongan teks, tidak peka huruf besar-kecil).
-     *
-     * @return array {total, baris: [{id_sku, kategori_sku, no_rak, foto, foto_lokal}]}
-     */
-    public function halaman($q, array $kategori, $halaman, $ukuran)
+    /** Klausa WHERE + bind untuk kata kunci dan filter kategori (dipakai layar dan ekspor). */
+    private function bangun_where($q, array $kategori)
     {
         $where = [];
         $bind  = [];
@@ -61,7 +56,27 @@ class Daftar_kategori_sku_fcd extends CI_Model
             }
             $where[] = '(' . implode(' OR ', $bagian) . ')';
         }
-        $sql_where = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+        return [$where ? ' WHERE ' . implode(' AND ', $where) : '', $bind];
+    }
+
+    /** Semua SKU yang cocok (tanpa paging) untuk ekspor Excel, urut SKU. */
+    public function semua($q, array $kategori)
+    {
+        list($sql_where, $bind) = $this->bangun_where($q, $kategori);
+        return $this->db->query(
+            "SELECT id_sku, kategori_sku, no_rak FROM tblsku" . $sql_where . " ORDER BY id_sku ASC", $bind
+        )->result_array();
+    }
+
+    /**
+     * Satu halaman SKU. $kategori = array nilai kategori (kosong = semua; BELUM_ADA = tanpa kategori),
+     * $q = kata kunci untuk SKU atau no rak (potongan teks, tidak peka huruf besar-kecil).
+     *
+     * @return array {total, baris: [{id_sku, kategori_sku, no_rak, foto, foto_lokal}]}
+     */
+    public function halaman($q, array $kategori, $halaman, $ukuran)
+    {
+        list($sql_where, $bind) = $this->bangun_where($q, $kategori);
 
         $total = (int) $this->db->query("SELECT COUNT(*) AS n FROM tblsku" . $sql_where, $bind)->row()->n;
         $ukuran  = in_array($ukuran, self::UKURAN_BOLEH, TRUE) ? $ukuran : 50;
