@@ -19,7 +19,7 @@ class Cabut_sku_fcd extends CI_Model
         $in = implode(',', array_fill(0, count(self::KATEGORI), '?'));
         // Rak Jubelio kosong tetap tampil (belum dicabut); rak CABUT atau berawalan KR- dianggap sudah dicabut dan disembunyikan.
         // SKU yang no. rak Jubelio-nya sudah sama dengan "pindah ke" = selesai dicabut dan dipindah, hilang dari semua tab.
-        $sql = "SELECT s.id_sku, s.kategori_sku, s.link_foto, s.foto_lokal, k.rak_jubelio, k.stok_total, k.stok_display, k.stok_gudang,
+        $sql = "SELECT s.id_sku, s.kategori_sku, s.link_foto, s.foto_lokal, k.rak_jubelio, k.stok_total, k.stok_display, k.stok_gudang, k.stok_transit,
                        k.qty_real, k.qty_real_oleh, k.qty_real_at, k.qty_real_foto, k.pindah_ke, k.pindah_ke_oleh, k.pindah_ke_at
                 FROM tblsku s
                 JOIN tblcabut_sku_stok k ON k.id_sku = s.id_sku
@@ -100,12 +100,12 @@ class Cabut_sku_fcd extends CI_Model
         $ph = [];
         $bind = [];
         foreach ($items as $it) {
-            $ph[] = '(?, ?, ?, ?, ?, ?)';
-            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $it['stok_display'], $it['stok_gudang'], $now);
+            $ph[] = '(?, ?, ?, ?, ?, ?, ?)';
+            array_push($bind, $it['sku'], $it['item_id'], $it['stok_total'], $it['stok_display'], $it['stok_gudang'], $it['stok_transit'], $now);
         }
         $this->db->query(
-            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, stok_display, stok_gudang, diperbarui) VALUES " . implode(',', $ph) .
-            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), stok_display = VALUES(stok_display), stok_gudang = VALUES(stok_gudang), diperbarui = VALUES(diperbarui)",
+            "INSERT INTO tblcabut_sku_stok (id_sku, item_id, stok_total, stok_display, stok_gudang, stok_transit, diperbarui) VALUES " . implode(',', $ph) .
+            " ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), stok_total = VALUES(stok_total), stok_display = VALUES(stok_display), stok_gudang = VALUES(stok_gudang), stok_transit = VALUES(stok_transit), diperbarui = VALUES(diperbarui)",
             $bind
         );
         return count($items);
