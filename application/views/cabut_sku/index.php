@@ -134,11 +134,23 @@ if (!empty($akses_ditolak)) : ?>
   #cb-root .cb-table > thead > tr > th.cb-hroot { background:#eef2ff; color:#4338ca; }
   #cb-root .cb-table > thead > tr > th.cb-hg { background:#f1f5f9; color:#334155; padding:8px 4px; font-size:10.5px; line-height:1.25; white-space:normal; letter-spacing:.02em; }
   #cb-tip { position:fixed; z-index:2000; display:none; padding:4px 9px; border-radius:6px; background:#0f172a; color:#fff; font-size:12px; font-weight:600; line-height:1.3; pointer-events:none; white-space:nowrap; box-shadow:0 4px 10px rgba(15,23,42,.3); }
-  #cb-root .cb-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0 0 10px; font-size:12px; color:var(--cb-muted); }
-  #cb-root .cb-legend b { font-weight:700; }
   #cb-root .cb-copy { margin-left:2px; padding:2px 5px; border:0; border-radius:6px; background:transparent; color:#94a3b8; font-size:13px; line-height:1; cursor:pointer; }
   #cb-root .cb-copy:hover { background:var(--cb-primary-light, #eef2ff); color:var(--cb-primary); }
   #cb-root .cb-copy.ok { color:#15803d; }
+  #cb-root .cb-syarat { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:6px 0 0; }
+  #cb-root .cb-syarat-judul { font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--cb-muted); margin-right:2px; }
+  #cb-root .cb-sy { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid var(--cb-line); border-radius:999px; background:#fff; font-size:12.5px; color:var(--cb-text); white-space:nowrap; }
+  #cb-root .cb-sy i { color:var(--cb-primary); font-size:12px; }
+  #cb-root .cb-sy b { font-weight:700; color:var(--cb-ink); }
+  #cb-root .cb-legend { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin:0 0 12px; padding:9px 14px; border:1px solid var(--cb-line); border-radius:10px; background:var(--cb-bg); font-size:12.5px; color:var(--cb-muted); }
+  #cb-root .cb-lg-info { display:inline-flex; align-items:center; gap:7px; color:var(--cb-text); font-weight:500; }
+  #cb-root .cb-lg-info i { color:var(--cb-primary); font-size:14px; }
+  #cb-root .cb-lg-chips { display:inline-flex; flex-wrap:wrap; gap:6px; }
+  #cb-root .cb-lg { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border:1px solid var(--cb-line); border-radius:999px; background:#fff; font-size:12px; font-weight:600; color:var(--cb-text); white-space:nowrap; }
+  #cb-root .cb-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  #cb-root .cb-dot-oh { background:#15803d; } #cb-root .cb-dot-oo { background:#b91c1c; } #cb-root .cb-dot-rs { background:#7e22ce; } #cb-root .cb-dot-av { background:#1d4ed8; }
+  #cb-root .cb-lg-note { margin-left:auto; font-size:12px; }
+  @media (max-width: 767px) { #cb-root .cb-lg-note { margin-left:0; flex-basis:100%; } #cb-root .cb-sy { white-space:normal; } }
   #cb-root .cb-pindah { display:inline-flex; align-items:center; gap:8px; }
   #cb-root .cb-pindah-val { font-weight:700; color:#047857; }
   #cb-root .cb-btn-xls { height:38px; padding:0 14px; font-size:13.5px; margin-left:auto; }
@@ -237,7 +249,12 @@ if (!empty($akses_ditolak)) : ?>
   <div class="cb-head">
     <div>
       <h2 class="cb-title">Cabut SKU</h2>
-      <p class="cb-sub">SKU kategori <?= htmlspecialchars(implode(', ', $kategori)) ?> dengan stok total Jubelio <?= (int) $stok_min ?>&ndash;<?= (int) $batas ?> dan rak Jubelio belum CABUT / KR-</p>
+      <div class="cb-syarat" aria-label="Syarat SKU tampil">
+        <span class="cb-syarat-judul">Syarat tampil</span>
+        <span class="cb-sy"><i class="fa fa-tags"></i>Kategori <b><?= implode(' &middot; ', array_map('htmlspecialchars', $kategori)) ?></b></span>
+        <span class="cb-sy"><i class="fa fa-cubes"></i>Stok total Jubelio <b><?= (int) $stok_min ?>&ndash;<?= (int) $batas ?></b></span>
+        <span class="cb-sy"><i class="fa fa-map-marker"></i>Rak Jubelio belum <b>CABUT</b> / <b>KR-</b></span>
+      </div>
     </div>
     <div class="cb-head-act">
       <div class="cb-updated" id="cb-updated">&nbsp;</div>
@@ -292,7 +309,16 @@ if (!empty($akses_ditolak)) : ?>
       <span class="cb-count" id="cb-count"></span>
       <button type="button" class="cb-btn cb-btn-sec cb-btn-xls" id="cb-export" title="Unduh tab ini (sesuai filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
-    <div class="cb-legend" aria-label="Keterangan warna stok Jubelio"><span>Arahkan kursor atau ketuk angka untuk melihat jenisnya:</span><span><b class="cb-m-oh">On Hand</b> hijau</span><span><b class="cb-m-oo">On Order</b> merah</span><span><b class="cb-m-rs">On Reserve</b> ungu</span><span><b class="cb-m-av">On Available</b> biru</span><span>Transit hanya On Available (sama dengan Cek Top Level)</span></div>
+    <div class="cb-legend" aria-label="Keterangan stok Jubelio">
+      <span class="cb-lg-info"><i class="fa fa-info-circle"></i>Arahkan kursor atau ketuk angka untuk melihat jenis stok</span>
+      <span class="cb-lg-chips">
+        <span class="cb-lg"><i class="cb-dot cb-dot-oh"></i>On Hand</span>
+        <span class="cb-lg"><i class="cb-dot cb-dot-oo"></i>On Order</span>
+        <span class="cb-lg"><i class="cb-dot cb-dot-rs"></i>On Reserve</span>
+        <span class="cb-lg"><i class="cb-dot cb-dot-av"></i>On Available</span>
+      </span>
+      <span class="cb-lg-note">Transit hanya menampilkan On Available, sama seperti Cek Top Level.</span>
+    </div>
     <div class="cb-table-wrap">
       <table class="cb-table">
         <thead id="cb-thead"></thead>
