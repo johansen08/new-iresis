@@ -29,6 +29,8 @@ class Jubelio_stok
 {
     const BASE_DEFAULT = 'https://open.jubelio.com/core-api';
     const WIB = 25200; // UTC+7 dalam detik
+    const PAGE_STOK = 2000; // /inventory/v2/ menerima sampai >= 20.000
+    const PAGE_RAK = 200;   // /variations/v2/ maksimum 200 (lebih dari itu galat 500)
 
     /** Urutan gudang yang ditampilkan: id lokasi Jubelio => nama. */
     private static $LOKASI = array(
@@ -130,63 +132,174 @@ class Jubelio_stok
     }
 
     /**
-     * Satu halaman daftar stok SELURUH item (baca-saja), untuk menu Cabut SKU. Tanpa cache: dipanggil hanya saat
-     * tombol Perbarui diklik. Stok total = total_stocks.on_hand Jubelio (jumlah semua lokasi yang ditampilkan).
-     *
-     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, stok_total, stok_display, stok_gudang, stok_transit}]}
+     * Ubah satu item /inventory/v2/ jadi baris stok lengkap. Empat angka per gudang: On Hand, On Order, Reserved, Available.
+     * Display Barang = lokasi -1, Gudang Utama = lokasi 1, Total = total_stocks (jumlah semua lokasi); Transit (lokasi 0)
+     * hanya angka On Available, sama dengan kartu Transit di Cek Top Level.
      */
-    public function daftar_stok($halaman, $ukuran = 200)
+    private function baca_item_stok(array $d)
     {
-        $j = $this->get('/inventory/v2/?' . http_build_query(array(
-            'page' => max(1, (int) $halaman), 'page_size' => max(1, (int) $ukuran), 'sort_direction' => 'NONE', 'q' => '',
-            'location_ids' => array_keys(self::$LOKASI),
-        )));
-        $items = array();
-        foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
-            if (empty($d['item_code'])) {
-                continue;
-            }
-            $per = array(); // on_hand per lokasi: -1 = Display Barang, 1 = Gudang Utama
-            $trn = 0;       // Transit (0): angka On Available, sama dengan kartu Transit di Cek Top Level
-            $jumlah = 0;
-            foreach ((isset($d['location_stocks']) && is_array($d['location_stocks'])) ? $d['location_stocks'] : array() as $ls) {
-                $oh = (float) (isset($ls['on_hand']) ? $ls['on_hand'] : 0);
-                $per[(int) (isset($ls['location_id']) ? $ls['location_id'] : 99)] = $oh;
-                $jumlah += $oh;
-                if ((int) (isset($ls['location_id']) ? $ls['location_id'] : 99) === 0) {
-                    $trn = (float) (isset($ls['available']) ? $ls['available'] : 0);
-                }
-            }
-            $stok = isset($d['total_stocks']['on_hand']) ? (float) $d['total_stocks']['on_hand'] : $jumlah;
-            $items[] = array(
-                'sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'stok_total' => (int) round($stok),
-                'stok_display' => (int) round(isset($per[-1]) ? $per[-1] : 0), 'stok_gudang' => (int) round(isset($per[1]) ? $per[1] : 0),
-                'stok_transit' => (int) round($trn),
-            );
+        $per = array();
+        foreach ((isset($d['location_stocks']) && is_array($d['location_stocks'])) ? $d['location_stocks'] : array() as $ls) {
+            $per[(int) (isset($ls['location_id']) ? $ls['location_id'] : 99)] = $ls;
         }
-        return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
+        $n = function ($arr, $k) {
+            return (int) round((float) (is_array($arr) && isset($arr[$k]) ? $arr[$k] : 0));
+        };
+        $jumlah = 0;
+        foreach ($per as $ls) {
+            $jumlah += (float) (isset($ls['on_hand']) ? $ls['on_hand'] : 0);
+        }
+        $tot = (isset($d['total_stocks']) && is_array($d['total_stocks'])) ? $d['total_stocks'] : array('on_hand' => $jumlah);
+        $dsp = isset($per[-1]) ? $per[-1] : array();
+        $gud = isset($per[1]) ? $per[1] : array();
+        $trn = isset($per[0]) ? $per[0] : array();
+        return array(
+            'sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'],
+            'stok_total' => $n($tot, 'on_hand'), 'tot_order' => $n($tot, 'on_order'), 'tot_reserved' => $n($tot, 'reserved'), 'tot_available' => $n($tot, 'available'),
+            'stok_display' => $n($dsp, 'on_hand'), 'disp_order' => $n($dsp, 'on_order'), 'disp_reserved' => $n($dsp, 'reserved'), 'disp_available' => $n($dsp, 'available'),
+            'stok_gudang' => $n($gud, 'on_hand'), 'gud_order' => $n($gud, 'on_order'), 'gud_reserved' => $n($gud, 'reserved'), 'gud_available' => $n($gud, 'available'),
+            'stok_transit' => $n($trn, 'available'),
+        );
     }
 
     /**
-     * Satu halaman daftar variasi seluruh item (baca-saja) dengan No Rak Jubelio (`rack_no`, bisa null), untuk menu
-     * Cabut SKU. Endpoint /variations/v2/ memuat rack_no, sedangkan /inventory/v2/ tidak. Tanpa cache.
+     * Ambil stok SELURUH item sekaligus (baca-saja) untuk menu Cabut SKU, tanpa cache.
      *
-     * @return array {total: jumlah item di Jubelio, items: [{sku, item_id, rak}]}
+     * Hemat request: /inventory/v2/ menerima page_size besar (diuji sampai 20.000), jadi dipakai 2.000 per halaman (~6 request
+     * untuk ~11.700 item). /variations/v2/ (pemilik rack_no) menolak page_size > 200 dengan galat 500, jadi tetap 200.
+     * Semua halaman sisa diminta paralel (curl_multi, jendela $paralel), halaman 1 dulu untuk tahu jumlah total.
+     *
+     * @return array {total, stok: [baris dari baca_item_stok], rak: [{sku, item_id, rak}]}
      */
-    public function daftar_rak($halaman, $ukuran = 200)
+    public function ambil_semua($paralel = 24)
     {
-        $j = $this->get('/variations/v2/?' . http_build_query(array(
-            'page' => max(1, (int) $halaman), 'q' => '', 'page_size' => max(1, (int) $ukuran), 'sort_direction' => 'NONE',
-        )));
-        $items = array();
-        foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
-            if (empty($d['item_code'])) {
-                continue;
-            }
-            $rak = isset($d['rack_no']) ? trim((string) $d['rack_no']) : '';
-            $items[] = array('sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'rak' => $rak === '' ? null : $rak);
+        $ps_stok = self::PAGE_STOK;
+        $ps_rak  = self::PAGE_RAK;
+        $url = function ($path, $hal, $ukuran, $extra) {
+            return $path . '?' . http_build_query(array_merge(array(
+                'page' => $hal, 'page_size' => $ukuran, 'sort_direction' => 'NONE', 'q' => '',
+            ), $extra));
+        };
+        $lok = array('location_ids' => array_keys(self::$LOKASI));
+
+        $p1 = $this->multi(array(
+            's1' => $url('/inventory/v2/', 1, $ps_stok, $lok),
+            'r1' => $url('/variations/v2/', 1, $ps_rak, array()),
+        ), 2);
+        $total = (int) (isset($p1['s1']['totalCount']) ? $p1['s1']['totalCount'] : 0);
+
+        $sisa = array();
+        for ($h = 2, $maks = (int) ceil($total / $ps_stok); $h <= $maks; $h++) {
+            $sisa['s' . $h] = $url('/inventory/v2/', $h, $ps_stok, $lok);
         }
-        return array('total' => (int) (isset($j['totalCount']) ? $j['totalCount'] : 0), 'items' => $items);
+        $total_r = (int) (isset($p1['r1']['totalCount']) ? $p1['r1']['totalCount'] : 0);
+        for ($h = 2, $maks = (int) ceil($total_r / $ps_rak); $h <= $maks; $h++) {
+            $sisa['r' . $h] = $url('/variations/v2/', $h, $ps_rak, array());
+        }
+        // halaman stok (berat) didahulukan di antrean supaya selesai bersamaan dengan halaman rak yang ringan
+        $hasil = $p1 + ($sisa ? $this->multi($sisa, $paralel) : array());
+
+        $stok = array();
+        $rak = array();
+        foreach ($hasil as $kunci => $j) {
+            foreach ((isset($j['data']) && is_array($j['data'])) ? $j['data'] : array() as $d) {
+                if (empty($d['item_code'])) {
+                    continue;
+                }
+                if ($kunci[0] === 's') {
+                    $stok[] = $this->baca_item_stok($d);
+                } else {
+                    $r = isset($d['rack_no']) ? trim((string) $d['rack_no']) : '';
+                    $rak[] = array('sku' => trim((string) $d['item_code']), 'item_id' => (int) $d['item_id'], 'rak' => $r === '' ? null : $r);
+                }
+            }
+        }
+        return array('total' => $total, 'stok' => $stok, 'rak' => $rak);
+    }
+
+    /**
+     * GET banyak path sekaligus lewat curl_multi dengan jendela $paralel. 401 -> login ulang sekali; 429 / 5xx / galat jaringan
+     * diulang (maks 4 kali per path, jeda bertahap). Hasil ber-kunci sama dengan $daftar_path.
+     *
+     * @throws RuntimeException bila satu path tetap gagal
+     */
+    private function multi(array $daftar_path, $paralel)
+    {
+        $token = $this->token();
+        $antre = $daftar_path;
+        $hasil = array();
+        $coba = array();
+        $aktif = array();
+        $sudah_login_ulang = false;
+        $mh = curl_multi_init();
+        try {
+            while ($antre || $aktif) {
+                while ($antre && count($aktif) < $paralel) {
+                    $kunci = key($antre);
+                    $path = array_shift($antre);
+                    $c = curl_init($this->base . $path);
+                    $o = $this->opsi('GET', null, $token);
+                    $o[CURLOPT_TIMEOUT] = 90; // halaman 2.000 item bisa ~10 dtk saat banyak request berjalan bersamaan
+                    curl_setopt_array($c, $o);
+                    curl_multi_add_handle($mh, $c);
+                    $aktif[spl_object_id($c)] = array($kunci, $c, $path);
+                }
+                do {
+                    $st = curl_multi_exec($mh, $jalan);
+                } while ($st === CURLM_CALL_MULTI_PERFORM);
+                if ($jalan) {
+                    curl_multi_select($mh, 1.0);
+                }
+                while (($info = curl_multi_info_read($mh)) !== false) {
+                    $c = $info['handle'];
+                    list($kunci, , $path) = $aktif[spl_object_id($c)];
+                    unset($aktif[spl_object_id($c)]);
+                    $kode = (int) curl_getinfo($c, CURLINFO_HTTP_CODE);
+                    $isi = (string) curl_multi_getcontent($c);
+                    $galat = (int) $info['result'];
+                    curl_multi_remove_handle($mh, $c);
+                    curl_close($c);
+
+                    if (($galat === 60 || $galat === 77) && $this->ca_mini) {
+                        $this->ca_mini = false; // bundel CA mini tidak dikenali: ulangi dengan bundel bawaan
+                        $antre[$kunci] = $path;
+                        continue;
+                    }
+                    if ($galat === 0 && $kode >= 200 && $kode < 300) {
+                        $j = json_decode($isi, true);
+                        if (!is_array($j)) {
+                            throw new RuntimeException('Jawaban Jubelio tidak bisa dibaca.');
+                        }
+                        $hasil[$kunci] = $j;
+                        continue;
+                    }
+                    if ($kode === 401 && !$sudah_login_ulang) {
+                        $sudah_login_ulang = true;
+                        $this->hapus_token();
+                        $token = $this->login();
+                        $antre[$kunci] = $path;
+                        continue;
+                    }
+                    $coba[$kunci] = isset($coba[$kunci]) ? $coba[$kunci] + 1 : 1;
+                    if (($kode === 429 || $kode >= 500 || $galat !== 0) && $coba[$kunci] <= 4) {
+                        usleep(400000 * $coba[$kunci]);
+                        $antre[$kunci] = $path;
+                        continue;
+                    }
+                    if ($kode === 429) {
+                        throw new RuntimeException('Jubelio sedang membatasi permintaan. Tunggu beberapa detik, lalu coba lagi.');
+                    }
+                    throw new RuntimeException($galat !== 0 ? 'Tidak bisa terhubung ke Jubelio. Periksa koneksi internet.' : 'Jubelio menjawab galat ' . $kode . '.');
+                }
+            }
+        } finally {
+            foreach ($aktif as $a) {
+                curl_multi_remove_handle($mh, $a[1]);
+                curl_close($a[1]);
+            }
+            curl_multi_close($mh);
+        }
+        return $hasil;
     }
 
     private function bersih($sku)
