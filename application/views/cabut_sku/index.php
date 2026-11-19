@@ -469,10 +469,9 @@ if (!empty($akses_ditolak)) : ?>
 
   // ---------- tabel ----------
   function kepala() {
-    var r1 = '<th rowspan="2" style="width:56px">#</th><th rowspan="2">SKU</th><th rowspan="2">Kategori SKU</th><th rowspan="2">No Rak</th>' +
+    var r1 = '<th rowspan="2" style="width:56px">#</th><th rowspan="2">SKU</th><th rowspan="2">Kategori SKU</th><th rowspan="2">No Rak</th>' + (tab === 'rak' ? '<th rowspan="2">Pindah ke</th>' : '') +
       '<th colspan="13" class="cb-hc cb-hroot">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
     if (tab === 'adj') { r1 += '<th rowspan="2" class="cb-num">Selisih</th>'; }
-    if (tab === 'rak') { r1 += '<th rowspan="2">Pindah ke</th>'; }
     var r2 = '<th colspan="4" class="cb-hc cb-hg">Display Barang (F19&amp;F19A)</th><th colspan="4" class="cb-hc cb-hg">Gudang Utama (F16)</th>' +
       '<th class="cb-hc cb-hg">Transit</th><th colspan="4" class="cb-hc cb-hg">Total Stok</th>';
     $('#cb-thead').html('<tr>' + r1 + '</tr><tr>' + r2 + '</tr>');
@@ -522,13 +521,13 @@ if (!empty($akses_ditolak)) : ?>
       html += '<tr><td class="cb-kosong cb-no">' + (awal + i + 1) + '</td>' +
         '<td class="cb-sku" data-label="SKU"><span class="cb-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '<button type="button" class="cb-copy" data-sku="' + escAttr(r.id_sku) + '" title="Salin SKU" aria-label="Salin SKU ' + escAttr(r.id_sku) + '"><i class="fa fa-clipboard"></i></button></span></span></td>' +
         '<td data-label="Kategori SKU">' + pil(r.kategori_sku) + '</td>' +
-        '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
+        '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' + pindah +
         sel4('Display', r.stok_display, r.disp_order, r.disp_reserved, r.disp_available) +
         sel4('Gudang', r.stok_gudang, r.gud_order, r.gud_reserved, r.gud_available) +
         '<td class="cb-m cb-m-av cb-mg" data-label="Transit \u00b7 On Available" data-tip="Transit \u00b7 On Available">' + angka(r.stok_transit) + '</td>' +
         sel4('Total', r.stok_total, r.tot_order, r.tot_reserved, r.tot_available) +
         '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
-          '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + pindah + '</tr>';
+          '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + '</tr>';
     });
     var kosong = tab === 'isi'
       ? '<i class="fa fa-check-circle"></i>Semua SKU di daftar sudah terisi qty real. Klik Perbarui bila stok belum pernah diambil.'
