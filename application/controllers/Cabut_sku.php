@@ -159,9 +159,9 @@ class Cabut_sku extends MY_Controller
         $n_stok = count($stok); // 13
 
         $depan = ['No', 'SKU', 'Kategori SKU', 'No Rak'];
+        if ($tab === 'rak') { $depan[] = 'Pindah ke'; } // tepat di samping No Rak
         $belakang = ['Qty Real'];
         if ($tab === 'adj') { $belakang[] = 'Selisih'; }
-        if ($tab === 'rak') { $belakang[] = 'Pindah ke'; }
         $belakang[] = 'Diisi oleh';
         $belakang[] = 'Waktu diisi';
         $n_depan = count($depan);
@@ -206,12 +206,12 @@ class Cabut_sku extends MY_Controller
         $r = 4;
         foreach ($baris as $i => $b) {
             $nilai = [$i + 1, (string) $b['id_sku'], (string) $b['kategori_sku'], (string) $b['rak_jubelio']];
+            if ($tab === 'rak') { $nilai[] = (string) $b['pindah_ke']; }
             foreach ($stok as $k) {
                 $nilai[] = $b[$k[2]] === null ? '' : (int) $b[$k[2]];
             }
             $nilai[] = $b['qty_real'] === null ? '' : (int) $b['qty_real'];
             if ($tab === 'adj') { $nilai[] = (int) $b['qty_real'] - (int) $b['stok_total']; }
-            if ($tab === 'rak') { $nilai[] = (string) $b['pindah_ke']; }
             $nilai[] = (string) $b['qty_real_oleh'];
             $nilai[] = $b['qty_real_at'] ? date('d/m/Y H:i', strtotime($b['qty_real_at'])) : '';
             foreach ($nilai as $j => $v) {
@@ -252,7 +252,7 @@ class Cabut_sku extends MY_Controller
             if ($i >= $n_depan && $i < $n_depan + $n_stok) {
                 $w = 13;
             } else {
-                $w = ['No' => 6, 'SKU' => 24, 'Kategori SKU' => 14, 'No Rak' => 16, 'Qty Real' => 11, 'Selisih' => 11, 'Diisi oleh' => 22, 'Waktu diisi' => 18][$nama] ?? 16;
+                $w = ['No' => 6, 'SKU' => 24, 'Kategori SKU' => 14, 'No Rak' => 16, 'Pindah ke' => 16, 'Qty Real' => 11, 'Selisih' => 11, 'Diisi oleh' => 22, 'Waktu diisi' => 18][$nama] ?? 16;
             }
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
