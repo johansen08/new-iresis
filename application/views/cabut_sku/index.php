@@ -125,16 +125,15 @@ if (!empty($akses_ditolak)) : ?>
   .cb-mod.cb-lb .modal-body img { max-width:100%; max-height:75vh; border-radius:8px; background:#fff; }
 
   /* stok Jubelio: empat angka per gudang, warna per jenis (On Hand hijau, On Order merah, On Reserve ungu, On Available biru) */
-  #cb-root .cb-table td.cb-m { text-align:center !important; padding-left:8px; padding-right:8px; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+  #cb-root .cb-table td.cb-m { width:30px; min-width:30px; text-align:center !important; padding:10px 2px; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; cursor:help; }
+  #cb-root .cb-table td.cb-m:hover { background:#eef2ff !important; }
   #cb-root .cb-table td.cb-mg { border-left:1px solid var(--cb-line); }
   #cb-root .cb-m-oh { color:#15803d; } #cb-root .cb-m-oo { color:#b91c1c; } #cb-root .cb-m-rs { color:#7e22ce; } #cb-root .cb-m-av { color:#1d4ed8; }
+    #cb-root .cb-table > tbody > tr > td.cb-m-oh { color:#15803d; } #cb-root .cb-table > tbody > tr > td.cb-m-oo { color:#b91c1c; } #cb-root .cb-table > tbody > tr > td.cb-m-rs { color:#7e22ce; } #cb-root .cb-table > tbody > tr > td.cb-m-av { color:#1d4ed8; }
   #cb-root .cb-table > thead > tr > th.cb-hc { text-align:center !important; border-left:1px solid var(--cb-line); border-right:1px solid var(--cb-line); }
   #cb-root .cb-table > thead > tr > th.cb-hroot { background:#eef2ff; color:#4338ca; }
-  #cb-root .cb-table > thead > tr > th.cb-hg { background:#f1f5f9; color:#334155; }
-  #cb-root .cb-table > thead > tr > th.cb-h-oh { background:#dcfce7; color:#15803d; }
-  #cb-root .cb-table > thead > tr > th.cb-h-oo { background:#fee2e2; color:#b91c1c; }
-  #cb-root .cb-table > thead > tr > th.cb-h-rs { background:#f3e8ff; color:#7e22ce; }
-  #cb-root .cb-table > thead > tr > th.cb-h-av { background:#dbeafe; color:#1d4ed8; }
+  #cb-root .cb-table > thead > tr > th.cb-hg { background:#f1f5f9; color:#334155; padding:8px 4px; font-size:10.5px; line-height:1.25; white-space:normal; letter-spacing:.02em; }
+  #cb-tip { position:fixed; z-index:2000; display:none; padding:4px 9px; border-radius:6px; background:#0f172a; color:#fff; font-size:12px; font-weight:600; line-height:1.3; pointer-events:none; white-space:nowrap; box-shadow:0 4px 10px rgba(15,23,42,.3); }
   #cb-root .cb-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0 0 10px; font-size:12px; color:var(--cb-muted); }
   #cb-root .cb-legend b { font-weight:700; }
   #cb-root .cb-copy { margin-left:2px; padding:2px 5px; border:0; border-radius:6px; background:transparent; color:#94a3b8; font-size:13px; line-height:1; cursor:pointer; }
@@ -293,7 +292,7 @@ if (!empty($akses_ditolak)) : ?>
       <span class="cb-count" id="cb-count"></span>
       <button type="button" class="cb-btn cb-btn-sec cb-btn-xls" id="cb-export" title="Unduh tab ini (sesuai filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
-    <div class="cb-legend" aria-label="Keterangan warna stok Jubelio"><span><b class="cb-m-oh">On Hand</b> hijau</span><span><b class="cb-m-oo">On Order</b> merah</span><span><b class="cb-m-rs">On Reserve</b> ungu</span><span><b class="cb-m-av">On Available</b> biru</span><span>Transit hanya On Available (sama dengan Cek Top Level)</span></div>
+    <div class="cb-legend" aria-label="Keterangan warna stok Jubelio"><span>Arahkan kursor atau ketuk angka untuk melihat jenisnya:</span><span><b class="cb-m-oh">On Hand</b> hijau</span><span><b class="cb-m-oo">On Order</b> merah</span><span><b class="cb-m-rs">On Reserve</b> ungu</span><span><b class="cb-m-av">On Available</b> biru</span><span>Transit hanya On Available (sama dengan Cek Top Level)</span></div>
     <div class="cb-table-wrap">
       <table class="cb-table">
         <thead id="cb-thead"></thead>
@@ -418,7 +417,7 @@ if (!empty($akses_ditolak)) : ?>
   function sel4(nama, oh, oo, rs, av) {
     var k = [['cb-m-oh', 'On Hand', oh], ['cb-m-oo', 'On Order', oo], ['cb-m-rs', 'On Reserve', rs], ['cb-m-av', 'On Available', av]], h = '';
     k.forEach(function (x, n) {
-      h += '<td class="cb-m ' + x[0] + (n === 0 ? ' cb-mg' : '') + '" data-label="' + nama + ' \u00b7 ' + x[1] + '">' + angka(x[2]) + '</td>';
+      h += '<td class="cb-m ' + x[0] + (n === 0 ? ' cb-mg' : '') + '" data-label="' + nama + ' \u00b7 ' + x[1] + '" data-tip="' + nama + ' \u00b7 ' + x[1] + '">' + angka(x[2]) + '</td>';
     });
     return h;
   }
@@ -444,14 +443,13 @@ if (!empty($akses_ditolak)) : ?>
 
   // ---------- tabel ----------
   function kepala() {
-    var r1 = '<th rowspan="3" style="width:56px">#</th><th rowspan="3">SKU</th><th rowspan="3">Kategori SKU</th><th rowspan="3">No Rak</th>' +
-      '<th colspan="13" class="cb-hc cb-hroot">Stok Jubelio</th><th rowspan="3" class="cb-num">Qty Real</th>';
-    if (tab === 'adj') { r1 += '<th rowspan="3" class="cb-num">Selisih</th>'; }
-    if (tab === 'rak') { r1 += '<th rowspan="3">Pindah ke</th>'; }
+    var r1 = '<th rowspan="2" style="width:56px">#</th><th rowspan="2">SKU</th><th rowspan="2">Kategori SKU</th><th rowspan="2">No Rak</th>' +
+      '<th colspan="13" class="cb-hc cb-hroot">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
+    if (tab === 'adj') { r1 += '<th rowspan="2" class="cb-num">Selisih</th>'; }
+    if (tab === 'rak') { r1 += '<th rowspan="2">Pindah ke</th>'; }
     var r2 = '<th colspan="4" class="cb-hc cb-hg">Display Barang (F19&amp;F19A)</th><th colspan="4" class="cb-hc cb-hg">Gudang Utama (F16)</th>' +
       '<th class="cb-hc cb-hg">Transit</th><th colspan="4" class="cb-hc cb-hg">Total Stok</th>';
-    var sub = '<th class="cb-hc cb-h-oh">On Hand</th><th class="cb-hc cb-h-oo">On Order</th><th class="cb-hc cb-h-rs">On Reserve</th><th class="cb-hc cb-h-av">On Available</th>';
-    $('#cb-thead').html('<tr>' + r1 + '</tr><tr>' + r2 + '</tr><tr>' + sub + sub + '<th class="cb-hc cb-h-av">On Available</th>' + sub + '</tr>');
+    $('#cb-thead').html('<tr>' + r1 + '</tr><tr>' + r2 + '</tr>');
     return tab === 'isi' ? 18 : 19;
   }
 
@@ -501,7 +499,7 @@ if (!empty($akses_ditolak)) : ?>
         '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
         sel4('Display', r.stok_display, r.disp_order, r.disp_reserved, r.disp_available) +
         sel4('Gudang', r.stok_gudang, r.gud_order, r.gud_reserved, r.gud_available) +
-        '<td class="cb-m cb-m-av cb-mg" data-label="Transit \u00b7 On Available">' + angka(r.stok_transit) + '</td>' +
+        '<td class="cb-m cb-m-av cb-mg" data-label="Transit \u00b7 On Available" data-tip="Transit \u00b7 On Available">' + angka(r.stok_transit) + '</td>' +
         sel4('Total', r.stok_total, r.tot_order, r.tot_reserved, r.tot_available) +
         '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
           '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + pindah + '</tr>';
@@ -538,6 +536,24 @@ if (!empty($akses_ditolak)) : ?>
       }
     });
   }
+
+  // ---------- keterangan angka stok: muncul saat di-hover atau diklik ----------
+  var tipWaktu = null;
+  function tipTampil(el, lama) {
+    var t = $(el).attr('data-tip'); if (!t) { return; }
+    var $t = $('#cb-tip'); if (!$t.length) { $t = $('<div id="cb-tip"></div>').appendTo('body'); }
+    var r = el.getBoundingClientRect();
+    $t.text(t).css({ display: 'block', left: 0, top: 0 });
+    var w = $t.outerWidth(), h = $t.outerHeight();
+    $t.css({ left: Math.max(6, Math.min(window.innerWidth - w - 6, r.left + r.width / 2 - w / 2)), top: r.top - h - 6 < 6 ? r.bottom + 6 : r.top - h - 6 });
+    clearTimeout(tipWaktu);
+    if (lama) { tipWaktu = setTimeout(tipTutup, lama); }
+  }
+  function tipTutup() { clearTimeout(tipWaktu); $('#cb-tip').hide(); }
+  $('#cb-body').on('mouseenter', 'td.cb-m', function () { tipTampil(this, 0); })
+    .on('mouseleave', 'td.cb-m', tipTutup)
+    .on('click', 'td.cb-m', function () { tipTampil(this, 1800); });
+  $('#cb-root').closest('.page-content-wrap, body').off('scroll.cbtip').on('scroll.cbtip', tipTutup);
 
   // ---------- salin SKU ----------
   function salinTeks(t, ok) {
