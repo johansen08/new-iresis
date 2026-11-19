@@ -126,9 +126,11 @@ if (!empty($akses_ditolak)) : ?>
   /* warna stok Jubelio: Display biru, Gudang oranye, Total hijau (header + angka) */
   #cb-root .cb-table > thead > tr + tr > th.cb-c-disp { background:#dbeafe; color:#1d4ed8; }
   #cb-root .cb-table > thead > tr + tr > th.cb-c-gud { background:#ffedd5; color:#c2410c; }
+  #cb-root .cb-table > thead > tr + tr > th.cb-c-trn { background:#ede9fe; color:#6d28d9; }
   #cb-root .cb-table > thead > tr + tr > th.cb-c-tot { background:#dcfce7; color:#15803d; }
   #cb-root .cb-table > tbody > tr > td.cb-c-disp { background:#eff6ff !important; color:#1d4ed8; font-weight:700; }
   #cb-root .cb-table > tbody > tr > td.cb-c-gud { background:#fff7ed !important; color:#c2410c; font-weight:700; }
+  #cb-root .cb-table > tbody > tr > td.cb-c-trn { background:#f5f3ff !important; color:#6d28d9; font-weight:700; }
   #cb-root .cb-table > tbody > tr > td.cb-c-tot { background:#f0fdf4 !important; color:#15803d; font-weight:700; }
   /* header tabel dua baris (grup Stok Jubelio) */
   #cb-root .cb-table > thead > tr > th.cb-grp { text-align:center; border-bottom:1px solid var(--cb-line); border-left:1px solid var(--cb-line); border-right:1px solid var(--cb-line); background:#eef2ff; color:#4338ca; }
@@ -291,7 +293,7 @@ if (!empty($akses_ditolak)) : ?>
     <div class="cb-table-wrap">
       <table class="cb-table">
         <thead id="cb-thead"></thead>
-        <tbody id="cb-body"><tr><td colspan="9" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
+        <tbody id="cb-body"><tr><td colspan="10" class="cb-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
     <div class="cb-pager">
@@ -431,11 +433,11 @@ if (!empty($akses_ditolak)) : ?>
   // ---------- tabel ----------
   function kepala() {
     var r1 = '<th rowspan="2" style="width:56px">#</th><th rowspan="2">SKU</th><th rowspan="2">Kategori SKU</th><th rowspan="2">No Rak</th>' +
-      '<th colspan="3" class="cb-grp">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
+      '<th colspan="4" class="cb-grp">Stok Jubelio</th><th rowspan="2" class="cb-num">Qty Real</th>';
     if (tab === 'adj') { r1 += '<th rowspan="2" class="cb-num">Selisih</th>'; }
     if (tab === 'rak') { r1 += '<th rowspan="2">Pindah ke</th>'; }
-    $('#cb-thead').html('<tr>' + r1 + '</tr><tr><th class="cb-num cb-c-disp">Display</th><th class="cb-num cb-c-gud">Gudang</th><th class="cb-num cb-c-tot">Total</th></tr>');
-    return tab === 'isi' ? 8 : 9;
+    $('#cb-thead').html('<tr>' + r1 + '</tr><tr><th class="cb-num cb-c-disp">Display Barang<br>(F19&amp;F19A)</th><th class="cb-num cb-c-gud">Gudang Utama<br>(F16)</th><th class="cb-num cb-c-trn">Transit</th><th class="cb-num cb-c-tot">Total Stok</th></tr>');
+    return tab === 'isi' ? 9 : 10;
   }
 
   /** Gambar SKU kecil + ikon mata (buka gambar penuh); tanpa foto = kotak kosong. */
@@ -482,9 +484,10 @@ if (!empty($akses_ditolak)) : ?>
         '<td class="cb-sku" data-label="SKU"><span class="cb-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '</span></span></td>' +
         '<td data-label="Kategori SKU">' + pil(r.kategori_sku) + '</td>' +
         '<td class="cb-rak" data-label="No Rak">' + (r.rak_jubelio ? esc(r.rak_jubelio) : '<span class="cb-kosong">&ndash;</span>') + '</td>' +
-        '<td class="cb-num cb-c-disp" data-label="Stok Display">' + angka(r.stok_display) + '</td>' +
-        '<td class="cb-num cb-c-gud" data-label="Stok Gudang">' + angka(r.stok_gudang) + '</td>' +
-        '<td class="cb-num cb-stok cb-c-tot" data-label="Stok Total">' + esc(r.stok_total) + '</td>' +
+        '<td class="cb-num cb-c-disp" data-label="Display Barang (F19&amp;F19A)">' + angka(r.stok_display) + '</td>' +
+        '<td class="cb-num cb-c-gud" data-label="Gudang Utama (F16)">' + angka(r.stok_gudang) + '</td>' +
+        '<td class="cb-num cb-c-trn" data-label="Transit">' + angka(r.stok_transit) + '</td>' +
+        '<td class="cb-num cb-stok cb-c-tot" data-label="Total Stok">' + esc(r.stok_total) + '</td>' +
         '<td class="cb-num" data-label="Qty Real"><span class="cb-qty">' + qty + foto +
           '<button type="button" class="cb-iconbtn cb-qtybtn" data-sku="' + escAttr(r.id_sku) + '" title="' + (terisi(r) ? 'Ubah' : 'Isi') + ' qty real"><i class="fa fa-pencil"></i></button></span></td>' + sel + pindah + '</tr>';
     });
@@ -514,7 +517,7 @@ if (!empty($akses_ditolak)) : ?>
       },
       error: function (xhr) {
         $('#cb-updated').text('Gagal memuat data.');
-        $('#cb-body').html('<tr><td colspan="9" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
+        $('#cb-body').html('<tr><td colspan="10" class="cb-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
       }
     });
   }

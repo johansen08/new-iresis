@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-18.3';
+    const BOOTSTRAP_VERSI = '2026-11-19.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1927,6 +1927,10 @@ class MY_Controller extends CI_Controller
             $this->db->query("ALTER TABLE tblcabut_sku_stok
                 ADD COLUMN stok_display INT NULL DEFAULT NULL COMMENT 'on_hand Display Barang (location -1)',
                 ADD COLUMN stok_gudang INT NULL DEFAULT NULL COMMENT 'on_hand Gudang Utama (location 1)'");
+        }
+        // Stok Transit (location 0), diambil sama seperti Cek Top Level: angka On Available.
+        if (!in_array('stok_transit', $this->db->list_fields('tblcabut_sku_stok'))) {
+            $this->db->query("ALTER TABLE tblcabut_sku_stok ADD COLUMN stok_transit INT NULL DEFAULT NULL COMMENT 'available Transit (location 0)'");
         }
         if (!in_array('pindah_ke', $this->db->list_fields('tblcabut_sku_stok'))) {
             $this->db->query("ALTER TABLE tblcabut_sku_stok

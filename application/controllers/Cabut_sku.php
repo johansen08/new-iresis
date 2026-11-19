@@ -142,7 +142,7 @@ class Cabut_sku extends MY_Controller
         $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
         $baris = $this->cabut_sku_fcd->daftar_tab($tab, $kat, (string) $this->input->get('q'));
 
-        $kolom = ['No', 'SKU', 'Kategori SKU', 'No Rak', 'Display', 'Gudang', 'Total', 'Qty Real'];
+        $kolom = ['No', 'SKU', 'Kategori SKU', 'No Rak', 'Display Barang (F19&F19A)', 'Gudang Utama (F16)', 'Transit', 'Total Stok', 'Qty Real'];
         if ($tab === 'adj') { $kolom[] = 'Selisih'; }
         if ($tab === 'rak') { $kolom[] = 'Pindah ke'; }
         $kolom[] = 'Diisi oleh';
@@ -158,7 +158,7 @@ class Cabut_sku extends MY_Controller
         // Header dua baris: kolom lain digabung vertikal; "Stok Jubelio" digabung di atas Display/Gudang/Total (E-G).
         foreach ($kolom as $i => $nama) {
             $h = $col($i + 1);
-            if ($i >= 4 && $i <= 6) {
+            if ($i >= 4 && $i <= 7) {
                 $ws->setCellValue($h . '2', $nama);
             } else {
                 $ws->setCellValue($h . '1', $nama);
@@ -166,7 +166,7 @@ class Cabut_sku extends MY_Controller
             }
         }
         $ws->setCellValue('E1', 'Stok Jubelio');
-        $ws->mergeCells('E1:G1');
+        $ws->mergeCells('E1:H1');
 
         $r = 3;
         foreach ($baris as $i => $b) {
@@ -174,6 +174,7 @@ class Cabut_sku extends MY_Controller
                 $i + 1, (string) $b['id_sku'], (string) $b['kategori_sku'], (string) $b['rak_jubelio'],
                 $b['stok_display'] === null ? '' : (int) $b['stok_display'],
                 $b['stok_gudang'] === null ? '' : (int) $b['stok_gudang'],
+                $b['stok_transit'] === null ? '' : (int) $b['stok_transit'],
                 (int) $b['stok_total'],
                 $b['qty_real'] === null ? '' : (int) $b['qty_real'],
             ];
@@ -203,17 +204,17 @@ class Cabut_sku extends MY_Controller
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
         $ws->getRowDimension(1)->setRowHeight(22);
         $ws->getRowDimension(2)->setRowHeight(22);
-        $lebar = [6, 24, 14, 16, 11, 11, 11, 11];
+        $lebar = [6, 24, 14, 16, 18, 16, 11, 11, 11];
         foreach ($kolom as $i => $nama) {
             $w = isset($lebar[$i]) ? $lebar[$i] : ($nama === 'Diisi oleh' ? 22 : ($nama === 'Waktu diisi' ? 18 : 16));
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         // Warna sub-kolom stok sama dengan layar: Display biru, Gudang oranye, Total hijau.
-        foreach (['E' => 'DBEAFE', 'F' => 'FFEDD5', 'G' => 'DCFCE7'] as $h => $warna) {
+        foreach (['E' => 'DBEAFE', 'F' => 'FFEDD5', 'G' => 'EDE9FE', 'H' => 'DCFCE7'] as $h => $warna) {
             $ws->getStyle($h . '2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($warna);
-            $ws->getStyle($h . '2')->getFont()->getColor()->setRGB(['E' => '1D4ED8', 'F' => 'C2410C', 'G' => '15803D'][$h]);
+            $ws->getStyle($h . '2')->getFont()->getColor()->setRGB(['E' => '1D4ED8', 'F' => 'C2410C', 'G' => '6D28D9', 'H' => '15803D'][$h]);
             if ($terakhir >= 3) {
-                $ws->getStyle($h . '3:' . $h . $terakhir)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB(['E' => 'EFF6FF', 'F' => 'FFF7ED', 'G' => 'F0FDF4'][$h]);
+                $ws->getStyle($h . '3:' . $h . $terakhir)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB(['E' => 'EFF6FF', 'F' => 'FFF7ED', 'G' => 'F5F3FF', 'H' => 'F0FDF4'][$h]);
             }
         }
         $ws->freezePane('A3');
