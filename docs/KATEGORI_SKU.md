@@ -28,3 +28,7 @@ Bila lolos: `UPDATE tblsku SET kategori_sku` per SKU (pencocokan `BINARY`) dalam
 
 Menu **TIM PURCHASING -> Kategori SKU** (uri `purchasing/kategori-sku`, webmaster dan purchasing; `Daftar_kategori_sku` + `Daftar_kategori_sku_fcd`, view `kategori_sku/daftar.php`) menampilkan seluruh `tblsku`: SKU, gambar (ikon mata membuka gambar penuh), No Rak (`tblsku.no_rak`) dan Kategori. Pencarian memotong SKU atau no rak (tidak peka huruf besar-kecil); filter kategori multi-pilih dengan jumlah SKU per kategori, termasuk pilihan "(Belum ada kategori)" untuk SKU yang `kategori_sku`-nya NULL/kosong. Paging di server (25/50/100 baris) urut SKU. Responsif: di HP tabel menjadi kartu. Mengubah kategori tetap lewat menu Update Kategori SKU.
 
+
+### Export Excel
+
+Tombol **Export Excel** di menu Kategori SKU mengunduh semua SKU yang cocok dengan pencarian + filter kategori yang aktif (bukan hanya halaman yang tampil): kolom No, SKU, No Rak, Kategori SKU; header tebal berlatar ungu, rata tengah, garis tegak dan datar. Endpoint `purchasing/kategori-sku/export` (GET `q`, `kat[]`).
