@@ -31,6 +31,9 @@ if (!empty($akses_ditolak)) : ?>
   #kd-root .kd-search input { width:100%; height:38px; padding:0 12px 0 34px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; background:#fff; color:var(--kd-ink); box-sizing:border-box; }
   #kd-root .kd-search input:focus { outline:none; border-color:var(--kd-primary); box-shadow:0 0 0 3px var(--kd-primary-light); }
   #kd-root .kd-count { margin-left:auto; font-size:12.5px; color:var(--kd-muted); }
+  #kd-root .kd-xls { display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 14px; border:1px solid #86efac; border-radius:8px; background:#f0fdf4; color:#15803d; font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  #kd-root .kd-xls:hover:not(:disabled) { background:#dcfce7; }
+  #kd-root .kd-xls:disabled { opacity:.6; cursor:wait; }
 
   /* filter kategori multi-pilih */
   #kd-root .kd-ms { position:relative; }
@@ -100,6 +103,7 @@ if (!empty($akses_ditolak)) : ?>
     #kd-root .kd-ms-panel { left:0; right:0; }
     #kd-root .kd-ms-opt { padding:12px 10px; font-size:15px; }
     #kd-root .kd-count { margin-left:0; }
+    #kd-root .kd-xls { width:100%; justify-content:center; height:44px; font-size:15px; }
     #kd-root .kd-body { padding:12px 12px 8px; }
     /* tabel -> kartu per SKU */
     #kd-root .kd-table-wrap { border:0; overflow:visible; background:transparent; }
@@ -145,6 +149,7 @@ if (!empty($akses_ditolak)) : ?>
         </div>
       </div>
       <span class="kd-count" id="kd-count"></span>
+      <button type="button" class="kd-xls" id="kd-export" title="Unduh daftar (sesuai pencarian dan filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
     <div class="kd-table-wrap">
       <table class="kd-table">
@@ -270,6 +275,28 @@ if (!empty($akses_ditolak)) : ?>
   $('#kd-ukuran').on('change', function () { hal = 1; muat(); });
   $('#kd-prev').on('click', function () { if (hal > 1) { hal--; muat(); } });
   $('#kd-next').on('click', function () { if (hal < totalHal) { hal++; muat(); } });
+  // export Excel (pencarian + filter kategori yang sedang aktif, semua halaman)
+  $('#kd-export').on('click', function () {
+    var tombol = $(this);
+    if (!total) { alert('Tidak ada data untuk diekspor.'); return; }
+    tombol.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyiapkan...');
+    var x = new XMLHttpRequest();
+    x.open('GET', 'purchasing/kategori-sku/export?' + $.param({ q: $.trim($('#kd-cari').val()), kat: kat }));
+    x.responseType = 'blob'; x.timeout = 120000;
+    var pulih = function () { tombol.prop('disabled', false).html('<i class="fa fa-file-excel-o"></i> Export Excel'); };
+    x.onload = function () {
+      pulih();
+      if (x.status !== 200 || (x.getResponseHeader('Content-Type') || '').indexOf('spreadsheetml') === -1) { alert('Export gagal. Muat ulang halaman lalu coba lagi.'); return; }
+      var m = /filename="([^"]+)"/.exec(x.getResponseHeader('Content-Disposition') || '');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(x.response); a.download = m ? m[1] : 'kategori-sku.xlsx';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+    };
+    x.onerror = x.ontimeout = function () { pulih(); alert('Export gagal: koneksi bermasalah atau waktu habis.'); };
+    x.send();
+  });
+
   muat();
 })();
 </script>

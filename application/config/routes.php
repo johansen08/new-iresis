@@ -160,6 +160,7 @@ $route['cabut-sku/simpan-pindah-ke'] = 'cabut_sku/simpan_pindah_ke';
 $route['cabut-sku/export'] = 'cabut_sku/export';
 $route['purchasing/kategori-sku'] = 'daftar_kategori_sku/index';
 $route['purchasing/kategori-sku/get-data'] = 'daftar_kategori_sku/get_data';
+$route['purchasing/kategori-sku/export'] = 'daftar_kategori_sku/export';
 $route['bonus-picker'] = 'bonus_picker/index';
 $route['bonus-picker/get-data'] = 'bonus_picker/get_data';
 $route['bonus-picker/export-excel'] = 'bonus_picker/export_excel';

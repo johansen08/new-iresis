@@ -733,6 +733,9 @@ if (!empty($akses_ditolak)) : ?>
         if (r.code !== 200) { $('#cb-r-srv').text(r.message); return; }
         var row = cariRow(rakAktif);
         if (row) { row.pindah_ke = r.data.pindah_ke; row.pindah_ke_oleh = r.data.oleh; row.pindah_ke_at = r.data.waktu; }
+        if (row && row.rak_jubelio && String(row.rak_jubelio).replace(/^\s+|\s+$/g, '').toUpperCase() === String(row.pindah_ke).toUpperCase()) {
+          semua.splice(semua.indexOf(row), 1); // no. rak sudah sama dengan tujuan: selesai pindah, hilang dari daftar
+        }
         $('#cb-rakmodal').modal('hide');
         ringkasan();
         render();
