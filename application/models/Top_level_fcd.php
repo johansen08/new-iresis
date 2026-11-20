@@ -561,6 +561,43 @@ class Top_level_fcd extends CI_Model
         return $hasil;
     }
 
+    /**
+     * Saran kejadian kesalahan untuk menautkan transfer baru ke kejadian yang sudah ada (transfer kedua, mis. koreksi yang masih kurang).
+     * Hanya kejadian yang masih punya transfer aktif; terbaru dulu, yang transfernya memuat $sku di atas. $q menyaring kode KSL,
+     * transfer asal, keterangan, nomor transfer, nama petugas, SKU, atau rak.
+     * @return array [['id','kode','jenis','ref_nomor','dibuat_at','cocok'], ...]
+     */
+    public function cari_kesalahan($q, $sku = '')
+    {
+        $q = trim((string) $q);
+        $sku = trim((string) $sku);
+        $w = array('EXISTS (SELECT 1 FROM tbltoplevel_transfer t0 WHERE t0.kesalahan_id = k.id AND t0.aktif_key = 1)');
+        $b = array();
+        $cocok = '0';
+        if ($sku !== '') {
+            $cocok = '(EXISTS (SELECT 1 FROM tbltoplevel_transfer t9 JOIN tbltoplevel_transfer_baris b9 ON b9.id_transfer = t9.id AND b9.dibatalkan = 0 WHERE t9.kesalahan_id = k.id AND t9.aktif_key = 1 AND b9.sku = ?))';
+            $b[] = $sku;
+        }
+        if ($q !== '') {
+            $like = '%' . $this->db->escape_like_str($q) . '%';
+            $kode = preg_match('/^(?:KSL-?)?0*(\d+)$/i', $q, $m) ? (int) $m[1] : 0;
+            $w[] = '(k.id = ? OR k.ref_nomor LIKE ? OR k.keterangan LIKE ?
+                OR EXISTS (SELECT 1 FROM tbltoplevel_transfer t1 WHERE t1.kesalahan_id = k.id AND t1.aktif_key = 1 AND (t1.nomor LIKE ? OR t1.nama_tim LIKE ? OR t1.nama_input LIKE ?))
+                OR EXISTS (SELECT 1 FROM tbltoplevel_transfer t2 JOIN tbltoplevel_transfer_baris b2 ON b2.id_transfer = t2.id AND b2.dibatalkan = 0
+                           WHERE t2.kesalahan_id = k.id AND t2.aktif_key = 1 AND (b2.sku LIKE ? OR b2.no_rak LIKE ?)))';
+            array_push($b, $kode, $like, $like, $like, $like, $like, $like, $like);
+        }
+        $rows = $this->db->query(
+            'SELECT k.id, k.jenis, k.ref_nomor, k.dibuat_at, ' . $cocok . ' AS cocok FROM tbltoplevel_kesalahan k WHERE ' . implode(' AND ', $w) . ' ORDER BY cocok DESC, k.id DESC LIMIT 8', $b
+        )->result_array();
+        foreach ($rows as &$r) {
+            $r['kode'] = self::kode_kesalahan($r['id']);
+            $r['cocok'] = (int) $r['cocok'] === 1;
+        }
+        unset($r);
+        return $rows;
+    }
+
     /** Satu kejadian kesalahan beserta transfer-transfernya yang masih berlaku; NULL bila tidak ada. */
     public function info_kesalahan($id)
     {

@@ -265,7 +265,9 @@ $this->load->view('top_level/_dasar'); ?>
       h += '<div class="tl-ksl"><div class="tl-ksl-pasangan">' + T.ic('alert', 16) + '<span>Transfer pasangan dari kesalahan <b class="mono">' + T.esc(ksl.pasangan.kode) +
         '</b>. Pihak, jenis, dan keterangan mengikuti transfer sebelumnya, dan dihitung sebagai satu kesalahan.</span><button type="button" class="tl-btn sm ghost" data-ksl-lepas>Lepas dari kesalahan ini</button></div></div>';
     } else if (ksl.on) {
-      h += '<div class="tl-ksl"><div class="tl-ksl-2"><div><span class="tl-lbl">Siapa yang salah <span class="muted">(boleh keduanya)</span></span>' +
+      h += '<div class="tl-ksl">' +
+        '<div><label class="tl-lbl" for="tl-ksl-lanjut">Lanjutan dari kesalahan yang sudah ada <span class="tl-wajib ok">opsional</span></label><div><input type="text" id="tl-ksl-lanjut" autocomplete="off" style="width:100%" placeholder="Pilih KSL bila ini transfer kedua dari kesalahan yang sama (mis. koreksi masih kurang)"></div></div>' +
+        '<div class="tl-ksl-2"><div><span class="tl-lbl">Siapa yang salah <span class="muted">(boleh keduanya)</span></span>' +
         '<label class="tl-chk"><input type="checkbox" data-k-pihak="LIST"' + ($.inArray('LIST', ksl.pihak) > -1 ? ' checked' : '') + '>Petugas list</label>' +
         '<label class="tl-chk"><input type="checkbox" data-k-pihak="INPUT"' + ($.inArray('INPUT', ksl.pihak) > -1 ? ' checked' : '') + '>Petugas input</label></div>' +
         '<div><span class="tl-lbl">Jenis kesalahan <span class="muted">(boleh lebih dari satu)</span></span>' +
@@ -280,6 +282,17 @@ $this->load->view('top_level/_dasar'); ?>
       gambarKslDetail();
       $('#tl-ksl-ket').val(ksl.ket);
       refNote();
+      // Transfer kedua dari kesalahan yang sudah tercatat (mis. koreksinya masih kurang): memilih KSL mengubah panel jadi mode pasangan,
+      // jadi satu kejadian tetap terhitung satu kesalahan.
+      T.combo($('#tl-ksl-lanjut'), function (q, kirim) {
+        var sku = barisPertama().sku || '';
+        T.post('cs/input-top-level/kesalahan', { q: q, sku: sku }, function (d) {
+          kirim($.map(d.rows, function (x) {
+            var jn = $.map(String(x.jenis).split(','), function (j) { return NAMA_J[j] || null; }).join(', ');
+            return { id: x.id, nilai: x.kode, label: x.kode, sub: jn + (x.ref_nomor ? ' · asal ' + x.ref_nomor : '') + ' · ' + tglPendek(x.dibuat_at), grup: x.cocok ? 'Memuat SKU ' + sku : 'Kesalahan terbaru' };
+          }));
+        }, function () { kirim([]); });
+      }, function (it) { ksl.pasangan = { id: it.id, kode: it.nilai }; gambarKsl(); tandai(); });
       T.combo($('#tl-ksl-ref'), function (q, kirim) {
         var sku = barisPertama().sku || '';
         T.post('cs/input-top-level/transfer', { q: q, sku: sku }, function (d) {

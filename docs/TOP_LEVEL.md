@@ -169,6 +169,9 @@ transfer menunjuk lewat `tbltoplevel_transfer.kesalahan_id`. Salah SKU dan salah
 transfer pertama tersimpan, tombol **Buat transfer pasangan** membuka form dengan arah dibalik dan catatan kesalahan yang sama, jadi
 rekap menghitung `COUNT(DISTINCT kesalahan_id)`. Menu Daftar Transfer menampilkan badge koreksi / penambahan stok, detail transfer
 memuat kesalahan dan transfer terkait, dan tombol **Rekap kesalahan** merangkum kejadian per petugas dan jenis pada rentang tanggal.
+Transfer kedua juga bisa dibuat kapan saja (tidak hanya tepat setelah transfer pertama), mis. koreksi yang ternyata masih kurang: di panel
+kesalahan isi **Lanjutan dari kesalahan yang sudah ada** dan pilih KSL-nya (saran memuat SKU di form lebih dulu; endpoint
+`cs/input-top-level/kesalahan`). Panel lalu berubah ke mode pasangan, dan transfer baru ikut kejadian itu.
 Endpoint baru: `cs/input-top-level/transfer` (saran transfer asal), `cs/daftar-transfer-top-level/rekap`. Migrasi 2026-11-13.1.
 
 **Menu Kesalahan List/Input Top Level** (`cs/kesalahan-top-level`, migrasi 2026-11-13.2) menampilkan semua kejadian kesalahan, satu baris per

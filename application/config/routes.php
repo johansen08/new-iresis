@@ -673,6 +673,7 @@ $route['cs/input-top-level/rak']       = 'top_level/input_rak';
 $route['cs/input-top-level/simpan']    = 'top_level/input_simpan';
 $route['cs/input-top-level/cek']       = 'top_level/input_cek';
 $route['cs/input-top-level/transfer']  = 'top_level/input_transfer';
+$route['cs/input-top-level/kesalahan'] = 'top_level/input_kesalahan';
 $route['cs/daftar-transfer-top-level/rekap'] = 'top_level/transfer_rekap';
 // Kesalahan List/Input Top Level (docs/TOP_LEVEL.md): daftar kejadian kesalahan, bentuk menu mengikuti Manajemen Komplain CS New
 $route['cs/kesalahan-top-level']            = 'top_level/kesalahan_form';

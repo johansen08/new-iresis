@@ -224,6 +224,13 @@ class Top_level extends MY_Controller
         exit();
     }
 
+    /** Saran kesalahan yang sudah tercatat, untuk transfer kedua dari kejadian yang sama; yang memuat SKU di form ditaruh di atas. */
+    public function input_kesalahan()
+    {
+        $this->_wajib(self::URI_INPUT);
+        $this->make_ajax_response(200, 'OK', array('rows' => $this->top_level_fcd->cari_kesalahan($this->input->post('q'), (string) $this->input->post('sku'))));
+    }
+
     /** Saran transfer asal untuk koreksi: transfer aktif terbaru, yang memuat SKU di form ditaruh di atas. */
     public function input_transfer()
     {
