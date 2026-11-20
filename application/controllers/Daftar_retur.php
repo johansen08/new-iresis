@@ -42,9 +42,10 @@ class Daftar_retur extends MY_Controller
 
         // Indeks kolom DataTables -> kolom SQL ('umur' ditangani khusus di model).
         $urut = array(
-            0 => 'tanggal_pesan', 1 => 'tanggal_retur', 2 => 'no_pesanan', 3 => 'no_resi',
-            4 => 'kurir', 5 => 'marketplace', 6 => 'nama_toko', 7 => 'nilai',
-            8 => 'umur', 9 => 'posisi',
+            // kolom 0 = kotak centang (tidak bisa diurutkan)
+            1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'no_pesanan', 4 => 'no_resi',
+            5 => 'kurir', 6 => 'marketplace', 7 => 'nama_toko', 8 => 'nilai',
+            9 => 'umur', 10 => 'posisi',
         );
         $kol = 'umur';
         $dir = 'desc';
@@ -74,6 +75,17 @@ class Daftar_retur extends MY_Controller
             $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
         }
 
+        // "Pilih semua hasil": kembalikan daftar resi seluruh hasil filter, tanpa paging.
+        if ($this->input->post('ids_saja') === '1') {
+            list($semua) = $this->daftar_retur_fcd->get_list(array(
+                'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
+                'segarkan' => false, 'jenis' => $jenis,
+                'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
+            ));
+            echo json_encode(array('resi' => array_map(function ($x) { return (string) $x->no_resi; }, $semua)));
+            return;
+        }
+
         list($rows, $total_filter, $total, $tab, $waktu) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
             'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis,
@@ -83,6 +95,7 @@ class Daftar_retur extends MY_Controller
         $data = array();
         foreach ($rows as $r) {
             $data[] = array(
+                '<input type="checkbox" class="dr-pilih" data-resi="' . $this->_h($r->no_resi) . '">',
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
                 $this->_salinan($r->no_pesanan, false),
@@ -219,7 +232,7 @@ class Daftar_retur extends MY_Controller
     }
 
     /**
-     * GET: start_date, end_date, jenis, q (sama dengan layar, tab Sudah dibuka). Halaman cetak A4
+     * POST: start_date, end_date, jenis, q (sama dengan layar, tab Sudah dibuka), resi (dicentang, dipisah koma). Halaman cetak A4
      * serah terima Retur -> Restok (tab baru): barang yang dibuka lalu kembali ke display, per SKU.
      * Hanya membaca; tidak mengubah status apa pun.
      */
@@ -233,11 +246,11 @@ class Daftar_retur extends MY_Controller
         }
 
         $ok = function ($t) { return is_string($t) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $t); };
-        $s = $this->input->get('start_date');
-        $e = $this->input->get('end_date');
-        $cari = $this->input->get('q');
+        $s = $this->input->post('start_date');
+        $e = $this->input->post('end_date');
+        $cari = $this->input->post('q');
         $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
-        $jenis_raw = $this->input->get('jenis');
+        $jenis_raw = $this->input->post('jenis');
         if (is_string($jenis_raw) && $jenis_raw !== '') {
             $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
         }
@@ -250,8 +263,13 @@ class Daftar_retur extends MY_Controller
             'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
         ));
 
+        // Hanya resi yang dicentang DAN masih tampil di filter ini (seperti serah terima Paket Cancel).
+        $pilih = $this->input->post('resi');
+        $pilih = (is_string($pilih) && $pilih !== '') ? array_flip(explode(',', $pilih)) : array();
         $resi = array();
-        foreach ($rows as $r) $resi[] = $r->no_resi;
+        foreach ($rows as $r) {
+            if (isset($pilih[$r->no_resi])) $resi[] = $r->no_resi;
+        }
 
         // Nama petugas: "NAMA - ROLE - NOABSEN" -> "NOABSEN - NAMA - ROLE" (sama dengan serah terima paket cancel).
         $nama = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
