@@ -223,6 +223,7 @@ $route['retur/export-rekonsiliasi'] = 'retur/export_rekonsiliasi';
 $route['retur/rekap-proses-retur'] = 'retur/rekap_proses_retur';
 $route['retur/daftar-retur-penjualan'] = 'daftar_retur/index';
 $route['retur/get-daftar-retur-penjualan'] = 'daftar_retur/get_data';
+$route['retur/export-daftar-retur-penjualan'] = 'daftar_retur/export';
 $route['retur/get-rekap-proses-retur'] = 'retur/get_rekap_proses_retur';
 $route['retur/get-rekap-detail'] = 'retur/get_rekap_detail';
 $route['retur/export-rekap-proses-retur'] = 'retur/export_rekap_proses_retur';

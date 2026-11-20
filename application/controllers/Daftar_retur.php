@@ -106,6 +106,118 @@ class Daftar_retur extends MY_Controller
         ));
     }
 
+    /**
+     * GET: start_date, end_date, status, jenis, q (sama dengan layar). Unduh semua baris yang
+     * cocok sebagai xlsx rapi: header tebal rata tengah, garis tegak dan datar. Urut umur terbesar.
+     */
+    public function export()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+
+        if (!$this->_boleh()) {
+            while (ob_get_level() > 0) ob_end_clean();
+            show_error('Anda tidak punya akses ke menu ini.', 403);
+        }
+
+        $ok = function ($t) { return is_string($t) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $t); };
+        $s = $this->input->get('start_date');
+        $e = $this->input->get('end_date');
+        $start = ($ok($s) ? $s : date('Y-01-01')) . ' 00:00:00';
+        $end   = ($ok($e) ? $e : date('Y-m-d')) . ' 23:59:59';
+
+        $status = $this->input->get('status');
+        $status = is_string($status) ? $status : '';
+        $cari = $this->input->get('q');
+        $cari = is_string($cari) ? trim($cari) : '';
+
+        $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
+        $jenis_raw = $this->input->get('jenis');
+        if (is_string($jenis_raw) && $jenis_raw !== '') {
+            $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
+        }
+
+        list($rows) = $this->daftar_retur_fcd->get_list(array(
+            'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
+            'segarkan' => false, 'jenis' => $jenis,
+            'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
+        ));
+
+        $label_posisi = array(
+            Daftar_retur_fcd::POSISI_SUDAH_DIBUKA   => 'Sudah dibuka',
+            Daftar_retur_fcd::POSISI_BELUM_DIBUKA   => 'Belum dibuka',
+            Daftar_retur_fcd::POSISI_BELUM_DITERIMA => 'Belum diterima',
+        );
+        $label_sumber = array('RETUR' => 'Tanggal retur', 'KIRIM' => 'Perkiraan: tgl kirim', 'ORDER' => 'Perkiraan: tgl order');
+
+        $kolom = array('No', 'Tanggal Pesan', 'Tanggal Retur', 'Sumber Tanggal Retur', 'No. Pesanan', 'No. Resi',
+            'Kurir', 'Marketplace', 'Toko', 'Nilai (Rp)', 'Umur (hari)', 'Status Retur', 'Komplain');
+        $jml = count($kolom);
+        $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($jml);
+
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $ws = $ss->getActiveSheet();
+        $ws->setTitle('Daftar Retur');
+        foreach ($kolom as $i => $nama) {
+            $ws->setCellValueByColumnAndRow($i + 1, 1, $nama);
+        }
+
+        $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
+        $r = 2;
+        foreach ($rows as $i => $b) {
+            $ws->setCellValueByColumnAndRow(1, $r, $i + 1);
+            $isi = array(
+                2  => $b->tanggal_pesan ? date('d/m/Y H:i', strtotime($b->tanggal_pesan)) : '-',
+                3  => $b->tanggal_retur ? date('d/m/Y H:i', strtotime($b->tanggal_retur)) : '-',
+                4  => isset($label_sumber[$b->sumber_tanggal]) ? $label_sumber[$b->sumber_tanggal] : '-',
+                // Teks eksplisit supaya nomor panjang tidak jadi notasi ilmiah.
+                5  => (string) $b->no_pesanan,
+                6  => (string) $b->no_resi,
+                7  => (string) $b->kurir,
+                8  => (string) $b->marketplace,
+                9  => (string) $b->nama_toko,
+                12 => isset($label_posisi[$b->posisi]) ? $label_posisi[$b->posisi] : (string) $b->posisi,
+                13 => ((int) $b->ir_k + (int) $b->bk_k) > 0 ? 'Ya' : '-',
+            );
+            foreach ($isi as $c => $v) {
+                $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
+            }
+            $ws->setCellValueByColumnAndRow(10, $r, (float) $b->nilai);
+            $ws->setCellValueByColumnAndRow(11, $r, (int) $b->umur_hari);
+            $r++;
+        }
+        $terakhir = max(2, $r - 1);
+
+        $rentang = 'A1:' . $akhir . $terakhir;
+        $ws->getStyle($rentang)->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
+        $ws->getStyle($rentang)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $ws->getStyle('J2:J' . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
+        $head = $ws->getStyle('A1:' . $akhir . '1');
+        $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
+        $ws->getRowDimension(1)->setRowHeight(26);
+        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 16, 11) as $i => $w) {
+            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
+        }
+        $ws->freezePane('A2');
+        if ($r > 2) {
+            $ws->setAutoFilter('A1:' . $akhir . $terakhir);
+        }
+
+        $nama_berkas = 'daftar-retur-penjualan-' . date('Ymd-His') . '.xlsx';
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit();
+    }
+
     // ------------------------------------------------------------ utilitas
 
     /** Role user harus punya akses ke menu ini (sidebar saja tidak cukup untuk endpoint POST). */

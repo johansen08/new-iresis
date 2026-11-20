@@ -34,6 +34,8 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-chip input { border:0; outline:0; background:transparent; width:210px; cursor:pointer; color:#111827; }
 .dr-reset { width:38px; height:38px; border:0; border-radius:6px; background:#f3f4f6; cursor:pointer; color:#374151; }
 .dr-reset:hover { background:#e5e7eb; }
+.dr-export { height:38px; padding:0 14px; border:0; border-radius:6px; background:#0f766e; color:#fff; font-weight:600; cursor:pointer; }
+.dr-export:hover { background:#115e59; }
 
 
 /* Filter jenis retur: tombol + panel centang multi (acuan: pola multi-select design system Amex/Maersk/Visa --
@@ -182,6 +184,7 @@ $BASE = rtrim(base_url(), '/') . '/';
       </div>
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
+    <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
     <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
           <i class="fa fa-info-circle"></i>
           <div class="dr-pop">
@@ -404,6 +407,13 @@ $(document).ready(function () {
     $(document).on('click.drjenis', tutupJenis);
 
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
+
+    // Export xlsx: pakai filter yang sedang aktif (rentang, tab, jenis, kotak cari).
+    $('#dr_export').on('click', function () {
+        var v = $('#dr_rentang').val().split(' s/d ');
+        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, q: tabel.search() });
+        window.location.href = BASE + 'retur/export-daftar-retur-penjualan?' + q;
+    });
 
     $('#dr_reset').on('click', function () {
         var r = rentangBawaan();
