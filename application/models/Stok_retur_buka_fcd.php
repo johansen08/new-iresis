@@ -14,8 +14,16 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Stok_retur_buka_fcd extends CI_Model
 {
-    public function stok()
+    /**
+     * @param string[]|null $resi_pilih bila diisi, hanya baris dari resi ini yang dihitung (dipakai cetak serah
+     *                                  terima dari Daftar Retur). Aturan stoknya TETAP sama, jadi qty di kertas
+     *                                  serah terima dan di menu ini selalu sama.
+     */
+    public function stok(array $resi_pilih = null)
     {
+        if ($resi_pilih !== null) {
+            $resi_pilih = array_flip(array_map('strtoupper', array_map('strval', $resi_pilih)));
+        }
         $baris = $this->db->query(
             "SELECT b.id_bukaretur, b.resi_buka, b.sku, b.qty, b.no_pesanan, b.toko, b.is_komplain,
                     b.tanggal_buka_retur, s.nama_sku, s.no_rak, s.link_foto, s.foto_lokal
@@ -31,6 +39,7 @@ class Stok_retur_buka_fcd extends CI_Model
         $resi_komplain = array();
         $total = 0;
         foreach ($baris as $b) {
+            if ($resi_pilih !== null && !isset($resi_pilih[strtoupper((string) $b['resi_buka'])])) continue;
             $k = strtoupper((string) $b['sku']);
             $qty = (int) $b['qty'];
             if (!isset($per[$k])) {
@@ -73,5 +82,22 @@ class Stok_retur_buka_fcd extends CI_Model
             'sku' => count($rows), 'qty' => $total,
             'resi' => count($resi_semua), 'resi_komplain' => count($resi_komplain),
         ));
+    }
+
+    /**
+     * Baris kertas serah terima Retur -> Restok dari hasil stok(): satu baris per SKU, qty = stok SKU itu
+     * (angka yang sama dengan menu Stok Retur Buka), terurut rak lalu SKU.
+     *
+     * @return array list of ['sku', 'rak', 'qty']
+     */
+    public function baris_serah_terima(array $rows)
+    {
+        $det = array();
+        foreach ($rows as $r) {
+            if ((int) $r['stok'] <= 0) continue;
+            $det[] = array('sku' => $r['sku'], 'rak' => (string) $r['rak'], 'qty' => (int) $r['stok']);
+        }
+        usort($det, function ($x, $y) { return strcmp($x['rak'], $y['rak']) ?: strcmp($x['sku'], $y['sku']); });
+        return $det;
     }
 }

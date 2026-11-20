@@ -48,32 +48,7 @@ class Stok_retur_buka extends MY_Controller
             show_error('Anda tidak punya akses ke menu ini.', 403);
         }
 
-        $q = $this->input->get('q');
-        $q = is_string($q) ? mb_strtolower(trim($q)) : '';
-        $jenis_raw = $this->input->get('jenis');
-        $jenis = is_string($jenis_raw) && $jenis_raw !== ''
-            ? array_values(array_intersect(explode(',', $jenis_raw), array('B', 'K')))
-            : array();
-
-        // Aturan sama dengan penyaringan di layar: satu SKU lolos bila ada resinya yang cocok jenis,
-        // dan teks pencarian cocok di SKU / rak / resi / no. pesanan.
-        $hasil = $this->stok_retur_buka_fcd->stok();
-        $rows = array();
-        foreach ($hasil['rows'] as $r) {
-            if ($jenis) {
-                $ada = false;
-                foreach ($r['resi'] as $p) {
-                    if (in_array($p['komplain'] ? 'K' : 'B', $jenis, true)) { $ada = true; break; }
-                }
-                if (!$ada) continue;
-            }
-            if ($q !== '') {
-                $gabung = $r['sku'] . ' ' . $r['rak'];
-                foreach ($r['resi'] as $p) $gabung .= ' ' . $p['noresi'] . ' ' . $p['no_pesanan'];
-                if (mb_strpos(mb_strtolower($gabung), $q) === false) continue;
-            }
-            $rows[] = $r;
-        }
+        $rows = $this->_saring($this->stok_retur_buka_fcd->stok()['rows'], $this->input->get('q'), $this->input->get('jenis'));
 
         $this->load->helper('xlsx_rapi');
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -116,6 +91,68 @@ class Stok_retur_buka extends MY_Controller
         header('Cache-Control: max-age=0');
         (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
         exit();
+    }
+
+    /**
+     * Saring baris stok seperti di layar: satu SKU lolos bila ada resinya yang cocok jenis ('B,K'; kosong = keduanya),
+     * dan teks pencarian cocok di SKU / rak / resi / no. pesanan. Dipakai export dan cetak serah terima.
+     */
+    private function _saring(array $semua, $q, $jenis_raw)
+    {
+        $q = is_string($q) ? mb_strtolower(trim($q)) : '';
+        $jenis = (is_string($jenis_raw) && $jenis_raw !== '')
+            ? array_values(array_intersect(explode(',', $jenis_raw), array('B', 'K')))
+            : array();
+
+        $rows = array();
+        foreach ($semua as $r) {
+            if ($jenis) {
+                $ada = false;
+                foreach ($r['resi'] as $p) {
+                    if (in_array($p['komplain'] ? 'K' : 'B', $jenis, true)) { $ada = true; break; }
+                }
+                if (!$ada) continue;
+            }
+            if ($q !== '') {
+                $gabung = $r['sku'] . ' ' . $r['rak'];
+                foreach ($r['resi'] as $p) $gabung .= ' ' . $p['noresi'] . ' ' . $p['no_pesanan'];
+                if (mb_strpos(mb_strtolower($gabung), $q) === false) continue;
+            }
+            $rows[] = $r;
+        }
+        return $rows;
+    }
+
+    /**
+     * POST: q, jenis (sama dengan layar). Halaman cetak A4 serah terima Retur -> Restok untuk SELURUH stok yang
+     * tampil: qty tiap SKU = qty stok di layar. Hanya membaca; tidak mengubah status apa pun.
+     */
+    public function serah_cetak()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+
+        if (!$this->_boleh()) {
+            show_error('Anda tidak punya akses ke menu ini.', 403);
+        }
+
+        $rows = $this->_saring($this->stok_retur_buka_fcd->stok()['rows'], $this->input->post('q'), $this->input->post('jenis'));
+        $resi = array();
+        foreach ($rows as $r) {
+            foreach ($r['resi'] as $p) $resi[$p['noresi']] = true;
+        }
+
+        // Nama petugas: "NAMA - ROLE - NOABSEN" -> "NOABSEN - NAMA - ROLE" (sama dengan serah terima paket cancel).
+        $nama = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
+        $pn = array_map('trim', explode(' - ', $nama));
+        $petugas = count($pn) >= 3 ? end($pn) . ' - ' . $pn[0] . ' - ' . $pn[1] : $nama;
+
+        $this->load->view('daftar_retur/serah_cetak', array(
+            'det' => $this->stok_retur_buka_fcd->baris_serah_terima($rows),
+            'sub' => 'Stok Retur Buka (belum diverifikasi accounting) · ' . count($resi) . ' resi · ' . count($rows) . ' SKU',
+            'petugas' => $petugas,
+            'tanggal' => date('Y-m-d'),
+        ));
     }
 
     /** Role user harus punya akses ke menu ini (sidebar saja tidak cukup untuk endpoint POST). */

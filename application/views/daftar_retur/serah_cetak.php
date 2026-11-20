@@ -43,7 +43,7 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
     <h1>PENGEMBALIAN BARANG (DARI RETUR KE RESTOK)</h1>
     <b><?= html_escape($tgl_indo) ?></b>
 </div>
-<div class="sub"><?= (int) $jumlah_resi ?> resi sudah dibuka &middot; <?= count($det) ?> SKU kembali ke display</div>
+<div class="sub"><?= html_escape($sub) ?></div>
 <?php if (empty($det)): ?>
     <div class="kosong">Tidak ada barang yang perlu diserahterimakan pada filter ini.</div>
 <?php else: ?>
