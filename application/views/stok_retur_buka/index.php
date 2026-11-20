@@ -102,7 +102,8 @@
       <div class="sk-search"><i class="fa fa-search"></i><input id="sk_q" placeholder="Cari SKU, rak, no. resi, atau no. pesanan..." autocomplete="off"></div>
       <div class="sk-fil" id="sk_fa"><button type="button" class="sk-chip" data-tog><i class="fa fa-filter"></i> Jenis <span class="n" id="sk_fa_n"></span> <i class="fa fa-angle-down"></i></button><div class="sk-pop" id="sk_fa_p"></div></div>
       <button type="button" class="sk-clear" id="sk_rs" style="display:none"><i class="fa fa-times"></i> Reset filter</button>
-      <button type="button" class="sk-btn" id="sk_ref" style="margin-left:auto"><i class="fa fa-refresh"></i> Muat ulang</button>
+      <button type="button" class="sk-btn" id="sk_exp" style="margin-left:auto" title="Unduh Excel sesuai pencarian dan filter saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+      <button type="button" class="sk-btn" id="sk_ref"><i class="fa fa-refresh"></i> Muat ulang</button>
     </div>
     <div id="sk_msg"></div>
     <div class="sk-tw">
@@ -303,6 +304,11 @@
     g('sk_q').addEventListener('input', function () { clearTimeout(tmr); var v = this.value.trim(); tmr = setTimeout(function () { S.q = v; S.page = 1; gambar(); }, 180); });
     g('sk_ps').addEventListener('change', function () { S.size = parseInt(this.value, 10) || 20; S.page = 1; gambar(); });
     g('sk_ref').addEventListener('click', muat);
+    // Export xlsx: pakai pencarian + filter jenis yang sedang aktif.
+    g('sk_exp').addEventListener('click', function () {
+        var jenis = Object.keys(S.asal).filter(function (k) { return S.asal[k]; }).join(',');
+        window.location.href = '<?= base_url('retur/stok-retur-buka-export') ?>?' + $.param({ q: S.q, jenis: jenis });
+    });
     g('sk_rs').addEventListener('click', function () { S.q = ''; S.asal = {}; g('sk_q').value = ''; S.page = 1; popAsal(); gambar(); });
     g('sk_fa').addEventListener('click', function (e) {
         if (e.target.closest('[data-tog]')) { this.classList.toggle('open'); return; }

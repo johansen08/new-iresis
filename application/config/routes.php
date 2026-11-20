@@ -227,6 +227,7 @@ $route['retur/export-daftar-retur-penjualan'] = 'daftar_retur/export';
 $route['retur/serah-cetak-daftar-retur-penjualan'] = 'daftar_retur/serah_cetak';
 $route['retur/stok-retur-buka'] = 'stok_retur_buka/index';
 $route['retur/stok-retur-buka-data'] = 'stok_retur_buka/stok_data';
+$route['retur/stok-retur-buka-export'] = 'stok_retur_buka/export';
 $route['retur/get-rekap-proses-retur'] = 'retur/get_rekap_proses_retur';
 $route['retur/get-rekap-detail'] = 'retur/get_rekap_detail';
 $route['retur/export-rekap-proses-retur'] = 'retur/export_rekap_proses_retur';
