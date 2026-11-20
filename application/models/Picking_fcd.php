@@ -338,6 +338,7 @@ class Picking_fcd extends CI_Model
         $ditolak = [];
         $id_resi_cocok = [];
         $ditemukan = [];
+        $waktu_upload = null;
         $batas = date('Y-m-d H:i:s', time() - ((int) $jam * 3600));
 
         foreach (array_chunk($list_noresi, 500) as $potongan) {
@@ -360,6 +361,10 @@ class Picking_fcd extends CI_Model
                 } else {
                     $cocok[] = $r->noresi;
                     $id_resi_cocok[] = $r->id_printresi;
+                    // Jam upload asli = waktu simpan terbaru di antara resi yang dicetak ulang.
+                    if ($waktu_upload === null || $r->tanggal_resiambilbarang > $waktu_upload) {
+                        $waktu_upload = $r->tanggal_resiambilbarang;
+                    }
                 }
             }
         }
@@ -391,7 +396,26 @@ class Picking_fcd extends CI_Model
             }
         }
 
-        return ['ringkasan' => array_values($ringkasan), 'cocok' => $cocok, 'ditolak' => $ditolak];
+        return ['ringkasan' => array_values($ringkasan), 'cocok' => $cocok, 'ditolak' => $ditolak, 'waktu_upload' => $waktu_upload];
+    }
+
+    /**
+     * Total resi berstatus $status_id yang tersimpan atas nama picker ini
+     * HARI INI (sama dengan "Total scan resi Anda hari ini" di Scan Resi Picker,
+     * tapi per picker dan per status). Baca-saja.
+     */
+    function total_resi_hari_ini($id_pegawaipicker, $status_id)
+    {
+        $awal = date('Y-m-d 00:00:00');
+        $akhir = date('Y-m-d 00:00:00', strtotime('+1 day'));
+
+        return (int) $this->db
+            ->from('tblresiambilbarang')
+            ->where('yangambil_pegawai', $id_pegawaipicker)
+            ->where('status_performa_id', $status_id)
+            ->where('tanggal_resiambilbarang >=', $awal)
+            ->where('tanggal_resiambilbarang <', $akhir)
+            ->count_all_results();
     }
 
     function save_picker($picker)

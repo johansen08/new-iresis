@@ -718,6 +718,8 @@ class Picker extends MY_Controller
 
         $this->make_ajax_response(201, 'Upload Resi Spesial selesai diproses', [
             'ringkasan'      => array_values($ringkasan),
+            'waktu_upload'   => date('Y-m-d H:i:s'),
+            'total_hari_ini' => $this->picking_fcd->total_resi_hari_ini($id_pegawaipicker, $status_id),
             'total_diminta'  => count($list_noresi),
             'total_berhasil' => count($berhasil),
             'total_gagal'    => count($gagal),
@@ -765,6 +767,8 @@ class Picker extends MY_Controller
 
         $this->make_ajax_response(200, 'Ringkasan cetak ulang siap', [
             'ringkasan'      => $hasil['ringkasan'],
+            'waktu_upload'   => $hasil['waktu_upload'],
+            'total_hari_ini' => $this->picking_fcd->total_resi_hari_ini($id_pegawaipicker, $status_id),
             'total_berhasil' => count($hasil['cocok']),
             'total_ditolak'  => count($hasil['ditolak']),
             'ditolak'        => $hasil['ditolak'],
