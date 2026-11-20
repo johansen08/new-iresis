@@ -303,10 +303,16 @@ $this->load->view('top_level/_dasar'); ?>
       h += '<div><b>Salah ' + FJ[j][0] + '</b><div class="g" style="margin-top:6px">' +
         $.map(ksl.pihak, function (p) { return isi(j + '_' + p, p === 'LIST' ? 'Ditulis' : 'Diinput'); }).join('') + isi(j + '_benar', 'Seharusnya') + '</div></div>';
     });
-    // Salah tulis arah tidak butuh isian: arah yang ditulis otomatis kebalikan dari arah transfer ini. Qty perlu disesuaikan, jadi diberi catatan.
+    // Salah tulis arah tidak butuh isian untuk keterangan: arah yang ditulis otomatis kebalikan dari arah transfer ini.
+    // Kotak ini hanya menjelaskan qty (selisih stok = 2 x qty yang salah arah) dan menghitungkannya.
+    var nSalah = parseInt(ksl.fv.SALAH_ARAH_n, 10) > 0 ? parseInt(ksl.fv.SALAH_ARAH_n, 10) : 0;
     var catatArah = $.inArray('SALAH_ARAH', ksl.jenis) > -1 ?
-      '<div class="tl-ksl-nilai"><b>Salah tulis arah</b><span class="muted">Pilih arah di kartu Arah sesuai arah yang <b>benar</b>. Transfer ini membatalkan catatan yang salah arah lalu mencatat arah yang benar, jadi qty = <b>2 × qty</b> transaksi yang salah arah. ' +
-      'Contoh: salah dicatat keluar 5, seharusnya masuk: buat transfer Masuk qty 10. Atau buat dua transfer (Buat transfer pasangan) masing-masing qty 5.</span></div>' : '';
+      '<div class="tl-ksl-nilai"><b>Salah tulis arah</b>' +
+      '<span class="muted">Pilih arah di kartu Arah sesuai arah yang <b>benar</b>.</span>' +
+      '<span class="muted"><b>Kenapa qty-nya dua kali lipat?</b> Contoh: seharusnya <b>Masuk 5</b>, tetapi tertulis <b>Keluar 5</b>. Stok di sistem terlanjur <b>berkurang 5</b>, padahal harusnya <b>bertambah 5</b>. Selisihnya 10: 5 untuk mengembalikan stok yang terpotong, 5 untuk penambahan yang benar. ' +
+      'Jadi di transfer Masuk ini isi qty 10. Kalau sebaliknya (seharusnya Keluar, tertulis Masuk), isi qty 10 di transfer Keluar.</span>' +
+      '<div class="g"><div><span class="tl-lbl">Qty yang tertulis salah</span><div><input type="number" min="1" id="tl-arah-n" data-kfv="SALAH_ARAH_n" style="width:100%" value="' + (nSalah || '') + '"></div></div>' +
+      '<div><span class="tl-lbl">Isi qty di baris</span><div id="tl-arah-hasil" style="padding:7px 0;font-size:18px;font-weight:700">' + (nSalah ? nSalah * 2 : '–') + '</div></div></div></div>' : '';
     $d.html((h ? '<div class="tl-ksl-nilai"><b>Nilai untuk keterangan</b>' + h + '</div>' : '') + catatArah);
     $d.find('[data-ksug="sku"]').each(function () {
       var $in = $(this);
@@ -434,7 +440,10 @@ $this->load->view('top_level/_dasar'); ?>
     ksl.jenis = $.map(JENIS, function (j) { return $('[data-k-jenis="' + j[0] + '"]').prop('checked') ? j[0] : null; });
     gambarKslDetail(); refNote(); isiKet();
   });
-  $r.on('input', '[data-kfv]', function () { ksl.fv[$(this).data('kfv')] = this.value; isiKet(); });
+  $r.on('input', '[data-kfv]', function () {
+    ksl.fv[$(this).data('kfv')] = this.value; isiKet();
+    if (this.id === 'tl-arah-n') { var n = parseInt(this.value, 10); $('#tl-arah-hasil').text(n > 0 ? n * 2 : '–'); }
+  });
   $r.on('input', '#tl-ksl-ref', function () { ksl.ref = this.value; $(this).removeClass('bad'); });
   $r.on('input', '#tl-ksl-ket', function () { ksl.ket = this.value; ksl.kotor = true; });
   $r.on('click', '[data-ksl-ulang]', function () { isiKet(true); });
