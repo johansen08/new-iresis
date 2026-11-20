@@ -107,7 +107,8 @@
         <option value="sama">Sesuai resi saja</option>
       </select>
       <button type="button" class="sk-clear" id="sk_rs" style="display:none"><i class="fa fa-times"></i> Reset filter</button>
-      <button type="button" class="sk-btn" id="sk_ref" style="margin-left:auto"><i class="fa fa-refresh"></i> Muat ulang</button>
+      <button type="button" class="sk-btn" id="sk_exp" style="margin-left:auto" title="Unduh Excel sesuai pencarian dan filter saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+      <button type="button" class="sk-btn" id="sk_ref"><i class="fa fa-refresh"></i> Muat ulang</button>
     </div>
     <div id="sk_msg"></div>
     <div class="sk-tw">
@@ -327,6 +328,11 @@
     g('sk_fb').addEventListener('change', function () { S.beda = this.value; S.page = 1; gambar(); });
     g('sk_ps').addEventListener('change', function () { S.size = parseInt(this.value, 10) || 20; S.page = 1; gambar(); });
     g('sk_ref').addEventListener('click', muat);
+    // Export xlsx: pakai pencarian + filter asal + filter bandingan resi yang sedang aktif.
+    g('sk_exp').addEventListener('click', function () {
+        var asal = Object.keys(S.asal).filter(function (k) { return S.asal[k]; });
+        window.location.href = '<?= base_url('paket-cancel/stok-export') ?>?' + $.param({ q: S.q, beda: S.beda, asal: asal.join(','), ada_asal: asal.length ? 1 : 0 });
+    });
     g('sk_rs').addEventListener('click', function () { S.q = ''; S.beda = ''; S.asal = {}; g('sk_q').value = ''; g('sk_fb').value = ''; S.page = 1; popAsal(); gambar(); });
     g('sk_fa').addEventListener('click', function (e) {
         if (e.target.closest('[data-tog]')) { this.classList.toggle('open'); return; }

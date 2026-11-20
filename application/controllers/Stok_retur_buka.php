@@ -75,6 +75,7 @@ class Stok_retur_buka extends MY_Controller
             $rows[] = $r;
         }
 
+        $this->load->helper('xlsx_rapi');
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 
         // ---- Sheet 1: stok per SKU
@@ -88,7 +89,7 @@ class Stok_retur_buka extends MY_Controller
             $baris1[] = array($i + 1, $r['sku'], $r['nama'], $r['rak'], (int) $r['stok'], (int) $r['jumlah_resi'],
                 ($b && $k) ? 'Ekspedisi + Komplain' : ($k ? 'Komplain' : 'Ekspedisi'));
         }
-        $this->_tulis_sheet($ws, $head1, $baris1, array(6, 26, 40, 14, 10, 14, 22), array(2, 3, 4), array(5, 6));
+        xlsx_tulis_sheet_rapi($ws, $head1, $baris1, array(6, 26, 40, 14, 10, 14, 22), array(2, 3, 4), array(5, 6));
 
         // ---- Sheet 2: rincian per resi
         $ws2 = $ss->createSheet();
@@ -103,7 +104,7 @@ class Stok_retur_buka extends MY_Controller
                     $p['tgl'] ? date('d/m/Y', strtotime($p['tgl'])) . ' ' . $p['jam'] : '-', (int) $p['qty']);
             }
         }
-        $this->_tulis_sheet($ws2, $head2, $baris2, array(6, 26, 14, 24, 24, 24, 14, 18, 8), array(2, 3, 4, 5, 6), array(9));
+        xlsx_tulis_sheet_rapi($ws2, $head2, $baris2, array(6, 26, 14, 24, 24, 24, 14, 18, 8), array(2, 3, 4, 5, 6), array(9));
 
         $ss->setActiveSheetIndex(0);
         $nama_berkas = 'stok-retur-buka-' . date('Ymd-His') . '.xlsx';
@@ -115,56 +116,6 @@ class Stok_retur_buka extends MY_Controller
         header('Cache-Control: max-age=0');
         (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
         exit();
-    }
-
-    /**
-     * Isi satu sheet dan rapikan: header tebal berlatar hijau, semua sel rata tengah, garis tegak & datar,
-     * header dibekukan, filter otomatis. $kol_teks = nomor kolom (mulai 1) yang ditulis sebagai teks
-     * eksplisit (SKU / resi angka panjang), $kol_angka = kolom angka.
-     */
-    private function _tulis_sheet($ws, array $head, array $baris, array $lebar, array $kol_teks, array $kol_angka)
-    {
-        $jml = count($head);
-        $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($jml);
-        foreach ($head as $i => $nama) {
-            $ws->setCellValueByColumnAndRow($i + 1, 1, $nama);
-        }
-        $r = 2;
-        foreach ($baris as $row) {
-            foreach ($row as $i => $v) {
-                $c = $i + 1;
-                if (in_array($c, $kol_teks, true)) {
-                    $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, (string) $v,
-                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-                } else {
-                    $ws->setCellValueByColumnAndRow($c, $r, $v);
-                }
-            }
-            $r++;
-        }
-        $terakhir = max(2, $r - 1);
-
-        $rentang = 'A1:' . $akhir . $terakhir;
-        $ws->getStyle($rentang)->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
-        $ws->getStyle($rentang)->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        foreach ($kol_angka as $c) {
-            $huruf = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
-            $ws->getStyle($huruf . '2:' . $huruf . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
-        }
-        $head_style = $ws->getStyle('A1:' . $akhir . '1');
-        $head_style->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $head_style->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
-        $ws->getRowDimension(1)->setRowHeight(26);
-        foreach ($lebar as $i => $w) {
-            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
-        }
-        $ws->freezePane('A2');
-        if ($r > 2) {
-            $ws->setAutoFilter('A1:' . $akhir . $terakhir);
-        }
     }
 
     /** Role user harus punya akses ke menu ini (sidebar saja tidak cukup untuk endpoint POST). */

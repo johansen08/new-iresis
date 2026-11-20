@@ -223,4 +223,100 @@ class Paket_cancel extends MY_Controller
         $hasil['ok'] = true;
         $this->make_ajax_response(200, 'ok', $hasil);
     }
+
+    /**
+     * GET: q, beda ('' / beda / sama), asal (kunci dipisah koma; dipakai bila ada_asal=1, asal kosong = "tanpa asal")
+     * -- sama dengan filter di layar. Unduh xlsx rapi: sheet stok per SKU dan sheet rincian per paket.
+     */
+    public function stok_export()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+        $this->load->helper('xlsx_rapi');
+
+        $q = $this->input->get('q');
+        $q = is_string($q) ? mb_strtolower(trim($q)) : '';
+        $beda = $this->input->get('beda');
+        $beda = in_array($beda, ['beda', 'sama'], true) ? $beda : '';
+        $asal = [];
+        if ($this->input->get('ada_asal') === '1') {
+            $asal_raw = (string) $this->input->get('asal');
+            $asal = ($asal_raw === '') ? [''] : explode(',', $asal_raw);
+        }
+        $label_asal = ['PACKER' => 'Packer', 'HO' => 'HO', 'KURIR' => 'Kurir', '' => 'Tanpa asal'];
+
+        $hasil = $this->cancel_terima_fcd->stok_paket_cancel();
+        $rows = [];
+        foreach ($hasil['rows'] as $r) {
+            if ($beda === 'beda' && !$r['beda']) continue;
+            if ($beda === 'sama' && $r['beda']) continue;
+            if ($asal) {
+                $cocok = false;
+                foreach ($r['paket'] as $p) {
+                    if (in_array((string) $p['dari'], $asal, true)) { $cocok = true; break; }
+                }
+                if (!$cocok) continue;
+            }
+            if ($q !== '') {
+                $gabung = $r['sku'] . ' ' . $r['rak'];
+                foreach ($r['paket'] as $p) $gabung .= ' ' . $p['noresi'];
+                if (mb_strpos(mb_strtolower($gabung), $q) === false) continue;
+            }
+            $rows[] = $r;
+        }
+
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // ---- Sheet 1: stok per SKU
+        $ws = $ss->getActiveSheet();
+        $ws->setTitle('Stok per SKU');
+        $baris1 = [];
+        foreach ($rows as $i => $r) {
+            $dari = [];
+            foreach ($r['paket'] as $p) {
+                $dari[(string) $p['dari']] = $label_asal[(string) $p['dari']] ?? (string) $p['dari'];
+            }
+            $baris1[] = [$i + 1, $r['sku'], $r['nama'], $r['rak'], (int) $r['stok'], (int) $r['jumlah_paket'],
+                $r['beda'] ? 'Beda dari resi' : 'Sesuai resi', implode(', ', $dari)];
+        }
+        xlsx_tulis_sheet_rapi($ws, ['No', 'SKU', 'Nama SKU', 'No. Rak', 'Stok Real', 'Jumlah Paket', 'Keterangan', 'Asal'],
+            $baris1, [6, 26, 40, 14, 12, 14, 18, 22], [2, 3, 4], [5, 6]);
+
+        // ---- Sheet 2: rincian per paket
+        $ws2 = $ss->createSheet();
+        $ws2->setTitle('Rincian Paket');
+        $baris2 = [];
+        $no = 1;
+        foreach ($rows as $r) {
+            foreach ($r['paket'] as $p) {
+                if ((int) $p['qty_resi'] === 0) {
+                    $ket = $p['pasangan'] ? 'Salah ambil (resi: ' . $p['pasangan'] . ')' : 'Di luar resi';
+                } elseif ($p['qty_ada'] > $p['qty_resi']) {
+                    $ket = 'Lebih ' . ($p['qty_ada'] - $p['qty_resi']);
+                } elseif ($p['qty_ada'] < $p['qty_resi']) {
+                    $ket = 'Kurang ' . ($p['qty_resi'] - $p['qty_ada']);
+                } else {
+                    $ket = 'Sesuai resi';
+                }
+                $baris2[] = [$no++, $r['sku'], $r['rak'], $p['noresi'] !== '' ? $p['noresi'] : '(paket tanpa resi)',
+                    $label_asal[(string) $p['dari']] ?? (string) $p['dari'],
+                    $p['tgl'] ? date('d/m/Y', strtotime($p['tgl'])) . ' ' . $p['jam'] : '-',
+                    (int) $p['qty_resi'], (int) $p['qty_ada'], (int) $p['kembali'], (int) $p['stok'], $ket,
+                    $p['dicetak'] ? 'Ya' : '-'];
+            }
+        }
+        xlsx_tulis_sheet_rapi($ws2, ['No', 'SKU', 'No. Rak', 'No. Resi', 'Asal', 'Diterima', 'Qty Resi', 'Qty Real', 'Kembali ke Display', 'Stok', 'Keterangan', 'Serah Terima Dicetak'],
+            $baris2, [6, 26, 14, 26, 12, 18, 10, 10, 18, 10, 30, 20], [2, 3, 4], [7, 8, 9, 10]);
+
+        $ss->setActiveSheetIndex(0);
+        $nama_berkas = 'stok-paket-cancel-' . date('Ymd-His') . '.xlsx';
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        header('Cache-Control: max-age=0');
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        exit();
+    }
 }
