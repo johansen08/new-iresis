@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-19.2';
+    const BOOTSTRAP_VERSI = '2026-11-20.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -179,6 +179,7 @@ class MY_Controller extends CI_Controller
         $this->run_bonus_picker_migration();
         $this->run_bonus_packer_migration();
         $this->run_daftar_retur_penjualan_migration();
+        $this->run_stok_retur_buka_menu_migration();
         $this->run_tanggal_pencairan_mp_migration();
         $this->run_status_dicek_migration();
         $this->run_nominal_pencairan_migration();
@@ -2456,6 +2457,56 @@ class MY_Controller extends CI_Controller
                 'roleid' => 1, 'menuid' => $this->db->insert_id(),
                 'created' => date('Y-m-d H:i:s'), 'createdby' => 1
             ]);
+        }
+    }
+
+    /**
+     * Menu "Stok Retur Buka" di grup TIM RETUR (uri `retur/stok-retur-buka`): stok barang retur sudah
+     * dibuka (KE_DISPLAY) yang belum diverifikasi accounting. Baca saja, tanpa tabel baru. Hak akses
+     * disalin dari Stok Paket Cancel dan Daftar Retur Penjualan (hanya menambah, tidak pernah menghapus).
+     */
+    protected function run_stok_retur_buka_menu_migration()
+    {
+        $uri = 'retur/stok-retur-buka';
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if (!$menu) {
+            $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'paket-cancel/stok'])->row();
+            if (!$saudara) {
+                $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'retur/daftar-retur-penjualan'])->row();
+            }
+            if (!$saudara) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Stok Retur Buka',
+                'parentid'    => $saudara->parentid,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-cubes',
+                'sortorder'   => 64,
+                'description' => 'Stok barang retur yang sudah dibuka (ke display) tetapi belum diverifikasi accounting, per SKU.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1];
+        foreach (['paket-cancel/stok', 'retur/daftar-retur-penjualan'] as $u) {
+            $m = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $u])->row();
+            if ($m) {
+                $role_boleh = array_merge($role_boleh, array_column($this->db->get_where('roleaccess', ['menuid' => $m->id])->result_array(), 'roleid'));
+            }
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row()) {
+                $this->db->insert('roleaccess', [
+                    'roleid' => $roleid, 'menuid' => $menu_id,
+                    'created' => date('Y-m-d H:i:s'), 'createdby' => 1
+                ]);
+            }
         }
     }
 
