@@ -148,7 +148,9 @@ dobel) baris kembali normal. Tanda hanya berlaku untuk SKU + rak saat dicentang 
 Disimpan di `tbltoplevel_transfer_baris.is_penambahan`; log stok bernama `PENAMBAHAN`. Bukan kesalahan, tidak masuk rekap.
 
 **Tandai sebagai kesalahan** (per transfer, arah Masuk atau Keluar). Dipakai bila petugas list atau petugas input salah:
-lupa tulis, lupa input, salah SKU, salah qty, salah no rak, atau tercatat padahal tidak ada / dobel. Isian: siapa yang salah
+lupa tulis, lupa input, salah SKU, salah qty, salah no rak, salah tulis arah (seharusnya Masuk ditulis Keluar atau sebaliknya; transfer koreksi
+berarah benar dengan qty 2 × qty yang salah arah, atau dua transfer lewat transfer pasangan, keterangan "Salah arah ditulis keluar
+seharusnya masuk"), atau tercatat padahal tidak ada / dobel. Isian: siapa yang salah
 (list, input, keduanya), jenis (boleh lebih dari satu), nilai untuk keterangan (ditulis / diinput / seharusnya; SKU dan rak memberi
 rekomendasi), transfer asal yang dikoreksi, keterangan. Keterangan terisi otomatis satu kalimat per jenis ("Salah SKU ditulis A
 seharusnya B", "Salah Qty diinput 21 seharusnya 11"; lupa tulis dan lupa input menyebut arahnya: "Lupa tulis tambah A rak R-01 qty 5" untuk

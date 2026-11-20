@@ -187,7 +187,7 @@ $this->load->view('top_level/_dasar'); ?>
   }
 
   // ---------- kesalahan input (koreksi) ----------
-  var NAMA_JENIS = { LUPA_TULIS: 'Lupa tulis', LUPA_INPUT: 'Lupa input', SALAH_SKU: 'Salah SKU', SALAH_QTY: 'Salah qty', SALAH_RAK: 'Salah no. rak', TIDAK_ADA: 'Tercatat padahal tidak ada' };
+  var NAMA_JENIS = { LUPA_TULIS: 'Lupa tulis', LUPA_INPUT: 'Lupa input', SALAH_SKU: 'Salah SKU', SALAH_QTY: 'Salah qty', SALAH_RAK: 'Salah no. rak', SALAH_ARAH: 'Salah tulis arah', TIDAK_ADA: 'Tercatat padahal tidak ada' };
   function namaPihak(s) { return $.map(String(s || '').split(','), function (p) { return p === 'LIST' ? 'Petugas list' : p === 'INPUT' ? 'Petugas input' : null; }).join(' + '); }
   function namaJenis(s) { return $.map(String(s || '').split(','), function (j) { return NAMA_JENIS[j] || null; }).join(', '); }
   function kslDetail(t) {
@@ -201,7 +201,7 @@ $this->load->view('top_level/_dasar'); ?>
   }
   function bukaRekap() {
     T.post(URL + '/rekap', { dari: dari, sampai: sampai }, function (r) {
-      var kol = ['LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'TIDAK_ADA'];
+      var kol = ['LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'SALAH_ARAH', 'TIDAK_ADA'];
       var b = '<div class="tl-db"><p class="muted" style="margin:0">Dihitung per kejadian kesalahan, bukan per transfer: salah SKU yang butuh dua transfer tetap satu kesalahan. Kejadian yang menyalahkan dua pihak dihitung satu kali untuk tiap pihak. ' +
         lbl(r.dari) + ' – ' + lbl(r.sampai) + ' · <b>' + r.total + ' kejadian</b></p>';
       if (!r.total) b += T.empty('list', 'Belum ada kesalahan pada rentang tanggal ini');

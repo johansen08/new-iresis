@@ -19,7 +19,7 @@ $this->load->view('top_level/_dasar'); ?>
   var KSL0 = function () { return { on: false, pihak: [], jenis: [], fv: {}, ref: '', ket: '', kotor: false, pasangan: null }; };
   var ksl = KSL0();
   var TDK = 'Tidak Diketahui';
-  var JENIS = [['LUPA_TULIS', 'Lupa tulis'], ['LUPA_INPUT', 'Lupa input'], ['SALAH_SKU', 'Salah SKU'], ['SALAH_QTY', 'Salah qty'], ['SALAH_RAK', 'Salah no. rak'], ['TIDAK_ADA', 'Tercatat padahal tidak ada / dobel']];
+  var JENIS = [['LUPA_TULIS', 'Lupa tulis'], ['LUPA_INPUT', 'Lupa input'], ['SALAH_SKU', 'Salah SKU'], ['SALAH_QTY', 'Salah qty'], ['SALAH_RAK', 'Salah no. rak'], ['SALAH_ARAH', 'Salah tulis arah'], ['TIDAK_ADA', 'Tercatat padahal tidak ada / dobel']];
   var NAMA_J = {}; $.each(JENIS, function (i, j) { NAMA_J[j[0]] = j[1]; });
   var FJ = { SALAH_SKU: ['SKU', 'sku'], SALAH_QTY: ['Qty', 'qty'], SALAH_RAK: ['no. rak', 'rak'] };
 
@@ -231,6 +231,11 @@ $this->load->view('top_level/_dasar'); ?>
         $.each(ksl.pihak, function (x, p) {
           L.push('Salah ' + f[0] + ' ' + (p === 'LIST' ? 'ditulis' : 'diinput') + ' ' + (ksl.fv[j + '_' + p] || '…') + ' seharusnya ' + (ksl.fv[j + '_benar'] || '…'));
         });
+      } else if (j === 'SALAH_ARAH') {
+        // Transfer ini arah yang benar; yang ditulis salah adalah arah sebaliknya: "Salah arah ditulis keluar seharusnya masuk".
+        var benar = arah === 'MASUK' ? 'masuk' : arah === 'KELUAR' ? 'keluar' : '…', salah = arah === 'MASUK' ? 'keluar' : arah === 'KELUAR' ? 'masuk' : '…';
+        if (!ksl.pihak.length) { L.push('Salah arah … (pilih siapa yang salah)'); return; }
+        $.each(ksl.pihak, function (x, p) { L.push('Salah arah ' + (p === 'LIST' ? 'ditulis' : 'diinput') + ' ' + salah + ' seharusnya ' + benar); });
       } else if (j === 'TIDAK_ADA') L.push(barangTeks() + ' tercatat padahal tidak ada');
       else L.push(NAMA_J[j] + ' ' + (arah === 'KELUAR' ? 'keluar' : arah === 'MASUK' ? 'tambah' : '…') + ' ' + barangTeks()); // lupa tulis / lupa input: barangnya keluar atau tambah
     });
@@ -298,7 +303,11 @@ $this->load->view('top_level/_dasar'); ?>
       h += '<div><b>Salah ' + FJ[j][0] + '</b><div class="g" style="margin-top:6px">' +
         $.map(ksl.pihak, function (p) { return isi(j + '_' + p, p === 'LIST' ? 'Ditulis' : 'Diinput'); }).join('') + isi(j + '_benar', 'Seharusnya') + '</div></div>';
     });
-    $d.html(h ? '<div class="tl-ksl-nilai"><b>Nilai untuk keterangan</b>' + h + '</div>' : '');
+    // Salah tulis arah tidak butuh isian: arah yang ditulis otomatis kebalikan dari arah transfer ini. Qty perlu disesuaikan, jadi diberi catatan.
+    var catatArah = $.inArray('SALAH_ARAH', ksl.jenis) > -1 ?
+      '<div class="tl-ksl-nilai"><b>Salah tulis arah</b><span class="muted">Pilih arah di kartu Arah sesuai arah yang <b>benar</b>. Transfer ini membatalkan catatan yang salah arah lalu mencatat arah yang benar, jadi qty = <b>2 × qty</b> transaksi yang salah arah. ' +
+      'Contoh: salah dicatat keluar 5, seharusnya masuk: buat transfer Masuk qty 10. Atau buat dua transfer (Buat transfer pasangan) masing-masing qty 5.</span></div>' : '';
+    $d.html((h ? '<div class="tl-ksl-nilai"><b>Nilai untuk keterangan</b>' + h + '</div>' : '') + catatArah);
     $d.find('[data-ksug="sku"]').each(function () {
       var $in = $(this);
       T.combo($in, function (q, kirim) {

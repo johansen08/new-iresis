@@ -96,8 +96,8 @@ class Top_level extends MY_Controller
 
     // ------------------------------------------------------------ Kesalahan List/Input Top Level
 
-    const NADA_JENIS = array('LUPA_TULIS' => 'amber', 'LUPA_INPUT' => 'amber', 'SALAH_SKU' => 'indigo', 'SALAH_QTY' => 'sky', 'SALAH_RAK' => 'sky', 'TIDAK_ADA' => 'red');
-    const NAMA_JENIS = array('LUPA_TULIS' => 'Lupa tulis', 'LUPA_INPUT' => 'Lupa input', 'SALAH_SKU' => 'Salah SKU', 'SALAH_QTY' => 'Salah qty', 'SALAH_RAK' => 'Salah no. rak', 'TIDAK_ADA' => 'Tercatat padahal tidak ada');
+    const NADA_JENIS = array('LUPA_TULIS' => 'amber', 'LUPA_INPUT' => 'amber', 'SALAH_SKU' => 'indigo', 'SALAH_QTY' => 'sky', 'SALAH_RAK' => 'sky', 'SALAH_ARAH' => 'indigo', 'TIDAK_ADA' => 'red');
+    const NAMA_JENIS = array('LUPA_TULIS' => 'Lupa tulis', 'LUPA_INPUT' => 'Lupa input', 'SALAH_SKU' => 'Salah SKU', 'SALAH_QTY' => 'Salah qty', 'SALAH_RAK' => 'Salah no. rak', 'SALAH_ARAH' => 'Salah tulis arah', 'TIDAK_ADA' => 'Tercatat padahal tidak ada');
 
     public function kesalahan_form()
     {

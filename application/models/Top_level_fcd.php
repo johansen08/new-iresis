@@ -447,7 +447,7 @@ class Top_level_fcd extends CI_Model
 
     // ------------------------------------------------------------ Koreksi kesalahan input
 
-    const JENIS_KESALAHAN = array('LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'TIDAK_ADA');
+    const JENIS_KESALAHAN = array('LUPA_TULIS', 'LUPA_INPUT', 'SALAH_SKU', 'SALAH_QTY', 'SALAH_RAK', 'SALAH_ARAH', 'TIDAK_ADA');
 
     public static function kode_kesalahan($id)
     {
