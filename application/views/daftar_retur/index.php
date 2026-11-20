@@ -86,10 +86,15 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th { background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:10px 6px; font-size:12px; }
 #dr_wrap table.dataTable tbody td { border:0; border-bottom:1px solid #f1f5f9; padding:8px 6px; vertical-align:middle; }
 /* hanya nomor pesanan & resi yang boleh dipotong di tengah kata; kolom lain dibungkus di spasi */
-#dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { overflow-wrap:anywhere; }
-#dr_wrap table.dataTable tbody td:nth-child(1), #dr_wrap table.dataTable tbody td:nth-child(2) { white-space:nowrap; }
-#dr_wrap table.dataTable tbody td:nth-child(8) { text-align:right; font-variant-numeric:tabular-nums; }
-#dr_wrap table.dataTable thead th:nth-child(8) { text-align:left; }
+#dr_wrap table.dataTable tbody td:nth-child(4), #dr_wrap table.dataTable tbody td:nth-child(5) { overflow-wrap:anywhere; }
+#dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3) { white-space:nowrap; }
+#dr_wrap table.dataTable tbody td:nth-child(9) { text-align:right; font-variant-numeric:tabular-nums; }
+#dr_wrap table.dataTable thead th:nth-child(9) { text-align:left; }
+/* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
+#dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
+#dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
+.dr-pilih-info { color:#374151; font-size:12.5px; }
+.dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:8px; }
 /* teks + ikon salin: ikon tetap di samping baris pertama, tidak jatuh ke baris baru */
 .dr-no { display:flex; align-items:flex-start; gap:4px; }
 .dr-nt { min-width:0; overflow-wrap:anywhere; }
@@ -99,7 +104,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-toko { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* layar sempit: kolom Toko disembunyikan (masih bisa dicari lewat kotak Search) */
 @media (max-width: 1200px) {
-  #dr_wrap table.dataTable th:nth-child(7), #dr_wrap table.dataTable td:nth-child(7) { display:none; }
+  #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
 }
 /* jendela sangat sempit: tabel tidak diperas lagi, baru boleh digeser */
 @media (max-width: 899px) {
@@ -187,7 +192,8 @@ $BASE = rtrim(base_url(), '/') . '/';
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
     <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
-    <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" title="Cetak serah terima ke Restok: barang dari retur yang sudah dibuka (sesuai filter saat ini)"><i class="fa fa-print"></i> Cetak Serah Terima</button>
+    <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
+    <span class="dr-pilih-info" id="dr_pilih_info" style="display:none;"></span>
     <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
           <i class="fa fa-info-circle"></i>
           <div class="dr-pop">
@@ -207,6 +213,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   <table class="table table-hover" id="dt_daftar_retur" style="width:100%;">
     <thead>
       <tr>
+        <th style="width:3%;"><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
         <th style="width:8%;">Tanggal Pesan</th>
         <th style="width:10%;">Tanggal Retur</th>
         <th style="width:15%;">No. Pesanan</th>
@@ -232,6 +239,25 @@ $(document).ready(function () {
     var jenisAktif = 'B,K';        // centang filter jenis retur; '-' = tidak ada
     var segarkanBerikut = false;   // true = lewati cache server (tombol atur ulang)
     var timerMuat = null, mulaiMuat = 0;
+    var tabel;
+    var sel = {};                  // resi yang dicentang (bertahan antar halaman) untuk cetak serah terima
+
+    function jmlPilih() { return Object.keys(sel).length; }
+    function ubahInfoPilih() {
+        if (!tabel) return;
+        var n = jmlPilih(), total = tabel.page.info().recordsDisplay;
+        $('#dr_cetak').prop('disabled', n === 0)
+            .attr('title', n ? 'Cetak serah terima ' + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
+        var h = n ? n + ' resi dipilih <a id="dr_pilih_hapus">Hapus pilihan</a>' : '';
+        if (total > 0 && n < total) h += '<a id="dr_pilih_semua">Pilih semua ' + total.toLocaleString('id-ID') + ' hasil</a>';
+        $('#dr_pilih_info').html(h);
+        var $hal = $('#dt_daftar_retur .dr-pilih');
+        $('#dr_pilih_hal').prop('checked', $hal.length > 0 && $hal.filter(':checked').length === $hal.length);
+    }
+    function aturModePilih(aktif) {
+        $('#dr_wrap').toggleClass('mode-pilih', aktif);
+        $('#dr_cetak, #dr_pilih_info').toggle(aktif);
+    }
 
     function mulaiMemuat() {
         mulaiMuat = Date.now();
@@ -281,7 +307,7 @@ $(document).ready(function () {
     });
     tulisRentang(awal[0], awal[1]);
 
-    var tabel = $('#dt_daftar_retur').DataTable({
+    tabel = $('#dt_daftar_retur').DataTable({
         processing: false,
         serverSide: true,
         autoWidth: false,
@@ -289,7 +315,13 @@ $(document).ready(function () {
         dom: "<'dr-atas'f>rt<'dr-bawah'lip>",
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-        order: [[8, 'desc']],          // umur terbesar di atas
+        order: [[9, 'desc']],          // umur terbesar di atas
+        columnDefs: [{ targets: 0, orderable: false, searchable: false }],
+        drawCallback: function () {
+            // pulihkan centang resi yang sudah dipilih (juga setelah ganti halaman / urutan)
+            $('#dt_daftar_retur .dr-pilih').each(function () { this.checked = !!sel[$(this).attr('data-resi')]; });
+            ubahInfoPilih();
+        },
         ajax: {
             url: BASE + 'retur/get-daftar-retur-penjualan',
             type: 'POST',
@@ -373,7 +405,7 @@ $(document).ready(function () {
         $('#dr_tabs .dr-tab').removeClass('on');
         $(this).addClass('on');
         statusAktif = $(this).data('status') || '';
-        $('#dr_cetak').toggle(statusAktif === 'SUDAH_DIBUKA');   // cetak serah terima hanya di tab Sudah dibuka
+        aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah dibuka
         tabel.ajax.reload();
     });
 
@@ -413,10 +445,47 @@ $(document).ready(function () {
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
 
     // Export xlsx: pakai filter yang sedang aktif (rentang, tab, jenis, kotak cari).
-    $('#dr_cetak').on('click', function () {
+    // Centang resi: per baris, per halaman (header), atau seluruh hasil filter (daftar resi diminta ke server).
+    $('#dt_daftar_retur').on('change', '.dr-pilih', function () {
+        var r = $(this).attr('data-resi');
+        if (this.checked) sel[r] = true; else delete sel[r];
+        ubahInfoPilih();
+    });
+    $('#dr_pilih_hal').on('change', function () {
+        var on = this.checked;
+        $('#dt_daftar_retur .dr-pilih').each(function () {
+            this.checked = on;
+            var r = $(this).attr('data-resi');
+            if (on) sel[r] = true; else delete sel[r];
+        });
+        ubahInfoPilih();
+    });
+    $('#dr_pilih_info').on('click', '#dr_pilih_hapus', function () {
+        sel = {};
+        $('#dt_daftar_retur .dr-pilih').prop('checked', false);
+        ubahInfoPilih();
+    });
+    $('#dr_pilih_info').on('click', '#dr_pilih_semua', function () {
         var v = $('#dr_rentang').val().split(' s/d ');
-        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search() });
-        window.open(BASE + 'retur/serah-cetak-daftar-retur-penjualan?' + q, '_blank');
+        $.post(BASE + 'retur/get-daftar-retur-penjualan', {
+            ids_saja: '1', start_date: v[0] || '', end_date: v[1] || '', status: statusAktif,
+            jenis: jenisAktif, search: { value: tabel.search() }
+        }, function (res) {
+            (res.resi || []).forEach(function (r) { sel[r] = true; });
+            $('#dt_daftar_retur .dr-pilih').each(function () { this.checked = !!sel[$(this).attr('data-resi')]; });
+            ubahInfoPilih();
+        }, 'json');
+    });
+
+    // Cetak: POST lewat form ke tab baru (daftar resi bisa panjang, tidak muat di URL).
+    $('#dr_cetak').on('click', function () {
+        if (!jmlPilih()) return;
+        var v = $('#dr_rentang').val().split(' s/d ');
+        var $f = $('<form method="post" target="_blank" style="display:none;"></form>')
+            .attr('action', BASE + 'retur/serah-cetak-daftar-retur-penjualan');
+        var kirim = { start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search(), resi: Object.keys(sel).join(',') };
+        $.each(kirim, function (k, val) { $('<input type="hidden">').attr('name', k).val(val).appendTo($f); });
+        $f.appendTo('body').submit().remove();
     });
 
     $('#dr_export').on('click', function () {
@@ -431,12 +500,13 @@ $(document).ready(function () {
         $('#dr_rentang').data('daterangepicker').setEndDate(r[1]);
         tulisRentang(r[0], r[1]);
         statusAktif = '';
-        $('#dr_cetak').hide();
+        aturModePilih(false);
+        sel = {};
         jenisAktif = 'B,K';
         $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
         $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
-        tabel.search('').order([8, 'desc']).ajax.reload();
+        tabel.search('').order([9, 'desc']).ajax.reload();
     });
 });
 </script>
