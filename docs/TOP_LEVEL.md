@@ -149,7 +149,7 @@ Disimpan di `tbltoplevel_transfer_baris.is_penambahan`; log stok bernama `PENAMB
 
 **Tandai sebagai kesalahan** (per transfer, arah Masuk atau Keluar). Dipakai bila petugas list atau petugas input salah:
 lupa tulis, lupa input, salah SKU, salah qty, salah no rak, salah tulis arah (seharusnya Masuk ditulis Keluar atau sebaliknya; transfer koreksi
-berarah benar dengan qty 2 × qty yang salah arah, atau dua transfer lewat transfer pasangan, keterangan "Salah arah ditulis keluar
+berarah benar dengan qty 2 × qty yang salah arah (selisih stok: yang salah arah sudah menggeser stok ke arah sebaliknya; form menghitungkan lewat isian "Qty yang tertulis salah"), atau dua transfer lewat transfer pasangan, keterangan "Salah arah ditulis keluar
 seharusnya masuk"), atau tercatat padahal tidak ada / dobel. Isian: siapa yang salah
 (list, input, keduanya), jenis (boleh lebih dari satu), nilai untuk keterangan (ditulis / diinput / seharusnya; SKU dan rak memberi
 rekomendasi), transfer asal yang dikoreksi, keterangan. Keterangan terisi otomatis satu kalimat per jenis ("Salah SKU ditulis A
