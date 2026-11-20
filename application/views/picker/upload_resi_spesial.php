@@ -271,6 +271,11 @@
     </div>
   </div>
 
+  <div class="mono" style="font-size:12.5px; color:var(--urs-muted); display:flex; flex-direction:column; gap:3px;">
+    <span>Jam upload: <b id="urs_jam_upload">-</b></span>
+    <span>Total resi 1_SKU_PICKER hari ini (picker ini): <b id="urs_total_hari_ini">0</b></span>
+  </div>
+
   <div class="btn-row">
     <button class="btn btn-primary" id="urs_btn_cetak">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
@@ -287,6 +292,15 @@
   var MAKS_SARAN = 8;
 
   function esc(s){ return $('<div>').text(s == null ? '' : String(s)).html(); }
+
+  // "2026-11-20 14:05:09" (jam server) -> "20/11/2026 14.05.09". Diurai manual,
+  // bukan lewat new Date(), supaya tidak pernah menghasilkan "Invalid Date"/NaN
+  // di browser tertentu; kalau format tidak dikenali, pakai jam browser.
+  function formatWaktu(s){
+    var m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(s || '');
+    if (!m) return new Date().toLocaleString('id-ID');
+    return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + '.' + m[5] + '.' + m[6];
+  }
 
   var $pickerInput = $('#urs_picker_input');
   var $pickerList = $('#urs_picker_list');
@@ -517,6 +531,7 @@
         '<p style="margin: 0;">Picker : ' + esc(r.picker_nama) + '</p>' +
         '<p style="margin: 0;">Waktu  : ' + esc(r.waktu) + '</p>' +
         '<p style="margin: 0;">Total Resi: ' + r.total_berhasil + '</p>' +
+        '<p style="margin: 0;">Total Hari Ini: ' + (parseInt(r.total_hari_ini, 10) || 0) + '</p>' +
         '<p style="margin: 0; margin-bottom: 10px; font-weight: bold; font-size: 16px;">Total Qty : ' + totalQty + ' <span style="font-weight: normal; font-size: 14px;">(' + items.length + ' SKU)</span></p>' +
         '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">' +
           '<thead><tr style="border-bottom: 1px solid #000; border-top: 1px solid #000;">' +
@@ -592,7 +607,7 @@
         }
         cetakRingkasan($.extend({}, d, {
           picker_nama: chosen.nama,
-          waktu: new Date().toLocaleString('id-ID'),
+          waktu: formatWaktu(d.waktu_upload),
           cetak_ulang: true
         }));
       },
@@ -644,8 +659,11 @@
         ringkasanTerakhir = $.extend({}, d, {
           picker_nama: chosen.nama,
           picker_no_absen: chosen.no_absen,
-          waktu: new Date().toLocaleString('id-ID')
+          waktu: formatWaktu(d.waktu_upload)
         });
+
+        $('#urs_jam_upload').text(ringkasanTerakhir.waktu);
+        $('#urs_total_hari_ini').text(parseInt(d.total_hari_ini, 10) || 0);
 
         simpanLokal(ringkasanTerakhir);
         tampilkanTombolTerakhir();
