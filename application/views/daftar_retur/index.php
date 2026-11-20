@@ -481,7 +481,8 @@ $(document).ready(function () {
     $('#dr_cetak').on('click', function () {
         if (!jmlPilih()) return;
         var v = $('#dr_rentang').val().split(' s/d ');
-        var $f = $('<form method="post" target="_blank" style="display:none;"></form>')
+        // Kelas nojs wajib: tanpa itu plugins.js membajak submit jadi AJAX ke halaman SPA ("Invalid response format").
+        var $f = $('<form method="post" target="_blank" class="nojs" style="display:none;"></form>')
             .attr('action', BASE + 'retur/serah-cetak-daftar-retur-penjualan');
         var kirim = { start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search(), resi: Object.keys(sel).join(',') };
         $.each(kirim, function (k, val) { $('<input type="hidden">').attr('name', k).val(val).appendTo($f); });
