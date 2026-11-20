@@ -276,9 +276,17 @@ class Daftar_retur extends MY_Controller
         $p = array_map('trim', explode(' - ', $nama));
         $petugas = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : $nama;
 
+        // Qty memakai aturan yang SAMA dengan menu Stok Retur Buka (barang KE_DISPLAY, resi belum diverifikasi
+        // accounting). Resi dicentang yang sudah diverifikasi / tidak punya barang KE_DISPLAY tidak ikut.
+        $this->load->model('stok_retur_buka_fcd');
+        $stok = $this->stok_retur_buka_fcd->stok($resi);
+        $masuk = (int) $stok['ringkas']['resi'];
+
         $this->load->view('daftar_retur/serah_cetak', array(
-            'det' => $this->daftar_retur_fcd->barang_serah_terima($resi),
-            'jumlah_resi' => count($resi),
+            'det' => $this->stok_retur_buka_fcd->baris_serah_terima($stok['rows']),
+            'sub' => count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
+                . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: sudah diverifikasi accounting / tanpa barang ke display)' : '')
+                . ' · ' . count($stok['rows']) . ' SKU',
             'petugas' => $petugas,
             'tanggal' => date('Y-m-d'),
         ));

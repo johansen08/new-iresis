@@ -103,6 +103,7 @@
       <div class="sk-fil" id="sk_fa"><button type="button" class="sk-chip" data-tog><i class="fa fa-filter"></i> Jenis <span class="n" id="sk_fa_n"></span> <i class="fa fa-angle-down"></i></button><div class="sk-pop" id="sk_fa_p"></div></div>
       <button type="button" class="sk-clear" id="sk_rs" style="display:none"><i class="fa fa-times"></i> Reset filter</button>
       <button type="button" class="sk-btn" id="sk_exp" style="margin-left:auto" title="Unduh Excel sesuai pencarian dan filter saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+      <button type="button" class="sk-btn" id="sk_cetak" title="Cetak serah terima ke Restok: qty = stok yang tampil"><i class="fa fa-print"></i> Cetak Serah Terima</button>
       <button type="button" class="sk-btn" id="sk_ref"><i class="fa fa-refresh"></i> Muat ulang</button>
     </div>
     <div id="sk_msg"></div>
@@ -304,6 +305,13 @@
     g('sk_q').addEventListener('input', function () { clearTimeout(tmr); var v = this.value.trim(); tmr = setTimeout(function () { S.q = v; S.page = 1; gambar(); }, 180); });
     g('sk_ps').addEventListener('change', function () { S.size = parseInt(this.value, 10) || 20; S.page = 1; gambar(); });
     g('sk_ref').addEventListener('click', muat);
+    // Cetak serah terima: POST lewat form ke tab baru. Kelas nojs wajib (plugins.js membajak submit form biasa jadi AJAX).
+    g('sk_cetak').addEventListener('click', function () {
+        var jenis = Object.keys(S.asal).filter(function (k) { return S.asal[k]; }).join(',');
+        var $f = $('<form method="post" target="_blank" class="nojs" style="display:none;"></form>').attr('action', '<?= base_url('retur/stok-retur-buka-serah-cetak') ?>');
+        $.each({ q: S.q, jenis: jenis }, function (k, v) { $('<input type="hidden">').attr('name', k).val(v).appendTo($f); });
+        $f.appendTo('body').submit().remove();
+    });
     // Export xlsx: pakai pencarian + filter jenis yang sedang aktif.
     g('sk_exp').addEventListener('click', function () {
         var jenis = Object.keys(S.asal).filter(function (k) { return S.asal[k]; }).join(',');
