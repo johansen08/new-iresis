@@ -36,6 +36,8 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-reset:hover { background:#e5e7eb; }
 .dr-export { height:38px; padding:0 14px; border:0; border-radius:6px; background:#0f766e; color:#fff; font-weight:600; cursor:pointer; }
 .dr-export:hover { background:#115e59; }
+.dr-cetak { background:#1d4ed8; }
+.dr-cetak:hover { background:#1e40af; }
 
 
 /* Filter jenis retur: tombol + panel centang multi (acuan: pola multi-select design system Amex/Maersk/Visa --
@@ -185,6 +187,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
     <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+    <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" title="Cetak serah terima ke Restok: barang dari retur yang sudah dibuka (sesuai filter saat ini)"><i class="fa fa-print"></i> Cetak Serah Terima</button>
     <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
           <i class="fa fa-info-circle"></i>
           <div class="dr-pop">
@@ -370,6 +373,7 @@ $(document).ready(function () {
         $('#dr_tabs .dr-tab').removeClass('on');
         $(this).addClass('on');
         statusAktif = $(this).data('status') || '';
+        $('#dr_cetak').toggle(statusAktif === 'SUDAH_DIBUKA');   // cetak serah terima hanya di tab Sudah dibuka
         tabel.ajax.reload();
     });
 
@@ -409,6 +413,12 @@ $(document).ready(function () {
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
 
     // Export xlsx: pakai filter yang sedang aktif (rentang, tab, jenis, kotak cari).
+    $('#dr_cetak').on('click', function () {
+        var v = $('#dr_rentang').val().split(' s/d ');
+        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search() });
+        window.open(BASE + 'retur/serah-cetak-daftar-retur-penjualan?' + q, '_blank');
+    });
+
     $('#dr_export').on('click', function () {
         var v = $('#dr_rentang').val().split(' s/d ');
         var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, q: tabel.search() });
@@ -421,6 +431,7 @@ $(document).ready(function () {
         $('#dr_rentang').data('daterangepicker').setEndDate(r[1]);
         tulisRentang(r[0], r[1]);
         statusAktif = '';
+        $('#dr_cetak').hide();
         jenisAktif = 'B,K';
         $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
         $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');

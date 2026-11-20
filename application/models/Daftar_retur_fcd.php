@@ -187,6 +187,63 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /**
+     * Isi kertas serah terima Retur -> Restok: barang fisik yang sudah dibuka dan dikembalikan
+     * ke display (status_detail_buka = KE_DISPLAY) pada daftar resi yang diberikan, dijumlah per SKU.
+     * Hanya membaca. Dicari di prod lalu arsip.
+     *
+     * @param string[] $resi_list
+     * @return array list of ['sku', 'rak', 'qty'] terurut rak lalu SKU
+     */
+    public function barang_serah_terima(array $resi_list)
+    {
+        $resi_list = array_values(array_unique(array_filter(array_map('strval', $resi_list), 'strlen')));
+        $total = array();
+        $sumber = array('tblbukaretur', '`' . $this->_db_arsip() . '`.tblbukaretur');
+
+        foreach (array_chunk($resi_list, 500) as $potong) {
+            $in = implode(',', array_map(array($this->db, 'escape'), $potong));
+            $per_potong = array();
+            foreach ($sumber as $tabel) {
+                $q = $this->db->query(
+                    "SELECT b.sku, SUM(b.qty) AS qty
+                     FROM {$tabel} b
+                     WHERE b.resi_buka IN ({$in}) AND b.status_detail_buka = 'KE_DISPLAY'
+                     GROUP BY b.sku"
+                );
+                foreach ($q->result() as $r) {
+                    $k = strtoupper((string) $r->sku);
+                    // Arsip adalah superset prod: ambil yang terbesar, jangan dijumlah dua kali.
+                    $per_potong[$k] = max(isset($per_potong[$k]) ? $per_potong[$k] : 0, (int) $r->qty);
+                }
+            }
+            // Potongan resi saling lepas, jadi antar potongan boleh dijumlah.
+            foreach ($per_potong as $k => $qty) {
+                $total[$k] = (isset($total[$k]) ? $total[$k] : 0) + $qty;
+            }
+        }
+
+        return $total ? $this->_susun_serah($total) : array();
+    }
+
+    private function _susun_serah(array $total)
+    {
+        $rak = array();
+        foreach (array_chunk(array_keys($total), 500) as $potong) {
+            $in = implode(',', array_map(array($this->db, 'escape'), $potong));
+            foreach ($this->db->query("SELECT id_sku, no_rak FROM tblsku WHERE UPPER(id_sku) IN ({$in})")->result() as $s) {
+                $rak[strtoupper($s->id_sku)] = (string) $s->no_rak;
+            }
+        }
+        $det = array();
+        foreach ($total as $k => $qty) {
+            if ($qty <= 0) continue;
+            $det[] = array('sku' => $k, 'rak' => isset($rak[$k]) ? $rak[$k] : '', 'qty' => $qty);
+        }
+        usort($det, function ($x, $y) { return strcmp($x['rak'], $y['rak']) ?: strcmp($x['sku'], $y['sku']); });
+        return $det;
+    }
+
+    /**
      * @param array $p start, end (Y-m-d H:i:s), status (posisi/kosong), search, order (kolom),
      *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
      * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung]

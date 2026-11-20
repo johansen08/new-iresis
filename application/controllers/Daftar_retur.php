@@ -218,6 +218,54 @@ class Daftar_retur extends MY_Controller
         exit();
     }
 
+    /**
+     * GET: start_date, end_date, jenis, q (sama dengan layar, tab Sudah dibuka). Halaman cetak A4
+     * serah terima Retur -> Restok (tab baru): barang yang dibuka lalu kembali ke display, per SKU.
+     * Hanya membaca; tidak mengubah status apa pun.
+     */
+    public function serah_cetak()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+
+        if (!$this->_boleh()) {
+            show_error('Anda tidak punya akses ke menu ini.', 403);
+        }
+
+        $ok = function ($t) { return is_string($t) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $t); };
+        $s = $this->input->get('start_date');
+        $e = $this->input->get('end_date');
+        $cari = $this->input->get('q');
+        $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
+        $jenis_raw = $this->input->get('jenis');
+        if (is_string($jenis_raw) && $jenis_raw !== '') {
+            $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
+        }
+
+        list($rows) = $this->daftar_retur_fcd->get_list(array(
+            'start' => ($ok($s) ? $s : date('Y-01-01')) . ' 00:00:00',
+            'end' => ($ok($e) ? $e : date('Y-m-d')) . ' 23:59:59',
+            'status' => Daftar_retur_fcd::POSISI_SUDAH_DIBUKA, 'search' => is_string($cari) ? trim($cari) : '',
+            'segarkan' => false, 'jenis' => $jenis,
+            'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
+        ));
+
+        $resi = array();
+        foreach ($rows as $r) $resi[] = $r->no_resi;
+
+        // Nama petugas: "NAMA - ROLE - NOABSEN" -> "NOABSEN - NAMA - ROLE" (sama dengan serah terima paket cancel).
+        $nama = isset($this->data['user']['name']) ? (string) $this->data['user']['name'] : '';
+        $p = array_map('trim', explode(' - ', $nama));
+        $petugas = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : $nama;
+
+        $this->load->view('daftar_retur/serah_cetak', array(
+            'det' => $this->daftar_retur_fcd->barang_serah_terima($resi),
+            'jumlah_resi' => count($resi),
+            'petugas' => $petugas,
+            'tanggal' => date('Y-m-d'),
+        ));
+    }
+
     // ------------------------------------------------------------ utilitas
 
     /** Role user harus punya akses ke menu ini (sidebar saja tidak cukup untuk endpoint POST). */
