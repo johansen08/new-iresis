@@ -16,15 +16,19 @@ retur lewat lima tahap. Tiap tahap sejak Sudah Terima tersimpan lengkap di datab
 - Tanggal dan jam disimpan dalam satu kolom `datetime`; layar dan Excel memisahkannya menjadi Tanggal dan Waktu.
 - Tahap dihitung dari posisi paket (`Daftar_retur_fcd::hitung_posisi`): Sudah Serah Terima hanya muncul untuk paket
   Sudah dibuka yang pernah dicetak serah terimanya. Verifikasi selalu menang (tahap 4).
-- **Tab tidak berubah** (Semua / Belum diterima / Terima / Sudah dibuka / Sudah verif). Di tab Sudah dibuka kolom Progress
-  membedakan Sudah Buka dan Sudah Serah Terima.
+- **Tab** (title case): Semua · Belum Diterima · Sudah Terima · Sudah Buka · Sudah Serah Terima · Sudah Verifikasi.
+  Setelah **Cetak Serah Terima** dari tab Sudah Buka, resi yang dicentang pindah ke tab Sudah Serah Terima.
+- **Filter tanggal & kolom tanggal mengikuti tab**: Belum Diterima = tanggal pesan; Sudah Terima = tanggal terima (scan pertama);
+  Sudah Buka = tanggal buka; Sudah Serah Terima = tanggal serah terima; Sudah Verifikasi = tanggal verifikasi. Tab-tab itu
+  memiliki kolom 4 (Tgl Terima / Buka / Serah Terima / Verifikasi, tanggal + jam). Tab Semua menyaring tiap baris dengan tanggal
+  tahapnya sendiri. Tanggal terima & verifikasi dibaca per permintaan hanya untuk resi di tahap itu (tidak ada di query dasar yang di-cache).
 
 ## Tabel baru `tblretur_serah_terima`
 
 Dibuat otomatis oleh `MY_Controller::run_serah_terima_retur_migration()` (BOOTSTRAP_VERSI `2026-11-21.1`). Satu baris per
 resi per kali cetak (riwayat tidak ditimpa; layar memakai yang terakhir): `no_resi`, `tanggal_serah`, `id_pegawai`,
 `petugas` (teks saat itu), `batch` (`SRH-yymmdd-His-iduser`). Dicatat oleh `Daftar_retur::serah_cetak()` hanya untuk resi
-yang benar-benar ikut di kertas (punya barang KE_DISPLAY yang belum di-ACC). Masuk `keluarga_resi` di `config/arsip.php`,
+yang dicentang di tab Sudah Buka (termasuk yang tidak punya barang KE_DISPLAY sehingga tidak muncul di kertas). Masuk `keluarga_resi` di `config/arsip.php`,
 jadi ikut arsip/purna bersama resinya.
 
 ## Catatan data lama
