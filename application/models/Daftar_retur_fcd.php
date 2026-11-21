@@ -105,6 +105,8 @@ class Daftar_retur_fcd extends CI_Model
                          (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1),
                          (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1)
                        ) AS av_k,
+                       (EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1)
+                        OR EXISTS (SELECT 1 FROM {$arsip}.tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1)) AS vf,
                        GREATEST(
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01'),
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01')
@@ -157,7 +159,7 @@ class Daftar_retur_fcd extends CI_Model
     public function semua_baris($segarkan = false)
     {
         $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur4_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = APPPATH . 'cache/daftar_retur5_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
 
         if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_DETIK) {
             $isi = json_decode((string) @file_get_contents($file), true);
@@ -199,8 +201,11 @@ class Daftar_retur_fcd extends CI_Model
             if ($tunggu_b || $tunggu_k) return self::POSISI_BELUM_DIBUKA;
         }
         if ($n_buka > 0) {
-            // Semua baris buka retur sudah diverifikasi accounting (status_acc = 1) -> tab Sudah verif.
-            // Acc hanya bisa naik 0 -> 1, jadi GREATEST prod/arsip aman terhadap salinan arsip yang basi.
+            // Sudah diverifikasi accounting -> tab Sudah verif. Dua penanda yang dipakai:
+            //  1. menu Verifikasi Retur (tblreturverifikasi.verified = 1, per resi) -- penanda utama accounting;
+            //  2. Accounting > Returan Buka (tblbukaretur.status_acc = 1) bila SEMUA baris buka sudah di-ACC.
+            // Keduanya hanya bisa naik 0 -> 1, jadi aman terhadap salinan arsip yang basi.
+            if ((int) $r->vf === 1) return self::POSISI_SUDAH_VERIF;
             $n_acc = ($pakai_b ? (int) $r->av_b : 0) + ($pakai_k ? (int) $r->av_k : 0);
             return ($n_acc >= $n_buka) ? self::POSISI_SUDAH_VERIF : self::POSISI_SUDAH_DIBUKA;
         }
