@@ -122,14 +122,15 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable tbody td:nth-child(10) { font-variant-numeric:tabular-nums; }
 /* Umur (kolom 11) rata tengah, sejajar dengan lencananya */
 #dr_wrap table.dataTable tbody td:nth-child(11), #dr_wrap table.dataTable thead th:nth-child(11) { text-align:center; }
-/* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka & Sudah verif (kelas mode-buka) */
+/* Kolom tanggal tahap (kolom 4: Tgl Terima / Buka / Serah Terima / Verifikasi menurut tab): tampil di semua tab kecuali Semua & Belum Diterima (kelas mode-buka) */
 #dr_wrap:not(.mode-buka) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-buka) table.dataTable td:nth-child(4) { display:none; }
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
-/* Beban informasi: Umur (kolom 11) tidak ditampilkan di tab Sudah dibuka & Sudah verif (barang sudah kembali, umur bukan dasar klaim).
+/* Beban informasi: Umur (kolom 11) tidak ditampilkan di tab Sudah Buka, Sudah Serah Terima & Sudah Verifikasi (barang sudah kembali, umur bukan dasar klaim).
    Progress (kolom 12) tampil di semua tab: di tab Sudah dibuka ia membedakan Sudah Buka dan Sudah Serah Terima. */
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
+#dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 12px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
@@ -153,7 +154,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
   .dr-mpx { display:inline; }
 }
-/* Layar di bawah 1400: di tab Sudah dibuka / Sudah verif, Tgl Retur ikut disembunyikan (sudah ada Tgl Buka Retur) agar Progress muat */
+/* Layar di bawah 1400: di tab ber-kolom tanggal tahap, Tgl Retur ikut disembunyikan agar Progress muat */
 @media (max-width: 1399px) {
   #dr_wrap.mode-buka table.dataTable th:nth-child(3), #dr_wrap.mode-buka table.dataTable td:nth-child(3) { display:none; }
 }
@@ -230,17 +231,18 @@ $BASE = rtrim(base_url(), '/') . '/';
 
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
-    <div class="dr-tab on" data-status="">Semua <span class="n" id="n_semua">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DITERIMA">Belum diterima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah diterima, belum dibuka">Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
-    <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah dibuka, belum diverifikasi accounting">Sudah dibuka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
-    <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah dibuka dan sudah diverifikasi accounting">Sudah verif <span class="n" id="n_SUDAH_VERIF">-</span></div>
+    <div class="dr-tab on" data-status="" title="Semua retur; tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Belum ada scan terima">Belum Diterima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah diverifikasi accounting">Sudah Verifikasi <span class="n" id="n_SUDAH_VERIF">-</span></div>
   </div>
 
   <!-- Filter -->
   <div class="dr-filter">
     <span class="dr-chip"><i class="fa fa-calendar"></i>
-      <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Tab Sudah dibuka / Sudah verif: tanggal buka retur. Tab lain: tanggal pesan.">Tgl pesan</span>
+      <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Filter tanggal mengikuti tab: Belum Diterima = tanggal pesan, Sudah Terima = tanggal terima, Sudah Buka = tanggal buka, Sudah Serah Terima = tanggal serah terima, Sudah Verifikasi = tanggal verifikasi.">Tgl progress</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
     <div class="dr-multi" id="dr_jenis">
@@ -284,7 +286,7 @@ $BASE = rtrim(base_url(), '/') . '/';
         <th><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
         <th>Tgl Pesan</th>
         <th>Tgl Retur</th>
-        <th>Tgl Buka Retur</th>
+        <th id="dr_th_tahap">Tgl Buka</th>
         <th>No. Pesanan</th>
         <th>No. Resi</th>
         <th>Kurir</th>
@@ -336,9 +338,16 @@ $(document).ready(function () {
         $('#dr_wrap').toggleClass('mode-pilih', aktif);
         $('#dr_cetak, #dr_pilih_info').toggle(aktif);
     }
-    function aturModeBuka(aktif) {
-        $('#dr_wrap').toggleClass('mode-buka', aktif);
-        $('#dr_rentang_lbl').text(aktif ? 'Tgl buka retur' : 'Tgl pesan');
+    // Tab -> nama kolom tanggal tahap (judul kolom) dan label filter tanggal.
+    var NAMA_TAHAP = {
+        'BELUM_DIBUKA': ['Tgl Terima', 'Tgl terima'], 'SUDAH_DIBUKA': ['Tgl Buka', 'Tgl buka'],
+        'SUDAH_SERAH': ['Tgl Serah Terima', 'Tgl serah terima'], 'SUDAH_VERIF': ['Tgl Verifikasi', 'Tgl verifikasi']
+    };
+    function aturModeTanggal(status) {
+        var n = NAMA_TAHAP[status];
+        $('#dr_wrap').toggleClass('mode-buka', !!n).attr('data-tab', status);
+        $('#dr_rentang_lbl').text(n ? n[1] : (status === 'BELUM_DITERIMA' ? 'Tgl pesan' : 'Tgl progress'));
+        if (n && tabel) $(tabel.column(3).header()).text(n[0]);
     }
 
     function mulaiMemuat() {
@@ -440,7 +449,7 @@ $(document).ready(function () {
         if (!json) return;
         var c = json.tab_counts || {};
         var semua = 0;
-        ['BELUM_DITERIMA', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_VERIF'].forEach(function (k) {
+        ['BELUM_DITERIMA', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_SERAH', 'SUDAH_VERIF'].forEach(function (k) {
             var n = parseInt(c[k] || 0, 10);
             semua += n;
             $('#n_' + k).text(n.toLocaleString('id-ID'));
@@ -524,11 +533,10 @@ $(document).ready(function () {
         $('#dr_tabs .dr-tab').removeClass('on');
         $(this).addClass('on');
         statusAktif = $(this).data('status') || '';
-        aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah dibuka
-        aturModeBuka(statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_VERIF');
-        // Kolom Umur disembunyikan di tab Sudah dibuka -> urut default tanggal buka (terbaru di atas)
-        $('#dr_wrap').attr('data-tab', statusAktif);
-        tabel.order((statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_VERIF') ? [[3, 'desc']] : [[10, 'desc']]);
+        aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah Buka
+        aturModeTanggal(statusAktif);
+        // Tab ber-kolom tanggal tahap: urut default tanggal tahap (terbaru di atas); tab lain: umur terbesar di atas
+        tabel.order(NAMA_TAHAP[statusAktif] ? [[3, 'desc']] : [[10, 'desc']]);
         tabel.ajax.reload();
     });
 
@@ -610,6 +618,9 @@ $(document).ready(function () {
         var kirim = { start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search(), resi: Object.keys(sel).join(',') };
         $.each(kirim, function (k, val) { $('<input type="hidden">').attr('name', k).val(val).appendTo($f); });
         $f.appendTo('body').submit().remove();
+        // Serah terima tercatat di server saat kertas dibuat: muat ulang sebentar lagi supaya resi yang dicetak
+        // pindah ke tab Sudah Serah Terima dan centang dibersihkan.
+        setTimeout(function () { sel = {}; tabel.ajax.reload(); }, 2000);
     });
 
     $('#dr_export').on('click', function () {
@@ -625,6 +636,7 @@ $(document).ready(function () {
         tulisRentang(r[0], r[1]);
         statusAktif = '';
         aturModePilih(false);
+        aturModeTanggal('');
         sel = {};
         jenisAktif = 'B,K';
         $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');

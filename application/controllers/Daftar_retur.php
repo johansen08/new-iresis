@@ -43,7 +43,7 @@ class Daftar_retur extends MY_Controller
         // Indeks kolom DataTables -> kolom SQL ('umur' ditangani khusus di model).
         $urut = array(
             // kolom 0 = kotak centang (tidak bisa diurutkan)
-            1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'tanggal_buka', 4 => 'no_pesanan', 5 => 'no_resi',
+            1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'tanggal_tahap', 4 => 'no_pesanan', 5 => 'no_resi',
             6 => 'kurir', 7 => 'marketplace', 8 => 'nama_toko', 9 => 'nilai',
             10 => 'umur', 11 => 'tahap',
         );
@@ -103,7 +103,7 @@ class Daftar_retur extends MY_Controller
                 '<input type="checkbox" class="dr-pilih" data-resi="' . $this->_h($r->no_resi) . '">',
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
-                $this->_sel_tanggal($r->tanggal_buka),
+                $this->_sel_tanggal($r->tanggal_tahap),
                 $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan . "\n" . trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')),
                 $this->_salinan($r->no_resi, true),
                 '<span class="dr-potong" title="' . $this->_h($r->kurir) . '">' . $this->_h($r->kurir ?: '-') . '</span>',
@@ -303,14 +303,11 @@ class Daftar_retur extends MY_Controller
         $stok = $this->stok_retur_buka_fcd->stok($resi, true);
         $masuk = (int) $stok['ringkas']['resi'];
 
-        // Catat serah terima per resi yang benar-benar ikut di kertas (petugas + waktu), supaya tahap
-        // "Sudah Serah Terima" tersimpan di database dan terlihat di kolom Progress.
-        $resi_ikut = array();
-        foreach ($stok['rows'] as $baris_sku) {
-            foreach ($baris_sku['resi'] as $x) $resi_ikut[$x['noresi']] = true;
-        }
+        // Catat serah terima untuk SEMUA resi yang dicentang dan masih tampil di tab Sudah Buka (petugas + waktu):
+        // resi itu pindah ke tab Sudah Serah Terima. Resi tanpa barang KE_DISPLAY tidak muncul di kertas (hanya
+        // dilewati di baris SKU) tetapi tetap dianggap diserahterimakan.
         $this->daftar_retur_fcd->catat_serah(
-            array_keys($resi_ikut),
+            $resi,
             isset($this->data['user']['id_user']) ? (int) $this->data['user']['id_user'] : 0,
             $nama
         );

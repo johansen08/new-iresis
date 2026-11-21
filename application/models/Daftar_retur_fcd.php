@@ -38,6 +38,7 @@ class Daftar_retur_fcd extends CI_Model
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
+    const POSISI_SUDAH_SERAH    = 'SUDAH_SERAH';    // sudah dibuka DAN sudah dicetak serah terimanya, BELUM diverifikasi
     const POSISI_SUDAH_VERIF    = 'SUDAH_VERIF';    // sudah scan buka DAN sudah diverifikasi accounting
 
     /**
@@ -244,24 +245,47 @@ class Daftar_retur_fcd extends CI_Model
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
             : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
 
-        // Rentang: baris SUDAH_DIBUKA / SUDAH_VERIF memakai TANGGAL BUKA RETUR (scan Buka Retur terakhir); baris
-        // lain memakai TANGGAL PESAN. Jadi di tab Sudah dibuka, filter tanggal = tanggal buka retur.
+        // Rentang: tiap baris disaring dengan TANGGAL TAHAP-nya sendiri (tanggal_tahap): Belum diterima = tanggal pesan,
+        // Sudah Terima = tanggal terima, Sudah Buka = tanggal buka, Sudah Serah Terima = tanggal serah terima,
+        // Sudah Verifikasi = tanggal verifikasi (cadangan tanggal pesan bila tanggal tahap tidak tercatat).
         $serah = $this->peta_serah();
         $rentang = array();
-        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0, self::POSISI_SUDAH_VERIF => 0);
+        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0,
+            self::POSISI_SUDAH_SERAH => 0, self::POSISI_SUDAH_VERIF => 0);
+        $kandidat = array();
+        $perlu_terima = array();
+        $perlu_verif = array();
         foreach ($semua as $r) {
             $posisi = $this->hitung_posisi($r, $jenis);
             if ($posisi === null) continue;
-            $r->posisi = $posisi;
             $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
             $kunci_serah = strtoupper((string) $r->no_resi);
             $r->tgl_serah = isset($serah[$kunci_serah]) ? $serah[$kunci_serah] : null;
+            // Sudah dibuka + pernah dicetak serah terima -> pindah ke tab Sudah Serah Terima.
+            if ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tgl_serah !== null) $posisi = self::POSISI_SUDAH_SERAH;
+            $r->posisi = $posisi;
             $r->tahap = $this->hitung_tahap($posisi, $r->tgl_serah !== null);
-            $sudah_buka = ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF);
-            $tgl_filter = ($sudah_buka && $r->tanggal_buka) ? $r->tanggal_buka : $r->tanggal_pesan;
+            if ($posisi === self::POSISI_BELUM_DIBUKA) $perlu_terima[] = (string) $r->no_resi;
+            if ($posisi === self::POSISI_SUDAH_VERIF) $perlu_verif[] = (string) $r->no_resi;
+            $kandidat[] = $r;
+        }
+        // Tanggal terima & verifikasi tidak ada di query dasar (berat, di-cache): dibaca hanya untuk resi yang butuh.
+        $tgl_terima = $this->_peta_tanggal($perlu_terima, $jenis, 'terima');
+        $tgl_verif = $this->_peta_tanggal($perlu_verif, $jenis, 'verif');
+        foreach ($kandidat as $r) {
+            $k = strtoupper((string) $r->no_resi);
+            switch ($r->posisi) {
+                case self::POSISI_BELUM_DIBUKA: $t = isset($tgl_terima[$k]) ? $tgl_terima[$k] : null; break;
+                case self::POSISI_SUDAH_DIBUKA: $t = $r->tanggal_buka; break;
+                case self::POSISI_SUDAH_SERAH:  $t = $r->tgl_serah; break;
+                case self::POSISI_SUDAH_VERIF:  $t = isset($tgl_verif[$k]) ? $tgl_verif[$k] : $r->tanggal_buka; break;
+                default: $t = null;
+            }
+            $r->tanggal_tahap = $t ?: null;
+            $tgl_filter = $t ?: $r->tanggal_pesan;
             if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
                 $rentang[] = $r;
-                $tab[$posisi]++;
+                $tab[$r->posisi]++;
             }
         }
         $total_rentang = count($rentang);
@@ -302,6 +326,7 @@ class Daftar_retur_fcd extends CI_Model
     {
         switch ($posisi) {
             case self::POSISI_SUDAH_VERIF: return 4;
+            case self::POSISI_SUDAH_SERAH: return 3;
             case self::POSISI_SUDAH_DIBUKA: return $ada_serah ? 3 : 2;
             case self::POSISI_BELUM_DIBUKA: return 1;
             default: return 0;
@@ -456,5 +481,52 @@ class Daftar_retur_fcd extends CI_Model
             );
         }
         return $out;
+    }
+
+    /**
+     * Tanggal tahap untuk sekumpulan resi: 'terima' = scan Terima Retur PERTAMA, 'verif' = verifikasi accounting
+     * (tblreturverifikasi.verified_at; bila tidak ada, ACC Returan Buka = tblbukaretur.updated_at saat status_acc = 1).
+     * @return array resi(huruf besar) => 'Y-m-d H:i:s'
+     */
+    private function _peta_tanggal(array $resi, array $jenis, $untuk)
+    {
+        $peta = array();
+        $resi = array_values(array_unique($resi));
+        if (!$resi) return $peta;
+
+        $kond = array();
+        if (in_array(self::JENIS_BIASA, $jenis, true)) $kond[] = '(is_komplain IS NULL OR is_komplain = 0)';
+        if (in_array(self::JENIS_KOMPLAIN, $jenis, true)) $kond[] = 'is_komplain = 1';
+        $kond = $kond ? '(' . implode(' OR ', $kond) . ')' : '1=0';
+
+        $isi = function (&$tujuan, $resi_x, $t, $awal) {
+            $k = strtoupper((string) $resi_x);
+            if ($t === null || $t === '') return;
+            if (!isset($tujuan[$k]) || ($awal ? $t < $tujuan[$k] : $t > $tujuan[$k])) $tujuan[$k] = $t;
+        };
+        $acc = array();
+        foreach (array_chunk($resi, 500) as $grup) {
+            $in = implode(',', array_map(array($this->db, 'escape'), $grup));
+            if ($untuk === 'terima') {
+                foreach ($this->_skema('tblresiretur') as $sk) {
+                    foreach ($this->db->query("SELECT noresi, MIN(tanggal_resiretur) t FROM {$sk}.tblresiretur WHERE noresi IN ({$in}) AND {$kond} GROUP BY noresi")->result() as $x) {
+                        $isi($peta, $x->noresi, $x->t, true);
+                    }
+                }
+            } else {
+                foreach ($this->_skema('tblreturverifikasi') as $sk) {
+                    foreach ($this->db->query("SELECT no_resi, MAX(verified_at) t FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1 GROUP BY no_resi")->result() as $x) {
+                        $isi($peta, $x->no_resi, $x->t, false);
+                    }
+                }
+                foreach ($this->_skema('tblbukaretur') as $sk) {
+                    foreach ($this->db->query("SELECT resi_buka, MAX(updated_at) t FROM {$sk}.tblbukaretur WHERE resi_buka IN ({$in}) AND status_acc = 1 AND {$kond} GROUP BY resi_buka")->result() as $x) {
+                        $isi($acc, $x->resi_buka, $x->t, false);
+                    }
+                }
+            }
+        }
+        foreach ($acc as $k => $t) if (!isset($peta[$k])) $peta[$k] = $t;
+        return $peta;
     }
 }
