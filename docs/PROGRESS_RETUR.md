@@ -66,3 +66,22 @@ jadi ikut arsip/purna bersama resinya.
   "CETAK ULANG". Tanggal serah terima (filter, kolom, sortir) = **cetak pertama**; lencana "Ulang N x" di kolom tanggal, kartu
   menampilkan cetak ulang terakhir + petugasnya, Excel punya kolom "Jumlah Cetak Serah Terima".
 - Kolom `cetak_ke` dan `is_ulang` ditambah migrasi bootstrap `2026-11-21.2` (baris lama otomatis cetak_ke 1, is_ulang 0).
+
+## Pembaruan 21 Nov 2026 (tab Semua memuat semua retur + filter Status retur)
+
+- **Tab Semua** kini menampilkan **seluruh retur Jubelio** (`tblreturjubelio`, satu baris per resi), bukan hanya retur ekspedisi:
+  resi BARANG RETUR murni (isi tab lain) **plus** resi yang punya baris SELESAI / DITOLAK (pengembalian complain).
+  Tab lain (Belum Terima ... Sudah Verifikasi) dan angkanya **tidak berubah**.
+- **Filter Status retur** (multi select: SELESAI, DITOLAK, BARANG RETUR; bawaan ketiganya) hanya tampil di tab Semua. Resi campuran
+  (mis. satu barang SELESAI, satu BARANG RETUR) tampil bila **salah satu** statusnya dicentang dan menampilkan dua lencana.
+  Tidak ada yang dicentang = tabel kosong. Tombol atur ulang mengembalikan ketiganya.
+- Kolom **Status Retur** (kolom 13, paling akhir supaya indeks kolom lain tidak bergeser) dan kolom **Status Retur** di Excel (kolom ke-29)
+  hanya mengikuti tab Semua. Umur resi tanpa BARANG RETUR ditampilkan netral (tanpa warna peringatan klaim ekspedisi).
+- Angka di tab Semua = isi tab Semua menurut filter status; hanya dihitung saat tab Semua aktif (baris tambahannya berat), di tab
+  lain angka terakhir dibiarkan.
+- **Performa**: ~72 ribu resi SELESAI/DITOLAK dimuat lewat `Daftar_retur_fcd::baris_tambahan()` (cache terpisah
+  `application/cache/daftar_retur_semua1_<db>.json`, umur 10 menit, ~26 MB) dengan queri agregat `_sql_tambahan()` (~9 detik saat
+  cache kosong; tanpa subquery per resi yang butuh ~17 detik). Hanya dijalankan bila tab Semua dibuka dengan SELESAI/DITOLAK terpilih.
+  Tanggal verifikasi baris tambahan ikut queri itu (`vf_at`, `ac_b`, `ac_k`). Pengurutan memakai `array_multisort` (urutan identik
+  dengan `usort` sebelumnya; diuji untuk semua kolom dan arah).
+- Pemanggil `get_list()` tanpa `status_retur` (cetak serah terima, pilih semua hasil) berperilaku seperti dulu.

@@ -151,6 +151,17 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
+/* Status Retur (kolom 13, status_retur Jubelio: SELESAI / DITOLAK / BARANG RETUR) hanya di tab Semua; kolom ditaruh PALING AKHIR supaya indeks kolom lain tidak bergeser. */
+#dr_wrap:not([data-tab=""]) table.dataTable th:nth-child(13), #dr_wrap:not([data-tab=""]) table.dataTable td:nth-child(13) { display:none; }
+#dr_wrap:not([data-tab=""]) table.dataTable thead th:nth-child(12) { border-radius:0 6px 6px 0; }
+#dr_wrap table.dataTable thead th:nth-child(13) { width:150px; }
+#dr_wrap table.dataTable tbody td:nth-child(13) { overflow:visible; }
+.dr-sr { display:inline-block; margin-right:4px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:700; line-height:20px; white-space:nowrap; }
+.dr-sr-selesai { background:#dcfce7; color:#166534; }
+.dr-sr-tolak { background:#fee2e2; color:#b91c1c; }
+.dr-sr-barang { background:#e0f2fe; color:#0369a1; }
+/* Filter Status Retur hanya tampil di tab Semua */
+#dr_wrap:not([data-tab=""]) #dr_status { display:none; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 12px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
 /* teks + ikon salin: ikon muncul saat baris diarahkan (tidak mengotori 25 baris sekaligus) */
@@ -251,7 +262,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
-    <div class="dr-tab on" data-status="" title="Semua retur; tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
+    <div class="dr-tab on" data-status="" title="Semua retur Jubelio (ekspedisi + SELESAI / DITOLAK, bisa difilter Status retur); tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
     <div class="dr-tab" data-status="BELUM_DITERIMA" title="Status pesanan RETURNED / sudah ada tanggal retur, belum ada scan terima">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
@@ -283,6 +294,31 @@ $BASE = rtrim(base_url(), '/') . '/';
           <span class="teks">Komplain<span class="ket">Pengembalian barang dari customer</span></span>
         </label>
         <div class="dr-multi-kaki"><a id="dr_jenis_semua">Pilih semua</a><a id="dr_jenis_hapus">Hapus</a></div>
+      </div>
+    </div>
+    <!-- Status retur Jubelio (hanya tab Semua): SELESAI / DITOLAK / BARANG RETUR -->
+    <div class="dr-multi" id="dr_status">
+      <div class="dr-multi-btn" id="dr_status_btn" tabindex="0" role="button" aria-haspopup="true">
+        <i class="fa fa-tag" style="color:#6b7280;"></i>
+        <span class="lbl">Status retur</span>
+        <span class="nilai" id="dr_status_nilai">Semua</span>
+        <span class="cnt semua" id="dr_status_cnt">3</span>
+        <i class="fa fa-angle-down"></i>
+      </div>
+      <div class="dr-multi-pop" id="dr_status_pop">
+        <label class="dr-opsi">
+          <input type="checkbox" value="SELESAI" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
+          <span class="teks">SELESAI<span class="ket">Retur selesai diproses di Jubelio</span></span>
+        </label>
+        <label class="dr-opsi">
+          <input type="checkbox" value="DITOLAK" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
+          <span class="teks">DITOLAK<span class="ket">Pengajuan retur ditolak</span></span>
+        </label>
+        <label class="dr-opsi">
+          <input type="checkbox" value="BARANG RETUR" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
+          <span class="teks">BARANG RETUR<span class="ket">Retur ekspedisi (paket kembali ke toko)</span></span>
+        </label>
+        <div class="dr-multi-kaki"><a id="dr_status_semua">Pilih semua</a><a id="dr_status_hapus">Hapus</a></div>
       </div>
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
@@ -324,6 +360,7 @@ $BASE = rtrim(base_url(), '/') . '/';
           </div>
         </span></th>
         <th>Progress</th>
+        <th>Status Retur</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -337,6 +374,8 @@ $(document).ready(function () {
     var BASE = '<?= $BASE ?>';
     var statusAktif = '';
     var jenisAktif = 'B,K';        // centang filter jenis retur; '-' = tidak ada
+    var STATUS_SEMUA = 'SELESAI,DITOLAK,BARANG RETUR';
+    var statusRetAktif = STATUS_SEMUA;   // centang filter status retur (tab Semua); '-' = tidak ada
     var segarkanBerikut = false;   // true = lewati cache server (tombol atur ulang)
     var timerMuat = null, mulaiMuat = 0;
     var tabel;
@@ -444,6 +483,7 @@ $(document).ready(function () {
                 d.end_date = v[1] || '';
                 d.status = statusAktif;
                 d.jenis = jenisAktif;
+                d.status_retur = statusRetAktif;
                 d.segarkan = segarkanBerikut ? '1' : '0';
             }
         },
@@ -476,7 +516,12 @@ $(document).ready(function () {
             semua += n;
             $('#n_' + k).text(n.toLocaleString('id-ID'));
         });
-        $('#n_semua').text(semua.toLocaleString('id-ID'));
+        // Tab Semua = retur ekspedisi + SELESAI/DITOLAK menurut filter Status retur; angkanya hanya dihitung server saat tab Semua
+        // aktif (baris tambahannya berat), jadi di tab lain angka terakhir dibiarkan.
+        if (json.jumlah_semua !== null && json.jumlah_semua !== undefined) semua = parseInt(json.jumlah_semua, 10);
+        if (json.jumlah_semua !== null && json.jumlah_semua !== undefined || !$('#n_semua').data('terisi')) {
+            $('#n_semua').text(semua.toLocaleString('id-ID')).data('terisi', json.jumlah_semua !== null && json.jumlah_semua !== undefined);
+        }
         // Waktu hitung data hanya di tooltip tombol atur ulang (tidak perlu teks tambahan di layar).
         $('#dr_reset').attr('title', 'Atur ulang filter & ambil data terbaru' + (json.dihitung_pada ? ' (data per ' + json.dihitung_pada + ')' : ''));
         segarkanBerikut = false;
@@ -598,6 +643,38 @@ $(document).ready(function () {
     $('#dr_jenis_hapus').on('click', function () { $('#dr_jenis_pop input').prop('checked', false); tulisTombolJenis(); });
     $(document).on('click.drjenis', tutupJenis);
 
+    // Filter status retur Jubelio (tab Semua): pola sama dengan filter jenis; muat ulang saat panel ditutup.
+    function bacaStatusRet() {
+        var v = $('#dr_status_pop input:checked').map(function () { return this.value; }).get();
+        return v.length ? v.join(',') : '-';
+    }
+    function tulisTombolStatus() {
+        var v = $('#dr_status_pop input:checked').map(function () { return this.value; }).get();
+        var teks = v.length === 3 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : v.join(', '));
+        $('#dr_status_nilai').text(teks);
+        $('#dr_status_cnt').text(v.length).toggleClass('semua', v.length === 3);
+    }
+    function tutupStatus() {
+        if (!$('#dr_status').hasClass('buka')) return;
+        $('#dr_status').removeClass('buka');
+        var baru = bacaStatusRet();
+        if (baru !== statusRetAktif) { statusRetAktif = baru; tabel.ajax.reload(); }
+    }
+    $('#dr_status_btn').on('click', function (e) {
+        e.stopPropagation();
+        tutupJenis();
+        if ($('#dr_status').hasClass('buka')) tutupStatus(); else $('#dr_status').addClass('buka');
+    }).on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
+        if (e.key === 'Escape') tutupStatus();
+    });
+    $('#dr_jenis_btn').on('click.drstatus', tutupStatus);
+    $('#dr_status_pop').on('click', function (e) { e.stopPropagation(); });
+    $('#dr_status_pop').on('change', 'input', tulisTombolStatus);
+    $('#dr_status_semua').on('click', function () { $('#dr_status_pop input').prop('checked', true); tulisTombolStatus(); });
+    $('#dr_status_hapus').on('click', function () { $('#dr_status_pop input').prop('checked', false); tulisTombolStatus(); });
+    $(document).on('click.drstatus', tutupStatus);
+
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
 
     // Export xlsx: pakai filter yang sedang aktif (rentang, tab, jenis, kotak cari).
@@ -652,7 +729,7 @@ $(document).ready(function () {
 
     $('#dr_export').on('click', function () {
         var v = $('#dr_rentang').val().split(' s/d ');
-        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, q: tabel.search() });
+        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, status_retur: statusRetAktif, q: tabel.search() });
         window.location.href = BASE + 'retur/export-daftar-retur-penjualan?' + q;
     });
 
@@ -667,6 +744,8 @@ $(document).ready(function () {
         sel = {};
         jenisAktif = 'B,K';
         $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
+        statusRetAktif = STATUS_SEMUA;
+        $('#dr_status_pop input').prop('checked', true); tulisTombolStatus(); $('#dr_status').removeClass('buka');
         $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
         tabel.search('').order([10, 'desc']).ajax.reload();
