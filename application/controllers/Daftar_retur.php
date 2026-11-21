@@ -43,9 +43,9 @@ class Daftar_retur extends MY_Controller
         // Indeks kolom DataTables -> kolom SQL ('umur' ditangani khusus di model).
         $urut = array(
             // kolom 0 = kotak centang (tidak bisa diurutkan)
-            1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'no_pesanan', 4 => 'no_resi',
-            5 => 'kurir', 6 => 'marketplace', 7 => 'nama_toko', 8 => 'nilai',
-            9 => 'umur', 10 => 'posisi',
+            1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'tanggal_buka', 4 => 'no_pesanan', 5 => 'no_resi',
+            6 => 'kurir', 7 => 'marketplace', 8 => 'nama_toko', 9 => 'nilai',
+            10 => 'umur', 11 => 'posisi',
         );
         $kol = 'umur';
         $dir = 'desc';
@@ -98,6 +98,7 @@ class Daftar_retur extends MY_Controller
                 '<input type="checkbox" class="dr-pilih" data-resi="' . $this->_h($r->no_resi) . '">',
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
+                $this->_sel_tanggal($r->tanggal_buka),
                 $this->_salinan($r->no_pesanan, false),
                 $this->_salinan($r->no_resi, true),
                 $this->_h($r->kurir ?: '-'),
@@ -164,7 +165,7 @@ class Daftar_retur extends MY_Controller
         $label_sumber = array('RETUR' => 'Tanggal retur', 'KIRIM' => 'Perkiraan: tgl kirim', 'ORDER' => 'Perkiraan: tgl order');
 
         $kolom = array('No', 'Tanggal Pesan', 'Tanggal Retur', 'Sumber Tanggal Retur', 'No. Pesanan', 'No. Resi',
-            'Kurir', 'Marketplace', 'Toko', 'Nilai (Rp)', 'Umur (hari)', 'Status Retur', 'Komplain');
+            'Kurir', 'Marketplace', 'Toko', 'Nilai (Rp)', 'Umur (hari)', 'Status Retur', 'Komplain', 'Tanggal Buka Retur');
         $jml = count($kolom);
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($jml);
 
@@ -191,6 +192,7 @@ class Daftar_retur extends MY_Controller
                 9  => (string) $b->nama_toko,
                 12 => isset($label_posisi[$b->posisi]) ? $label_posisi[$b->posisi] : (string) $b->posisi,
                 13 => ((int) $b->ir_k + (int) $b->bk_k) > 0 ? 'Ya' : '-',
+                14 => $b->tanggal_buka ? date('d/m/Y H:i', strtotime($b->tanggal_buka)) : '-',
             );
             foreach ($isi as $c => $v) {
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
@@ -212,7 +214,7 @@ class Daftar_retur extends MY_Controller
         $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
         $ws->getRowDimension(1)->setRowHeight(26);
-        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 16, 11) as $i => $w) {
+        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 16, 11, 19) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         $ws->freezePane('A2');
@@ -307,7 +309,7 @@ class Daftar_retur extends MY_Controller
             ->count_all_results('roleaccess') > 0;
     }
 
-    /** Rentang tanggal PESAN 'Y-m-d H:i:s'; default 1 Januari tahun ini s/d hari ini. */
+    /** Rentang tanggal 'Y-m-d H:i:s' (tanggal pesan; baris Sudah dibuka = tanggal buka retur); default 1 Januari tahun ini s/d hari ini. */
     private function _rentang()
     {
         $start = $this->input->post('start_date');
