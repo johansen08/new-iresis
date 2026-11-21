@@ -320,6 +320,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t.tanggal_printresi <=', $end_date);
         $this->db->where('t2.id_resiambilbarang is null');
         $this->where_bukan_canceled('t.status_pesanan');
+        $this->where_bukan_unggah_ulang('t');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -341,6 +342,38 @@ class Receipt_fcd extends CI_Model
         $this->db->where("$kolom_status IS NULL", null, false);
         $this->db->or_where_not_in("UPPER(TRIM($kolom_status))", array('CANCELED', 'CANCELLED', 'COMPLETED', 'RETURNED'));
         $this->db->group_end();
+    }
+
+    /**
+     * Resi hasil UNGGAH ULANG dikeluarkan dari laporan Resi Dalam Proses (tab 0-2, data maupun total).
+     *
+     * Pada 21 Nov 2026 BOT mengunggah ulang ~466 ribu resi lama (tanggal pesan s/d Agustus 2026,
+     * hampir semuanya COMPLETED) untuk memperbarui status pesanan dan tanggal retur di menu
+     * Daftar Retur Penjualan. Baris itu tercatat dengan tanggal_printresi = hari unggah dan tidak
+     * pernah discan, sehingga membengkakkan laporan dan memperlambatnya. Penanda yang dipilih
+     * user: nomor picklist di bawah 191855 (picklist yang lebih lama dari yang dipakai hari itu).
+     * Diverifikasi 21 Nov 2026: semua baris unggah ulang < 191855 dan tidak ada satu pun yang
+     * pernah discan picker/HO; resi normal sebelum 21 Nov tidak terkena karena dibatasi tanggal.
+     *
+     * Aturan hanya berlaku untuk resi bertanggal cetak >= UNGGAH_ULANG_MULAI. Tanpa batas tanggal,
+     * resi sah dari 18-19 Nov yang belum discan (picklist 190xxx) ikut hilang dari laporan.
+     * Kalau kelak ada unggah ulang lagi dengan batas picklist lain, ubah dua konstanta ini.
+     *
+     * Perbandingan nomorpicklist memakai STRING (kolom varchar), JANGAN diganti CAST(... AS UNSIGNED):
+     * dengan CAST indeks idx_printresi_picklist tidak terpakai dan query tetap membaca ~470 ribu
+     * baris (Today 0,89 dtk); dengan string 0,19 dtk. Aman karena semua picklist sejak 21 Nov
+     * berpanjang 6 digit, dan aturan ini dibatasi tanggal cetak >= UNGGAH_ULANG_MULAI.
+     */
+    const UNGGAH_ULANG_MULAI = '2026-11-21 00:00:00';
+    const UNGGAH_ULANG_PICKLIST_DI_BAWAH = 191855;
+
+    private function where_bukan_unggah_ulang($alias)
+    {
+        $this->db->where(
+            "NOT ({$alias}.tanggal_printresi >= '" . self::UNGGAH_ULANG_MULAI . "' AND {$alias}.nomorpicklist < '" . (int) self::UNGGAH_ULANG_PICKLIST_DI_BAWAH . "')",
+            NULL,
+            FALSE
+        );
     }
 
     /**
@@ -392,6 +425,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t.tanggal_printresi <=', $end_date);
         $this->db->where('t2.id_resiambilbarang is null');
         $this->where_bukan_canceled('t.status_pesanan');
+        $this->where_bukan_unggah_ulang('t');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t.tanggal_printresi', 't.tanggal_bataskirim', 't3.nama_marketplace');
@@ -454,6 +488,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         $this->db->where('t6.id_packing is null');
         $this->where_bukan_canceled('t2.status_pesanan');
+        $this->where_bukan_unggah_ulang('t2');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -493,6 +528,7 @@ class Receipt_fcd extends CI_Model
         $this->db->where('t2.tanggal_printresi <=', $end_date);
         $this->db->where('t6.id_packing is null');
         $this->where_bukan_canceled('t2.status_pesanan');
+        $this->where_bukan_unggah_ulang('t2');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't3.nama_marketplace');
@@ -562,6 +598,7 @@ class Receipt_fcd extends CI_Model
         // yang sudah keluar begitu baris tblprintresi terbaca: 2,8 -> 1,1 dtk.
         $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
         $this->where_bukan_canceled('t2.status_pesanan');
+        $this->where_bukan_unggah_ulang('t2');
 
         if (!empty($data['length'])) {
             $this->db->limit($data['length'], $data['start']);
@@ -604,6 +641,7 @@ class Receipt_fcd extends CI_Model
         // Lihat catatan NOT EXISTS di get_data_receipt_process_tab2(): 2,1 -> 1,0 dtk.
         $this->db->where('NOT EXISTS (SELECT 1 FROM tblresikeluar t8 WHERE t8.id_resi = t2.id_printresi)', NULL, FALSE);
         $this->where_bukan_canceled('t2.status_pesanan');
+        $this->where_bukan_unggah_ulang('t2');
 
         if ($hanya_wajib) {
             $this->where_wajib_keluar_hari_ini('t2.tanggal_printresi', 't2.tanggal_bataskirim', 't4.nama_marketplace');
