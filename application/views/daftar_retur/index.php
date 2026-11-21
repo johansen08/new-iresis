@@ -95,9 +95,9 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
-/* Tab Sudah dibuka (mode-pilih): kolom Umur (10) dan Status Retur (11) sementara tidak diperlukan */
-#dr_wrap.mode-pilih table.dataTable th:nth-child(10), #dr_wrap.mode-pilih table.dataTable td:nth-child(10),
-#dr_wrap.mode-pilih table.dataTable th:nth-child(11), #dr_wrap.mode-pilih table.dataTable td:nth-child(11) { display:none; }
+/* Tab Sudah dibuka (mode-pilih): kolom Umur (11) dan Status Retur (12) sementara tidak diperlukan */
+#dr_wrap.mode-pilih table.dataTable th:nth-child(11), #dr_wrap.mode-pilih table.dataTable td:nth-child(11),
+#dr_wrap.mode-pilih table.dataTable th:nth-child(12), #dr_wrap.mode-pilih table.dataTable td:nth-child(12) { display:none; }
 .dr-pilih-info { color:#374151; font-size:12.5px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:8px; }
 /* teks + ikon salin: ikon tetap di samping baris pertama, tidak jatuh ke baris baru */
