@@ -88,7 +88,7 @@ class Daftar_retur extends MY_Controller
             return;
         }
 
-        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua) = $this->daftar_retur_fcd->get_list(array(
+        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua, $jumlah_verif) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
             'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis, 'status_retur' => $status_retur,
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
@@ -116,7 +116,7 @@ class Daftar_retur extends MY_Controller
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
                 $this->_sel_progress($r, isset($rincian[strtoupper((string) $r->no_resi)]) ? $rincian[strtoupper((string) $r->no_resi)] : array()),
-                $this->_lencana_status($r->stat),   // kolom 13: hanya tampil di tab Semua (CSS)
+                $this->_lencana_status($r),   // kolom 13: hanya tampil di tab Semua dan Sudah Verifikasi (CSS)
             );
         }
 
@@ -126,6 +126,7 @@ class Daftar_retur extends MY_Controller
             'recordsFiltered' => $total_filter,
             'tab_counts'      => $tab,
             'jumlah_semua'    => $jumlah_semua,   // isi tab Semua menurut filter status; NULL bila bukan tab Semua
+            'jumlah_verif'    => $jumlah_verif,   // isi tab Sudah Verifikasi (termasuk final di Jubelio) menurut filter status; NULL bila tidak dihitung
             'dihitung_pada'   => date('H:i:s', $waktu),
             'data'            => $data,
         ));
@@ -225,7 +226,8 @@ class Daftar_retur extends MY_Controller
                 $isi[$c++] = $x ? date('H:i:s', strtotime($x['t'])) : '-';
                 $isi[$c++] = ($x && $x['p'] !== null) ? (string) $x['p'] : '-';
             }
-            $isi[$c] = str_replace(',', ', ', (string) $b->stat);   // status_retur Jubelio (SELESAI / DITOLAK / BARANG RETUR)
+            $isi[$c] = str_replace(',', ', ', (string) $b->stat)   // status_retur Jubelio (SELESAI / DITOLAK / BARANG RETUR)
+                . ($this->daftar_retur_fcd->belum_final_jubelio($b) ? ' (Jubelio belum final)' : '');
             foreach ($isi as $c => $v) {
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
             }
@@ -377,14 +379,20 @@ class Daftar_retur extends MY_Controller
         return array_values(array_intersect(explode(',', $mentah), Daftar_retur_fcd::STATUS_RETUR));
     }
 
-    /** Lencana status_retur Jubelio (satu per status; resi campuran punya lebih dari satu). */
-    private function _lencana_status($stat)
+    /**
+     * Lencana status_retur Jubelio (satu per status; resi campuran punya lebih dari satu). Resi yang sudah diverifikasi di iresis
+     * tetapi masih BARANG RETUR di Jubelio mendapat lencana kuning "Jubelio belum final".
+     */
+    private function _lencana_status($r)
     {
         $kelas = array('SELESAI' => 'dr-sr-selesai', 'DITOLAK' => 'dr-sr-tolak', 'BARANG RETUR' => 'dr-sr-barang');
         $out = '';
-        foreach (explode(',', (string) $stat) as $s) {
+        foreach (explode(',', (string) $r->stat) as $s) {
             if ($s === '') continue;
             $out .= '<span class="dr-sr ' . (isset($kelas[$s]) ? $kelas[$s] : '') . '">' . $this->_h($s) . '</span>';
+        }
+        if ($this->daftar_retur_fcd->belum_final_jubelio($r)) {
+            $out .= '<span class="dr-sr dr-sr-warn" title="Sudah diverifikasi di iresis, tetapi di Jubelio retur ini belum SELESAI / DITOLAK. Accounting perlu menuntaskannya di Jubelio.">Jubelio belum final</span>';
         }
         return $out !== '' ? $out : '-';
     }
