@@ -24,12 +24,12 @@ $BASE = rtrim(base_url(), '/') . '/';
 
 /* Tab status */
 /* flex-wrap (bukan overflow:auto): overflow membuat batang gulir kecil muncul di sisi kanan tab */
-.dr-tabs { display:flex; flex-wrap:wrap; gap:0 28px; border-bottom:1px solid #e5e7eb; margin-top:10px; }
+.dr-tabs { display:flex; flex-wrap:wrap; gap:0 14px; border-bottom:1px solid #e5e7eb; margin-top:10px; }
 .dr-tab { padding:11px 2px 9px; cursor:pointer; font-size:13px; font-weight:600; color:#4b5563; white-space:nowrap;
           border-bottom:2px solid transparent; margin-bottom:-1px; user-select:none; }
 .dr-tab:hover { color:#0f766e; }
 .dr-tab.on { border-bottom-color:#0f766e; color:#111827; }
-.dr-tab .n { margin-left:6px; padding:1px 8px; border-radius:999px; background:#f3f4f6; font-size:11.5px; font-weight:600; color:#6b7280; }
+.dr-tab .n { margin-left:5px; padding:1px 7px; border-radius:999px; background:#f3f4f6; font-size:11.5px; font-weight:600; color:#6b7280; }
 .dr-tab .n.hot { background:#ccfbf1; color:#0f766e; }
 .dr-tab.on .n { background:#0f766e; color:#fff; }
 
@@ -261,6 +261,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-prog { display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:default; }
 .dr-st { display:inline-block; align-self:flex-start; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 9px; border-radius:999px; font-weight:600; font-size:12px; line-height:22px; }
 .dr-st-t0 { background:#f3f4f6; color:#4b5563; }
+.dr-st-hangus { background:#fee2e2; color:#b91c1c; }
 .dr-st-t1 { background:#dbeafe; color:#1d4ed8; }
 .dr-st-t2 { background:#ccfbf1; color:#0f766e; }
 .dr-st-t3 { background:#ede9fe; color:#6d28d9; }
@@ -297,7 +298,8 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="" title="Semua retur Jubelio (ekspedisi + SELESAI / DITOLAK, bisa difilter Status retur); tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Status pesanan RETURNED / sudah ada tanggal retur, belum ada scan terima">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Belum ada scan terima, umur 60 hari atau kurang">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_HANGUS" title="Belum ada scan terima dan umur lebih dari 60 hari (dianggap hangus)">Belum Terima (Hangus) <span class="n" id="n_BELUM_HANGUS">-</span></div>
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting (bisa Cetak Ulang)">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
@@ -452,7 +454,7 @@ $(document).ready(function () {
     function aturModeTanggal(status) {
         var n = NAMA_TAHAP[status];
         $('#dr_wrap').toggleClass('mode-buka', !!n).attr('data-tab', status);
-        $('#dr_rentang_lbl').text(n ? n[1] : (status === 'BELUM_DITERIMA' ? 'Tgl pesan' : 'Tgl progress'));
+        $('#dr_rentang_lbl').text(n ? n[1] : ((status === 'BELUM_DITERIMA' || status === 'BELUM_HANGUS') ? 'Tgl pesan' : 'Tgl progress'));
         if (n && tabel) $(tabel.column(3).header()).text(n[0]);
     }
 
@@ -558,7 +560,7 @@ $(document).ready(function () {
         if (!json) return;
         var c = json.tab_counts || {};
         var semua = 0;
-        ['BELUM_DITERIMA', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_SERAH', 'SUDAH_VERIF'].forEach(function (k) {
+        ['BELUM_DITERIMA', 'BELUM_HANGUS', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_SERAH', 'SUDAH_VERIF'].forEach(function (k) {
             var n = parseInt(c[k] || 0, 10);
             semua += n;
             // Angka Sudah Verifikasi yang lengkap (termasuk final di Jubelio) hanya dihitung saat tab Semua / Sudah Verifikasi aktif.

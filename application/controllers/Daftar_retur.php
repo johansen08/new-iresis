@@ -209,7 +209,7 @@ class Daftar_retur extends MY_Controller
                 7  => (string) $b->kurir,
                 8  => (string) $b->marketplace,
                 9  => (string) $b->nama_toko,
-                12 => Daftar_retur_fcd::TAHAP_NAMA[(int) $b->tahap],
+                12 => $b->posisi === Daftar_retur_fcd::POSISI_BELUM_HANGUS ? 'Belum Terima (Hangus)' : Daftar_retur_fcd::TAHAP_NAMA[(int) $b->tahap],
                 13 => ((int) $b->ir_k + (int) $b->bk_k) > 0 ? 'Ya' : '-',
                 14 => $b->tanggal_buka ? date('d/m/Y H:i', strtotime($b->tanggal_buka)) : '-',
             );
@@ -452,6 +452,9 @@ class Daftar_retur extends MY_Controller
         if (strpos((string) $r->stat, 'BARANG RETUR') === false) {
             return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
+        if ($r->posisi === Daftar_retur_fcd::POSISI_BELUM_HANGUS) {
+            return '<span class="dr-umur dr-umur-merah" title="Hangus: belum diterima lebih dari ' . Daftar_retur_fcd::UMUR_HANGUS . ' hari">' . $teks . '</span>';
+        }
         if ($r->posisi === Daftar_retur_fcd::POSISI_SUDAH_DIBUKA || $r->posisi === Daftar_retur_fcd::POSISI_SUDAH_VERIF) {
             return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
@@ -537,7 +540,9 @@ class Daftar_retur extends MY_Controller
         // Retur komplain: penanda "K" sebaris dengan ruas (bukan baris ketiga) supaya tinggi baris tetap.
         $komplain = ((int) $r->ir_k + (int) $r->bk_k) > 0 ? '<span class="dr-k" title="Ada scan retur komplain untuk resi ini">K</span>' : '';
         return '<span class="dr-prog" data-detail="' . $this->_h(json_encode($detail)) . '">'
-            . '<span class="dr-st dr-st-t' . $tahap . '">' . $this->_h(Daftar_retur_fcd::TAHAP_NAMA[$tahap]) . '</span>'
+            . ($r->posisi === Daftar_retur_fcd::POSISI_BELUM_HANGUS
+                ? '<span class="dr-st dr-st-hangus" title="Belum diterima lebih dari ' . Daftar_retur_fcd::UMUR_HANGUS . ' hari (hangus)">Hangus</span>'
+                : '<span class="dr-st dr-st-t' . $tahap . '">' . $this->_h(Daftar_retur_fcd::TAHAP_NAMA[$tahap]) . '</span>')
             . '<span class="dr-baris2"><span class="dr-seg">' . $ruas . '</span>' . $komplain . '</span></span>';
     }
 
