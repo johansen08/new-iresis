@@ -23,15 +23,23 @@ $BASE = rtrim(base_url(), '/') . '/';
           border-bottom:2px solid transparent; margin-bottom:-1px; user-select:none; }
 .dr-tab:hover { color:#0f766e; }
 .dr-tab.on { border-bottom-color:#0f766e; }
-.dr-tab .n { margin-left:5px; font-weight:500; color:#9ca3af; }
-.dr-tab .n.hot { color:#0f766e; }
+.dr-tab .n { margin-left:6px; padding:1px 8px; border-radius:10px; background:#f3f4f6; font-size:11.5px; font-weight:600; color:#6b7280; }
+.dr-tab .n.hot { background:#ccfbf1; color:#0f766e; }
+.dr-tab.on .n { background:#0f766e; color:#fff; }
 
 /* Bar filter */
 .dr-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 0 10px; }
 .dr-chip { display:inline-flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:6px;
            padding:0 12px; height:38px; background:#fff; }
 .dr-chip i { color:#6b7280; }
-.dr-chip input { border:0; outline:0; background:transparent; width:210px; cursor:pointer; color:#111827; }
+.dr-chip input { border:0; outline:0; background:transparent; width:160px; cursor:pointer; color:#111827; font-weight:600; }
+.dr-chip .dr-chip-lbl { font-size:12px; color:#6b7280; white-space:nowrap; }
+/* kotak cari dipindah JS ke ujung kanan bar filter (satu baris dengan filter & tombol aksi) */
+.dr-filter .dataTables_filter { margin:0 0 0 auto; float:none; width:auto; text-align:left; }
+.dr-filter .dataTables_filter label { margin:0; }
+.dr-filter .dataTables_filter input { width:220px; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px;
+  background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 12px center; }
+.dr-filter .dataTables_filter input:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
 .dr-reset { width:38px; height:38px; border:0; border-radius:6px; background:#f3f4f6; cursor:pointer; color:#374151; }
 .dr-reset:hover { background:#e5e7eb; }
 .dr-export { height:38px; padding:0 14px; border:0; border-radius:6px; background:#0f766e; color:#fff; font-weight:600; cursor:pointer; }
@@ -76,39 +84,53 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable { float:none; clear:both; }
 #dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; margin-top:12px; }
 #dr_wrap .dr-bawah .dataTables_length, #dr_wrap .dr-bawah .dataTables_info, #dr_wrap .dr-bawah .dataTables_paginate { float:none; margin:0; padding:0; }
-#dr_wrap .dr-bawah .dataTables_info { flex:1; text-align:center; color:#6b7280; }
+#dr_wrap .dr-bawah .dataTables_info { flex:1; width:auto; text-align:center; color:#6b7280; white-space:nowrap; }
+#dr_wrap .dr-bawah .dataTables_length label { margin:0; font-weight:400; color:#6b7280; white-space:nowrap; }
+#dr_wrap .dr-bawah .dataTables_length select { width:auto; display:inline-block; margin:0 4px; }
 
 /* Tabel */
 #dr_wrap table.dataTable { border:0; }
 /* Tanpa gulir samping: tata letak tetap (table-layout:fixed) dengan lebar kolom persen,
    teks panjang dibungkus / dipotong titik-titik, bukan melebar. */
 #dr_wrap table.dataTable { table-layout:fixed; width:100% !important; font-size:12.5px; }
-#dr_wrap table.dataTable thead th { background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:10px 6px; font-size:12px; }
-#dr_wrap table.dataTable tbody td { border:0; border-bottom:1px solid #f1f5f9; padding:8px 6px; vertical-align:middle; }
-/* hanya nomor pesanan & resi yang boleh dipotong di tengah kata; kolom lain dibungkus di spasi */
-#dr_wrap table.dataTable tbody td:nth-child(5), #dr_wrap table.dataTable tbody td:nth-child(6) { overflow-wrap:anywhere; }
+#dr_wrap table.dataTable thead th { background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:10px 8px; font-size:12px; vertical-align:middle; box-shadow:0 1px 0 #e5e7eb; }
+#dr_wrap table.dataTable tbody td { border:0; border-bottom:1px solid #f1f5f9; padding:7px 8px; vertical-align:middle; }
+/* nomor pesanan & resi: pecah hanya di tanda hubung / bila benar-benar tidak muat (bukan di tengah angka) */
+#dr_wrap table.dataTable tbody td:nth-child(5), #dr_wrap table.dataTable tbody td:nth-child(6) { overflow-wrap:break-word; }
 #dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:nowrap; }
-#dr_wrap table.dataTable tbody td:nth-child(10) { text-align:right; font-variant-numeric:tabular-nums; }
-#dr_wrap table.dataTable thead th:nth-child(10) { text-align:left; }
+/* Nilai (kolom 10): angka rata kanan, judul kolom ikut rata kanan supaya sejajar */
+#dr_wrap table.dataTable tbody td:nth-child(10) { text-align:right; font-variant-numeric:tabular-nums; padding-right:14px; }
+#dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; padding-right:22px; white-space:nowrap; }
 /* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka & Sudah verif (kelas mode-buka) */
 #dr_wrap:not(.mode-buka) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-buka) table.dataTable td:nth-child(4) { display:none; }
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
-/* Tab Sudah dibuka (mode-pilih): kolom Umur (11) dan Status Retur (12) sementara tidak diperlukan */
-#dr_wrap.mode-pilih table.dataTable th:nth-child(11), #dr_wrap.mode-pilih table.dataTable td:nth-child(11),
-#dr_wrap.mode-pilih table.dataTable th:nth-child(12), #dr_wrap.mode-pilih table.dataTable td:nth-child(12) { display:none; }
-.dr-pilih-info { color:#374151; font-size:12.5px; }
+/* Beban informasi: Status Retur (kolom 12) hanya berguna di tab Semua (di tab lain isinya seragam, sama dengan nama tab).
+   Umur (kolom 11) tidak ditampilkan di tab Sudah dibuka & Sudah verif (barang sudah kembali, umur bukan dasar klaim). */
+#dr_wrap:not([data-tab=""]) table.dataTable th:nth-child(12), #dr_wrap:not([data-tab=""]) table.dataTable td:nth-child(12),
+#dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
+.dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 10px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:8px; }
 /* teks + ikon salin: ikon tetap di samping baris pertama, tidak jatuh ke baris baru */
 .dr-no { display:flex; align-items:flex-start; gap:4px; }
-.dr-nt { min-width:0; overflow-wrap:anywhere; }
+.dr-nt { min-width:0; overflow-wrap:break-word; }
 .dr-salin { flex:none; margin-top:2px; color:#9ca3af; cursor:pointer; font-size:12px; }
 .dr-salin:hover { color:#0f766e; }
 .dr-salin.sudah { color:#16a34a; }
 .dr-toko { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* layar sempit: kolom Toko disembunyikan (masih bisa dicari lewat kotak Search) */
 @media (max-width: 1200px) {
+  #dr_wrap table.dataTable { font-size:12px; }
+  #dr_wrap .dr-umur { padding:2px 6px; }
+  /* tanggal + jam: jam turun ke baris kedua; lebar kolom rapat */
+  #dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:normal; }
+  #dr_wrap .dr-t2 { display:block; margin-left:0; }
+  #dr_wrap table.dataTable th:nth-child(6) { width:15.5% !important; }
+  #dr_wrap table.dataTable th:nth-child(5) { width:17% !important; }
+  #dr_wrap table.dataTable th:nth-child(10), #dr_wrap table.dataTable th:nth-child(11), #dr_wrap table.dataTable th:nth-child(12) { width:8.5% !important; }
+  #dr_wrap table.dataTable thead th, #dr_wrap table.dataTable tbody td { padding-left:6px; padding-right:6px; }
   #dr_wrap table.dataTable th:nth-child(9), #dr_wrap table.dataTable td:nth-child(9) { display:none; }
 }
 /* jendela sangat sempit: tabel tidak diperas lagi, baru boleh digeser */
@@ -117,8 +139,9 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable { min-width:820px; }
 }
 #dr_wrap table.dataTable tbody tr:hover td { background:#f8fafc; }
-.dr-t1 { font-weight:600; color:#111827; }
-.dr-t2 { color:#9ca3af; font-size:12px; }
+/* tanggal + jam sebaris (satu baris, bukan dua) supaya baris tabel lebih pendek */
+.dr-t1 { display:inline; font-weight:600; color:#111827; }
+.dr-t2 { display:inline; margin-left:5px; color:#9ca3af; font-size:12px; }
 
 /* Indikator memuat: bar bergerak + keterangan, supaya jelas data sedang dimuat (bukan macet) */
 #dr_tablewrap { position:relative; min-height:140px; }
@@ -142,12 +165,12 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-umur-oranye { background:#f59e0b; color:#fff; }
 .dr-umur-merah { background:#dc2626; color:#fff; }
 .dr-umur-selesai { background:#e5e7eb; color:#6b7280; }
-.dr-pill { display:inline-block; margin-top:4px; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
+.dr-pill { display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
 .dr-pill-merah { background:#fee2e2; color:#b91c1c; }
 .dr-pill-oranye { background:#fef3c7; color:#b45309; }
 
 /* Status retur */
-.dr-st { display:inline-block; padding:3px 8px; border-radius:4px; font-weight:600; font-size:11.5px; }
+.dr-st { display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; white-space:nowrap; padding:3px 7px; border-radius:4px; font-weight:600; font-size:11.5px; }
 .dr-st-abu { background:#f3f4f6; color:#374151; }
 .dr-st-biru { background:#dbeafe; color:#1d4ed8; }
 .dr-st-hijau { background:#dcfce7; color:#166534; }
@@ -159,7 +182,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sb-kasar { color:#b91c1c; }
 </style>
 
-<div id="dr_wrap">
+<div id="dr_wrap" data-tab="">
 
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
@@ -173,7 +196,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Filter -->
   <div class="dr-filter">
     <span class="dr-chip"><i class="fa fa-calendar"></i>
-      <span class="text-muted" style="font-size:12px;" id="dr_rentang_lbl" title="Tab Sudah dibuka: tanggal buka retur. Tab lain: tanggal pesan.">Tanggal pesan</span>
+      <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Tab Sudah dibuka / Sudah verif: tanggal buka retur. Tab lain: tanggal pesan.">Tanggal pesan</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
     <div class="dr-multi" id="dr_jenis">
@@ -199,7 +222,6 @@ $BASE = rtrim(base_url(), '/') . '/';
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
     <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
     <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
-    <span class="dr-pilih-info" id="dr_pilih_info" style="display:none;"></span>
     <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
           <i class="fa fa-info-circle"></i>
           <div class="dr-pop">
@@ -210,6 +232,8 @@ $BASE = rtrim(base_url(), '/') . '/';
           </div>
         </span>
   </div>
+  <!-- Bar pilihan (tab Sudah dibuka): jumlah resi dicentang + Pilih semua hasil / Hapus pilihan -->
+  <div class="dr-pilih-info" id="dr_pilih_info" style="display:none;"></div>
 
   <div id="dr_tablewrap">
   <div class="dr-loading">
@@ -220,17 +244,17 @@ $BASE = rtrim(base_url(), '/') . '/';
     <thead>
       <tr>
         <th style="width:3%;"><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
-        <th style="width:8%;">Tanggal Pesan</th>
-        <th style="width:10%;">Tanggal Retur</th>
-        <th style="width:9%;">Tanggal Buka Retur</th>
-        <th style="width:13%;">No. Pesanan</th>
-        <th style="width:12%;">No. Resi</th>
-        <th style="width:8%;">Kurir</th>
-        <th style="width:7%;">MP</th>
-        <th style="width:10%;">Toko</th>
-        <th style="width:8%;">Nilai (Rp)</th>
-        <th style="width:9%;">Umur</th>
-        <th style="width:9%;">Status Retur</th>
+        <th style="width:9%;">Tgl Pesan</th>
+        <th style="width:10.5%;">Tgl Retur</th>
+        <th style="width:10%;">Tgl Buka Retur</th>
+        <th style="width:18%;">No. Pesanan</th>
+        <th style="width:14%;">No. Resi</th>
+        <th style="width:7%;">Kurir</th>
+        <th style="width:6.5%;">MP</th>
+        <th style="width:8%;">Toko</th>
+        <th style="width:9%;">Nilai (Rp)</th>
+        <th style="width:8.5%;">Umur</th>
+        <th style="width:10.5%;">Status</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -255,7 +279,7 @@ $(document).ready(function () {
         var n = jmlPilih(), total = tabel.page.info().recordsDisplay;
         $('#dr_cetak').prop('disabled', n === 0)
             .attr('title', n ? 'Cetak serah terima ' + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
-        var h = n ? n + ' resi dipilih <a id="dr_pilih_hapus">Hapus pilihan</a>' : '';
+        var h = n ? '<b>' + n.toLocaleString('id-ID') + ' resi dipilih</b> <a id="dr_pilih_hapus">Hapus pilihan</a>' : 'Centang resi untuk Cetak Serah Terima.';
         if (total > 0 && n < total) h += '<a id="dr_pilih_semua">Pilih semua ' + total.toLocaleString('id-ID') + ' hasil</a>';
         $('#dr_pilih_info').html(h);
         var $hal = $('#dt_daftar_retur .dr-pilih');
@@ -323,7 +347,7 @@ $(document).ready(function () {
         serverSide: true,
         autoWidth: false,
         // Pencarian di atas tabel; jumlah baris per halaman + info + paging di bawah.
-        dom: "<'dr-atas'f>rt<'dr-bawah'lip>",
+        dom: "<'dr-atas'f>rt<'dr-bawah'lip>",   // kotak cari dipindah ke bar filter (lihat bawah)
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         order: [[10, 'desc']],          // umur terbesar di atas
@@ -348,9 +372,21 @@ $(document).ready(function () {
         language: {
             processing: 'Memuat data...',
             emptyTable: 'Tidak ada retur pada rentang tanggal ini',
-            zeroRecords: 'Tidak ada data yang cocok'
+            zeroRecords: 'Tidak ada data yang cocok',
+            search: '',
+            searchPlaceholder: 'Cari resi, pesanan, kurir, toko...',
+            lengthMenu: 'Tampilkan _MENU_ baris',
+            info: 'Menampilkan _START_–_END_ dari _TOTAL_ data',
+            infoEmpty: 'Tidak ada data',
+            infoFiltered: '',
+            thousands: '.',
+            paginate: { first: '«', previous: '‹', next: '›', last: '»' }
         }
     });
+
+    // Kotak cari: pindah ke ujung kanan bar filter supaya tidak makan satu baris sendiri di atas tabel.
+    $('#dt_daftar_retur_filter').appendTo('.dr-filter').find('input').attr('autocomplete', 'off');
+    $('.dr-atas').remove();
 
     // Jumlah per tab + baris "Ada N retur" dari respons server.
     tabel.on('xhr.dt', function (e, settings, json) {
@@ -419,7 +455,8 @@ $(document).ready(function () {
         aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah dibuka
         aturModeBuka(statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_VERIF');
         // Kolom Umur disembunyikan di tab Sudah dibuka -> urut default tanggal buka (terbaru di atas)
-        tabel.order(statusAktif === 'SUDAH_DIBUKA' ? [[3, 'desc']] : [[10, 'desc']]);
+        $('#dr_wrap').attr('data-tab', statusAktif);
+        tabel.order((statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_VERIF') ? [[3, 'desc']] : [[10, 'desc']]);
         tabel.ajax.reload();
     });
 
