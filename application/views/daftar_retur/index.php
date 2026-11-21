@@ -163,7 +163,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sr-barang { background:#e0f2fe; color:#0369a1; }
 /* Filter Status Retur hanya tampil di tab Semua */
 #dr_wrap:not([data-tab=""]) #dr_status { display:none; }
-.dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 12px; }
+.dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:5px 12px; margin:0 0 6px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
 /* teks + ikon salin: ikon muncul saat baris diarahkan (tidak mengotori 25 baris sekaligus) */
 .dr-no { display:flex; align-items:center; gap:6px; }
@@ -382,6 +382,17 @@ $(document).ready(function () {
     var tabel;
     var sel = {};                  // resi yang dicentang (bertahan antar halaman) untuk cetak serah terima
 
+    // Tema (actions.js page_content_onresize) menyetel tinggi .page-content = tinggi daftar menu samping: saat halaman dimuat menu itu
+    // belum diberi scrollbar sendiri (tinggi alami ~1000 px), dan sesudahnya tingginya setinggi jendela tanpa memperhitungkan padding
+    // atas 50 px bilah menu. Akibatnya halaman selalu bisa digulir (hingga ratusan px) walau isinya muat. Setel ulang: tinggi alami isi,
+    // dinaikkan hanya sampai memenuhi jendela (jendela - padding atas).
+    function rapikanTinggi() {
+        var $c = $('.page-content');
+        if (!$c.length) return;
+        $c.css('height', '');
+        var minimal = $(window).height() - ($c.outerHeight() - $c.height());
+        if ($c.height() < minimal) $c.height(minimal);
+    }
     function jmlPilih() { return Object.keys(sel).length; }
     function ubahInfoPilih() {
         if (!tabel) return;
@@ -474,6 +485,7 @@ $(document).ready(function () {
             // pulihkan centang resi yang sudah dipilih (juga setelah ganti halaman / urutan)
             $('#dt_daftar_retur .dr-pilih').each(function () { this.checked = !!sel[$(this).attr('data-resi')]; });
             ubahInfoPilih();
+            rapikanTinggi();
         },
         ajax: {
             url: BASE + 'retur/get-daftar-retur-penjualan',
