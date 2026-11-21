@@ -52,7 +52,14 @@ class Daftar_retur_fcd extends CI_Model
     const DENYUT_DETIK    = 600;
     const STALE_MAKS_DETIK = 1800;
 
+    /**
+     * Belum Terima dibagi menurut umur dari tanggal retur: <= UMUR_HANGUS hari tetap di tab Belum Terima, lebih dari itu masuk tab
+     * Belum Terima (Hangus) -- paket yang tak kunjung diterima sampai lewat batas ini dianggap hangus (tidak lagi ditunggu / dibuka klaim).
+     */
+    const UMUR_HANGUS = 60;
+
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
+    const POSISI_BELUM_HANGUS   = 'BELUM_HANGUS';   // belum ada scan terima DAN umur > UMUR_HANGUS hari
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
     const POSISI_SUDAH_SERAH    = 'SUDAH_SERAH';    // sudah dibuka DAN sudah dicetak serah terimanya, BELUM diverifikasi
@@ -510,7 +517,7 @@ class Daftar_retur_fcd extends CI_Model
         // Sudah Verifikasi = tanggal verifikasi (cadangan tanggal pesan bila tanggal tahap tidak tercatat).
         $serah = $this->peta_serah();
         $rentang = array();
-        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0,
+        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_HANGUS => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0,
             self::POSISI_SUDAH_SERAH => 0, self::POSISI_SUDAH_VERIF => 0);
         $kandidat = array();
         $perlu_terima = array();
@@ -539,6 +546,8 @@ class Daftar_retur_fcd extends CI_Model
             $r->serah_n = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['n'] : 0;
             // Sudah dibuka + pernah dicetak serah terima -> pindah ke tab Sudah Serah Terima.
             if ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tgl_serah !== null) $posisi = self::POSISI_SUDAH_SERAH;
+            // Belum diterima lebih dari UMUR_HANGUS hari -> tab Belum Terima (Hangus).
+            if ($posisi === self::POSISI_BELUM_DITERIMA && (int) $r->umur_hari > self::UMUR_HANGUS) $posisi = self::POSISI_BELUM_HANGUS;
             $r->posisi = $posisi;
             $r->tahap = $this->hitung_tahap($posisi, $r->tgl_serah !== null);
             // Data lama: sudah dibuka sebelum alur serah terima ada dan tidak punya catatan serah terima.

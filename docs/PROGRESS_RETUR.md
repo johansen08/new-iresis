@@ -162,3 +162,14 @@ mengubah statusnya jadi SELESAI / DITOLAK, resi hilang dari tab ini, padahal lab
   nama toko memakai awalan marketplace sehingga memang butuh ~210 px).
 - Lencana "Jubelio belum final" di kolom Status Retur kini **ikon segitiga kuning** (tooltip menjelaskan); versi teks terlalu panjang dan membuat
   tabel melebar ke samping di tab Sudah Verifikasi.
+
+## Tab Belum Terima dibagi menurut umur (21 Nov 2026)
+
+- **Belum Terima**: belum ada scan terima dan **umur <= 60 hari** (umur = hari sejak tanggal retur, lihat urutan sumber tanggal di atas).
+- **Belum Terima (Hangus)** (tab baru, `POSISI_BELUM_HANGUS`): belum ada scan terima dan **umur > 60 hari** (`Daftar_retur_fcd::UMUR_HANGUS`).
+  Paket yang tak kunjung diterima lewat batas ini dianggap hangus. Lencana Progress "Hangus" (merah), umur ditandai merah dengan tooltip,
+  Excel menulis "Belum Terima (Hangus)". Filter tanggal tab ini memakai tanggal pesan, sama dengan Belum Terima.
+- Angka kedua tab dijumlahkan sama dengan angka Belum Terima sebelumnya (data uji: 68 + 6.489 = 6.557). Tab lain tidak berubah.
+- Tab Semua tetap menampilkan keduanya; baris hangus di tab Semua juga berlencana "Hangus".
+- Tujuh tab tetap satu baris di lebar 1366 (jarak antar tab dan lencana angka dirapatkan).
+- Potensi lost scan (verifikasi tanpa scan terima / buka: 28 resi di produksi) belum ditangani; menunggu keputusan.
