@@ -19,20 +19,45 @@ class Stok_retur_buka_fcd extends CI_Model
      *                                  terima dari Daftar Retur). Aturan stoknya TETAP sama, jadi qty di kertas
      *                                  serah terima dan di menu ini selalu sama.
      */
-    public function stok(array $resi_pilih = null)
+    public function stok(array $resi_pilih = null, $pakai_status_acc = false)
     {
         if ($resi_pilih !== null) {
             $resi_pilih = array_flip(array_map('strtoupper', array_map('strval', $resi_pilih)));
         }
-        $baris = $this->db->query(
-            "SELECT b.id_bukaretur, b.resi_buka, b.sku, b.qty, b.no_pesanan, b.toko, b.is_komplain,
-                    b.tanggal_buka_retur, s.nama_sku, s.no_rak, s.link_foto, s.foto_lokal
-             FROM tblbukaretur b
-             LEFT JOIN tblsku s ON s.id_sku = b.sku
-             WHERE b.status_detail_buka = 'KE_DISPLAY' AND b.qty > 0
-               AND NOT EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = b.resi_buka AND v.verified = 1)
-             ORDER BY b.tanggal_buka_retur DESC, b.id_bukaretur DESC"
-        )->result_array();
+        $kolom = "b.id_bukaretur, b.resi_buka, b.sku, b.qty, b.no_pesanan, b.toko, b.is_komplain,
+                    b.tanggal_buka_retur, s.nama_sku, s.no_rak, s.link_foto, s.foto_lokal";
+        if ($pakai_status_acc) {
+            // Cetak serah terima dari tab Sudah dibuka (Daftar Retur): hanya baris KE_DISPLAY yang belum di-ACC
+            // accounting (status_acc = 0) -- aturan yang sama dengan isi tab. Prod dulu, lalu arsip untuk baris
+            // yang sudah dipurna dari prod (id yang sama tidak dihitung dua kali).
+            $this->config->load('arsip', TRUE, TRUE);
+            $arsip = (string) $this->config->item('db_arsip', 'arsip');
+            if (!preg_match('/^[A-Za-z0-9_]+$/', $arsip)) $arsip = 'iresis_arsip';
+            $sql = "SELECT {$kolom} FROM %s.tblbukaretur b LEFT JOIN tblsku s ON s.id_sku = b.sku
+                    WHERE b.status_detail_buka = 'KE_DISPLAY' AND b.qty > 0 AND b.status_acc = 0";
+            if ($resi_pilih !== null) {
+                if (!$resi_pilih) return array('rows' => array(), 'ringkas' => array('sku' => 0, 'qty' => 0, 'resi' => 0, 'resi_komplain' => 0));
+                $in = implode(',', array_map(array($this->db, 'escape'), array_keys($resi_pilih)));
+                $sql .= " AND UPPER(b.resi_buka) IN ({$in})";
+            }
+            $baris = array();
+            foreach (array($this->db->database, $arsip) as $schema) {
+                foreach ($this->db->query(sprintf($sql, '`' . $schema . '`'))->result_array() as $b) {
+                    $baris[(int) $b['id_bukaretur']] = isset($baris[(int) $b['id_bukaretur']]) ? $baris[(int) $b['id_bukaretur']] : $b;
+                }
+            }
+            $baris = array_values($baris);
+            usort($baris, function ($x, $y) { return strcmp((string) $y['tanggal_buka_retur'], (string) $x['tanggal_buka_retur']) ?: ($y['id_bukaretur'] <=> $x['id_bukaretur']); });
+        } else {
+            $baris = $this->db->query(
+                "SELECT {$kolom}
+                 FROM tblbukaretur b
+                 LEFT JOIN tblsku s ON s.id_sku = b.sku
+                 WHERE b.status_detail_buka = 'KE_DISPLAY' AND b.qty > 0
+                   AND NOT EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = b.resi_buka AND v.verified = 1)
+                 ORDER BY b.tanggal_buka_retur DESC, b.id_bukaretur DESC"
+            )->result_array();
+        }
 
         $per = array();
         $resi_semua = array();

@@ -279,16 +279,16 @@ class Daftar_retur extends MY_Controller
         $p = array_map('trim', explode(' - ', $nama));
         $petugas = count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : $nama;
 
-        // Qty memakai aturan yang SAMA dengan menu Stok Retur Buka (barang KE_DISPLAY, resi belum diverifikasi
-        // accounting). Resi dicentang yang sudah diverifikasi / tidak punya barang KE_DISPLAY tidak ikut.
+        // Kertas hanya berisi SKU + qty yang berstatus KE_DISPLAY dan belum di-ACC accounting (status_acc = 0),
+        // sama dengan isi tab Sudah dibuka. Baris reject / bukan barang kita / dll tidak ikut.
         $this->load->model('stok_retur_buka_fcd');
-        $stok = $this->stok_retur_buka_fcd->stok($resi);
+        $stok = $this->stok_retur_buka_fcd->stok($resi, true);
         $masuk = (int) $stok['ringkas']['resi'];
 
         $this->load->view('daftar_retur/serah_cetak', array(
             'det' => $this->stok_retur_buka_fcd->baris_serah_terima($stok['rows']),
             'sub' => count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
-                . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: sudah diverifikasi accounting / tanpa barang ke display)' : '')
+                . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: tanpa barang KE_DISPLAY / sudah di-ACC accounting)' : '')
                 . ' · ' . count($stok['rows']) . ' SKU',
             'petugas' => $petugas,
             'tanggal' => date('Y-m-d'),
