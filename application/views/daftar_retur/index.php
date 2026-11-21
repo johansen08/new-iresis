@@ -106,19 +106,33 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable th:nth-child(2), #dr_wrap table.dataTable td:nth-child(2),
 #dr_wrap table.dataTable th:nth-child(3), #dr_wrap table.dataTable td:nth-child(3) { display:none; }
 /* lebar kolom: 1 centang, 2 pesan, 3 retur, 4 buka retur, 5 pesanan, 6 resi, 7 kurir, 8 MP, 9 toko (sisa), 10 nilai, 11 umur, 12 status */
+/* Lebar dasar = isi nyata (p95 dari data produksi, diukur di browser) + padding sel 16px.
+   Isi terukur (px, font 13px): no pesanan <=134 (+ikon salin 18), resi <=127 (+ikon 18), kurir p95 173-195 (maks 239, dipotong + tooltip),
+   MP 108, toko ~160 (+awalan MP ~46), nilai <=59, lencana umur 68, lencana progress 99-111 (Sudah Serah Terima 134),
+   tanggal+jam 92 (+lencana Lama 44 / Ulang 66). Toko = sisa lebar (auto). */
 #dr_wrap table.dataTable thead th:nth-child(1)  { width:40px; }
-#dr_wrap table.dataTable thead th:nth-child(2)  { width:108px; }
-#dr_wrap table.dataTable thead th:nth-child(3)  { width:120px; }
 #dr_wrap table.dataTable thead th:nth-child(4)  { width:122px; }
-#dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:196px; }
-#dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(4) { width:166px; }
-#dr_wrap table.dataTable thead th:nth-child(5)  { width:176px; }
-#dr_wrap table.dataTable thead th:nth-child(6)  { width:172px; }
-#dr_wrap table.dataTable thead th:nth-child(7)  { width:96px; }
-#dr_wrap table.dataTable thead th:nth-child(8)  { width:100px; }
-#dr_wrap table.dataTable thead th:nth-child(10) { width:86px; }
+#dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(4) { width:170px; }
+#dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:176px; }
+#dr_wrap table.dataTable thead th:nth-child(5)  { width:168px; }
+#dr_wrap table.dataTable thead th:nth-child(6)  { width:162px; }
+#dr_wrap table.dataTable thead th:nth-child(7)  { width:150px; }
+#dr_wrap table.dataTable thead th:nth-child(8)  { width:124px; }
+#dr_wrap table.dataTable thead th:nth-child(10) { width:90px; }
 #dr_wrap table.dataTable thead th:nth-child(11) { width:84px; }
-#dr_wrap table.dataTable thead th:nth-child(12) { width:160px; }
+#dr_wrap table.dataTable thead th:nth-child(12) { width:128px; }
+#dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(12) { width:152px; }
+#dr_wrap[data-tab="BELUM_DIBUKA"] table.dataTable thead th:nth-child(12) { width:116px; }
+#dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(12) { width:108px; }
+/* >= 1400: Kurir lega (p95 173-195; "GoTo Logistics GTL NEXT-DAY DELIVERY" 239 tetap dipotong + tooltip). */
+@media (min-width: 1400px) {
+  #dr_wrap table.dataTable thead th:nth-child(7) { width:184px; }
+}
+/* Layar lebar (>= 1680): semua kolom diberi lebar eksplisit (Toko 220) sehingga sisa lebar dibagi proporsional ke semua
+   kolom, bukan menumpuk di kolom Toko. */
+@media (min-width: 1680px) {
+  #dr_wrap table.dataTable thead th:nth-child(9) { width:220px; }
+}
 /* Nilai (kolom 10): angka rata kanan, judul kolom dengan padding sama supaya sejajar */
 #dr_wrap table.dataTable tbody td:nth-child(10), #dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; }
 /* tema menambah ~10px ruang panah urut di dalam judul kolom: padding judul dikurangi supaya teks sejajar dengan angka */
@@ -158,6 +172,12 @@ $BASE = rtrim(base_url(), '/') . '/';
 @media (max-width: 1499px) {
   #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
   .dr-mpx { display:inline; }
+}
+/* Di bawah 1400 (laptop 1280/1366): Kurir lebih rapat dan awalan MP di sel Toko dibuang (MP tetap di tooltip) supaya nama toko dapat ruang */
+@media (max-width: 1399px) {
+  #dr_wrap table.dataTable thead th:nth-child(7) { width:140px; }
+  .dr-mpx { display:none; }
+  #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:172px; }
 }
 /* Layar sempit: tabel boleh digeser bila tetap tidak muat */
 @media (max-width: 1200px) {
