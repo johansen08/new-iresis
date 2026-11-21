@@ -62,7 +62,7 @@ class Daftar_retur extends MY_Controller
         $cari = is_array($cari) && isset($cari['value']) ? trim($cari['value']) : '';
 
         $limit = (int) $this->input->post('length');
-        if ($limit < 1 || $limit > 500) $limit = 10;
+        if ($limit < 1 || $limit > 500) $limit = 15;
         $offset = max(0, (int) $this->input->post('start'));
 
         $status = $this->input->post('status');
@@ -392,7 +392,8 @@ class Daftar_retur extends MY_Controller
             $out .= '<span class="dr-sr ' . (isset($kelas[$s]) ? $kelas[$s] : '') . '">' . $this->_h($s) . '</span>';
         }
         if ($this->daftar_retur_fcd->belum_final_jubelio($r)) {
-            $out .= '<span class="dr-sr dr-sr-warn" title="Sudah diverifikasi di iresis, tetapi di Jubelio retur ini belum SELESAI / DITOLAK. Accounting perlu menuntaskannya di Jubelio.">Jubelio belum final</span>';
+            // Ikon saja (teks "Jubelio belum final" terlalu panjang untuk kolom ini dan membuat tabel melebar); penjelasan di tooltip.
+            $out .= '<span class="dr-sr dr-sr-warn" title="Jubelio belum final: sudah diverifikasi di iresis, tetapi di Jubelio retur ini belum SELESAI / DITOLAK. Accounting perlu menuntaskannya di Jubelio."><i class="fa fa-exclamation-triangle"></i></span>';
         }
         return $out !== '' ? $out : '-';
     }
