@@ -330,15 +330,16 @@ class Receipt_fcd extends CI_Model
     }
 
     /**
-     * Resi berstatus CANCELED tidak ditampilkan di laporan Resi Dalam Proses
-     * (tab 0-2, data maupun total). Penanganan resi cancel ada di Laporan Resi Cancel.
+     * Resi berstatus CANCELED/CANCELLED, COMPLETED, atau RETURNED tidak ditampilkan di
+     * laporan Resi Dalam Proses (tab 0-2, data maupun total) karena sudah selesai/batal/
+     * kembali, bukan lagi "dalam proses". Penanganan resi cancel ada di Laporan Resi Cancel.
      * Resi tanpa status (NULL) tetap tampil.
      */
     private function where_bukan_canceled($kolom_status)
     {
         $this->db->group_start();
         $this->db->where("$kolom_status IS NULL", null, false);
-        $this->db->or_where("UPPER($kolom_status) <>", 'CANCELED');
+        $this->db->or_where_not_in("UPPER(TRIM($kolom_status))", array('CANCELED', 'CANCELLED', 'COMPLETED', 'RETURNED'));
         $this->db->group_end();
     }
 
