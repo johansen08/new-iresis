@@ -103,7 +103,7 @@ class Daftar_retur extends MY_Controller
                 '<input type="checkbox" class="dr-pilih" data-resi="' . $this->_h($r->no_resi) . '">',
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
-                $this->_sel_tanggal($r->tanggal_tahap) . $this->_lencana_ulang($r),
+                $this->_sel_tanggal($r->tanggal_tahap) . $this->_lencana_ulang($r) . $this->_lencana_lama($r),
                 $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan . "\n" . trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')),
                 $this->_salinan($r->no_resi, true),
                 '<span class="dr-potong" title="' . $this->_h($r->kurir) . '">' . $this->_h($r->kurir ?: '-') . '</span>',
@@ -173,6 +173,7 @@ class Daftar_retur extends MY_Controller
         $kolom = array('No', 'Tanggal Pesan', 'Tanggal Retur', 'Sumber Tanggal Retur', 'No. Pesanan', 'No. Resi',
             'Kurir', 'Marketplace', 'Toko', 'Nilai (Rp)', 'Umur (hari)', 'Progress', 'Komplain', 'Tanggal Buka Retur');
         $kolom[] = 'Jumlah Cetak Serah Terima';
+        $kolom[] = 'Keterangan Data';
         foreach ($langkah as $judul) {
             $kolom[] = 'Tanggal ' . $judul;
             $kolom[] = 'Waktu ' . $judul;
@@ -208,7 +209,8 @@ class Daftar_retur extends MY_Controller
             );
             $det = isset($rincian[strtoupper((string) $b->no_resi)]) ? $rincian[strtoupper((string) $b->no_resi)] : array();
             $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
-            $c = 16;
+            $isi[16] = !empty($b->data_lama) ? 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')' : '-';
+            $c = 17;
             foreach ($langkah as $k => $judul) {
                 $x = isset($det[$k]) ? $det[$k] : null;
                 $isi[$c++] = $x ? date('d/m/Y', strtotime($x['t'])) : '-';
@@ -235,7 +237,7 @@ class Daftar_retur extends MY_Controller
         $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
         $ws->getRowDimension(1)->setRowHeight(26);
-        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36) as $i => $w) {
+        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 40, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         $ws->freezePane('A2');
@@ -418,6 +420,19 @@ class Daftar_retur extends MY_Controller
         return '<span class="dr-umur dr-umur-aman">' . $teks . '</span>';
     }
 
+    /** Lencana "Lama" di tab Sudah Buka untuk resi yang dibuka sebelum alur serah terima ada (serah terima tidak tercatat). */
+    private function _lencana_lama($r)
+    {
+        if (empty($r->data_lama) || $r->posisi !== Daftar_retur_fcd::POSISI_SUDAH_DIBUKA) return '';
+        return '<span class="dr-lama" title="' . $this->_h($this->_ket_lama()) . '">Lama</span>';
+    }
+
+    private function _ket_lama()
+    {
+        return 'Data lama: dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI))
+            . ', saat alur serah terima belum ada. Serah terima tidak tercatat (bukan berarti belum diserahkan).';
+    }
+
     /** Lencana "Ulang N×" di kolom tanggal tab Sudah Serah Terima bila resi pernah dicetak ulang. */
     private function _lencana_ulang($r)
     {
@@ -452,6 +467,10 @@ class Daftar_retur extends MY_Controller
             $x = isset($d[$k]) ? $d[$k] : null;
             list($t, $w) = $pecah($x ? $x['t'] : null);
             $baris = array('n' => $judul, 'k' => 'tahap', 't' => $t, 'w' => $w, 'p' => $x ? $x['p'] : null);
+            if ($k === 'serah' && !$x && !empty($r->data_lama)) {
+                $baris['lama'] = true;
+                $baris['x'] = $this->_ket_lama();
+            }
             if ($k === 'serah' && $x && !empty($x['n']) && (int) $x['n'] > 1) {
                 list($ta, $wa) = $pecah($x['akhir'] ? $x['akhir']['t'] : null);
                 $baris['x'] = 'Dicetak ulang ' . ((int) $x['n'] - 1) . 'x · terakhir ' . $ta . ' ' . $wa
