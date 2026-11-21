@@ -131,3 +131,6 @@ walau iresis tidak punya scan atau catatan verifikasi (data lama, mis. resi `SPX
   tadinya Belum Terima kini Sudah Verifikasi di tab Semua. Tab Sudah Verifikasi (hanya BARANG RETUR murni) tetap 1.017 di salinan uji.
 
 - **Ukuran halaman bawaan 10 baris** (sebelumnya 25) supaya seluruh tabel muat di layar tanpa gulir; pilihan 10 / 25 / 50 / 100 tetap ada.
+
+- **Tata letak dirapatkan** (tinggi baris 41 -> 37 px, padding tab/filter/judul kolom/bawah dikurangi) supaya halaman 10 baris + pagination muat di layar laptop (viewport ~650 px) tanpa gulir; di layar 1920x950 memang sudah muat.
+- **Penyebab scroll di tema**: `page_content_onresize()` (assets/js/actions.js) menyamakan tinggi `.page-content` dengan tinggi menu samping; saat dimuat menu belum ber-scrollbar (tinggi alami ~1000 px) dan sesudahnya setinggi jendela tanpa padding atas 50 px bilah menu, jadi **semua** halaman pendek bisa digulir 50-400 px. Halaman ini memanggil `rapikanTinggi()` tiap tabel tergambar (tinggi alami isi, dinaikkan hanya sampai memenuhi jendela). Hasil ukur 1366x650 dan 1920x950: tanpa gulir di semua tab. JS tema sengaja tidak diubah (berlaku untuk semua menu).
