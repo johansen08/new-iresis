@@ -1659,7 +1659,7 @@ class Receipt_fcd extends CI_Model
                 $noresi_chunks = array_chunk($noresi_list, $chunk_size);
 
                 foreach ($noresi_chunks as $chunk) {
-                    $this->db->select('noresi, status_pesanan, id_printresi');
+                    $this->db->select('noresi, status_pesanan, id_printresi, tanggal_retur');
                     $this->db->from('tblprintresi');
                     $this->db->where_in('noresi', $chunk);
                     $existing_result = $this->db->get()->result();
@@ -1675,7 +1675,8 @@ class Receipt_fcd extends CI_Model
                             // Can be updated - status is null, empty string, or anything except COMPLETED
                             $update_candidates[$row->noresi] = [
                                 'id_printresi' => $row->id_printresi,
-                                'current_status' => $row->status_pesanan
+                                'current_status' => $row->status_pesanan,
+                                'tanggal_retur'  => $row->tanggal_retur
                             ];
                         }
                     }
@@ -1786,7 +1787,19 @@ class Receipt_fcd extends CI_Model
                             $batch_update_map[$noresi]['tanggal_retur'] = $tgl_retur_baru;
                         }
                     } else {
-                        $total_skip_update_same_status++;
+                        // Status sama, tapi Excel membawa tanggal retur yang beda / DB masih kosong (mis. resi
+                        // RETURNED diunggah dulu tanpa TGL_RETUR): isi tanggal_retur saja, kolom lain dibiarkan.
+                        $tgl_retur_x = $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null));
+                        if ($tgl_retur_x !== null && $tgl_retur_x !== '' && $tgl_retur_x !== (string) ($update_candidates[$noresi]['tanggal_retur'] ?? '')) {
+                            $batch_update_map[$noresi] = [
+                                'id_printresi'  => $update_candidates[$noresi]['id_printresi'],
+                                'tanggal_retur' => $tgl_retur_x,
+                                'modified_at'   => date('Y-m-d H:i:s'),
+                                'modified_by'   => $user_id
+                            ];
+                        } else {
+                            $total_skip_update_same_status++;
+                        }
                     }
                     continue;
                 }
