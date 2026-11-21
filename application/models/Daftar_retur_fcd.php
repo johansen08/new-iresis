@@ -41,6 +41,17 @@ class Daftar_retur_fcd extends CI_Model
     /** Nilai tblreturjubelio.status_retur yang bisa dipilih di filter tab Semua. */
     const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR');
 
+    /** Bit status_retur (kolom stm) supaya penyaringan puluhan ribu baris tanpa explode/array_intersect per baris. */
+    const BIT_STATUS = array('SELESAI' => 1, 'DITOLAK' => 2, 'BARANG RETUR' => 4);
+
+    /**
+     * Cache basi boleh disajikan (user tidak menunggu hitung ulang) selama tugas terjadwal "segarkan_daftar_retur" hidup:
+     * denyutnya (berkas daftar_retur_warm.txt) lebih baru dari DENYUT_DETIK. Tanpa denyut perilaku lama berlaku: cache
+     * lewat umur = hitung ulang saat itu juga. Cache basi paling tua yang masih disajikan = STALE_MAKS_DETIK.
+     */
+    const DENYUT_DETIK    = 600;
+    const STALE_MAKS_DETIK = 1800;
+
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
@@ -180,10 +191,9 @@ class Daftar_retur_fcd extends CI_Model
      */
     public function semua_baris($segarkan = false)
     {
-        $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur5_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = $this->_berkas_cache('daftar_retur5');
 
-        if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_DETIK) {
+        if (!$segarkan && $this->_cache_layak($file, self::CACHE_DETIK)) {
             $isi = json_decode((string) @file_get_contents($file), true);
             if (is_array($isi) && isset($isi['baris'])) {
                 return array(array_map(function ($r) { return (object) $r; }, $isi['baris']), (int) $isi['waktu']);
@@ -192,7 +202,7 @@ class Daftar_retur_fcd extends CI_Model
 
         $rows  = $this->db->query($this->_sql_dasar())->result();
         $waktu = time();
-        @file_put_contents($file, json_encode(array('waktu' => $waktu, 'baris' => $rows)), LOCK_EX);
+        $this->_tulis_cache($file, json_encode(array('waktu' => $waktu, 'baris' => $rows)));
 
         return array($rows, $waktu);
     }
@@ -247,11 +257,11 @@ class Daftar_retur_fcd extends CI_Model
                        GREATEST(COALESCE(bp.av_b, 0), COALESCE(ba.av_b, 0)) AS av_b,
                        GREATEST(COALESCE(bp.av_k, 0), COALESCE(ba.av_k, 0)) AS av_k,
                        (vp.r IS NOT NULL OR va.r IS NOT NULL) AS vf,
-                       GREATEST(COALESCE(vp.t, '1000-01-01'), COALESCE(va.t, '1000-01-01')) AS vf_at,
-                       GREATEST(COALESCE(bp.ac_b, '1000-01-01'), COALESCE(ba.ac_b, '1000-01-01')) AS ac_b,
-                       GREATEST(COALESCE(bp.ac_k, '1000-01-01'), COALESCE(ba.ac_k, '1000-01-01')) AS ac_k,
-                       GREATEST(COALESCE(bp.tb_b, '1000-01-01'), COALESCE(ba.tb_b, '1000-01-01')) AS tb_b,
-                       GREATEST(COALESCE(bp.tb_k, '1000-01-01'), COALESCE(ba.tb_k, '1000-01-01')) AS tb_k
+                       NULLIF(GREATEST(COALESCE(vp.t, '1000-01-01'), COALESCE(va.t, '1000-01-01')), '1000-01-01') AS vf_at,
+                       NULLIF(GREATEST(COALESCE(bp.ac_b, '1000-01-01'), COALESCE(ba.ac_b, '1000-01-01')), '1000-01-01') AS ac_b,
+                       NULLIF(GREATEST(COALESCE(bp.ac_k, '1000-01-01'), COALESCE(ba.ac_k, '1000-01-01')), '1000-01-01') AS ac_k,
+                       NULLIF(GREATEST(COALESCE(bp.tb_b, '1000-01-01'), COALESCE(ba.tb_b, '1000-01-01')), '1000-01-01') AS tb_b,
+                       NULLIF(GREATEST(COALESCE(bp.tb_k, '1000-01-01'), COALESCE(ba.tb_k, '1000-01-01')), '1000-01-01') AS tb_k
                 FROM (
                     SELECT j.no_resi, j.resi_l, j.no_pesanan, j.kurir, j.marketplace, j.nama_toko,
                            j.qty, j.nilai, j.tgl_order, j.stat,
@@ -293,28 +303,97 @@ class Daftar_retur_fcd extends CI_Model
         ";
     }
 
+    /** Berkas cache di application/cache; nama memuat nama DB supaya dev / uji / prod tidak saling timpa. */
+    private function _berkas_cache($nama, $ekstensi = 'json')
+    {
+        return APPPATH . 'cache/' . $nama . '_' . preg_replace('/[^A-Za-z0-9_]/', '', $this->db->database) . '.' . $ekstensi;
+    }
+
+    /** Berkas denyut yang disentuh tugas terjadwal segarkan_daftar_retur (lihat DENYUT_DETIK). */
+    private function _berkas_denyut()
+    {
+        return APPPATH . 'cache/daftar_retur_warm.txt';
+    }
+
+    /** Cache $berkas masih layak disajikan? Segar (umur < $ttl), atau basi tapi tugas terjadwal hidup (user tidak perlu menunggu). */
+    private function _cache_layak($berkas, $ttl)
+    {
+        if (!is_file($berkas)) return false;
+        $umur = time() - filemtime($berkas);
+        if ($umur < $ttl) return true;
+        $denyut = $this->_berkas_denyut();
+        return $umur < self::STALE_MAKS_DETIK && is_file($denyut) && (time() - filemtime($denyut)) < self::DENYUT_DETIK;
+    }
+
+    /** Tulis cache lewat berkas sementara lalu rename, supaya pembaca tidak pernah menemukan berkas separuh jadi. */
+    private function _tulis_cache($berkas, $isi)
+    {
+        $tmp = $berkas . '.' . getmypid() . '.tmp';
+        if (@file_put_contents($tmp, $isi) === false) {
+            @unlink($tmp);
+            @file_put_contents($berkas, $isi, LOCK_EX);
+            return;
+        }
+        if (!@rename($tmp, $berkas)) {   // Windows menolak bila berkas sedang dibaca proses lain
+            @file_put_contents($berkas, $isi, LOCK_EX);
+            @unlink($tmp);
+        }
+    }
+
     /**
      * Baris tambahan tab Semua (resi dengan status SELESAI / DITOLAK). Cache terpisah dari semua_baris() dengan umur
      * lebih panjang karena queri-nya berat dan hanya dibaca saat tab Semua dibuka dengan SELESAI/DITOLAK terpilih.
      * Posisi paket tetap dihitung di get_list() dari kolom ir_* / bk_* yang ikut tersimpan di cache ini.
+     * Format serialize() (dibaca ~2x lebih cepat dari JSON untuk ~72 ribu baris) dan nilai bawaan NULL supaya berkas ramping.
      *
      * @return array baris (array of object)
      */
     public function baris_tambahan($segarkan = false)
     {
-        $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur_semua1_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = $this->_berkas_cache('daftar_retur_semua2', 'dat');
 
-        if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_SEMUA_DETIK) {
-            $isi = json_decode((string) @file_get_contents($file), true);
+        if (!$segarkan && $this->_cache_layak($file, self::CACHE_SEMUA_DETIK)) {
+            $isi = @unserialize((string) @file_get_contents($file), array('allowed_classes' => false));
             if (is_array($isi)) {
-                return array_map(function ($r) { return (object) $r; }, $isi);
+                foreach ($isi as $i => $r) $isi[$i] = (object) $r;
+                return $isi;
             }
         }
 
-        $rows = $this->db->query($this->_sql_tambahan())->result();
-        @file_put_contents($file, json_encode($rows), LOCK_EX);
+        $rows = array();
+        foreach ($this->db->query($this->_sql_tambahan())->result_array() as $r) {
+            $stm = 0;
+            foreach (explode(',', (string) $r['stat']) as $st) {
+                if (isset(self::BIT_STATUS[$st])) $stm |= self::BIT_STATUS[$st];
+            }
+            $r['stm'] = $stm;
+            $rows[] = $r;
+        }
+        $this->_tulis_cache($file, serialize($rows));
+        foreach ($rows as $i => $r) $rows[$i] = (object) $r;
         return $rows;
+    }
+
+    /**
+     * Dipanggil tugas terjadwal (Cron::segarkan_daftar_retur): bangun ulang cache supaya user hampir tidak pernah
+     * menunggu hitung ulang. Daftar dasar selalu dibangun; baris tambahan hanya bila sudah lebih tua dari $umur_tambahan
+     * detik (queri-nya ~3 detik + tulis ~30 MB). Menyentuh denyut sehingga cache basi boleh disajikan (lihat _cache_layak).
+     * @return array ringkasan untuk log
+     */
+    public function segarkan_cache($umur_tambahan = 300)
+    {
+        $t = microtime(true);
+        list($dasar) = $this->semua_baris(true);
+        $info = array('dasar' => count($dasar));
+        $file = $this->_berkas_cache('daftar_retur_semua2', 'dat');
+        if (!is_file($file) || (time() - filemtime($file)) >= $umur_tambahan) {
+            $info['tambahan'] = count($this->baris_tambahan(true));
+        } else {
+            $info['tambahan'] = 'dilewati (masih baru)';
+        }
+        @file_put_contents($this->_berkas_denyut(), date('Y-m-d H:i:s'));
+        $info['detik'] = round(microtime(true) - $t, 1);
+        return $info;
     }
 
     /**
@@ -393,13 +472,16 @@ class Daftar_retur_fcd extends CI_Model
         $status_retur = (isset($p['status_retur']) && is_array($p['status_retur']))
             ? array_values(array_intersect($p['status_retur'], self::STATUS_RETUR)) : null;
         $mode_semua = ($status_retur !== null && empty($p['status']));
+        $mask = 0;
+        foreach ((array) $status_retur as $st) $mask |= self::BIT_STATUS[$st];
         foreach ($semua as $r) {
             $r->stat = 'BARANG RETUR';
+            $r->stm = self::BIT_STATUS['BARANG RETUR'];
             $r->ekstra = 0;
         }
-        if ($mode_semua && array_intersect($status_retur, array('SELESAI', 'DITOLAK'))) {
+        if ($mode_semua && ($mask & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']))) {
             foreach ($this->baris_tambahan(!empty($p['segarkan'])) as $r) {
-                if (!array_intersect(explode(',', (string) $r->stat), $status_retur)) continue;
+                if (!($r->stm & $mask)) continue;
                 $r->ekstra = 1;
                 $semua[] = $r;
             }
@@ -468,7 +550,7 @@ class Daftar_retur_fcd extends CI_Model
         if ($mode_semua) {
             $jumlah_semua = 0;
             foreach ($rentang as $r) {
-                if (array_intersect(explode(',', (string) $r->stat), $status_retur)) $jumlah_semua++;
+                if ($r->stm & $mask) $jumlah_semua++;
             }
         }
 
@@ -477,7 +559,7 @@ class Daftar_retur_fcd extends CI_Model
         $hasil = array();
         foreach ($rentang as $r) {
             if ($status !== '' && $r->posisi !== $status) continue;
-            if ($mode_semua && !array_intersect(explode(',', (string) $r->stat), $status_retur)) continue;
+            if ($mode_semua && !($r->stm & $mask)) continue;
             if ($cari !== '') {
                 $gabung = mb_strtolower($r->no_resi . ' ' . $r->no_pesanan . ' ' . $r->kurir . ' ' . $r->marketplace . ' ' . $r->nama_toko);
                 if (mb_strpos($gabung, $cari) === false) continue;

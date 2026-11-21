@@ -334,6 +334,32 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Segarkan cache menu Daftar Retur Penjualan di latar belakang supaya user tidak menunggu hitung ulang
+     * (daftar dasar ~2 detik, baris tambahan tab Semua ~5-8 detik) dan cache yang sudah lewat umur tetap boleh
+     * disajikan selama tugas ini hidup (Daftar_retur_fcd::_cache_layak). Hanya membaca DB dan menulis berkas
+     * di application/cache; tidak menulis ke tabel apa pun.
+     *
+     * Jalankan tiap 2 menit lewat Task Scheduler, mis.:
+     *   php index.php cron segarkan_daftar_retur
+     *   php index.php cron segarkan_daftar_retur 300   (umur minimal baris tambahan sebelum dibangun ulang, detik)
+     */
+    public function segarkan_daftar_retur($umur_tambahan = null)
+    {
+        ini_set('memory_limit', '3072M');
+        set_time_limit(0);
+        $umur = (int) $umur_tambahan > 0 ? (int) $umur_tambahan : 300;
+
+        try {
+            $this->load->model('daftar_retur_fcd');
+            $ringkas = $this->daftar_retur_fcd->segarkan_cache($umur);
+            $this->_log('segarkan_daftar_retur', array('success' => true) + $ringkas, FALSE);
+        } catch (\Throwable $e) {
+            $this->_log('segarkan_daftar_retur', array('success' => false, 'message' => $e->getMessage()));
+        }
+        exit;
+    }
+
+    /**
      * Tutup baris video packing yang menggantung di status MEREKAM.
      *
      * Baris ditandai MEREKAM sejak potongan pertama masuk dan baru jadi SELESAI
