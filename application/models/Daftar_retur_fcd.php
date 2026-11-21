@@ -35,6 +35,12 @@ class Daftar_retur_fcd extends CI_Model
     /** Lama cache daftar (detik). Perubahan scan retur terlihat paling lambat segini. */
     const CACHE_DETIK = 120;
 
+    /** Lama cache baris tambahan tab Semua (resi SELESAI/DITOLAK, ~72 ribu baris; queri ~9 detik). */
+    const CACHE_SEMUA_DETIK = 600;
+
+    /** Nilai tblreturjubelio.status_retur yang bisa dipilih di filter tab Semua. */
+    const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR');
+
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
@@ -192,6 +198,126 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /**
+     * SQL baris tambahan untuk tab Semua: resi yang punya minimal satu baris SELESAI / DITOLAK (atau status kosong)
+     * di tblreturjubelio -- kebalikan dari _sql_dasar() yang hanya mengambil resi BARANG RETUR murni. Kolomnya sama
+     * dengan _sql_dasar() ditambah `stat` (daftar status_retur resi itu, dipisah koma).
+     *
+     * Beda cara hitung: jumlah scan terima/buka/verifikasi diambil dari tabel agregat (GROUP BY satu kali) lalu di-JOIN,
+     * bukan subquery per resi. Untuk ~72 ribu resi cara per resi memakan ~17 detik, cara ini ~9 detik. Arti kolomnya
+     * identik (prod dan arsip dibandingkan dengan GREATEST, bukan dijumlah, karena arsip adalah superset).
+     */
+    private function _sql_tambahan()
+    {
+        $arsip = '`' . $this->_db_arsip() . '`';
+        $prod  = '`' . $this->db->database . '`';
+        $sah   = "'2000-01-01'";
+        $tb    = 'COALESCE(tanggal_buka_retur, created_at)';
+        $agr_resi = function ($sk) {
+            return "SELECT noresi, SUM(is_komplain IS NULL OR is_komplain = 0) ir_b, SUM(is_komplain = 1) ir_k
+                    FROM {$sk}.tblresiretur GROUP BY noresi";
+        };
+        $agr_buka = function ($sk) use ($tb) {
+            return "SELECT resi_buka, SUM(is_komplain IS NULL OR is_komplain = 0) bk_b, SUM(is_komplain = 1) bk_k,
+                           SUM((is_komplain IS NULL OR is_komplain = 0) AND status_acc = 1) av_b,
+                           SUM(is_komplain = 1 AND status_acc = 1) av_k,
+                           MAX(IF(is_komplain IS NULL OR is_komplain = 0, {$tb}, NULL)) tb_b,
+                           MAX(IF(is_komplain = 1, {$tb}, NULL)) tb_k,
+                           MAX(IF((is_komplain IS NULL OR is_komplain = 0) AND status_acc = 1, updated_at, NULL)) ac_b,
+                           MAX(IF(is_komplain = 1 AND status_acc = 1, updated_at, NULL)) ac_k
+                    FROM {$sk}.tblbukaretur GROUP BY resi_buka";
+        };
+        $r_prod = $agr_resi($prod);   $r_arsip = $agr_resi($arsip);
+        $b_prod = $agr_buka($prod);   $b_arsip = $agr_buka($arsip);
+
+        return "
+            SELECT f.*, DATEDIFF(NOW(), f.tanggal_retur) AS umur_hari
+            FROM (
+                SELECT g.no_resi, g.no_pesanan, g.kurir, g.marketplace, g.nama_toko, g.qty, g.nilai, g.stat,
+                       COALESCE(g.d_pesan_p, g.d_pesan_a, g.tgl_order) AS tanggal_pesan,
+                       COALESCE(g.d_retur_p, g.d_retur_a, g.d_kirim_p, g.d_kirim_a, g.tgl_order) AS tanggal_retur,
+                       CASE
+                         WHEN g.d_retur_p IS NOT NULL OR g.d_retur_a IS NOT NULL THEN 'RETUR'
+                         WHEN g.d_kirim_p IS NOT NULL OR g.d_kirim_a IS NOT NULL THEN 'KIRIM'
+                         ELSE 'ORDER'
+                       END AS sumber_tanggal,
+                       GREATEST(COALESCE(rp.ir_b, 0), COALESCE(ra.ir_b, 0)) AS ir_b,
+                       GREATEST(COALESCE(rp.ir_k, 0), COALESCE(ra.ir_k, 0)) AS ir_k,
+                       GREATEST(COALESCE(bp.bk_b, 0), COALESCE(ba.bk_b, 0)) AS bk_b,
+                       GREATEST(COALESCE(bp.bk_k, 0), COALESCE(ba.bk_k, 0)) AS bk_k,
+                       GREATEST(COALESCE(bp.av_b, 0), COALESCE(ba.av_b, 0)) AS av_b,
+                       GREATEST(COALESCE(bp.av_k, 0), COALESCE(ba.av_k, 0)) AS av_k,
+                       (vp.r IS NOT NULL OR va.r IS NOT NULL) AS vf,
+                       GREATEST(COALESCE(vp.t, '1000-01-01'), COALESCE(va.t, '1000-01-01')) AS vf_at,
+                       GREATEST(COALESCE(bp.ac_b, '1000-01-01'), COALESCE(ba.ac_b, '1000-01-01')) AS ac_b,
+                       GREATEST(COALESCE(bp.ac_k, '1000-01-01'), COALESCE(ba.ac_k, '1000-01-01')) AS ac_k,
+                       GREATEST(COALESCE(bp.tb_b, '1000-01-01'), COALESCE(ba.tb_b, '1000-01-01')) AS tb_b,
+                       GREATEST(COALESCE(bp.tb_k, '1000-01-01'), COALESCE(ba.tb_k, '1000-01-01')) AS tb_k
+                FROM (
+                    SELECT j.no_resi, j.resi_l, j.no_pesanan, j.kurir, j.marketplace, j.nama_toko,
+                           j.qty, j.nilai, j.tgl_order, j.stat,
+                           CASE WHEN p.tanggal_pesan >= {$sah} THEN p.tanggal_pesan END           AS d_pesan_p,
+                           CASE WHEN a.tanggal_pesan >= {$sah} THEN a.tanggal_pesan END           AS d_pesan_a,
+                           CASE WHEN p.tanggal_retur >= {$sah} THEN p.tanggal_retur END           AS d_retur_p,
+                           CASE WHEN a.tanggal_retur >= {$sah} THEN a.tanggal_retur END           AS d_retur_a,
+                           CASE WHEN p.tanggal_pengiriman >= {$sah} THEN p.tanggal_pengiriman END AS d_kirim_p,
+                           CASE WHEN a.tanggal_pengiriman >= {$sah} THEN a.tanggal_pengiriman END AS d_kirim_a
+                    FROM (
+                        SELECT no_resi,
+                               CONVERT(no_resi USING latin1) AS resi_l,
+                               MAX(no_pesanan)  AS no_pesanan,
+                               MAX(kurir)       AS kurir,
+                               MAX(marketplace) AS marketplace,
+                               MAX(nama_toko)   AS nama_toko,
+                               SUM(qty)         AS qty,
+                               SUM(amount)      AS nilai,
+                               MIN(tanggal_retur) AS tgl_order,
+                               CONCAT_WS(',',
+                                   IF(SUM(status_retur = 'SELESAI') > 0, 'SELESAI', NULL),
+                                   IF(SUM(status_retur = 'DITOLAK') > 0, 'DITOLAK', NULL),
+                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL)) AS stat
+                        FROM tblreturjubelio
+                        WHERE no_resi IS NOT NULL AND no_resi <> ''
+                        GROUP BY no_resi
+                        HAVING SUM(status_retur IS NULL OR status_retur <> 'BARANG RETUR') > 0
+                    ) j
+                    LEFT JOIN tblprintresi p ON p.noresi = j.resi_l
+                    LEFT JOIN {$arsip}.tblprintresi a ON a.noresi = j.resi_l
+                ) g
+                LEFT JOIN ({$r_prod}) rp ON rp.noresi = g.resi_l
+                LEFT JOIN ({$r_arsip}) ra ON ra.noresi = g.resi_l
+                LEFT JOIN ({$b_prod}) bp ON bp.resi_buka = g.resi_l
+                LEFT JOIN ({$b_arsip}) ba ON ba.resi_buka = g.resi_l
+                LEFT JOIN (SELECT no_resi AS r, MAX(verified_at) AS t FROM {$prod}.tblreturverifikasi WHERE verified = 1 GROUP BY no_resi) vp ON vp.r = g.resi_l
+                LEFT JOIN (SELECT no_resi AS r, MAX(verified_at) AS t FROM {$arsip}.tblreturverifikasi WHERE verified = 1 GROUP BY no_resi) va ON va.r = g.resi_l
+            ) f
+        ";
+    }
+
+    /**
+     * Baris tambahan tab Semua (resi dengan status SELESAI / DITOLAK). Cache terpisah dari semua_baris() dengan umur
+     * lebih panjang karena queri-nya berat dan hanya dibaca saat tab Semua dibuka dengan SELESAI/DITOLAK terpilih.
+     * Posisi paket tetap dihitung di get_list() dari kolom ir_* / bk_* yang ikut tersimpan di cache ini.
+     *
+     * @return array baris (array of object)
+     */
+    public function baris_tambahan($segarkan = false)
+    {
+        $db   = $this->db->database;
+        $file = APPPATH . 'cache/daftar_retur_semua1_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+
+        if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_SEMUA_DETIK) {
+            $isi = json_decode((string) @file_get_contents($file), true);
+            if (is_array($isi)) {
+                return array_map(function ($r) { return (object) $r; }, $isi);
+            }
+        }
+
+        $rows = $this->db->query($this->_sql_tambahan())->result();
+        @file_put_contents($file, json_encode($rows), LOCK_EX);
+        return $rows;
+    }
+
+    /**
      * Posisi paket menurut jenis retur yang dipilih ($jenis = daftar 'B' / 'K').
      * Tiap jenis: ada scan buka -> sudah dibuka; ada scan terima saja -> diterima belum dibuka;
      * selain itu -> belum diterima. Bila dua jenis dipilih, yang masih menunggu dibuka menang
@@ -229,6 +355,20 @@ class Daftar_retur_fcd extends CI_Model
         return self::POSISI_BELUM_DITERIMA;
     }
 
+    /**
+     * Tanggal verifikasi baris tambahan tab Semua (sama dengan _peta_tanggal 'verif' untuk baris ekspedisi):
+     * verifikasi accounting (tblreturverifikasi.verified_at); bila tidak ada, ACC Returan Buka menurut jenis yang dipilih.
+     */
+    private function _tanggal_verif_baris($r, array $jenis)
+    {
+        $v = (string) $r->vf_at;
+        if ($v >= '2000-01-01') return $v;
+        $t = '';
+        if (in_array(self::JENIS_BIASA, $jenis, true)) $t = max($t, (string) $r->ac_b);
+        if (in_array(self::JENIS_KOMPLAIN, $jenis, true)) $t = max($t, (string) $r->ac_k);
+        return ($t >= '2000-01-01') ? $t : null;
+    }
+
     /** Tanggal buka retur terakhir menurut jenis yang dipilih; NULL bila belum pernah dibuka. */
     private function _tanggal_buka($r, array $jenis)
     {
@@ -241,11 +381,29 @@ class Daftar_retur_fcd extends CI_Model
     /**
      * @param array $p start, end (Y-m-d H:i:s), status (posisi/kosong), search, order (kolom),
      *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
-     * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung]
+     *                 status_retur (array 'SELESAI'/'DITOLAK'/'BARANG RETUR'; HANYA berlaku di tab Semua, status kosong):
+     *                 tampilkan semua retur Jubelio dengan status itu. Tidak diisi = perilaku lama (hanya BARANG RETUR murni).
+     * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung, jumlah_tab_semua (NULL bila bukan tab Semua)]
      */
     public function get_list(array $p)
     {
         list($semua, $waktu) = $this->semua_baris(!empty($p['segarkan']));
+
+        // Tab Semua: selain retur ekspedisi (BARANG RETUR murni) ikut resi yang berstatus SELESAI / DITOLAK.
+        $status_retur = (isset($p['status_retur']) && is_array($p['status_retur']))
+            ? array_values(array_intersect($p['status_retur'], self::STATUS_RETUR)) : null;
+        $mode_semua = ($status_retur !== null && empty($p['status']));
+        foreach ($semua as $r) {
+            $r->stat = 'BARANG RETUR';
+            $r->ekstra = 0;
+        }
+        if ($mode_semua && array_intersect($status_retur, array('SELESAI', 'DITOLAK'))) {
+            foreach ($this->baris_tambahan(!empty($p['segarkan'])) as $r) {
+                if (!array_intersect(explode(',', (string) $r->stat), $status_retur)) continue;
+                $r->ekstra = 1;
+                $semua[] = $r;
+            }
+        }
 
         $jenis = isset($p['jenis']) && is_array($p['jenis'])
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
@@ -278,7 +436,8 @@ class Daftar_retur_fcd extends CI_Model
             $r->data_lama = ($r->tgl_serah === null && $r->tanggal_buka !== null && $r->tanggal_buka < self::SERAH_MULAI
                 && ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF));
             if ($posisi === self::POSISI_BELUM_DIBUKA) $perlu_terima[] = (string) $r->no_resi;
-            if ($posisi === self::POSISI_SUDAH_VERIF) $perlu_verif[] = (string) $r->no_resi;
+            // Baris tambahan tab Semua membawa tanggal verifikasi dari queri-nya sendiri (vf_at / ac_*): tidak perlu dibaca lagi.
+            if ($posisi === self::POSISI_SUDAH_VERIF && !$r->ekstra) $perlu_verif[] = (string) $r->no_resi;
             $kandidat[] = $r;
         }
         // Tanggal terima & verifikasi tidak ada di query dasar (berat, di-cache): dibaca hanya untuk resi yang butuh.
@@ -290,23 +449,35 @@ class Daftar_retur_fcd extends CI_Model
                 case self::POSISI_BELUM_DIBUKA: $t = isset($tgl_terima[$k]) ? $tgl_terima[$k] : null; break;
                 case self::POSISI_SUDAH_DIBUKA: $t = $r->tanggal_buka; break;
                 case self::POSISI_SUDAH_SERAH:  $t = $r->tgl_serah; break;
-                case self::POSISI_SUDAH_VERIF:  $t = isset($tgl_verif[$k]) ? $tgl_verif[$k] : $r->tanggal_buka; break;
+                case self::POSISI_SUDAH_VERIF:
+                    $t = $r->ekstra ? $this->_tanggal_verif_baris($r, $jenis) : (isset($tgl_verif[$k]) ? $tgl_verif[$k] : null);
+                    if (!$t) $t = $r->tanggal_buka;
+                    break;
                 default: $t = null;
             }
             $r->tanggal_tahap = $t ?: null;
             $tgl_filter = $t ?: $r->tanggal_pesan;
             if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
                 $rentang[] = $r;
-                $tab[$r->posisi]++;
+                // Hitungan tab hanya dari retur ekspedisi, supaya angka tab lain tidak berubah oleh baris tambahan tab Semua.
+                if (!$r->ekstra) $tab[$r->posisi]++;
             }
         }
         $total_rentang = count($rentang);
+        $jumlah_semua = null;
+        if ($mode_semua) {
+            $jumlah_semua = 0;
+            foreach ($rentang as $r) {
+                if (array_intersect(explode(',', (string) $r->stat), $status_retur)) $jumlah_semua++;
+            }
+        }
 
         $cari = mb_strtolower((string) $p['search']);
         $status = (!empty($p['status']) && isset($tab[$p['status']])) ? $p['status'] : '';
         $hasil = array();
         foreach ($rentang as $r) {
             if ($status !== '' && $r->posisi !== $status) continue;
+            if ($mode_semua && !array_intersect(explode(',', (string) $r->stat), $status_retur)) continue;
             if ($cari !== '') {
                 $gabung = mb_strtolower($r->no_resi . ' ' . $r->no_pesanan . ' ' . $r->kurir . ' ' . $r->marketplace . ' ' . $r->nama_toko);
                 if (mb_strpos($gabung, $cari) === false) continue;
@@ -321,16 +492,20 @@ class Daftar_retur_fcd extends CI_Model
         if ($kol === 'umur') { $kol = 'tanggal_retur'; $asc = !$asc; }
         $angka = in_array($kol, array('nilai', 'umur_hari', 'tahap'), true);
 
-        usort($hasil, function ($a, $b) use ($kol, $asc, $angka) {
-            $x = $a->$kol; $y = $b->$kol;
-            $c = $angka ? ((float) $x <=> (float) $y) : strcasecmp((string) $x, (string) $y);
-            if ($c === 0) $c = strcmp($a->no_resi, $b->no_resi);
-            return $asc ? $c : -$c;
-        });
+        // Urut lewat array_multisort (kunci dihitung sekali): usort dengan closure untuk puluhan ribu baris memakan ~1 detik.
+        // Kunci sama -> urut no_resi, arah mengikuti kolom (sama dengan perilaku usort sebelumnya).
+        $kunci = array();
+        $tie = array();
+        foreach ($hasil as $r) {
+            $kunci[] = $angka ? (float) $r->$kol : strtolower((string) $r->$kol);
+            $tie[] = (string) $r->no_resi;
+        }
+        $arah = $asc ? SORT_ASC : SORT_DESC;
+        array_multisort($kunci, $arah, $angka ? SORT_NUMERIC : SORT_STRING, $tie, $arah, SORT_STRING, $hasil);
 
         $rows = array_slice($hasil, (int) $p['offset'], (int) $p['limit']);
 
-        return array($rows, $total_filter, $total_rentang, $tab, $waktu);
+        return array($rows, $total_filter, $total_rentang, $tab, $waktu, $jumlah_semua);
     }
 
     /** Tahap progres 0..4 dari posisi paket; serah terima hanya relevan untuk paket yang sudah dibuka dan belum diverifikasi. */

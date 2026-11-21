@@ -75,6 +75,8 @@ class Daftar_retur extends MY_Controller
             $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
         }
 
+        $status_retur = $this->_status_retur($this->input->post('status_retur'));
+
         // "Pilih semua hasil": kembalikan daftar resi seluruh hasil filter, tanpa paging.
         if ($this->input->post('ids_saja') === '1') {
             list($semua) = $this->daftar_retur_fcd->get_list(array(
@@ -86,9 +88,9 @@ class Daftar_retur extends MY_Controller
             return;
         }
 
-        list($rows, $total_filter, $total, $tab, $waktu) = $this->daftar_retur_fcd->get_list(array(
+        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
-            'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis,
+            'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis, 'status_retur' => $status_retur,
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
         ));
 
@@ -114,6 +116,7 @@ class Daftar_retur extends MY_Controller
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
                 $this->_sel_progress($r, isset($rincian[strtoupper((string) $r->no_resi)]) ? $rincian[strtoupper((string) $r->no_resi)] : array()),
+                $this->_lencana_status($r->stat),   // kolom 13: hanya tampil di tab Semua (CSS)
             );
         }
 
@@ -122,6 +125,7 @@ class Daftar_retur extends MY_Controller
             'recordsTotal'    => $total,
             'recordsFiltered' => $total_filter,
             'tab_counts'      => $tab,
+            'jumlah_semua'    => $jumlah_semua,   // isi tab Semua menurut filter status; NULL bila bukan tab Semua
             'dihitung_pada'   => date('H:i:s', $waktu),
             'data'            => $data,
         ));
@@ -160,7 +164,7 @@ class Daftar_retur extends MY_Controller
 
         list($rows) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
-            'segarkan' => false, 'jenis' => $jenis,
+            'segarkan' => false, 'jenis' => $jenis, 'status_retur' => $this->_status_retur($this->input->get('status_retur')),
             'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
         ));
 
@@ -179,6 +183,7 @@ class Daftar_retur extends MY_Controller
             $kolom[] = 'Waktu ' . $judul;
             $kolom[] = 'Petugas ' . $judul . ' (No. Absen - Nama - Role)';
         }
+        $kolom[] = 'Status Retur';
         $jml = count($kolom);
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($jml);
 
@@ -217,6 +222,7 @@ class Daftar_retur extends MY_Controller
                 $isi[$c++] = $x ? date('H:i:s', strtotime($x['t'])) : '-';
                 $isi[$c++] = ($x && $x['p'] !== null) ? (string) $x['p'] : '-';
             }
+            $isi[$c] = str_replace(',', ', ', (string) $b->stat);   // status_retur Jubelio (SELESAI / DITOLAK / BARANG RETUR)
             foreach ($isi as $c => $v) {
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
             }
@@ -237,7 +243,7 @@ class Daftar_retur extends MY_Controller
         $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
         $ws->getRowDimension(1)->setRowHeight(26);
-        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 40, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36) as $i => $w) {
+        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 40, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36, 24) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         $ws->freezePane('A2');
@@ -358,6 +364,28 @@ class Daftar_retur extends MY_Controller
         return array($start . ' 00:00:00', $end . ' 23:59:59');
     }
 
+    /**
+     * Filter status retur Jubelio (tab Semua), 'SELESAI,DITOLAK,BARANG RETUR'. Kosong / tidak dikirim = ketiganya;
+     * '-' = tidak ada yang dicentang. Nilai di luar daftar dibuang.
+     */
+    private function _status_retur($mentah)
+    {
+        if (!is_string($mentah) || $mentah === '') return Daftar_retur_fcd::STATUS_RETUR;
+        return array_values(array_intersect(explode(',', $mentah), Daftar_retur_fcd::STATUS_RETUR));
+    }
+
+    /** Lencana status_retur Jubelio (satu per status; resi campuran punya lebih dari satu). */
+    private function _lencana_status($stat)
+    {
+        $kelas = array('SELESAI' => 'dr-sr-selesai', 'DITOLAK' => 'dr-sr-tolak', 'BARANG RETUR' => 'dr-sr-barang');
+        $out = '';
+        foreach (explode(',', (string) $stat) as $s) {
+            if ($s === '') continue;
+            $out .= '<span class="dr-sr ' . (isset($kelas[$s]) ? $kelas[$s] : '') . '">' . $this->_h($s) . '</span>';
+        }
+        return $out !== '' ? $out : '-';
+    }
+
     /** Tanggal dua baris: tanggal tebal, jam redup di bawahnya. */
     private function _sel_tanggal($t)
     {
@@ -408,6 +436,10 @@ class Daftar_retur extends MY_Controller
         $umur = (int) $r->umur_hari;
         $teks = number_format($umur, 0, ',', '.') . ' hari';
 
+        // Resi yang tidak berstatus BARANG RETUR (SELESAI / DITOLAK = pengembalian complain) bukan retur ekspedisi: umur tanpa warna klaim.
+        if (strpos((string) $r->stat, 'BARANG RETUR') === false) {
+            return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
+        }
         if ($r->posisi === Daftar_retur_fcd::POSISI_SUDAH_DIBUKA || $r->posisi === Daftar_retur_fcd::POSISI_SUDAH_VERIF) {
             return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
