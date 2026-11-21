@@ -134,3 +134,17 @@ walau iresis tidak punya scan atau catatan verifikasi (data lama, mis. resi `SPX
 
 - **Tata letak dirapatkan** (tinggi baris 41 -> 37 px, padding tab/filter/judul kolom/bawah dikurangi) supaya halaman 10 baris + pagination muat di layar laptop (viewport ~650 px) tanpa gulir; di layar 1920x950 memang sudah muat.
 - **Penyebab scroll di tema**: `page_content_onresize()` (assets/js/actions.js) menyamakan tinggi `.page-content` dengan tinggi menu samping; saat dimuat menu belum ber-scrollbar (tinggi alami ~1000 px) dan sesudahnya setinggi jendela tanpa padding atas 50 px bilah menu, jadi **semua** halaman pendek bisa digulir 50-400 px. Halaman ini memanggil `rapikanTinggi()` tiap tabel tergambar (tinggi alami isi, dinaikkan hanya sampai memenuhi jendela). Hasil ukur 1366x650 dan 1920x950: tanpa gulir di semua tab. JS tema sengaja tidak diubah (berlaku untuk semua menu).
+
+## Tab Sudah Verifikasi lengkap (21 Nov 2026)
+
+Sebelumnya tab Sudah Verifikasi hanya berisi resi BARANG RETUR murni yang terverifikasi di iresis (di produksi sekitar 200-an): begitu Jubelio
+mengubah statusnya jadi SELESAI / DITOLAK, resi hilang dari tab ini, padahal label tab Semua sudah menyebutnya Sudah Verifikasi.
+
+- **Isi tab Sudah Verifikasi kini sama dengan label di tab Semua**: resi final di Jubelio (SELESAI / DITOLAK) + resi yang terverifikasi di iresis.
+  Baris tambahan dimuat seperti di tab Semua (cache `daftar_retur_semua2`, ~1 detik).
+- **Filter Status retur** dan kolom **Status Retur** tampil di tab Sudah Verifikasi (selain tab Semua). Angka tab Sudah Verifikasi mengikuti filter
+  itu dan hanya dihitung saat tab Semua / Sudah Verifikasi aktif (di tab lain angka terakhir dibiarkan). Tab lain tidak berubah.
+- **Lencana kuning "Jubelio belum final"** di kolom Status Retur untuk resi yang sudah diverifikasi di iresis tetapi di Jubelio masih BARANG RETUR
+  (accounting perlu menuntaskannya di Jubelio). Hanya penanda tampilan; di Excel ditulis "(Jubelio belum final)". Fungsi `Daftar_retur_fcd::belum_final_jubelio()`.
+- **Tanggal verifikasi** untuk resi yang hanya disimpulkan dari status Jubelio dikosongkan ('-'), tidak lagi diisi tanggal buka. Penyaringan rentang
+  tanggalnya memakai tanggal pesan (kalau tidak, resi itu hilang dari semua rentang).
