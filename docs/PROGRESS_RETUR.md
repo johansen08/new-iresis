@@ -131,3 +131,5 @@ walau iresis tidak punya scan atau catatan verifikasi (data lama, mis. resi `SPX
   tadinya Belum Terima kini Sudah Verifikasi di tab Semua. Tab Sudah Verifikasi (hanya BARANG RETUR murni) tetap 1.017 di salinan uji.
 
 - **Ukuran halaman bawaan 10 baris** (sebelumnya 25) supaya seluruh tabel muat di layar tanpa gulir; pilihan 10 / 25 / 50 / 100 tetap ada.
+
+- **Tata letak dirapatkan** (tinggi baris 41 -> 37 px, padding tab/filter/judul kolom/bawah dikurangi) supaya halaman 10 baris + pagination muat di layar laptop (viewport ~650 px) tanpa gulir; di layar 1920x950 memang sudah muat.
