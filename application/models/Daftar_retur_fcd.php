@@ -50,6 +50,12 @@ class Daftar_retur_fcd extends CI_Model
         0 => 'Belum Terima', 1 => 'Sudah Terima', 2 => 'Sudah Buka', 3 => 'Sudah Serah Terima', 4 => 'Sudah Verifikasi',
     );
 
+    /**
+     * Alur Serah Terima (cetak tercatat) baru ada sejak tanggal ini. Resi yang dibuka SEBELUM tanggal ini tidak punya
+     * jejak serah terima dan TIDAK dibuatkan data palsu (tanpa backfill): tahap dikosongkan dan diberi keterangan "data lama".
+     */
+    const SERAH_MULAI = '2026-11-20 00:00:00';
+
     /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur ekspedisi / gagal kirim (is_komplain = 0), K = retur komplain / pengembalian dari customer (is_komplain = 1). */
     const JENIS_BIASA    = 'B';
     const JENIS_KOMPLAIN = 'K';
@@ -268,6 +274,9 @@ class Daftar_retur_fcd extends CI_Model
             if ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tgl_serah !== null) $posisi = self::POSISI_SUDAH_SERAH;
             $r->posisi = $posisi;
             $r->tahap = $this->hitung_tahap($posisi, $r->tgl_serah !== null);
+            // Data lama: sudah dibuka sebelum alur serah terima ada dan tidak punya catatan serah terima.
+            $r->data_lama = ($r->tgl_serah === null && $r->tanggal_buka !== null && $r->tanggal_buka < self::SERAH_MULAI
+                && ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF));
             if ($posisi === self::POSISI_BELUM_DIBUKA) $perlu_terima[] = (string) $r->no_resi;
             if ($posisi === self::POSISI_SUDAH_VERIF) $perlu_verif[] = (string) $r->no_resi;
             $kandidat[] = $r;

@@ -33,8 +33,15 @@ jadi ikut arsip/purna bersama resinya.
 
 ## Catatan data lama
 
-- Cetak serah terima sebelum 21 Nov 2026 **tidak punya jejak** (tidak pernah disimpan), jadi tidak ada backfill — tahap
-  Sudah Serah Terima baru terisi untuk cetak setelah rilis ini.
+- **Serah terima sebelum 20 Nov 2026**: alurnya belum ada dan cetak tidak pernah disimpan. Keputusan: **dikosongkan dan diberi
+  keterangan, bukan dibuatkan data** (tidak ada tanggal/petugas karangan, tidak ada backfill/UPDATE). Aturannya
+  (`Daftar_retur_fcd::SERAH_MULAI`, `data_lama`): resi yang tanggal bukanya < 20 Nov 2026, tanpa catatan serah terima, dan
+  posisinya Sudah Buka atau Sudah Verifikasi = *data lama*.
+  - Tab Sudah Buka: lencana abu-abu **Lama** di samping tanggal buka (tooltip menjelaskan). Resi lama tetap bisa dicentang dan
+    dicetak (jadi tercatat serah terima mulai saat itu) — tidak otomatis pindah tab.
+  - Kartu Progress: baris Sudah Serah Terima bertulisan "Tidak tercatat (data lama)" + penjelasan, bukan "Belum ada catatan".
+  - Excel: kolom **Keterangan Data** berisi "Data lama: serah terima tidak tercatat (dibuka sebelum 20/11/2026)".
+  - Resi yang dibuka setelah 20 Nov 2026 lalu langsung diverifikasi tanpa cetak **bukan** data lama (kartu: "Belum ada catatan").
 - Sekitar 125 baris `tblbukaretur` lama berstatus ACC tanpa `acc_by` (petugas "tidak tercatat" di kartu). Jalur ACC sekarang
   selalu mengisi `acc_by` dan `updated_at`.
 

@@ -111,6 +111,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th:nth-child(3)  { width:120px; }
 #dr_wrap table.dataTable thead th:nth-child(4)  { width:122px; }
 #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:196px; }
+#dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(4) { width:166px; }
 #dr_wrap table.dataTable thead th:nth-child(5)  { width:176px; }
 #dr_wrap table.dataTable thead th:nth-child(6)  { width:172px; }
 #dr_wrap table.dataTable thead th:nth-child(7)  { width:96px; }
@@ -189,6 +190,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-umur-selesai { background:#f3f4f6; color:#6b7280; font-weight:600; }
 .dr-pill { display:inline-block; margin-top:2px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; line-height:18px; white-space:nowrap; }
 
+.dr-lama { display:inline-block; margin-left:6px; padding:0 7px; border-radius:999px; background:#f3f4f6; color:#6b7280; font-size:11px; font-weight:600; line-height:18px; cursor:help; }
 .dr-ulang { display:inline-block; margin-left:6px; padding:0 7px; border-radius:999px; background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; line-height:18px; cursor:help; }
 /* Progress retur: lencana tahap (warna naik: abu -> biru -> teal -> ungu -> hijau) + 4 ruas penanda di bawahnya */
 .dr-prog { display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:default; }
@@ -516,7 +518,7 @@ $(document).ready(function () {
             var judul = (info || ada) ? x.n : 'Belum ' + x.n.replace(/^Sudah /, '');
             h += '<div class="ks ' + (info ? 'info' : 'tahap') + (ada ? ' ok' : '') + '"><span class="ki">' + (ada && !info ? '<i class="fa fa-check"></i>' : '') + '</span><div>' +
                 '<div class="kn">' + esc(judul) + '</div>' +
-                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div>' : '<div class="kw">Belum ada catatan</div>') +
+                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div>' : '<div class="kw">' + (x.lama ? 'Tidak tercatat (data lama)' : 'Belum ada catatan') + '</div>') +
                 (ada && x.p ? '<div class="kp">' + esc(x.p) + '</div>' : (ada && !info ? '<div class="kp">Petugas tidak tercatat</div>' : '')) +
                 (x.x ? '<div class="kx">' + esc(x.x) + '</div>' : '') +
                 '</div></div>';
