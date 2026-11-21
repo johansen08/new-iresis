@@ -504,6 +504,19 @@ class Daftar_retur_fcd extends CI_Model
         foreach ($semua as $r) {
             $posisi = $this->hitung_posisi($r, $jenis);
             if ($posisi === null) continue;
+            // Final di Jubelio: SEMUA barisnya SELESAI / DITOLAK (tanpa BARANG RETUR) = accounting sudah menyelesaikan / menolak
+            // retur itu di Jubelio dan tidak bisa diubah lagi, jadi setara Sudah Verifikasi walau iresis tidak punya scan atau
+            // catatan verifikasi (data lama). Jejak scan yang tidak ada TIDAK dibuatkan data palsu; dari_jubelio = 1 menandai
+            // verifikasi yang hanya disimpulkan dari status Jubelio (kartu Progress & Excel menjelaskannya).
+            $r->final_jubelio = 0;
+            $r->dari_jubelio = 0;
+            if ($r->ekstra && (int) $r->stm !== 0 && !((int) $r->stm & self::BIT_STATUS['BARANG RETUR'])) {
+                $r->final_jubelio = 1;
+                if ($posisi !== self::POSISI_SUDAH_VERIF) {
+                    $r->dari_jubelio = 1;
+                    $posisi = self::POSISI_SUDAH_VERIF;
+                }
+            }
             $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
             $kunci_serah = strtoupper((string) $r->no_resi);
             // Serah terima = cetak PERTAMA; cetak ulang tercatat terpisah (jumlah cetak + waktu cetak terakhir).

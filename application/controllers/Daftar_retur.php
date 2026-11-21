@@ -214,7 +214,10 @@ class Daftar_retur extends MY_Controller
             );
             $det = isset($rincian[strtoupper((string) $b->no_resi)]) ? $rincian[strtoupper((string) $b->no_resi)] : array();
             $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
-            $isi[16] = !empty($b->data_lama) ? 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')' : '-';
+            $ket = array();
+            if (!empty($b->data_lama)) $ket[] = 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')';
+            if (!empty($b->dari_jubelio)) $ket[] = 'Verifikasi disimpulkan dari status Jubelio (' . str_replace(',', ' + ', (string) $b->stat) . '): tidak ada catatan verifikasi di iresis';
+            $isi[16] = $ket ? implode('; ', $ket) : '-';
             $c = 17;
             foreach ($langkah as $k => $judul) {
                 $x = isset($det[$k]) ? $det[$k] : null;
@@ -502,6 +505,16 @@ class Daftar_retur extends MY_Controller
             if ($k === 'serah' && !$x && !empty($r->data_lama)) {
                 $baris['lama'] = true;
                 $baris['x'] = $this->_ket_lama();
+            }
+            // Final di Jubelio (SELESAI / DITOLAK): langkah yang tidak tercatat = data lama; verifikasi disimpulkan dari status Jubelio.
+            if (!empty($r->final_jubelio) && !$x) {
+                if ($k === 'verif') {
+                    $baris['jub'] = true;
+                    $baris['x'] = 'Disimpulkan dari status Jubelio: ' . str_replace(',', ' + ', (string) $r->stat)
+                        . ' (retur sudah final, tidak ada catatan verifikasi di iresis)';
+                } else {
+                    $baris['lama'] = true;
+                }
             }
             if ($k === 'serah' && $x && !empty($x['n']) && (int) $x['n'] > 1) {
                 list($ta, $wa) = $pecah($x['akhir'] ? $x['akhir']['t'] : null);

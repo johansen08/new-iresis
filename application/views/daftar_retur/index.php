@@ -579,12 +579,12 @@ $(document).ready(function () {
         try { d = JSON.parse($(this).attr('data-detail') || '[]'); } catch (e) { return; }
         var h = '';
         d.forEach(function (x) {
-            var ada = !!x.t, info = (x.k === 'info');
+            var ada = !!x.t || !!x.jub, info = (x.k === 'info');
             var judul = (info || ada) ? x.n : 'Belum ' + x.n.replace(/^Sudah /, '');
             h += '<div class="ks ' + (info ? 'info' : 'tahap') + (ada ? ' ok' : '') + '"><span class="ki">' + (ada && !info ? '<i class="fa fa-check"></i>' : '') + '</span><div>' +
                 '<div class="kn">' + esc(judul) + '</div>' +
-                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div>' : '<div class="kw">' + (x.lama ? 'Tidak tercatat (data lama)' : 'Belum ada catatan') + '</div>') +
-                (ada && x.p ? '<div class="kp">' + esc(x.p) + '</div>' : (ada && !info ? '<div class="kp">Petugas tidak tercatat</div>' : '')) +
+                (x.t ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div>' : (x.jub ? '<div class="kw">Tanggal tidak tersedia</div>' : '<div class="kw">' + (x.lama ? 'Tidak tercatat (data lama)' : 'Belum ada catatan') + '</div>')) +
+                (x.t && x.p ? '<div class="kp">' + esc(x.p) + '</div>' : (x.t && !info ? '<div class="kp">Petugas tidak tercatat</div>' : '')) +
                 (x.x ? '<div class="kx">' + esc(x.x) + '</div>' : '') +
                 '</div></div>';
         });

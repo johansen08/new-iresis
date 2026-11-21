@@ -113,3 +113,19 @@ Diukur di salinan prod (`iresis_prod_uji`, ~100 ribu baris `tblreturjubelio`, 72
   sudah dilakukan: baris SELESAI/DITOLAK **hanya dimuat saat tab Semua dibuka** dengan status itu tercentang.
 - Pasang tugasnya sekali di PC produksi:
   `schtasks /create /tn "IRESIS - Segarkan daftar retur" /sc minute /mo 2 /rl LIMITED /f /tr "wscript.exe //B //Nologo C:\xampp\htdocs\new-iresis\scripts\segarkan_daftar_retur_senyap.vbs"`
+
+## Final di Jubelio = Sudah Verifikasi (21 Nov 2026)
+
+Verifikasi accounting pada dasarnya adalah accounting menyelesaikan / menolak retur di Jubelio, dan status itu tidak bisa diubah lagi.
+Karena itu, di **tab Semua**, resi yang **semua barisnya SELESAI / DITOLAK** (tanpa BARANG RETUR) dihitung **Sudah Verifikasi (tahap 4)**
+walau iresis tidak punya scan atau catatan verifikasi (data lama, mis. resi `SPXID067129428281`: sebelumnya "Belum Terima").
+
+- Aturan di `Daftar_retur_fcd::get_list()` (baris `final_jubelio` / `dari_jubelio`). Hanya baris tambahan tab Semua yang kena; tab lain berisi
+  BARANG RETUR murni sehingga tidak berubah. Resi campuran dengan BARANG RETUR tidak dianggap final (mengikuti scan).
+- **Tidak ada data palsu.** Langkah Terima / Buka / Serah Terima yang tidak tercatat tampil "Tidak tercatat (data lama)" di kartu Progress.
+  Langkah Verifikasi yang hanya disimpulkan dari Jubelio tampil "Tanggal tidak tersedia" + keterangan "Disimpulkan dari status Jubelio:
+  SELESAI / DITOLAK". Bila verifikasi memang tercatat di iresis, kartunya seperti biasa (tanggal + petugas).
+- Excel: kolom **Keterangan Data** berisi "Verifikasi disimpulkan dari status Jubelio (...)" untuk resi tersebut.
+- Tanggal untuk filter rentang: tanggal verifikasi iresis bila ada, lalu tanggal buka, lalu tanggal pesan.
+- Perkiraan dampak (salinan prod 21 Nov): sekitar 19 ribu resi yang tadinya Sudah Buka / Sudah Serah Terima dan sekitar 16,7 ribu yang
+  tadinya Belum Terima kini Sudah Verifikasi di tab Semua. Tab Sudah Verifikasi (hanya BARANG RETUR murni) tetap 1.017 di salinan uji.
