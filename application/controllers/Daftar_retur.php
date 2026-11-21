@@ -99,7 +99,7 @@ class Daftar_retur extends MY_Controller
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
                 $this->_sel_tanggal($r->tanggal_buka),
-                $this->_salinan($r->no_pesanan, false),
+                $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan),
                 $this->_salinan($r->no_resi, true),
                 $this->_h($r->kurir ?: '-'),
                 $this->_h($r->marketplace ?: '-'),
@@ -332,13 +332,28 @@ class Daftar_retur extends MY_Controller
     }
 
     /** Teks + ikon clipboard kecil; satu klik menyalin (ditangani di view lewat data-salin). */
-    private function _salinan($teks, $tebal)
+    /**
+     * No pesanan untuk tampilan web: buang awalan marketplace (TT-, SP-, TP-, LZ-)
+     * dan, khusus TikTok/Tokopedia/Lazada, buang juga akhiran "-angka" (kode toko).
+     * Shopee hanya dibuang awalannya. Data di DB dan Excel tetap lengkap.
+     */
+    private function _ringkas_pesanan($no)
+    {
+        $no = trim((string) $no);
+        if (!preg_match('/^(TT|SP|TP|LZ)-(.+)$/i', $no, $m)) return $no;
+        $isi = $m[2];
+        if (strtoupper($m[1]) !== 'SP') $isi = preg_replace('/-\d+$/', '', $isi);
+        return $isi;
+    }
+
+    private function _salinan($teks, $tebal, $lengkap = null)
     {
         $teks = trim((string) $teks);
         if ($teks === '') return '-';
 
         $isi = $tebal ? '<strong>' . $this->_h($teks) . '</strong>' : $this->_h($teks);
-        return '<span class="dr-no"><span class="dr-nt">' . $isi . '</span>'
+        $judul = ($lengkap !== null && trim((string) $lengkap) !== $teks) ? ' title="' . $this->_h($lengkap) . '"' : '';
+        return '<span class="dr-no"' . $judul . '><span class="dr-nt">' . $isi . '</span>'
             . '<i class="fa fa-clipboard dr-salin" data-salin="' . $this->_h($teks)
             . '" title="Salin" role="button" tabindex="0"></i></span>';
     }
