@@ -44,3 +44,18 @@ jadi ikut arsip/purna bersama resinya.
 - Arahkan kursor ke Progress → kartu rincian: tiap tahap tanggal · jam + petugas, atau "Belum ada catatan".
 - Excel (Export) menambah kolom Tanggal / Waktu / Petugas untuk Terima, Buka, Serah Terima, Verifikasi.
 - Rincian dibaca hanya untuk baris di halaman yang tampil (dan seluruh hasil saat Export), bukan di query dasar yang di-cache.
+
+## Pembaruan 21 Nov 2026 (cetak ulang, Dipesan/Diretur, kolom disembunyikan)
+
+- **Kartu Progress memuat enam langkah**: Dipesan (tanggal pesan) -> Diretur (tanggal retur; bertanda "Perkiraan" bila tanggal retur
+  diganti tanggal kirim/order) -> Sudah Terima -> Sudah Buka -> Sudah Serah Terima -> Sudah Verifikasi. Progres sebenarnya dimulai
+  dari Diretur (ruas pertama selalu terisi); Dipesan hanya informasi kapan paket dipesan. Kolom **Tgl Pesan** dan **Tgl Retur**
+  disembunyikan dari tabel (tetap ada di kartu dan di Excel).
+- **Tab Belum Terima** (sebelumnya "Belum Diterima"): cakupan daftar tetap = retur Jubelio berstatus BARANG RETUR yang belum ada
+  scan terima (hampir seluruh pesanan RETURNED yang belum diterima; pesanan RETURNED berstatus retur SELESAI / DITOLAK di Jubelio =
+  komplain yang sudah diproses, sengaja tidak masuk).
+- **Cetak ulang**: tab Sudah Serah Terima punya tombol **Cetak Ulang Serah Terima** (centang resi, konfirmasi). Tiap cetak = satu baris
+  `tblretur_serah_terima` dengan `cetak_ke` (1 = serah terima pertama) dan `is_ulang` (1 untuk cetak ke-2 dst). Kertas ditandai
+  "CETAK ULANG". Tanggal serah terima (filter, kolom, sortir) = **cetak pertama**; lencana "Ulang N x" di kolom tanggal, kartu
+  menampilkan cetak ulang terakhir + petugasnya, Excel punya kolom "Jumlah Cetak Serah Terima".
+- Kolom `cetak_ke` dan `is_ulang` ditambah migrasi bootstrap `2026-11-21.2` (baris lama otomatis cetak_ke 1, is_ulang 0).
