@@ -40,7 +40,7 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
 </head>
 <body>
 <div class="head">
-    <h1>PENGEMBALIAN BARANG (DARI RETUR KE RESTOK)</h1>
+    <h1>PENGEMBALIAN BARANG (DARI RETUR KE RESTOK)<?php if (!empty($ulang)): ?> <span style="font-size:11pt;border:2px solid #111;padding:1px 6px;margin-left:6px;">CETAK ULANG</span><?php endif; ?></h1>
     <b><?= html_escape($tgl_indo) ?></b>
 </div>
 <div class="sub"><?= html_escape($sub) ?></div>

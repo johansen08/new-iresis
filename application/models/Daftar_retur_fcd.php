@@ -260,7 +260,10 @@ class Daftar_retur_fcd extends CI_Model
             if ($posisi === null) continue;
             $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
             $kunci_serah = strtoupper((string) $r->no_resi);
-            $r->tgl_serah = isset($serah[$kunci_serah]) ? $serah[$kunci_serah] : null;
+            // Serah terima = cetak PERTAMA; cetak ulang tercatat terpisah (jumlah cetak + waktu cetak terakhir).
+            $r->tgl_serah = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['awal'] : null;
+            $r->serah_akhir = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['akhir'] : null;
+            $r->serah_n = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['n'] : 0;
             // Sudah dibuka + pernah dicetak serah terima -> pindah ke tab Sudah Serah Terima.
             if ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tgl_serah !== null) $posisi = self::POSISI_SUDAH_SERAH;
             $r->posisi = $posisi;
@@ -363,21 +366,33 @@ class Daftar_retur_fcd extends CI_Model
         return $skema;
     }
 
-    /** Peta resi (huruf besar) -> waktu serah terima TERAKHIR. Tabel kecil, dibaca segar tiap permintaan (tidak ikut cache daftar). */
+    /**
+     * Peta resi (huruf besar) -> array('awal' => cetak pertama, 'akhir' => cetak terakhir, 'n' => jumlah cetak).
+     * Tabel kecil, dibaca segar tiap permintaan (tidak ikut cache daftar). Arsip adalah salinan superset, jadi
+     * jumlah cetak diambil yang terbesar (bukan dijumlah) supaya baris yang ada di prod dan arsip tidak dihitung dua kali.
+     */
     public function peta_serah()
     {
         $peta = array();
         if (!$this->db->table_exists('tblretur_serah_terima')) return $peta;
         foreach ($this->_skema('tblretur_serah_terima') as $sk) {
-            foreach ($this->db->query("SELECT UPPER(no_resi) r, MAX(tanggal_serah) t FROM {$sk}.tblretur_serah_terima GROUP BY UPPER(no_resi)")->result() as $x) {
-                if (!isset($peta[$x->r]) || $x->t > $peta[$x->r]) $peta[$x->r] = $x->t;
+            foreach ($this->db->query("SELECT UPPER(no_resi) r, MIN(tanggal_serah) a, MAX(tanggal_serah) z, COUNT(*) n FROM {$sk}.tblretur_serah_terima GROUP BY UPPER(no_resi)")->result() as $x) {
+                if (!isset($peta[$x->r])) {
+                    $peta[$x->r] = array('awal' => $x->a, 'akhir' => $x->z, 'n' => (int) $x->n);
+                } else {
+                    $peta[$x->r] = array(
+                        'awal' => min($peta[$x->r]['awal'], $x->a), 'akhir' => max($peta[$x->r]['akhir'], $x->z),
+                        'n' => max($peta[$x->r]['n'], (int) $x->n),
+                    );
+                }
             }
         }
         return $peta;
     }
 
     /**
-     * Catat serah terima: satu baris per resi per kali cetak (riwayat tidak ditimpa; layar memakai yang terakhir).
+     * Catat cetak serah terima: satu baris per resi per kali cetak (riwayat tidak ditimpa). cetak_ke = jumlah cetak
+     * sebelumnya + 1; cetak ke-2 dan seterusnya bertanda is_ulang = 1 (cetak ulang).
      * @return int jumlah baris tercatat
      */
     public function catat_serah(array $resi, $id_user, $nama_user)
@@ -387,10 +402,12 @@ class Daftar_retur_fcd extends CI_Model
         $now = date('Y-m-d H:i:s');
         $batch = 'SRH-' . date('ymd-His') . '-' . (int) $id_user;
         $petugas = $this->format_petugas($nama_user);
+        $sudah = $this->peta_serah();
         $baris = array();
         foreach ($resi as $r) {
+            $n = isset($sudah[strtoupper($r)]) ? (int) $sudah[strtoupper($r)]['n'] : 0;
             $baris[] = array('no_resi' => $r, 'tanggal_serah' => $now, 'id_pegawai' => (int) $id_user,
-                'petugas' => $petugas, 'batch' => $batch);
+                'petugas' => $petugas, 'batch' => $batch, 'cetak_ke' => $n + 1, 'is_ulang' => $n > 0 ? 1 : 0);
         }
         $this->db->trans_start();
         $this->db->insert_batch('tblretur_serah_terima', $baris);
@@ -418,7 +435,8 @@ class Daftar_retur_fcd extends CI_Model
         if (in_array(self::JENIS_KOMPLAIN, $jenis, true)) $kond[] = 'is_komplain = 1';
         $kond = $kond ? '(' . implode(' OR ', $kond) . ')' : '1=0';
 
-        $mentah = array('terima' => array(), 'buka' => array(), 'acc' => array(), 'serah' => array(), 'verif' => array());
+        $mentah = array('terima' => array(), 'buka' => array(), 'acc' => array(), 'serah' => array(), 'serah_akhir' => array(), 'verif' => array());
+        $serah_id = array();   // id_serah yang sudah dihitung (baris prod & arsip yang sama tidak dihitung dua kali)
         $simpan = function ($jenis_data, $resi_x, $t, $id, $teks = null, $pilih_awal = false) use (&$mentah) {
             $k = strtoupper((string) $resi_x);
             if ($t === null || $t === '') return;
@@ -444,8 +462,10 @@ class Daftar_retur_fcd extends CI_Model
             }
             if ($ada_serah) {
                 foreach ($this->_skema('tblretur_serah_terima') as $sk) {
-                    foreach ($this->db->query("SELECT no_resi, tanggal_serah t, id_pegawai p, petugas FROM {$sk}.tblretur_serah_terima WHERE no_resi IN ({$in})")->result() as $x) {
-                        $simpan('serah', $x->no_resi, $x->t, $x->p, $x->petugas);
+                    foreach ($this->db->query("SELECT id_serah, no_resi, tanggal_serah t, id_pegawai p, petugas FROM {$sk}.tblretur_serah_terima WHERE no_resi IN ({$in})")->result() as $x) {
+                        $simpan('serah', $x->no_resi, $x->t, $x->p, $x->petugas, true);         // cetak pertama = serah terima
+                        $simpan('serah_akhir', $x->no_resi, $x->t, $x->p, $x->petugas);          // cetak terakhir
+                        $serah_id[strtoupper((string) $x->no_resi)][(int) $x->id_serah] = true;
                     }
                 }
             }
@@ -473,10 +493,15 @@ class Daftar_retur_fcd extends CI_Model
         foreach ($resi as $r) {
             $k = strtoupper($r);
             $verif = isset($mentah['verif'][$k]) ? $mentah['verif'][$k] : (isset($mentah['acc'][$k]) ? $mentah['acc'][$k] : null);
+            $serah = $isi(isset($mentah['serah'][$k]) ? $mentah['serah'][$k] : null);
+            if ($serah) {
+                $serah['n'] = isset($serah_id[$k]) ? count($serah_id[$k]) : 1;
+                $serah['akhir'] = $isi(isset($mentah['serah_akhir'][$k]) ? $mentah['serah_akhir'][$k] : null);
+            }
             $out[$k] = array(
                 'terima' => $isi(isset($mentah['terima'][$k]) ? $mentah['terima'][$k] : null),
                 'buka'   => $isi(isset($mentah['buka'][$k]) ? $mentah['buka'][$k] : null),
-                'serah'  => $isi(isset($mentah['serah'][$k]) ? $mentah['serah'][$k] : null),
+                'serah'  => $serah,
                 'verif'  => $isi($verif),
             );
         }

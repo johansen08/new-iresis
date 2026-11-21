@@ -102,11 +102,15 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable tbody td { height:41px; border:0; border-bottom:1px solid #f1f5f9; padding:0 8px; vertical-align:middle; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #dr_wrap table.dataTable thead th:first-child { border-radius:6px 0 0 6px; }
 #dr_wrap table.dataTable thead th:last-child { border-radius:0 6px 6px 0; }
+/* Tgl Pesan (kolom 2) & Tgl Retur (kolom 3) disembunyikan: sudah ada di kartu Progress (Dipesan, Diretur). Kolom tetap ada agar urutan indeks tidak bergeser. */
+#dr_wrap table.dataTable th:nth-child(2), #dr_wrap table.dataTable td:nth-child(2),
+#dr_wrap table.dataTable th:nth-child(3), #dr_wrap table.dataTable td:nth-child(3) { display:none; }
 /* lebar kolom: 1 centang, 2 pesan, 3 retur, 4 buka retur, 5 pesanan, 6 resi, 7 kurir, 8 MP, 9 toko (sisa), 10 nilai, 11 umur, 12 status */
 #dr_wrap table.dataTable thead th:nth-child(1)  { width:40px; }
 #dr_wrap table.dataTable thead th:nth-child(2)  { width:108px; }
 #dr_wrap table.dataTable thead th:nth-child(3)  { width:120px; }
-#dr_wrap table.dataTable thead th:nth-child(4)  { width:108px; }
+#dr_wrap table.dataTable thead th:nth-child(4)  { width:122px; }
+#dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:196px; }
 #dr_wrap table.dataTable thead th:nth-child(5)  { width:176px; }
 #dr_wrap table.dataTable thead th:nth-child(6)  { width:172px; }
 #dr_wrap table.dataTable thead th:nth-child(7)  { width:96px; }
@@ -149,25 +153,15 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-t1 { display:inline; font-weight:600; color:#111827; font-variant-numeric:tabular-nums; }
 .dr-t2 { display:inline; margin-left:5px; color:#9ca3af; font-size:12px; font-variant-numeric:tabular-nums; }
 
-/* Laptop 1400-1499: kolom MP disembunyikan, isinya jadi awalan di sel Toko */
-@media (max-width: 1499px) and (min-width: 1400px) {
+/* Di bawah 1500px: kolom MP disembunyikan, isinya jadi awalan di sel Toko */
+@media (max-width: 1499px) {
   #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
   .dr-mpx { display:inline; }
-}
-/* Layar di bawah 1400: di tab ber-kolom tanggal tahap, Tgl Retur ikut disembunyikan agar Progress muat */
-@media (max-width: 1399px) {
-  #dr_wrap.mode-buka table.dataTable th:nth-child(3), #dr_wrap.mode-buka table.dataTable td:nth-child(3) { display:none; }
-}
-/* Layar di bawah 1400 (mis. 1280/1366): kolom MP dan Toko disembunyikan supaya resi, pesanan, kurir, umur, status tetap utuh;
-   MP + toko tetap terbaca di tooltip nomor pesanan dan bisa dicari lewat kotak Search */
-@media (max-width: 1399px) {
-  #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8),
-  #dr_wrap table.dataTable th:nth-child(9), #dr_wrap table.dataTable td:nth-child(9) { display:none; }
 }
 /* Layar sempit: tabel boleh digeser bila tetap tidak muat */
 @media (max-width: 1200px) {
   #dr_tablewrap { overflow-x:auto; }
-  #dr_wrap table.dataTable { min-width:960px; }
+  #dr_wrap table.dataTable { min-width:900px; }
   #dr_wrap table.dataTable thead th { position:static; }
 }
 
@@ -195,6 +189,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-umur-selesai { background:#f3f4f6; color:#6b7280; font-weight:600; }
 .dr-pill { display:inline-block; margin-top:2px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; line-height:18px; white-space:nowrap; }
 
+.dr-ulang { display:inline-block; margin-left:6px; padding:0 7px; border-radius:999px; background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; line-height:18px; cursor:help; }
 /* Progress retur: lencana tahap (warna naik: abu -> biru -> teal -> ungu -> hijau) + 4 ruas penanda di bawahnya */
 .dr-prog { display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:default; }
 .dr-st { display:inline-block; align-self:flex-start; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 9px; border-radius:999px; font-weight:600; font-size:12px; line-height:22px; }
@@ -217,8 +212,11 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_kartu .ks.ok .ki { background:#0f766e; }
 #dr_kartu .kn { font-weight:600; color:#111827; }
 #dr_kartu .kw { color:#6b7280; font-variant-numeric:tabular-nums; }
+#dr_kartu .kx { color:#b45309; font-size:11.5px; }
+#dr_kartu .ks.info .ki { background:#94a3b8; }
+#dr_kartu .ks.info .kn { color:#111827; font-weight:600; }
 #dr_kartu .kp { color:#374151; }
-#dr_kartu .ks:not(.ok) .kn, #dr_kartu .ks:not(.ok) .kw { color:#9ca3af; font-weight:400; }
+#dr_kartu .ks.tahap:not(.ok) .kn, #dr_kartu .ks.tahap:not(.ok) .kw { color:#9ca3af; font-weight:400; }
 
 /* Tanda tanggal perkiraan: satu glyph ≈ sebaris dengan tanggal (arti di tooltip & legenda) */
 .dr-sb { display:inline-block; margin-left:6px; font-size:12px; font-weight:700; cursor:help; }
@@ -232,10 +230,10 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="" title="Semua retur; tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Belum ada scan terima">Belum Diterima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Status pesanan RETURNED / sudah ada tanggal retur, belum ada scan terima">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
-    <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting (bisa Cetak Ulang)">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
     <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah diverifikasi accounting">Sudah Verifikasi <span class="n" id="n_SUDAH_VERIF">-</span></div>
   </div>
 
@@ -327,8 +325,8 @@ $(document).ready(function () {
         if (!tabel) return;
         var n = jmlPilih(), total = tabel.page.info().recordsDisplay;
         $('#dr_cetak').prop('disabled', n === 0)
-            .attr('title', n ? 'Cetak serah terima ' + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
-        var h = n ? '<b>' + n.toLocaleString('id-ID') + ' resi dipilih</b> <a id="dr_pilih_hapus">Hapus pilihan</a>' : 'Centang resi untuk Cetak Serah Terima.';
+            .attr('title', n ? (statusAktif === 'SUDAH_SERAH' ? 'Cetak ulang serah terima ' : 'Cetak serah terima ') + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
+        var h = n ? '<b>' + n.toLocaleString('id-ID') + ' resi dipilih</b> <a id="dr_pilih_hapus">Hapus pilihan</a>' : 'Centang resi untuk ' + (statusAktif === 'SUDAH_SERAH' ? 'Cetak Ulang Serah Terima.' : 'Cetak Serah Terima.');
         if (total > 0 && n < total) h += '<a id="dr_pilih_semua">Pilih semua ' + total.toLocaleString('id-ID') + ' hasil</a>';
         $('#dr_pilih_info').html(h);
         var $hal = $('#dt_daftar_retur .dr-pilih');
@@ -337,6 +335,8 @@ $(document).ready(function () {
     function aturModePilih(aktif) {
         $('#dr_wrap').toggleClass('mode-pilih', aktif);
         $('#dr_cetak, #dr_pilih_info').toggle(aktif);
+        var ulang = (statusAktif === 'SUDAH_SERAH');
+        $('#dr_cetak').html('<i class="fa fa-print"></i> ' + (ulang ? 'Cetak Ulang Serah Terima' : 'Cetak Serah Terima'));
     }
     // Tab -> nama kolom tanggal tahap (judul kolom) dan label filter tanggal.
     var NAMA_TAHAP = {
@@ -504,7 +504,7 @@ $(document).ready(function () {
         });
     });
 
-    // Kartu rincian progres: tanggal, jam, dan petugas tiap tahap (data-detail dari server).
+    // Kartu rincian progres: Dipesan, Diretur, lalu tanggal, jam, dan petugas tiap tahap (data-detail dari server).
     var $kartu = $('<div id="dr_kartu"></div>').appendTo('body');
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
     $('#dt_daftar_retur').on('mouseenter', '.dr-prog', function () {
@@ -512,11 +512,13 @@ $(document).ready(function () {
         try { d = JSON.parse($(this).attr('data-detail') || '[]'); } catch (e) { return; }
         var h = '';
         d.forEach(function (x) {
-            var ada = !!x.t;
-            h += '<div class="ks' + (ada ? ' ok' : '') + '"><span class="ki">' + (ada ? '<i class="fa fa-check"></i>' : '') + '</span><div>' +
-                '<div class="kn">' + (ada ? 'Sudah ' : 'Belum ') + esc(x.n) + '</div>' +
-                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div><div class="kp">' + esc(x.p || 'Petugas tidak tercatat') + '</div>'
-                     : '<div class="kw">Belum ada catatan</div>') +
+            var ada = !!x.t, info = (x.k === 'info');
+            var judul = (info || ada) ? x.n : 'Belum ' + x.n.replace(/^Sudah /, '');
+            h += '<div class="ks ' + (info ? 'info' : 'tahap') + (ada ? ' ok' : '') + '"><span class="ki">' + (ada && !info ? '<i class="fa fa-check"></i>' : '') + '</span><div>' +
+                '<div class="kn">' + esc(judul) + '</div>' +
+                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div>' : '<div class="kw">Belum ada catatan</div>') +
+                (ada && x.p ? '<div class="kp">' + esc(x.p) + '</div>' : (ada && !info ? '<div class="kp">Petugas tidak tercatat</div>' : '')) +
+                (x.x ? '<div class="kx">' + esc(x.x) + '</div>' : '') +
                 '</div></div>';
         });
         $kartu.html(h).show();
@@ -533,7 +535,8 @@ $(document).ready(function () {
         $('#dr_tabs .dr-tab').removeClass('on');
         $(this).addClass('on');
         statusAktif = $(this).data('status') || '';
-        aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah Buka
+        sel = {};   // pilihan tidak dibawa antar tab
+        aturModePilih(statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_SERAH');   // centang + cetak (Sudah Buka) / cetak ulang (Sudah Serah Terima)
         aturModeTanggal(statusAktif);
         // Tab ber-kolom tanggal tahap: urut default tanggal tahap (terbaru di atas); tab lain: umur terbesar di atas
         tabel.order(NAMA_TAHAP[statusAktif] ? [[3, 'desc']] : [[10, 'desc']]);
@@ -611,11 +614,13 @@ $(document).ready(function () {
     // Cetak: POST lewat form ke tab baru (daftar resi bisa panjang, tidak muat di URL).
     $('#dr_cetak').on('click', function () {
         if (!jmlPilih()) return;
+        var ulang = (statusAktif === 'SUDAH_SERAH');
+        if (ulang && !window.confirm('Cetak ulang serah terima ' + jmlPilih() + ' resi? Ini akan tercatat sebagai cetak ulang.')) return;
         var v = $('#dr_rentang').val().split(' s/d ');
         // Kelas nojs wajib: tanpa itu plugins.js membajak submit jadi AJAX ke halaman SPA ("Invalid response format").
         var $f = $('<form method="post" target="_blank" class="nojs" style="display:none;"></form>')
             .attr('action', BASE + 'retur/serah-cetak-daftar-retur-penjualan');
-        var kirim = { start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search(), resi: Object.keys(sel).join(',') };
+        var kirim = { start_date: v[0] || '', end_date: v[1] || '', jenis: jenisAktif, q: tabel.search(), resi: Object.keys(sel).join(','), ulang: ulang ? '1' : '0' };
         $.each(kirim, function (k, val) { $('<input type="hidden">').attr('name', k).val(val).appendTo($f); });
         $f.appendTo('body').submit().remove();
         // Serah terima tercatat di server saat kertas dibuat: muat ulang sebentar lagi supaya resi yang dicetak

@@ -103,7 +103,7 @@ class Daftar_retur extends MY_Controller
                 '<input type="checkbox" class="dr-pilih" data-resi="' . $this->_h($r->no_resi) . '">',
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
-                $this->_sel_tanggal($r->tanggal_tahap),
+                $this->_sel_tanggal($r->tanggal_tahap) . $this->_lencana_ulang($r),
                 $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan . "\n" . trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')),
                 $this->_salinan($r->no_resi, true),
                 '<span class="dr-potong" title="' . $this->_h($r->kurir) . '">' . $this->_h($r->kurir ?: '-') . '</span>',
@@ -172,6 +172,7 @@ class Daftar_retur extends MY_Controller
 
         $kolom = array('No', 'Tanggal Pesan', 'Tanggal Retur', 'Sumber Tanggal Retur', 'No. Pesanan', 'No. Resi',
             'Kurir', 'Marketplace', 'Toko', 'Nilai (Rp)', 'Umur (hari)', 'Progress', 'Komplain', 'Tanggal Buka Retur');
+        $kolom[] = 'Jumlah Cetak Serah Terima';
         foreach ($langkah as $judul) {
             $kolom[] = 'Tanggal ' . $judul;
             $kolom[] = 'Waktu ' . $judul;
@@ -206,7 +207,8 @@ class Daftar_retur extends MY_Controller
                 14 => $b->tanggal_buka ? date('d/m/Y H:i', strtotime($b->tanggal_buka)) : '-',
             );
             $det = isset($rincian[strtoupper((string) $b->no_resi)]) ? $rincian[strtoupper((string) $b->no_resi)] : array();
-            $c = 15;
+            $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
+            $c = 16;
             foreach ($langkah as $k => $judul) {
                 $x = isset($det[$k]) ? $det[$k] : null;
                 $isi[$c++] = $x ? date('d/m/Y', strtotime($x['t'])) : '-';
@@ -233,7 +235,7 @@ class Daftar_retur extends MY_Controller
         $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
         $ws->getRowDimension(1)->setRowHeight(26);
-        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36) as $i => $w) {
+        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         $ws->freezePane('A2');
@@ -270,6 +272,7 @@ class Daftar_retur extends MY_Controller
         $s = $this->input->post('start_date');
         $e = $this->input->post('end_date');
         $cari = $this->input->post('q');
+        $ulang = ($this->input->post('ulang') === '1');
         $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
         $jenis_raw = $this->input->post('jenis');
         if (is_string($jenis_raw) && $jenis_raw !== '') {
@@ -279,7 +282,9 @@ class Daftar_retur extends MY_Controller
         list($rows) = $this->daftar_retur_fcd->get_list(array(
             'start' => ($ok($s) ? $s : date('Y-01-01')) . ' 00:00:00',
             'end' => ($ok($e) ? $e : date('Y-m-d')) . ' 23:59:59',
-            'status' => Daftar_retur_fcd::POSISI_SUDAH_DIBUKA, 'search' => is_string($cari) ? trim($cari) : '',
+            // Cetak pertama dari tab Sudah Buka; cetak ulang dari tab Sudah Serah Terima.
+            'status' => $ulang ? Daftar_retur_fcd::POSISI_SUDAH_SERAH : Daftar_retur_fcd::POSISI_SUDAH_DIBUKA,
+            'search' => is_string($cari) ? trim($cari) : '',
             'segarkan' => false, 'jenis' => $jenis,
             'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
         ));
@@ -303,8 +308,8 @@ class Daftar_retur extends MY_Controller
         $stok = $this->stok_retur_buka_fcd->stok($resi, true);
         $masuk = (int) $stok['ringkas']['resi'];
 
-        // Catat serah terima untuk SEMUA resi yang dicentang dan masih tampil di tab Sudah Buka (petugas + waktu):
-        // resi itu pindah ke tab Sudah Serah Terima. Resi tanpa barang KE_DISPLAY tidak muncul di kertas (hanya
+        // Catat serah terima untuk SEMUA resi yang dicentang dan masih tampil di tab asalnya (petugas + waktu):
+        // cetak pertama memindahkan resi ke tab Sudah Serah Terima; cetak ulang menambah hitungan cetak (cetak_ke, is_ulang). Resi tanpa barang KE_DISPLAY tidak muncul di kertas (hanya
         // dilewati di baris SKU) tetapi tetap dianggap diserahterimakan.
         $this->daftar_retur_fcd->catat_serah(
             $resi,
@@ -314,7 +319,8 @@ class Daftar_retur extends MY_Controller
 
         $this->load->view('daftar_retur/serah_cetak', array(
             'det' => $this->stok_retur_buka_fcd->baris_serah_terima($stok['rows']),
-            'sub' => count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
+            'ulang' => $ulang,
+            'sub' => ($ulang ? 'CETAK ULANG · ' : '') . count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
                 . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: tanpa barang KE_DISPLAY / sudah di-ACC accounting)' : '')
                 . ' · ' . count($stok['rows']) . ' SKU',
             'petugas' => $petugas,
@@ -412,27 +418,49 @@ class Daftar_retur extends MY_Controller
         return '<span class="dr-umur dr-umur-aman">' . $teks . '</span>';
     }
 
+    /** Lencana "Ulang N×" di kolom tanggal tab Sudah Serah Terima bila resi pernah dicetak ulang. */
+    private function _lencana_ulang($r)
+    {
+        $n = isset($r->serah_n) ? (int) $r->serah_n : 0;
+        if ($r->posisi !== Daftar_retur_fcd::POSISI_SUDAH_SERAH || $n < 2) return '';
+        $judul = 'Dicetak ' . $n . 'x (cetak ulang ' . ($n - 1) . 'x). Cetak terakhir ' . date('d/m/Y H:i', strtotime($r->serah_akhir));
+        return '<span class="dr-ulang" title="' . $this->_h($judul) . '">Ulang ' . ($n - 1) . '&times;</span>';
+    }
+
     /**
-     * Kolom Progress: lencana tahap + 4 ruas penanda (Terima, Buka, Serah Terima, Verifikasi). Rincian tiap tahap
-     * (tanggal, jam, petugas NO ABSEN - NAMA - ROLE) dibawa di data-detail dan ditampilkan sebagai kartu saat diarahkan.
+     * Kolom Progress: lencana tahap + 5 ruas penanda (Diretur, Terima, Buka, Serah Terima, Verifikasi). Rincian enam
+     * langkah (Dipesan, Diretur, Sudah Terima, Sudah Buka, Sudah Serah Terima, Sudah Verifikasi: tanggal, jam, petugas
+     * NO ABSEN - NAMA - ROLE) dibawa di data-detail dan ditampilkan sebagai kartu saat diarahkan.
+     * Dipesan & Diretur hanya informasi tanggal (tanpa petugas); progres sebenarnya dimulai dari Diretur.
      */
     private function _sel_progress($r, array $d)
     {
         $tahap = (int) $r->tahap;
-        $langkah = array('terima' => 'Terima', 'buka' => 'Buka', 'serah' => 'Serah Terima', 'verif' => 'Verifikasi');
+        $pecah = function ($t) {
+            $ts = $t ? strtotime($t) : false;
+            return array($ts ? date('d/m/Y', $ts) : null, $ts ? date('H:i:s', $ts) : null);
+        };
         $detail = array();
-        foreach ($langkah as $k => $judul) {
+        list($tp, $wp) = $pecah($r->tanggal_pesan);
+        $detail[] = array('n' => 'Dipesan', 'k' => 'info', 't' => $tp, 'w' => $wp, 'p' => null);
+        list($tr, $wr) = $pecah($r->tanggal_retur);
+        $ket_retur = null;
+        if ($r->sumber_tanggal === 'KIRIM') $ket_retur = 'Perkiraan: tanggal retur tidak tersedia, dipakai tanggal kirim';
+        elseif ($r->sumber_tanggal === 'ORDER') $ket_retur = 'Perkiraan: tanggal retur tidak tersedia, dipakai tanggal order';
+        $detail[] = array('n' => 'Diretur', 'k' => 'info', 't' => $tr, 'w' => $wr, 'p' => null, 'x' => $ket_retur);
+        foreach (array('terima' => 'Sudah Terima', 'buka' => 'Sudah Buka', 'serah' => 'Sudah Serah Terima', 'verif' => 'Sudah Verifikasi') as $k => $judul) {
             $x = isset($d[$k]) ? $d[$k] : null;
-            $ts = $x ? strtotime($x['t']) : false;
-            $detail[] = array(
-                'n' => $judul,
-                't' => $ts ? date('d/m/Y', $ts) : null,
-                'w' => $ts ? date('H:i:s', $ts) : null,
-                'p' => $x ? $x['p'] : null,
-            );
+            list($t, $w) = $pecah($x ? $x['t'] : null);
+            $baris = array('n' => $judul, 'k' => 'tahap', 't' => $t, 'w' => $w, 'p' => $x ? $x['p'] : null);
+            if ($k === 'serah' && $x && !empty($x['n']) && (int) $x['n'] > 1) {
+                list($ta, $wa) = $pecah($x['akhir'] ? $x['akhir']['t'] : null);
+                $baris['x'] = 'Dicetak ulang ' . ((int) $x['n'] - 1) . 'x · terakhir ' . $ta . ' ' . $wa
+                    . ($x['akhir'] && $x['akhir']['p'] ? ' oleh ' . $x['akhir']['p'] : '');
+            }
+            $detail[] = $baris;
         }
         $ruas = '';
-        for ($i = 1; $i <= 4; $i++) $ruas .= '<i' . ($i <= $tahap ? ' class="on"' : '') . '></i>';
+        for ($i = 0; $i <= 4; $i++) $ruas .= '<i' . ($i <= $tahap ? ' class="on"' : '') . '></i>';   // ruas pertama (Diretur) selalu terisi
         // Retur komplain: penanda "K" sebaris dengan ruas (bukan baris ketiga) supaya tinggi baris tetap.
         $komplain = ((int) $r->ir_k + (int) $r->bk_k) > 0 ? '<span class="dr-k" title="Ada scan retur komplain untuk resi ini">K</span>' : '';
         return '<span class="dr-prog" data-detail="' . $this->_h(json_encode($detail)) . '">'
