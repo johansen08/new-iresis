@@ -328,7 +328,7 @@ class Daftar_retur extends MY_Controller
     {
         if (!$t) return '-';
         $ts = strtotime($t);
-        return '<div class="dr-t1">' . date('d/m/y', $ts) . '</div><div class="dr-t2">' . date('H:i', $ts) . '</div>';
+        return '<span class="dr-t1">' . date('d/m/y', $ts) . '</span><span class="dr-t2">' . date('H:i', $ts) . '</span>';
     }
 
     /** Teks + ikon clipboard kecil; satu klik menyalin (ditangani di view lewat data-salin). */
@@ -397,8 +397,8 @@ class Daftar_retur extends MY_Controller
     {
         switch ($sumber) {
             case 'RETUR': return '';   // tanggal retur sebenarnya: tidak perlu keterangan tambahan
-            case 'KIRIM': return '<div class="dr-sb dr-sb-kira" title="Tanggal retur tidak tersedia; dipakai tanggal kirim">Perkiraan: tgl kirim</div>';
-            default:      return '<div class="dr-sb dr-sb-kasar" title="Tanggal retur tidak tersedia; dipakai tanggal order, umur cenderung berlebih">Perkiraan: tgl order</div>';
+            case 'KIRIM': return '<div class="dr-sb dr-sb-kira" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal kirim">≈ tgl kirim</div>';
+            default:      return '<div class="dr-sb dr-sb-kasar" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal order (umur cenderung berlebih)">≈ tgl order</div>';
         }
     }
 }
