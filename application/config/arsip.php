@@ -128,6 +128,7 @@ $config['keluarga_resi'] = array(
 	'tblbukaretur'               => array('kolom' => 'resi_buka',    'pakai' => 'noresi'),
 	'tblreturjubelio'            => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
 	'tblreturverifikasi'         => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
+	'tblretur_serah_terima'      => array('kolom' => 'no_resi',      'pakai' => 'noresi'),
 	'tblmasalahpicker'           => array('kolom' => 'noresi',       'pakai' => 'noresi'),
 	'tbllostscanpacker'          => array('kolom' => 'noresi',       'pakai' => 'noresi'),
 	'tblvideopacking'            => array('kolom' => 'noresi',       'pakai' => 'noresi'),

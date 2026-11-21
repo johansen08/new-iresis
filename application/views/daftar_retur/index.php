@@ -104,16 +104,16 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th:last-child { border-radius:0 6px 6px 0; }
 /* lebar kolom: 1 centang, 2 pesan, 3 retur, 4 buka retur, 5 pesanan, 6 resi, 7 kurir, 8 MP, 9 toko (sisa), 10 nilai, 11 umur, 12 status */
 #dr_wrap table.dataTable thead th:nth-child(1)  { width:40px; }
-#dr_wrap table.dataTable thead th:nth-child(2)  { width:112px; }
-#dr_wrap table.dataTable thead th:nth-child(3)  { width:124px; }
-#dr_wrap table.dataTable thead th:nth-child(4)  { width:112px; }
+#dr_wrap table.dataTable thead th:nth-child(2)  { width:108px; }
+#dr_wrap table.dataTable thead th:nth-child(3)  { width:120px; }
+#dr_wrap table.dataTable thead th:nth-child(4)  { width:108px; }
 #dr_wrap table.dataTable thead th:nth-child(5)  { width:176px; }
 #dr_wrap table.dataTable thead th:nth-child(6)  { width:172px; }
-#dr_wrap table.dataTable thead th:nth-child(7)  { width:104px; }
+#dr_wrap table.dataTable thead th:nth-child(7)  { width:96px; }
 #dr_wrap table.dataTable thead th:nth-child(8)  { width:100px; }
-#dr_wrap table.dataTable thead th:nth-child(10) { width:96px; }
-#dr_wrap table.dataTable thead th:nth-child(11) { width:88px; }
-#dr_wrap table.dataTable thead th:nth-child(12) { width:132px; }
+#dr_wrap table.dataTable thead th:nth-child(10) { width:86px; }
+#dr_wrap table.dataTable thead th:nth-child(11) { width:84px; }
+#dr_wrap table.dataTable thead th:nth-child(12) { width:160px; }
 /* Nilai (kolom 10): angka rata kanan, judul kolom dengan padding sama supaya sejajar */
 #dr_wrap table.dataTable tbody td:nth-child(10), #dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; }
 /* tema menambah ~10px ruang panah urut di dalam judul kolom: padding judul dikurangi supaya teks sejajar dengan angka */
@@ -127,9 +127,8 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
-/* Beban informasi: Status Retur (kolom 12) hanya berguna di tab Semua (di tab lain isinya seragam, sama dengan nama tab).
-   Umur (kolom 11) tidak ditampilkan di tab Sudah dibuka & Sudah verif (barang sudah kembali, umur bukan dasar klaim). */
-#dr_wrap:not([data-tab=""]) table.dataTable th:nth-child(12), #dr_wrap:not([data-tab=""]) table.dataTable td:nth-child(12),
+/* Beban informasi: Umur (kolom 11) tidak ditampilkan di tab Sudah dibuka & Sudah verif (barang sudah kembali, umur bukan dasar klaim).
+   Progress (kolom 12) tampil di semua tab: di tab Sudah dibuka ia membedakan Sudah Buka dan Sudah Serah Terima. */
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 12px; }
@@ -153,6 +152,10 @@ $BASE = rtrim(base_url(), '/') . '/';
 @media (max-width: 1499px) and (min-width: 1400px) {
   #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
   .dr-mpx { display:inline; }
+}
+/* Layar di bawah 1400: di tab Sudah dibuka / Sudah verif, Tgl Retur ikut disembunyikan (sudah ada Tgl Buka Retur) agar Progress muat */
+@media (max-width: 1399px) {
+  #dr_wrap.mode-buka table.dataTable th:nth-child(3), #dr_wrap.mode-buka table.dataTable td:nth-child(3) { display:none; }
 }
 /* Layar di bawah 1400 (mis. 1280/1366): kolom MP dan Toko disembunyikan supaya resi, pesanan, kurir, umur, status tetap utuh;
    MP + toko tetap terbaca di tooltip nomor pesanan dan bisa dicari lewat kotak Search */
@@ -191,11 +194,30 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-umur-selesai { background:#f3f4f6; color:#6b7280; font-weight:600; }
 .dr-pill { display:inline-block; margin-top:2px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; line-height:18px; white-space:nowrap; }
 
-/* Status retur: lencana setinggi lencana umur */
-.dr-st { display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; white-space:nowrap; padding:0 10px; border-radius:999px; font-weight:600; font-size:12px; line-height:22px; }
-.dr-st-abu { background:#f3f4f6; color:#374151; }
-.dr-st-biru { background:#dbeafe; color:#1d4ed8; }
-.dr-st-hijau { background:#dcfce7; color:#166534; }
+/* Progress retur: lencana tahap (warna naik: abu -> biru -> teal -> ungu -> hijau) + 4 ruas penanda di bawahnya */
+.dr-prog { display:flex; flex-direction:column; justify-content:center; gap:4px; cursor:default; }
+.dr-st { display:inline-block; align-self:flex-start; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 9px; border-radius:999px; font-weight:600; font-size:12px; line-height:22px; }
+.dr-st-t0 { background:#f3f4f6; color:#4b5563; }
+.dr-st-t1 { background:#dbeafe; color:#1d4ed8; }
+.dr-st-t2 { background:#ccfbf1; color:#0f766e; }
+.dr-st-t3 { background:#ede9fe; color:#6d28d9; }
+.dr-st-t4 { background:#dcfce7; color:#166534; }
+.dr-baris2 { display:flex; align-items:center; gap:6px; height:3px; }
+.dr-seg { display:flex; gap:2px; width:100px; }
+.dr-k { flex:none; margin:-8px 0; width:16px; height:16px; border-radius:50%; background:#ede9fe; color:#6d28d9; font-size:10px; font-weight:700; line-height:16px; text-align:center; cursor:help; }
+.dr-seg i { flex:1; height:3px; border-radius:2px; background:#e5e7eb; }
+.dr-seg i.on { background:#0f766e; }
+/* Kartu rincian tahap (muncul saat Progress diarahkan; digambar JS di luar tabel supaya tidak terpotong sel) */
+#dr_kartu { display:none; position:fixed; z-index:200; width:320px; padding:12px 14px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;
+            box-shadow:0 8px 24px rgba(0,0,0,.14); font-size:12.5px; color:#374151; pointer-events:none; }
+#dr_kartu .ks { display:flex; gap:10px; padding:6px 0; }
+#dr_kartu .ks + .ks { border-top:1px solid #f1f5f9; }
+#dr_kartu .ki { flex:none; width:18px; height:18px; margin-top:1px; border-radius:50%; background:#e5e7eb; color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; }
+#dr_kartu .ks.ok .ki { background:#0f766e; }
+#dr_kartu .kn { font-weight:600; color:#111827; }
+#dr_kartu .kw { color:#6b7280; font-variant-numeric:tabular-nums; }
+#dr_kartu .kp { color:#374151; }
+#dr_kartu .ks:not(.ok) .kn, #dr_kartu .ks:not(.ok) .kw { color:#9ca3af; font-weight:400; }
 
 /* Tanda tanggal perkiraan: satu glyph ≈ sebaris dengan tanggal (arti di tooltip & legenda) */
 .dr-sb { display:inline-block; margin-left:6px; font-size:12px; font-weight:700; cursor:help; }
@@ -279,7 +301,7 @@ $BASE = rtrim(base_url(), '/') . '/';
             <div class="dr-lg2 text-muted"><b style="color:#b91c1c;">&asymp;</b> di tanggal retur = perkiraan (tanggal retur tidak tersedia, dipakai tanggal order/kirim).</div>
           </div>
         </span></th>
-        <th>Status</th>
+        <th>Progress</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -472,6 +494,31 @@ $(document).ready(function () {
             window.prompt('Salin manual (Ctrl+C):', teks);
         });
     });
+
+    // Kartu rincian progres: tanggal, jam, dan petugas tiap tahap (data-detail dari server).
+    var $kartu = $('<div id="dr_kartu"></div>').appendTo('body');
+    function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
+    $('#dt_daftar_retur').on('mouseenter', '.dr-prog', function () {
+        var d;
+        try { d = JSON.parse($(this).attr('data-detail') || '[]'); } catch (e) { return; }
+        var h = '';
+        d.forEach(function (x) {
+            var ada = !!x.t;
+            h += '<div class="ks' + (ada ? ' ok' : '') + '"><span class="ki">' + (ada ? '<i class="fa fa-check"></i>' : '') + '</span><div>' +
+                '<div class="kn">' + (ada ? 'Sudah ' : 'Belum ') + esc(x.n) + '</div>' +
+                (ada ? '<div class="kw">' + esc(x.t) + ' · ' + esc(x.w) + '</div><div class="kp">' + esc(x.p || 'Petugas tidak tercatat') + '</div>'
+                     : '<div class="kw">Belum ada catatan</div>') +
+                '</div></div>';
+        });
+        $kartu.html(h).show();
+        var r = this.getBoundingClientRect(), k = $kartu[0].getBoundingClientRect();
+        var left = Math.max(8, Math.min(r.left, window.innerWidth - k.width - 8));
+        var top = r.bottom + 6;
+        if (top + k.height > window.innerHeight - 8) top = Math.max(8, r.top - k.height - 6);
+        $kartu.css({ left: left, top: top });
+    }).on('mouseleave', '.dr-prog', function () { $kartu.hide(); });
+    $(window).on('scroll.drkartu', function () { $kartu.hide(); });
+    tabel.on('preXhr.dt', function () { $kartu.hide(); });
 
     $('#dr_tabs').on('click', '.dr-tab', function () {
         $('#dr_tabs .dr-tab').removeClass('on');

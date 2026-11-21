@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-20.1';
+    const BOOTSTRAP_VERSI = '2026-11-21.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -199,6 +199,7 @@ class MY_Controller extends CI_Controller
         $this->run_cabut_sku_migration();
         $this->run_kategori_sku_migration();
         $this->run_daftar_kategori_sku_migration();
+        $this->run_serah_terima_retur_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -2576,6 +2577,26 @@ class MY_Controller extends CI_Controller
      * Induk dan hak akses mengikuti menu saudara "Lost Scan HO" (lost_scan_packer/input/ho),
      * ditambah role 5 (HO). Hanya menambah baris roleaccess; yang sudah ada tidak diubah.
      */
+    /**
+     * Riwayat cetak Serah Terima dari Daftar Retur Penjualan (tab Sudah dibuka). Sebelumnya cetak tidak meninggalkan
+     * jejak. Satu baris per resi per kali cetak: waktu, petugas (id_user + teks NOABSEN - NAMA - ROLE saat itu), kode batch.
+     * Kolom no_resi latin1 supaya cocok dengan tblresiretur / tblbukaretur.
+     */
+    protected function run_serah_terima_retur_migration()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblretur_serah_terima` (
+          `id_serah` int(11) NOT NULL AUTO_INCREMENT,
+          `no_resi` varchar(100) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+          `tanggal_serah` datetime NOT NULL,
+          `id_pegawai` int(11) NOT NULL,
+          `petugas` varchar(255) DEFAULT NULL,
+          `batch` varchar(40) DEFAULT NULL,
+          PRIMARY KEY (`id_serah`),
+          KEY `idx_serah_resi` (`no_resi`),
+          KEY `idx_serah_tgl` (`tanggal_serah`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    }
+
     protected function run_terima_retur_ho_migration()
     {
         $uri = 'terima-retur-ho';
