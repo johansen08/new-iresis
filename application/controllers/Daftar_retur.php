@@ -62,7 +62,7 @@ class Daftar_retur extends MY_Controller
         $cari = is_array($cari) && isset($cari['value']) ? trim($cari['value']) : '';
 
         $limit = (int) $this->input->post('length');
-        if ($limit < 1 || $limit > 500) $limit = 25;
+        if ($limit < 1 || $limit > 500) $limit = 10;
         $offset = max(0, (int) $this->input->post('start'));
 
         $status = $this->input->post('status');

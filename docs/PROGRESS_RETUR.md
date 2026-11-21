@@ -129,3 +129,5 @@ walau iresis tidak punya scan atau catatan verifikasi (data lama, mis. resi `SPX
 - Tanggal untuk filter rentang: tanggal verifikasi iresis bila ada, lalu tanggal buka, lalu tanggal pesan.
 - Perkiraan dampak (salinan prod 21 Nov): sekitar 19 ribu resi yang tadinya Sudah Buka / Sudah Serah Terima dan sekitar 16,7 ribu yang
   tadinya Belum Terima kini Sudah Verifikasi di tab Semua. Tab Sudah Verifikasi (hanya BARANG RETUR murni) tetap 1.017 di salinan uji.
+
+- **Ukuran halaman bawaan 10 baris** (sebelumnya 25) supaya seluruh tabel muat di layar tanpa gulir; pilihan 10 / 25 / 50 / 100 tetap ada.
