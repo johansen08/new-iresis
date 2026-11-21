@@ -37,7 +37,8 @@ class Daftar_retur_fcd extends CI_Model
 
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
     const POSISI_BELUM_DIBUKA   = 'BELUM_DIBUKA';
-    const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';
+    const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
+    const POSISI_SUDAH_VERIF    = 'SUDAH_VERIF';    // sudah scan buka DAN sudah diverifikasi accounting
 
     /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur ekspedisi / gagal kirim (is_komplain = 0), K = retur komplain / pengembalian dari customer (is_komplain = 1). */
     const JENIS_BIASA    = 'B';
@@ -97,6 +98,14 @@ class Daftar_retur_fcd extends CI_Model
                          (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1)
                        ) AS bk_k,
                        GREATEST(
+                         (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b} AND b.status_acc = 1),
+                         (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b} AND b.status_acc = 1)
+                       ) AS av_b,
+                       GREATEST(
+                         (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1),
+                         (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1)
+                       ) AS av_k,
+                       GREATEST(
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01'),
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01')
                        ) AS tb_b,
@@ -148,7 +157,7 @@ class Daftar_retur_fcd extends CI_Model
     public function semua_baris($segarkan = false)
     {
         $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur3_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = APPPATH . 'cache/daftar_retur4_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
 
         if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_DETIK) {
             $isi = json_decode((string) @file_get_contents($file), true);
@@ -189,7 +198,12 @@ class Daftar_retur_fcd extends CI_Model
             $tunggu_k = ((int) $r->ir_k > 0 && (int) $r->bk_k === 0);
             if ($tunggu_b || $tunggu_k) return self::POSISI_BELUM_DIBUKA;
         }
-        if ($n_buka > 0)   return self::POSISI_SUDAH_DIBUKA;
+        if ($n_buka > 0) {
+            // Semua baris buka retur sudah diverifikasi accounting (status_acc = 1) -> tab Sudah verif.
+            // Acc hanya bisa naik 0 -> 1, jadi GREATEST prod/arsip aman terhadap salinan arsip yang basi.
+            $n_acc = ($pakai_b ? (int) $r->av_b : 0) + ($pakai_k ? (int) $r->av_k : 0);
+            return ($n_acc >= $n_buka) ? self::POSISI_SUDAH_VERIF : self::POSISI_SUDAH_DIBUKA;
+        }
         if ($n_terima > 0) return self::POSISI_BELUM_DIBUKA;
         return self::POSISI_BELUM_DITERIMA;
     }
@@ -216,16 +230,17 @@ class Daftar_retur_fcd extends CI_Model
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
             : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
 
-        // Rentang: baris SUDAH_DIBUKA memakai TANGGAL BUKA RETUR (scan Buka Retur terakhir); baris
+        // Rentang: baris SUDAH_DIBUKA / SUDAH_VERIF memakai TANGGAL BUKA RETUR (scan Buka Retur terakhir); baris
         // lain memakai TANGGAL PESAN. Jadi di tab Sudah dibuka, filter tanggal = tanggal buka retur.
         $rentang = array();
-        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0);
+        $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0, self::POSISI_SUDAH_VERIF => 0);
         foreach ($semua as $r) {
             $posisi = $this->hitung_posisi($r, $jenis);
             if ($posisi === null) continue;
             $r->posisi = $posisi;
             $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
-            $tgl_filter = ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tanggal_buka) ? $r->tanggal_buka : $r->tanggal_pesan;
+            $sudah_buka = ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF);
+            $tgl_filter = ($sudah_buka && $r->tanggal_buka) ? $r->tanggal_buka : $r->tanggal_pesan;
             if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
                 $rentang[] = $r;
                 $tab[$posisi]++;

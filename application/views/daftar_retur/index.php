@@ -90,8 +90,8 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:nowrap; }
 #dr_wrap table.dataTable tbody td:nth-child(10) { text-align:right; font-variant-numeric:tabular-nums; }
 #dr_wrap table.dataTable thead th:nth-child(10) { text-align:left; }
-/* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka (sama dengan mode centang) */
-#dr_wrap:not(.mode-pilih) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-pilih) table.dataTable td:nth-child(4) { display:none; }
+/* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka & Sudah verif (kelas mode-buka) */
+#dr_wrap:not(.mode-buka) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-buka) table.dataTable td:nth-child(4) { display:none; }
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
@@ -163,7 +163,8 @@ $BASE = rtrim(base_url(), '/') . '/';
     <div class="dr-tab on" data-status="">Semua <span class="n" id="n_semua">-</span></div>
     <div class="dr-tab" data-status="BELUM_DITERIMA">Belum diterima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah diterima, belum dibuka">Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
-    <div class="dr-tab" data-status="SUDAH_DIBUKA">Sudah dibuka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah dibuka, belum diverifikasi accounting">Sudah dibuka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah dibuka dan sudah diverifikasi accounting">Sudah verif <span class="n" id="n_SUDAH_VERIF">-</span></div>
   </div>
 
   <!-- Filter -->
@@ -260,6 +261,9 @@ $(document).ready(function () {
     function aturModePilih(aktif) {
         $('#dr_wrap').toggleClass('mode-pilih', aktif);
         $('#dr_cetak, #dr_pilih_info').toggle(aktif);
+    }
+    function aturModeBuka(aktif) {
+        $('#dr_wrap').toggleClass('mode-buka', aktif);
         $('#dr_rentang_lbl').text(aktif ? 'Tanggal buka retur' : 'Tanggal pesan');
     }
 
@@ -350,7 +354,7 @@ $(document).ready(function () {
         if (!json) return;
         var c = json.tab_counts || {};
         var semua = 0;
-        ['BELUM_DITERIMA', 'BELUM_DIBUKA', 'SUDAH_DIBUKA'].forEach(function (k) {
+        ['BELUM_DITERIMA', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_VERIF'].forEach(function (k) {
             var n = parseInt(c[k] || 0, 10);
             semua += n;
             $('#n_' + k).text(n.toLocaleString('id-ID'));
@@ -410,6 +414,7 @@ $(document).ready(function () {
         $(this).addClass('on');
         statusAktif = $(this).data('status') || '';
         aturModePilih(statusAktif === 'SUDAH_DIBUKA');   // centang + cetak serah terima hanya di tab Sudah dibuka
+        aturModeBuka(statusAktif === 'SUDAH_DIBUKA' || statusAktif === 'SUDAH_VERIF');
         tabel.ajax.reload();
     });
 

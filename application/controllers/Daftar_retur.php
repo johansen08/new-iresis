@@ -159,6 +159,7 @@ class Daftar_retur extends MY_Controller
 
         $label_posisi = array(
             Daftar_retur_fcd::POSISI_SUDAH_DIBUKA   => 'Sudah dibuka',
+            Daftar_retur_fcd::POSISI_SUDAH_VERIF    => 'Sudah verif',
             Daftar_retur_fcd::POSISI_BELUM_DIBUKA   => 'Belum dibuka',
             Daftar_retur_fcd::POSISI_BELUM_DITERIMA => 'Belum diterima',
         );
@@ -357,7 +358,7 @@ class Daftar_retur extends MY_Controller
         $umur = (int) $r->umur_hari;
         $teks = number_format($umur, 0, ',', '.') . ' hari';
 
-        if ($r->posisi === Daftar_retur_fcd::POSISI_SUDAH_DIBUKA) {
+        if ($r->posisi === Daftar_retur_fcd::POSISI_SUDAH_DIBUKA || $r->posisi === Daftar_retur_fcd::POSISI_SUDAH_VERIF) {
             return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
         if ($umur >= Daftar_retur_fcd::UMUR_MERAH) {
@@ -375,7 +376,9 @@ class Daftar_retur extends MY_Controller
     {
         switch ($posisi) {
             case Daftar_retur_fcd::POSISI_SUDAH_DIBUKA:
-                return '<span class="dr-st dr-st-hijau">Sudah dibuka</span>';
+                return '<span class="dr-st dr-st-hijau" title="Sudah dibuka, belum diverifikasi accounting">Sudah dibuka</span>';
+            case Daftar_retur_fcd::POSISI_SUDAH_VERIF:
+                return '<span class="dr-st dr-st-hijau" title="Sudah dibuka dan diverifikasi accounting">Sudah verif</span>';
             case Daftar_retur_fcd::POSISI_BELUM_DIBUKA:
                 return '<span class="dr-st dr-st-biru" title="Terima, belum dibuka">Belum dibuka</span>';
             default:
