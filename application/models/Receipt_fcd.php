@@ -2165,7 +2165,7 @@ class Receipt_fcd extends CI_Model
         // Satu baris per tanggal + picker + status performa: picker yang hari itu
         // mengerjakan 1_SKU_PICKER dan NORMAL_PICKER tampil dua baris terpisah.
         $sql = "
-        SELECT 
+        SELECT SQL_CALC_FOUND_ROWS
             DATE(b.tanggal_resiambilbarang) as tanggal_resiambilbarang,
             b.yangambil_pegawai as id_picker,
             MIN(b.admin_pegawai) as admin_pegawai,
@@ -2211,34 +2211,21 @@ class Receipt_fcd extends CI_Model
         return $this->db->query($sql);
     }
 
+    /**
+     * Jumlah baris (tanpa LIMIT) dari query data production_team_tab* yang
+     * DIJALANKAN PALING AKHIR di koneksi ini. Query data memakai
+     * SQL_CALC_FOUND_ROWS, jadi agregasi berat tidak perlu diulang untuk total.
+     * Wajib dipanggil tepat setelah get_data_production_team_tab*.
+     */
+    private function jumlah_baris_terakhir()
+    {
+        $row = $this->db->query('SELECT FOUND_ROWS() AS total')->row();
+        return $row ? (int) $row->total : 0;
+    }
+
     function get_total_data_production_team_tab0($data, $start_date, $end_date)
     {
-        // Build search conditions
-        $search_where = '';
-        if (!empty($data['search'])) {
-            $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t_usr.name LIKE '%{$search}%' OR DATE(b.tanggal_resiambilbarang) LIKE '%{$search}%')";
-        }
-        
-        // Hitung baris dengan grouping yang sama dengan data (tanggal, picker, status)
-        $sql = "
-        SELECT COUNT(*) as total
-        FROM (
-            SELECT 
-                DATE(b.tanggal_resiambilbarang) as tanggal_resiambilbarang,
-                b.yangambil_pegawai,
-                b.status_performa_id
-            FROM tblprintresi a
-            INNER JOIN tblresiambilbarang b ON a.id_printresi = b.id_resi
-            LEFT JOIN tbluser t_usr ON t_usr.id_user = b.yangambil_pegawai
-            WHERE b.tanggal_resiambilbarang >= " . $this->db->escape($start_date) . "
-            AND b.tanggal_resiambilbarang <= " . $this->db->escape($end_date) . "
-            {$search_where}
-            GROUP BY DATE(b.tanggal_resiambilbarang), b.yangambil_pegawai, b.status_performa_id
-        ) as grouped_data";
-        
-        $result = $this->db->query($sql)->row();
-        return $result ? $result->total : 0;
+        return $this->jumlah_baris_terakhir();
     }
 
     function get_data_production_team_tab1($data, $start_date, $end_date)
@@ -2255,7 +2242,7 @@ class Receipt_fcd extends CI_Model
         // (hanya puluhan baris). Versi V9 menjoin self-join tblpacking lewat DATE(...) tanpa
         // indeks -> rentang sebulan ~25 detik, sekarang < 1 detik.
         $sql = "
-        SELECT
+        SELECT SQL_CALC_FOUND_ROWS
             x.tanggal_packing,
             x.packer_pegawai,
             t3.name AS pegawai,
@@ -2316,31 +2303,7 @@ class Receipt_fcd extends CI_Model
 
     function get_total_data_production_team_tab1($data, $start_date, $end_date)
     {
-        // Build search conditions
-        $search_where = '';
-        if (!empty($data['search'])) {
-            $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t3.name LIKE '%{$search}%' OR DATE(c.tanggal_packing) LIKE '%{$search}%')";
-        }
-        
-        // OPTIMIZED V9: Count rows dengan grouping baru (hanya per tanggal & packer)
-        $sql = "
-        SELECT COUNT(*) as total
-        FROM (
-            SELECT 
-                DATE(c.tanggal_packing) as tanggal_packing,
-                c.packer_pegawai
-            FROM tblprintresi a
-            INNER JOIN tblpacking c ON a.id_printresi = c.id_resi
-            LEFT JOIN tbluser t3 ON t3.id_user = c.packer_pegawai
-            WHERE c.tanggal_packing >= " . $this->db->escape($start_date) . "
-            AND c.tanggal_packing <= " . $this->db->escape($end_date) . "
-            {$search_where}
-            GROUP BY DATE(c.tanggal_packing), c.packer_pegawai
-        ) as grouped_data";
-        
-        $result = $this->db->query($sql)->row();
-        return $result ? $result->total : 0;
+        return $this->jumlah_baris_terakhir();
     }
 
     function get_data_production_team_tab2($data, $start_date, $end_date)
@@ -2353,7 +2316,7 @@ class Receipt_fcd extends CI_Model
         }
         
         $sql = "
-        SELECT 
+        SELECT SQL_CALC_FOUND_ROWS
             DATE(d.tanggal_resikeluar) as tanggal_resikeluar,
             d.id_pegawai,
             MAX(t4.nama_pegawai) as pegawai,
@@ -2398,29 +2361,7 @@ class Receipt_fcd extends CI_Model
 
     function get_total_data_production_team_tab2($data, $start_date, $end_date)
     {
-        $search_where = '';
-        if (!empty($data['search'])) {
-            $search = $this->db->escape_like_str($data['search']);
-            $search_where = " AND (t4.nama_pegawai LIKE '%{$search}%' OR DATE(d.tanggal_resikeluar) LIKE '%{$search}%')";
-        }
-        
-        $sql = "
-        SELECT COUNT(*) as total
-        FROM (
-            SELECT 
-                DATE(d.tanggal_resikeluar) as tanggal_resikeluar,
-                d.id_pegawai
-            FROM tblprintresi a
-            INNER JOIN tblresikeluar d ON a.id_printresi = d.id_resi
-            LEFT JOIN tblpegawai t4 ON t4.kode_pegawai = d.id_pegawai
-            WHERE d.tanggal_resikeluar >= " . $this->db->escape($start_date) . "
-            AND d.tanggal_resikeluar <= " . $this->db->escape($end_date) . "
-            {$search_where}
-            GROUP BY DATE(d.tanggal_resikeluar), d.id_pegawai
-        ) as grouped_data";
-        
-        $result = $this->db->query($sql)->row();
-        return $result ? $result->total : 0;
+        return $this->jumlah_baris_terakhir();
     }
 
     // KPI Methods

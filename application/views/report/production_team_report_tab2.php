@@ -214,6 +214,8 @@
         });
     });
 
-    // Langsung tampilkan data hari ini tanpa perlu klik Tampilkan
-    $('#btn-search-production-team-tab2').trigger('click');
+    // Tab ini tersembunyi saat halaman dibuka: data hari ini dimuat sekali, saat tab pertama kali dibuka
+    $('a[href="#tab2"]').one('shown.bs.tab', function() {
+        $('#btn-search-production-team-tab2').trigger('click');
+    });
 </script>
