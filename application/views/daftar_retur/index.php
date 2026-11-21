@@ -88,11 +88,23 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* DataTables: baris per halaman, info, dan paging di bawah */
 /* tema memberi float:left pada tabel; tanpa ini blok bawah terdorong ke samping tabel */
 #dr_wrap table.dataTable { float:none; clear:both; }
-#dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; margin-top:8px; }
-#dr_wrap .dr-bawah .dataTables_length, #dr_wrap .dr-bawah .dataTables_info, #dr_wrap .dr-bawah .dataTables_paginate { float:none; margin:0; padding:0; }
-#dr_wrap .dr-bawah .dataTables_info { flex:1; width:auto; text-align:center; color:#6b7280; white-space:nowrap; }
-#dr_wrap .dr-bawah .dataTables_length label { margin:0; font-weight:400; color:#6b7280; white-space:nowrap; }
-#dr_wrap .dr-bawah .dataTables_length select { width:auto; display:inline-block; margin:0 4px; }
+#dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 18px; margin-top:8px; padding-top:8px; border-top:1px solid #f1f5f9; }
+#dr_wrap .dr-bawah .dataTables_length, #dr_wrap .dr-bawah .dataTables_info, #dr_wrap .dr-bawah .dataTables_paginate { float:none; margin:0; padding:0; width:auto; min-width:0; }
+#dr_wrap .dr-bawah .dataTables_info { width:auto; text-align:left; color:#6b7280; white-space:nowrap; font-size:12.5px; }
+#dr_wrap .dr-kanan { display:flex; align-items:center; flex-wrap:nowrap; gap:8px 18px; margin-left:auto; }
+#dr_wrap .dr-bawah .dataTables_length label { margin:0; font-weight:400; color:#6b7280; white-space:nowrap; font-size:12.5px; display:inline-flex; align-items:center; gap:6px; }
+#dr_wrap .dr-bawah .dataTables_length select { width:auto; display:inline-block; margin:0; height:32px; padding:0 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; color:#111827; font-weight:600; font-size:13px; }
+#dr_wrap .dr-bawah .dataTables_length select:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+/* Nomor halaman: tombol persegi bersudut halus; halaman aktif terisi hijau, tombol mati redup, titik-titik sebagai pemisah */
+#dr_wrap .dataTables_paginate { display:flex; align-items:center; gap:4px; }
+#dr_wrap .dataTables_paginate > span { display:flex; align-items:center; gap:4px; }
+#dr_wrap .dataTables_paginate > span > span { color:#9ca3af; padding:0 4px; user-select:none; }
+#dr_wrap .dataTables_paginate .paginate_button { box-sizing:border-box; min-width:32px; height:32px; margin:0; padding:0 9px; display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid #e5e7eb; border-radius:6px; background:#fff; color:#374151; font-size:13px; font-weight:600; line-height:1; cursor:pointer; text-decoration:none; transition:background .12s, border-color .12s, color .12s; }
+#dr_wrap .dataTables_paginate .paginate_button:hover:not(.current):not(.disabled) { border-color:#0f766e; background:#f0fdfa; color:#0f766e; }
+#dr_wrap .dataTables_paginate .paginate_button.current, #dr_wrap .dataTables_paginate .paginate_button.current:hover { background:#0f766e; border-color:#0f766e; color:#fff; cursor:default; }
+#dr_wrap .dataTables_paginate .paginate_button.disabled, #dr_wrap .dataTables_paginate .paginate_button.disabled:hover { background:#f9fafb; border-color:#f1f5f9; color:#cbd5e1; cursor:not-allowed; }
+#dr_wrap .dataTables_paginate .paginate_button:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(15,118,110,.25); }
 
 /* Tabel: tata letak tetap, lebar kolom piksel (kolom Toko = sisa lebar) supaya baris selalu satu baris
    dan identitas (pesanan, resi) tidak pecah di tengah. Teks panjang dipotong titik-titik + tooltip. */
@@ -129,10 +141,30 @@ $BASE = rtrim(base_url(), '/') . '/';
 @media (min-width: 1400px) {
   #dr_wrap table.dataTable thead th:nth-child(7) { width:184px; }
 }
-/* Layar lebar (>= 1680): semua kolom diberi lebar eksplisit (Toko 220) sehingga sisa lebar dibagi proporsional ke semua
-   kolom, bukan menumpuk di kolom Toko. */
+/* Layar lebar: semua kolom diberi lebar eksplisit yang jumlahnya mendekati lebar tabel (lebar tabel ~ lebar jendela - 320), sehingga sisa
+   lebar dibagi proporsional ke semua kolom dan Toko (nama toko terpanjang ~160 px) tidak menggelembung. Ukuran Kurir dan Status Retur
+   dilebihkan karena memang berisi teks terpanjang. Jumlah lebar kolom tab Semua: 1360 (>= 1680) dan 1550 (>= 1900). */
 @media (min-width: 1680px) {
-  #dr_wrap table.dataTable thead th:nth-child(9) { width:220px; }
+  #dr_wrap table.dataTable thead th:nth-child(5)  { width:180px; }
+  #dr_wrap table.dataTable thead th:nth-child(6)  { width:175px; }
+  #dr_wrap table.dataTable thead th:nth-child(7)  { width:200px; }
+  #dr_wrap table.dataTable thead th:nth-child(8)  { width:130px; }
+  #dr_wrap table.dataTable thead th:nth-child(9)  { width:190px; }
+  #dr_wrap table.dataTable thead th:nth-child(10) { width:95px; }
+  #dr_wrap table.dataTable thead th:nth-child(11) { width:90px; }
+  #dr_wrap table.dataTable thead th:nth-child(12) { width:140px; }
+  #dr_wrap table.dataTable thead th:nth-child(13) { width:160px; }
+}
+@media (min-width: 1900px) {
+  #dr_wrap table.dataTable thead th:nth-child(5)  { width:210px; }
+  #dr_wrap table.dataTable thead th:nth-child(6)  { width:205px; }
+  #dr_wrap table.dataTable thead th:nth-child(7)  { width:235px; }
+  #dr_wrap table.dataTable thead th:nth-child(8)  { width:150px; }
+  #dr_wrap table.dataTable thead th:nth-child(9)  { width:190px; }
+  #dr_wrap table.dataTable thead th:nth-child(10) { width:105px; }
+  #dr_wrap table.dataTable thead th:nth-child(11) { width:100px; }
+  #dr_wrap table.dataTable thead th:nth-child(12) { width:165px; }
+  #dr_wrap table.dataTable thead th:nth-child(13) { width:190px; }
 }
 /* Nilai (kolom 10): angka rata kanan, judul kolom dengan padding sama supaya sejajar */
 #dr_wrap table.dataTable tbody td:nth-child(10), #dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; }
@@ -163,7 +195,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sr-barang { background:#e0f2fe; color:#0369a1; }
 /* Filter Status Retur hanya tampil di tab Semua */
 #dr_wrap:not([data-tab=""]):not([data-tab="SUDAH_VERIF"]) #dr_status { display:none; }
-.dr-sr-warn { background:#fef3c7; color:#92400e; }
+.dr-sr-warn { background:#fef3c7; color:#92400e; padding:0 7px; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:5px 12px; margin:0 0 6px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
 /* teks + ikon salin: ikon muncul saat baris diarahkan (tidak mengotori 25 baris sekaligus) */
@@ -362,7 +394,7 @@ $BASE = rtrim(base_url(), '/') . '/';
           </div>
         </span></th>
         <th>Progress</th>
-        <th>Status Retur</th>
+        <th title="Status retur di Jubelio. Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -477,9 +509,10 @@ $(document).ready(function () {
         serverSide: true,
         autoWidth: false,
         // Pencarian di atas tabel; jumlah baris per halaman + info + paging di bawah.
-        dom: "<'dr-atas'f>rt<'dr-bawah'lip>",   // kotak cari dipindah ke bar filter (lihat bawah)
-        pageLength: 10,   // 10 baris: seluruh halaman muat di layar tanpa gulir
-        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+        dom: "<'dr-atas'f>rt<'dr-bawah'<'dr-kiri'i><'dr-kanan'lp>>",   // kotak cari dipindah ke bar filter (lihat bawah)
+        pageLength: 15,   // 15 baris: halaman + navigasi muat tanpa gulir bila tinggi jendela >= ~840 px
+        pagingType: 'full_numbers',   // tombol « awal, ‹ sebelumnya, nomor, › berikutnya, » akhir
+        lengthMenu: [[10, 15, 25, 50, 100], [10, 15, 25, 50, 100]],
         order: [[10, 'desc']],          // umur terbesar di atas
         columnDefs: [{ targets: 0, orderable: false, searchable: false }],
         drawCallback: function () {
@@ -507,7 +540,7 @@ $(document).ready(function () {
             zeroRecords: 'Tidak ada data yang cocok',
             search: '',
             searchPlaceholder: 'Cari resi, pesanan, kurir, toko...',
-            lengthMenu: 'Tampilkan _MENU_ baris',
+            lengthMenu: 'Baris per halaman _MENU_',
             info: 'Menampilkan _START_–_END_ dari _TOTAL_ data',
             infoEmpty: 'Tidak ada data',
             infoFiltered: '',

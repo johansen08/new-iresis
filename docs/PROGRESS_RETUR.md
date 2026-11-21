@@ -148,3 +148,17 @@ mengubah statusnya jadi SELESAI / DITOLAK, resi hilang dari tab ini, padahal lab
   (accounting perlu menuntaskannya di Jubelio). Hanya penanda tampilan; di Excel ditulis "(Jubelio belum final)". Fungsi `Daftar_retur_fcd::belum_final_jubelio()`.
 - **Tanggal verifikasi** untuk resi yang hanya disimpulkan dari status Jubelio dikosongkan ('-'), tidak lagi diisi tanggal buka. Penyaringan rentang
   tanggalnya memakai tanggal pesan (kalau tidak, resi itu hilang dari semua rentang).
+
+## UI/UX 21 Nov 2026 (15 baris, navigasi halaman, lebar kolom Toko)
+
+- **Ukuran halaman bawaan 15 baris** (pilihan 10 / 15 / 25 / 50 / 100). Halaman 15 baris + navigasi muat tanpa gulir bila tinggi jendela >= ~840 px
+  (diukur: 1920x950 dan 1680x900 tanpa gulir; 1440x830 hanya tab Sudah Buka kelebihan 11 px karena bar info pilihan). Di laptop 1366x650 halaman
+  15 baris memang perlu digulir; pilih 10 baris di "Baris per halaman" bila perlu.
+- **Navigasi di bawah tabel** dirapikan: info "Menampilkan 1-15 dari N data" di kiri; "Baris per halaman" + tombol halaman di kanan dalam satu baris,
+  dipisah garis tipis dari tabel. Tombol halaman persegi bersudut halus, halaman aktif hijau, tombol mati redup, ada tombol awal / akhir
+  (`pagingType: full_numbers`).
+- **Lebar kolom Toko**: di layar >= 1680 / >= 1900 semua kolom diberi lebar eksplisit yang jumlahnya mendekati lebar tabel, sehingga Toko tidak lagi
+  menampung sisa lebar (269 px -> ~200 px di 1920; nama toko terpanjang ~160 px tetap tidak terpotong). Layar < 1680 tidak diubah (di sana
+  nama toko memakai awalan marketplace sehingga memang butuh ~210 px).
+- Lencana "Jubelio belum final" di kolom Status Retur kini **ikon segitiga kuning** (tooltip menjelaskan); versi teks terlalu panjang dan membuat
+  tabel melebar ke samping di tab Sudah Verifikasi.
