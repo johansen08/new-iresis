@@ -40,6 +40,15 @@ class Daftar_retur_fcd extends CI_Model
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
     const POSISI_SUDAH_VERIF    = 'SUDAH_VERIF';    // sudah scan buka DAN sudah diverifikasi accounting
 
+    /**
+     * Tahap progres retur (kolom Progress): 0 belum terima -> 1 sudah terima (scan Terima Retur) -> 2 sudah buka
+     * (scan Buka Retur) -> 3 sudah serah terima (kertas serah terima dicetak) -> 4 sudah verifikasi (accounting).
+     * Tiap tahap >= 1 tersimpan lengkap: petugas (id_user, ditampilkan NO ABSEN - NAMA - ROLE) + tanggal & jam.
+     */
+    const TAHAP_NAMA = array(
+        0 => 'Belum Terima', 1 => 'Sudah Terima', 2 => 'Sudah Buka', 3 => 'Sudah Serah Terima', 4 => 'Sudah Verifikasi',
+    );
+
     /** Jenis retur fisik di tblresiretur / tblbukaretur: B = retur ekspedisi / gagal kirim (is_komplain = 0), K = retur komplain / pengembalian dari customer (is_komplain = 1). */
     const JENIS_BIASA    = 'B';
     const JENIS_KOMPLAIN = 'K';
@@ -237,6 +246,7 @@ class Daftar_retur_fcd extends CI_Model
 
         // Rentang: baris SUDAH_DIBUKA / SUDAH_VERIF memakai TANGGAL BUKA RETUR (scan Buka Retur terakhir); baris
         // lain memakai TANGGAL PESAN. Jadi di tab Sudah dibuka, filter tanggal = tanggal buka retur.
+        $serah = $this->peta_serah();
         $rentang = array();
         $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0, self::POSISI_SUDAH_VERIF => 0);
         foreach ($semua as $r) {
@@ -244,6 +254,9 @@ class Daftar_retur_fcd extends CI_Model
             if ($posisi === null) continue;
             $r->posisi = $posisi;
             $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
+            $kunci_serah = strtoupper((string) $r->no_resi);
+            $r->tgl_serah = isset($serah[$kunci_serah]) ? $serah[$kunci_serah] : null;
+            $r->tahap = $this->hitung_tahap($posisi, $r->tgl_serah !== null);
             $sudah_buka = ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF);
             $tgl_filter = ($sudah_buka && $r->tanggal_buka) ? $r->tanggal_buka : $r->tanggal_pesan;
             if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
@@ -270,7 +283,7 @@ class Daftar_retur_fcd extends CI_Model
         $kol = $p['order'];
         $asc = ($p['dir'] === 'asc');
         if ($kol === 'umur') { $kol = 'tanggal_retur'; $asc = !$asc; }
-        $angka = in_array($kol, array('nilai', 'umur_hari'), true);
+        $angka = in_array($kol, array('nilai', 'umur_hari', 'tahap'), true);
 
         usort($hasil, function ($a, $b) use ($kol, $asc, $angka) {
             $x = $a->$kol; $y = $b->$kol;
@@ -282,5 +295,166 @@ class Daftar_retur_fcd extends CI_Model
         $rows = array_slice($hasil, (int) $p['offset'], (int) $p['limit']);
 
         return array($rows, $total_filter, $total_rentang, $tab, $waktu);
+    }
+
+    /** Tahap progres 0..4 dari posisi paket; serah terima hanya relevan untuk paket yang sudah dibuka dan belum diverifikasi. */
+    public function hitung_tahap($posisi, $ada_serah)
+    {
+        switch ($posisi) {
+            case self::POSISI_SUDAH_VERIF: return 4;
+            case self::POSISI_SUDAH_DIBUKA: return $ada_serah ? 3 : 2;
+            case self::POSISI_BELUM_DIBUKA: return 1;
+            default: return 0;
+        }
+    }
+
+    /** "NAMA - ROLE - NOABSEN" (tbluser.name) -> "NOABSEN - NAMA - ROLE" (sama dengan serah terima paket cancel). */
+    public function format_petugas($nama)
+    {
+        $nama = trim((string) $nama);
+        $p = array_map('trim', explode(' - ', $nama));
+        return count($p) >= 3 ? end($p) . ' - ' . $p[0] . ' - ' . $p[1] : $nama;
+    }
+
+    /** Tabel ada di DB arsip? (tabel baru baru ikut ke arsip setelah cek skema malam berikutnya.) */
+    private function _tabel_arsip_ada($tabel)
+    {
+        static $cache = array();
+        if (!isset($cache[$tabel])) {
+            $n = $this->db->query(
+                'SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+                array($this->_db_arsip(), $tabel)
+            )->row();
+            $cache[$tabel] = ((int) $n->n > 0);
+        }
+        return $cache[$tabel];
+    }
+
+    /** Skema yang perlu dibaca untuk $tabel: prod, plus arsip bila tabelnya sudah ada di sana. */
+    private function _skema($tabel)
+    {
+        $skema = array('`' . $this->db->database . '`');
+        if ($this->_tabel_arsip_ada($tabel)) $skema[] = '`' . $this->_db_arsip() . '`';
+        return $skema;
+    }
+
+    /** Peta resi (huruf besar) -> waktu serah terima TERAKHIR. Tabel kecil, dibaca segar tiap permintaan (tidak ikut cache daftar). */
+    public function peta_serah()
+    {
+        $peta = array();
+        if (!$this->db->table_exists('tblretur_serah_terima')) return $peta;
+        foreach ($this->_skema('tblretur_serah_terima') as $sk) {
+            foreach ($this->db->query("SELECT UPPER(no_resi) r, MAX(tanggal_serah) t FROM {$sk}.tblretur_serah_terima GROUP BY UPPER(no_resi)")->result() as $x) {
+                if (!isset($peta[$x->r]) || $x->t > $peta[$x->r]) $peta[$x->r] = $x->t;
+            }
+        }
+        return $peta;
+    }
+
+    /**
+     * Catat serah terima: satu baris per resi per kali cetak (riwayat tidak ditimpa; layar memakai yang terakhir).
+     * @return int jumlah baris tercatat
+     */
+    public function catat_serah(array $resi, $id_user, $nama_user)
+    {
+        $resi = array_values(array_unique(array_filter(array_map('strval', $resi))));
+        if (!$resi || !$this->db->table_exists('tblretur_serah_terima')) return 0;
+        $now = date('Y-m-d H:i:s');
+        $batch = 'SRH-' . date('ymd-His') . '-' . (int) $id_user;
+        $petugas = $this->format_petugas($nama_user);
+        $baris = array();
+        foreach ($resi as $r) {
+            $baris[] = array('no_resi' => $r, 'tanggal_serah' => $now, 'id_pegawai' => (int) $id_user,
+                'petugas' => $petugas, 'batch' => $batch);
+        }
+        $this->db->trans_start();
+        $this->db->insert_batch('tblretur_serah_terima', $baris);
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? count($baris) : 0;
+    }
+
+    /**
+     * Rincian tiap tahap untuk sekumpulan resi (kartu progres & Excel): tanggal-jam + petugas.
+     * Dibaca langsung dari tabel sumber (prod + arsip), hanya untuk resi yang diminta.
+     *   terima = scan Terima Retur PERTAMA (tblresiretur), buka = scan Buka Retur TERAKHIR (tblbukaretur),
+     *   serah = cetak serah terima TERAKHIR (tblretur_serah_terima),
+     *   verif = Verifikasi Retur (tblreturverifikasi); bila tidak ada, ACC Accounting > Returan Buka (tblbukaretur.status_acc).
+     *
+     * @return array resi(huruf besar) => array(terima|buka|serah|verif => array('t' => 'Y-m-d H:i:s', 'p' => 'NOABSEN - NAMA - ROLE') atau null)
+     */
+    public function detail_progress(array $resi, array $jenis)
+    {
+        $out = array();
+        $resi = array_values(array_unique(array_map('strval', $resi)));
+        if (!$resi) return $out;
+
+        $kond = array();
+        if (in_array(self::JENIS_BIASA, $jenis, true)) $kond[] = '(is_komplain IS NULL OR is_komplain = 0)';
+        if (in_array(self::JENIS_KOMPLAIN, $jenis, true)) $kond[] = 'is_komplain = 1';
+        $kond = $kond ? '(' . implode(' OR ', $kond) . ')' : '1=0';
+
+        $mentah = array('terima' => array(), 'buka' => array(), 'acc' => array(), 'serah' => array(), 'verif' => array());
+        $simpan = function ($jenis_data, $resi_x, $t, $id, $teks = null, $pilih_awal = false) use (&$mentah) {
+            $k = strtoupper((string) $resi_x);
+            if ($t === null || $t === '') return;
+            $lama = isset($mentah[$jenis_data][$k]) ? $mentah[$jenis_data][$k] : null;
+            if ($lama === null || ($pilih_awal ? $t < $lama['t'] : $t > $lama['t'])) {
+                $mentah[$jenis_data][$k] = array('t' => $t, 'id' => $id, 'teks' => $teks);
+            }
+        };
+        $ada_serah = $this->db->table_exists('tblretur_serah_terima');
+
+        foreach (array_chunk($resi, 500) as $grup) {
+            $in = implode(',', array_map(array($this->db, 'escape'), $grup));
+            foreach ($this->_skema('tblresiretur') as $sk) {
+                foreach ($this->db->query("SELECT noresi, tanggal_resiretur t, id_pegawai p FROM {$sk}.tblresiretur WHERE noresi IN ({$in}) AND {$kond}")->result() as $x) {
+                    $simpan('terima', $x->noresi, $x->t, $x->p, null, true);
+                }
+            }
+            foreach ($this->_skema('tblbukaretur') as $sk) {
+                foreach ($this->db->query("SELECT resi_buka, COALESCE(tanggal_buka_retur, created_at) t, id_pegawai p, status_acc, acc_by, updated_at FROM {$sk}.tblbukaretur WHERE resi_buka IN ({$in}) AND {$kond}")->result() as $x) {
+                    $simpan('buka', $x->resi_buka, $x->t, $x->p);
+                    if ((int) $x->status_acc === 1) $simpan('acc', $x->resi_buka, $x->updated_at, $x->acc_by);
+                }
+            }
+            if ($ada_serah) {
+                foreach ($this->_skema('tblretur_serah_terima') as $sk) {
+                    foreach ($this->db->query("SELECT no_resi, tanggal_serah t, id_pegawai p, petugas FROM {$sk}.tblretur_serah_terima WHERE no_resi IN ({$in})")->result() as $x) {
+                        $simpan('serah', $x->no_resi, $x->t, $x->p, $x->petugas);
+                    }
+                }
+            }
+            foreach ($this->_skema('tblreturverifikasi') as $sk) {
+                foreach ($this->db->query("SELECT no_resi, verified_at t, verified_by p FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1")->result() as $x) {
+                    $simpan('verif', $x->no_resi, $x->t, $x->p);
+                }
+            }
+        }
+
+        // Nama petugas (tbluser.id_user; kolom id_pegawai di tabel retur menyimpan id_user).
+        $ids = array();
+        foreach ($mentah as $per) foreach ($per as $d) if (!empty($d['id'])) $ids[(int) $d['id']] = true;
+        $nama = array();
+        if ($ids) {
+            foreach ($this->db->query('SELECT id_user, name FROM tbluser WHERE id_user IN (' . implode(',', array_keys($ids)) . ')')->result() as $u) {
+                $nama[(int) $u->id_user] = $this->format_petugas($u->name);
+            }
+        }
+        $isi = function ($d) use ($nama) {
+            if (!$d) return null;
+            $p = ($d['teks'] !== null && $d['teks'] !== '') ? $d['teks'] : (isset($nama[(int) $d['id']]) ? $nama[(int) $d['id']] : null);
+            return array('t' => $d['t'], 'p' => $p);
+        };
+        foreach ($resi as $r) {
+            $k = strtoupper($r);
+            $verif = isset($mentah['verif'][$k]) ? $mentah['verif'][$k] : (isset($mentah['acc'][$k]) ? $mentah['acc'][$k] : null);
+            $out[$k] = array(
+                'terima' => $isi(isset($mentah['terima'][$k]) ? $mentah['terima'][$k] : null),
+                'buka'   => $isi(isset($mentah['buka'][$k]) ? $mentah['buka'][$k] : null),
+                'serah'  => $isi(isset($mentah['serah'][$k]) ? $mentah['serah'][$k] : null),
+                'verif'  => $isi($verif),
+            );
+        }
+        return $out;
     }
 }
