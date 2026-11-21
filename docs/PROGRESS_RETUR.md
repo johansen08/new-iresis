@@ -85,3 +85,31 @@ jadi ikut arsip/purna bersama resinya.
   Tanggal verifikasi baris tambahan ikut queri itu (`vf_at`, `ac_b`, `ac_k`). Pengurutan memakai `array_multisort` (urutan identik
   dengan `usort` sebelumnya; diuji untuk semua kolom dan arah).
 - Pemanggil `get_list()` tanpa `status_retur` (cetak serah terima, pilih semua hasil) berperilaku seperti dulu.
+
+## Optimasi performa 21 Nov 2026 (cache, tugas terjadwal, hasil ukur)
+
+Diukur di salinan prod (`iresis_prod_uji`, ~100 ribu baris `tblreturjubelio`, 72 ribu resi SELESAI/DITOLAK):
+
+| Skenario | Sebelum | Sesudah |
+|---|---|---|
+| Tab selain Semua (cache hangat) | 0,2 s | 0,2 s |
+| Tab Semua, cache hangat | 1,6 s | ~1,0 s |
+| Tab Semua, cache kosong (user pertama) | 5,4-9 s | ~5,7 s, **dan tidak pernah dialami user bila tugas terjadwal hidup** |
+
+- **Indeks sudah memadai**, tidak ada yang ditambah. Semua pencarian per resi memakai indeks unik / `idx_*` (`tblprintresi.noresi` unik,
+  `tblreturjubelio uq_resi_pesanan_sku`, `tblresiretur.idx_resiretur_noresi`, `tblbukaretur idx_buka_resi_kmp`, `tblreturverifikasi.uq_resi`).
+  Queri baris tambahan murni ~2,5 s dari ~5,7 s; sisanya mengambil/menulis 72 ribu baris di PHP. Indeks penutup di `tblprintresi`
+  (294 MB prod + 616 MB arsip) hanya menghemat ~0,3 s dan memperlambat tulis tabel terpanas, jadi tidak dibuat.
+- **Cache baris tambahan** memakai `serialize()` (baca ~200 ms vs JSON ~450 ms) dengan nilai bawaan NULL; status resi dipecah jadi bit
+  (`stm`) supaya penyaringan tanpa `explode` per baris. Cache ditulis lewat berkas sementara + `rename` (pembaca tidak pernah melihat berkas separuh jadi).
+- **Tugas terjadwal `cron segarkan_daftar_retur`** (`scripts/segarkan_daftar_retur_senyap.vbs`, tiap 2 menit): membangun ulang daftar dasar
+  tiap putaran dan baris tambahan bila umurnya >= 300 detik, lalu menyentuh `application/cache/daftar_retur_warm.txt` (denyut).
+  Selama denyut lebih baru dari 10 menit, cache yang sudah lewat umur **tetap disajikan** (maks 30 menit) sehingga tidak ada user yang
+  menunggu hitung ulang. **Tanpa denyut** (tugas belum dibuat / mati) perilaku lama berlaku: cache lewat umur = hitung ulang saat itu juga.
+  Tombol atur ulang tetap memaksa hitung ulang.
+- **Kenapa tidak memuat per halaman/potongan di SQL?** Tabel sudah berpaginasi (DataTables 25 baris; rincian Progress dibaca hanya untuk
+  halaman itu). Yang berat adalah hitungan *seluruh* himpunan: jumlah per tab, urut umur, dan penyaringan tanggal tahap, yang bergantung
+  pada posisi paket dari 5 tabel. Itu tidak bisa dipotong per halaman tanpa mengubah angka/urutan yang dilihat user. Yang dihemat
+  sudah dilakukan: baris SELESAI/DITOLAK **hanya dimuat saat tab Semua dibuka** dengan status itu tercentang.
+- Pasang tugasnya sekali di PC produksi:
+  `schtasks /create /tn "IRESIS - Segarkan daftar retur" /sc minute /mo 2 /rl LIMITED /f /tr "wscript.exe //B //Nologo C:\xampp\htdocs\new-iresis\scripts\segarkan_daftar_retur_senyap.vbs"`
