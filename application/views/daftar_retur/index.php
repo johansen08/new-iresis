@@ -2,65 +2,71 @@
 $BASE = rtrim(base_url(), '/') . '/';
 ?>
 <style>
-/* Daftar Retur Penjualan: tab status + filter ringkas + tabel bersih (acuan: UI daftar pesanan seller marketplace) */
-#dr_wrap { background:#fff; border-radius:6px; padding:0 18px 18px; }
+/* Daftar Retur Penjualan: tab status + filter ringkas + tabel bersih (acuan: UI daftar pesanan seller marketplace).
+   Prinsip: satu baris per retur (tinggi seragam), identitas (resi/pesanan) tidak pernah terpotong di tengah,
+   warna peringatan hanya satu lapis (lencana umur), kontrol sekunder muncul saat diarahkan. */
+#dr_wrap { background:#fff; border-radius:8px; padding:0 20px 20px; font-size:13px; color:#111827; }
 #dr_wrap .dr-tabs { margin-top:0; }
-/* Ikon info: penjelasan & legenda disembunyikan di balik ikon (muncul saat diarahkan/diklik) */
-.dr-bantu { position:relative; display:inline-block; margin-left:6px; vertical-align:middle; }
-.dr-bantu > i { color:#9ca3af; cursor:pointer; font-size:16px; }
+
+/* Ikon info (legenda umur): menempel di judul kolom Umur, isi muncul saat diarahkan/diklik */
+.dr-bantu { position:relative; display:inline-block; margin-left:4px; vertical-align:middle; }
+.dr-bantu > i { color:#9ca3af; cursor:pointer; font-size:14px; }
 .dr-bantu:hover > i, .dr-bantu.buka > i { color:#0f766e; }
-.dr-pop { display:none; position:absolute; left:0; top:26px; z-index:50; width:340px; padding:12px 14px;
+.dr-pop { display:none; position:absolute; right:-8px; top:24px; z-index:50; width:330px; padding:12px 14px; text-align:left;
           background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.12);
-          font-size:13px; font-weight:400; color:#374151; line-height:1.5; }
+          font-size:12.5px; font-weight:400; color:#374151; line-height:1.55; white-space:normal; }
 .dr-bantu:hover .dr-pop, .dr-bantu.buka .dr-pop { display:block; }
 .dr-pop p { margin:0 0 8px; }
-.dr-pop .dr-lg { margin-top:6px; }
+.dr-pop .dr-lg { margin-top:6px; display:flex; align-items:center; gap:8px; }
+.dr-pop .dr-lg2 { margin-top:6px; }
+.dr-pop .dr-lg .dr-umur { min-width:78px; text-align:center; }
 
 /* Tab status */
 /* flex-wrap (bukan overflow:auto): overflow membuat batang gulir kecil muncul di sisi kanan tab */
 .dr-tabs { display:flex; flex-wrap:wrap; gap:0 28px; border-bottom:1px solid #e5e7eb; margin-top:10px; }
-.dr-tab { padding:12px 2px; cursor:pointer; font-weight:600; color:#111827; white-space:nowrap;
+.dr-tab { padding:14px 2px 12px; cursor:pointer; font-size:13px; font-weight:600; color:#4b5563; white-space:nowrap;
           border-bottom:2px solid transparent; margin-bottom:-1px; user-select:none; }
 .dr-tab:hover { color:#0f766e; }
-.dr-tab.on { border-bottom-color:#0f766e; }
-.dr-tab .n { margin-left:6px; padding:1px 8px; border-radius:10px; background:#f3f4f6; font-size:11.5px; font-weight:600; color:#6b7280; }
+.dr-tab.on { border-bottom-color:#0f766e; color:#111827; }
+.dr-tab .n { margin-left:6px; padding:1px 8px; border-radius:999px; background:#f3f4f6; font-size:11.5px; font-weight:600; color:#6b7280; }
 .dr-tab .n.hot { background:#ccfbf1; color:#0f766e; }
 .dr-tab.on .n { background:#0f766e; color:#fff; }
 
-/* Bar filter */
-.dr-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 0 10px; }
+/* Bar filter: filter di kiri, kotak cari menyusul, aksi (Export/Cetak) rata kanan */
+.dr-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:16px 0 12px; }
 .dr-chip { display:inline-flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:6px;
            padding:0 12px; height:38px; background:#fff; }
+.dr-chip:hover { border-color:#0f766e; }
 .dr-chip i { color:#6b7280; }
-.dr-chip input { border:0; outline:0; background:transparent; width:160px; cursor:pointer; color:#111827; font-weight:600; }
+.dr-chip input { border:0; outline:0; background:transparent; width:176px; cursor:pointer; color:#111827; font-weight:600; font-size:13px; }
 .dr-chip .dr-chip-lbl { font-size:12px; color:#6b7280; white-space:nowrap; }
-/* kotak cari dipindah JS ke ujung kanan bar filter (satu baris dengan filter & tombol aksi) */
-.dr-filter .dataTables_filter { margin:0 0 0 auto; float:none; width:auto; text-align:left; }
-.dr-filter .dataTables_filter label { margin:0; }
-.dr-filter .dataTables_filter input { width:220px; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px;
+.dr-filter .dataTables_filter { margin:0; float:none; width:auto; text-align:left; flex:1 1 120px; min-width:120px; max-width:340px; }
+.dr-filter .dataTables_filter label { margin:0; display:block; width:100%; }
+.dr-filter .dataTables_filter input { width:100%; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;
   background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 12px center; }
 .dr-filter .dataTables_filter input:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
-.dr-reset { width:38px; height:38px; border:0; border-radius:6px; background:#f3f4f6; cursor:pointer; color:#374151; }
-.dr-reset:hover { background:#e5e7eb; }
-.dr-export { height:38px; padding:0 14px; border:0; border-radius:6px; background:#0f766e; color:#fff; font-weight:600; cursor:pointer; }
-.dr-export:hover { background:#115e59; }
-.dr-cetak { background:#1d4ed8; }
-.dr-cetak:hover { background:#1e40af; }
+.dr-acts { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.dr-reset { width:38px; height:38px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; color:#6b7280; }
+.dr-reset:hover { border-color:#0f766e; color:#0f766e; }
+/* Export = aksi sekunder (garis), Cetak = aksi utama konteks tab (isi) */
+.dr-export { height:38px; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.dr-export:hover { background:#f0fdfa; }
+.dr-cetak { background:#0f766e; color:#fff; }
+.dr-cetak:hover { background:#115e59; }
+.dr-cetak[disabled] { background:#e5e7eb; border-color:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
 
-
-/* Filter jenis retur: tombol + panel centang multi (acuan: pola multi-select design system Amex/Maersk/Visa --
-   dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
+/* Filter jenis retur: tombol + panel centang multi (dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
 .dr-multi { position:relative; }
 .dr-multi-btn { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
                 border:1px solid #d1d5db; border-radius:6px; cursor:pointer; color:#111827; }
 .dr-multi-btn:hover, .dr-multi.buka .dr-multi-btn { border-color:#0f766e; }
 .dr-multi-btn .lbl { color:#6b7280; font-size:12px; }
 .dr-multi-btn .nilai { font-weight:600; }
-.dr-multi-btn .cnt { background:#0f766e; color:#fff; border-radius:10px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
-.dr-multi-btn .cnt.semua { background:#e5e7eb; color:#6b7280; }
+.dr-multi-btn .cnt { background:#0f766e; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
+.dr-multi-btn .cnt.semua { display:none; }   /* semua jenis terpilih = keadaan normal, tidak perlu angka */
 .dr-multi-btn .fa-angle-down { color:#9ca3af; transition:transform .15s; }
 .dr-multi.buka .fa-angle-down { transform:rotate(180deg); }
-.dr-multi-pop { display:none; position:absolute; left:0; top:44px; z-index:60; min-width:250px; padding:6px;
+.dr-multi-pop { display:none; position:absolute; left:0; top:44px; z-index:60; min-width:260px; padding:6px;
                 background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.12); }
 .dr-multi.buka .dr-multi-pop { display:block; }
 .dr-opsi { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; cursor:pointer; margin:0; font-weight:400; }
@@ -78,29 +84,44 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-multi-kaki a { cursor:pointer; color:#0f766e; font-weight:600; }
 .dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
 
-/* DataTables: cari di kanan atas; baris per halaman, info, dan paging di bawah */
-#dr_wrap .dr-atas .dataTables_filter { float:none; text-align:right; margin:0 0 8px; }
+/* DataTables: baris per halaman, info, dan paging di bawah */
 /* tema memberi float:left pada tabel; tanpa ini blok bawah terdorong ke samping tabel */
 #dr_wrap table.dataTable { float:none; clear:both; }
-#dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; margin-top:12px; }
+#dr_wrap .dr-bawah { clear:both; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 18px; margin-top:14px; }
 #dr_wrap .dr-bawah .dataTables_length, #dr_wrap .dr-bawah .dataTables_info, #dr_wrap .dr-bawah .dataTables_paginate { float:none; margin:0; padding:0; }
 #dr_wrap .dr-bawah .dataTables_info { flex:1; width:auto; text-align:center; color:#6b7280; white-space:nowrap; }
 #dr_wrap .dr-bawah .dataTables_length label { margin:0; font-weight:400; color:#6b7280; white-space:nowrap; }
 #dr_wrap .dr-bawah .dataTables_length select { width:auto; display:inline-block; margin:0 4px; }
 
-/* Tabel */
-#dr_wrap table.dataTable { border:0; }
-/* Tanpa gulir samping: tata letak tetap (table-layout:fixed) dengan lebar kolom persen,
-   teks panjang dibungkus / dipotong titik-titik, bukan melebar. */
-#dr_wrap table.dataTable { table-layout:fixed; width:100% !important; font-size:12.5px; }
-#dr_wrap table.dataTable thead th { background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:10px 8px; font-size:12px; vertical-align:middle; box-shadow:0 1px 0 #e5e7eb; }
-#dr_wrap table.dataTable tbody td { border:0; border-bottom:1px solid #f1f5f9; padding:7px 8px; vertical-align:middle; }
-/* nomor pesanan & resi: pecah hanya di tanda hubung / bila benar-benar tidak muat (bukan di tengah angka) */
-#dr_wrap table.dataTable tbody td:nth-child(5), #dr_wrap table.dataTable tbody td:nth-child(6) { overflow-wrap:break-word; }
-#dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:nowrap; }
-/* Nilai (kolom 10): angka rata kanan, judul kolom ikut rata kanan supaya sejajar */
-#dr_wrap table.dataTable tbody td:nth-child(10) { text-align:right; font-variant-numeric:tabular-nums; padding-right:14px; }
-#dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; padding-right:22px; white-space:nowrap; }
+/* Tabel: tata letak tetap, lebar kolom piksel (kolom Toko = sisa lebar) supaya baris selalu satu baris
+   dan identitas (pesanan, resi) tidak pecah di tengah. Teks panjang dipotong titik-titik + tooltip. */
+#dr_wrap table.dataTable { border:0; table-layout:fixed; width:100% !important; font-size:13px; }
+#dr_wrap table.dataTable thead th { position:sticky; top:50px; z-index:5; background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:11px 22px 11px 8px; font-size:12px;
+                                    vertical-align:middle; white-space:nowrap; box-shadow:0 1px 0 #e5e7eb; }
+#dr_wrap table.dataTable thead th:nth-child(11) { z-index:7; }
+#dr_wrap table.dataTable tbody td { height:41px; border:0; border-bottom:1px solid #f1f5f9; padding:0 8px; vertical-align:middle; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#dr_wrap table.dataTable thead th:first-child { border-radius:6px 0 0 6px; }
+#dr_wrap table.dataTable thead th:last-child { border-radius:0 6px 6px 0; }
+/* lebar kolom: 1 centang, 2 pesan, 3 retur, 4 buka retur, 5 pesanan, 6 resi, 7 kurir, 8 MP, 9 toko (sisa), 10 nilai, 11 umur, 12 status */
+#dr_wrap table.dataTable thead th:nth-child(1)  { width:40px; }
+#dr_wrap table.dataTable thead th:nth-child(2)  { width:112px; }
+#dr_wrap table.dataTable thead th:nth-child(3)  { width:124px; }
+#dr_wrap table.dataTable thead th:nth-child(4)  { width:112px; }
+#dr_wrap table.dataTable thead th:nth-child(5)  { width:176px; }
+#dr_wrap table.dataTable thead th:nth-child(6)  { width:172px; }
+#dr_wrap table.dataTable thead th:nth-child(7)  { width:104px; }
+#dr_wrap table.dataTable thead th:nth-child(8)  { width:100px; }
+#dr_wrap table.dataTable thead th:nth-child(10) { width:96px; }
+#dr_wrap table.dataTable thead th:nth-child(11) { width:88px; }
+#dr_wrap table.dataTable thead th:nth-child(12) { width:132px; }
+/* Nilai (kolom 10): angka rata kanan, judul kolom dengan padding sama supaya sejajar */
+#dr_wrap table.dataTable tbody td:nth-child(10), #dr_wrap table.dataTable thead th:nth-child(10) { text-align:right; }
+/* tema menambah ~10px ruang panah urut di dalam judul kolom: padding judul dikurangi supaya teks sejajar dengan angka */
+#dr_wrap table.dataTable thead th:nth-child(10) { padding-right:12px; }
+#dr_wrap table.dataTable tbody td:nth-child(10) { padding-right:22px; }
+#dr_wrap table.dataTable tbody td:nth-child(10) { font-variant-numeric:tabular-nums; }
+/* Umur (kolom 11) rata tengah, sejajar dengan lencananya */
+#dr_wrap table.dataTable tbody td:nth-child(11), #dr_wrap table.dataTable thead th:nth-child(11) { text-align:center; }
 /* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka & Sudah verif (kelas mode-buka) */
 #dr_wrap:not(.mode-buka) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-buka) table.dataTable td:nth-child(4) { display:none; }
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
@@ -111,37 +132,40 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap:not([data-tab=""]) table.dataTable th:nth-child(12), #dr_wrap:not([data-tab=""]) table.dataTable td:nth-child(12),
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
-.dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 10px; }
-.dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:8px; }
-/* teks + ikon salin: ikon tetap di samping baris pertama, tidak jatuh ke baris baru */
-.dr-no { display:flex; align-items:flex-start; gap:4px; }
-.dr-nt { min-width:0; overflow-wrap:break-word; }
-.dr-salin { flex:none; margin-top:2px; color:#9ca3af; cursor:pointer; font-size:12px; }
+.dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:8px 12px; margin:0 0 12px; }
+.dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
+/* teks + ikon salin: ikon muncul saat baris diarahkan (tidak mengotori 25 baris sekaligus) */
+.dr-no { display:flex; align-items:center; gap:6px; }
+.dr-nt { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.dr-salin { flex:none; color:#9ca3af; cursor:pointer; font-size:12px; opacity:0; transition:opacity .12s; }
+#dr_wrap tbody tr:hover .dr-salin, .dr-salin:focus, .dr-salin.sudah { opacity:1; }
 .dr-salin:hover { color:#0f766e; }
 .dr-salin.sudah { color:#16a34a; }
-.dr-toko { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-/* layar sempit: kolom Toko disembunyikan (masih bisa dicari lewat kotak Search) */
-@media (max-width: 1200px) {
-  #dr_wrap table.dataTable { font-size:12px; }
-  #dr_wrap .dr-umur { padding:2px 6px; }
-  /* tanggal + jam: jam turun ke baris kedua; lebar kolom rapat */
-  #dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:normal; }
-  #dr_wrap .dr-t2 { display:block; margin-left:0; }
-  #dr_wrap table.dataTable th:nth-child(6) { width:15.5% !important; }
-  #dr_wrap table.dataTable th:nth-child(5) { width:17% !important; }
-  #dr_wrap table.dataTable th:nth-child(10), #dr_wrap table.dataTable th:nth-child(11), #dr_wrap table.dataTable th:nth-child(12) { width:8.5% !important; }
-  #dr_wrap table.dataTable thead th, #dr_wrap table.dataTable tbody td { padding-left:6px; padding-right:6px; }
-  #dr_wrap table.dataTable th:nth-child(9), #dr_wrap table.dataTable td:nth-child(9) { display:none; }
-}
-/* jendela sangat sempit: tabel tidak diperas lagi, baru boleh digeser */
-@media (max-width: 899px) {
-  #dr_tablewrap { overflow-x:auto; }
-  #dr_wrap table.dataTable { min-width:820px; }
-}
+.dr-toko, .dr-potong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* awalan marketplace di sel Toko: hanya saat kolom MP disembunyikan (layar menengah) */
+.dr-mpx { display:none; color:#9ca3af; font-size:11.5px; font-weight:600; margin-right:5px; }
 #dr_wrap table.dataTable tbody tr:hover td { background:#f8fafc; }
 /* tanggal + jam sebaris (satu baris, bukan dua) supaya baris tabel lebih pendek */
-.dr-t1 { display:inline; font-weight:600; color:#111827; }
-.dr-t2 { display:inline; margin-left:5px; color:#9ca3af; font-size:12px; }
+.dr-t1 { display:inline; font-weight:600; color:#111827; font-variant-numeric:tabular-nums; }
+.dr-t2 { display:inline; margin-left:5px; color:#9ca3af; font-size:12px; font-variant-numeric:tabular-nums; }
+
+/* Laptop 1400-1499: kolom MP disembunyikan, isinya jadi awalan di sel Toko */
+@media (max-width: 1499px) and (min-width: 1400px) {
+  #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
+  .dr-mpx { display:inline; }
+}
+/* Layar di bawah 1400 (mis. 1280/1366): kolom MP dan Toko disembunyikan supaya resi, pesanan, kurir, umur, status tetap utuh;
+   MP + toko tetap terbaca di tooltip nomor pesanan dan bisa dicari lewat kotak Search */
+@media (max-width: 1399px) {
+  #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8),
+  #dr_wrap table.dataTable th:nth-child(9), #dr_wrap table.dataTable td:nth-child(9) { display:none; }
+}
+/* Layar sempit: tabel boleh digeser bila tetap tidak muat */
+@media (max-width: 1200px) {
+  #dr_tablewrap { overflow-x:auto; }
+  #dr_wrap table.dataTable { min-width:960px; }
+  #dr_wrap table.dataTable thead th { position:static; }
+}
 
 /* Indikator memuat: bar bergerak + keterangan, supaya jelas data sedang dimuat (bukan macet) */
 #dr_tablewrap { position:relative; min-height:140px; }
@@ -159,24 +183,22 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-memuat-teks small { color:#9ca3af; font-weight:400; margin-left:6px; }
 .dr-tabs.sibuk, .dr-filter.sibuk { pointer-events:none; opacity:.7; }
 
-/* Umur */
-.dr-umur { display:inline-block; padding:2px 8px; border-radius:12px; font-weight:700; white-space:nowrap; }
+/* Umur: lencana lembut (isi pucat + teks tegas), satu lapis peringatan; arti warna ada di tooltip & legenda */
+.dr-umur { display:inline-block; min-width:68px; padding:0 10px; border-radius:999px; font-size:12px; font-weight:700; line-height:22px; white-space:nowrap; text-align:center; font-variant-numeric:tabular-nums; }
 .dr-umur-aman { background:#dcfce7; color:#166534; }
-.dr-umur-oranye { background:#f59e0b; color:#fff; }
-.dr-umur-merah { background:#dc2626; color:#fff; }
-.dr-umur-selesai { background:#e5e7eb; color:#6b7280; }
-.dr-pill { display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
-.dr-pill-merah { background:#fee2e2; color:#b91c1c; }
-.dr-pill-oranye { background:#fef3c7; color:#b45309; }
+.dr-umur-oranye { background:#fef3c7; color:#b45309; }
+.dr-umur-merah { background:#fee2e2; color:#b91c1c; }
+.dr-umur-selesai { background:#f3f4f6; color:#6b7280; font-weight:600; }
+.dr-pill { display:inline-block; margin-top:2px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; line-height:18px; white-space:nowrap; }
 
-/* Status retur */
-.dr-st { display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; white-space:nowrap; padding:3px 7px; border-radius:4px; font-weight:600; font-size:11.5px; }
+/* Status retur: lencana setinggi lencana umur */
+.dr-st { display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; white-space:nowrap; padding:0 10px; border-radius:999px; font-weight:600; font-size:12px; line-height:22px; }
 .dr-st-abu { background:#f3f4f6; color:#374151; }
 .dr-st-biru { background:#dbeafe; color:#1d4ed8; }
 .dr-st-hijau { background:#dcfce7; color:#166534; }
 
-/* Sumber tanggal */
-.dr-sb { font-size:11px; line-height:1.3; margin-top:2px; }
+/* Tanda tanggal perkiraan: satu glyph ≈ sebaris dengan tanggal (arti di tooltip & legenda) */
+.dr-sb { display:inline-block; margin-left:6px; font-size:12px; font-weight:700; cursor:help; }
 .dr-sb-ok { color:#166534; }
 .dr-sb-kira { color:#b45309; }
 .dr-sb-kasar { color:#b91c1c; }
@@ -196,7 +218,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Filter -->
   <div class="dr-filter">
     <span class="dr-chip"><i class="fa fa-calendar"></i>
-      <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Tab Sudah dibuka / Sudah verif: tanggal buka retur. Tab lain: tanggal pesan.">Tanggal pesan</span>
+      <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Tab Sudah dibuka / Sudah verif: tanggal buka retur. Tab lain: tanggal pesan.">Tgl pesan</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
     <div class="dr-multi" id="dr_jenis">
@@ -220,17 +242,11 @@ $BASE = rtrim(base_url(), '/') . '/';
       </div>
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
-    <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
-    <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
-    <span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Penjelasan">
-          <i class="fa fa-info-circle"></i>
-          <div class="dr-pop">
-            <p>Retur ekspedisi: paket yang sudah diambil kurir tetapi dikembalikan ke toko oleh kurir. Umur dihitung dari tanggal retur.</p>
-            <div class="dr-lg"><span class="dr-umur dr-umur-oranye" style="padding:0 8px;">&ge; <?= (int) $umur_oranye ?> hari</span> peringatan</div>
-            <div class="dr-lg"><span class="dr-umur dr-umur-merah" style="padding:0 8px;">&ge; <?= (int) $umur_merah ?> hari</span> wajib klaim</div>
-            <div class="dr-lg text-muted">Paket yang sudah dibuka tidak diberi warna.</div>
-          </div>
-        </span>
+    <!-- kotak cari DataTables disisipkan JS di sini -->
+    <div class="dr-acts">
+      <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+      <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
+    </div>
   </div>
   <!-- Bar pilihan (tab Sudah dibuka): jumlah resi dicentang + Pilih semua hasil / Hapus pilihan -->
   <div class="dr-pilih-info" id="dr_pilih_info" style="display:none;"></div>
@@ -243,18 +259,27 @@ $BASE = rtrim(base_url(), '/') . '/';
   <table class="table table-hover" id="dt_daftar_retur" style="width:100%;">
     <thead>
       <tr>
-        <th style="width:3%;"><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
-        <th style="width:9%;">Tgl Pesan</th>
-        <th style="width:10.5%;">Tgl Retur</th>
-        <th style="width:10%;">Tgl Buka Retur</th>
-        <th style="width:18%;">No. Pesanan</th>
-        <th style="width:14%;">No. Resi</th>
-        <th style="width:7%;">Kurir</th>
-        <th style="width:6.5%;">MP</th>
-        <th style="width:8%;">Toko</th>
-        <th style="width:9%;">Nilai (Rp)</th>
-        <th style="width:8.5%;">Umur</th>
-        <th style="width:10.5%;">Status</th>
+        <th><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
+        <th>Tgl Pesan</th>
+        <th>Tgl Retur</th>
+        <th>Tgl Buka Retur</th>
+        <th>No. Pesanan</th>
+        <th>No. Resi</th>
+        <th>Kurir</th>
+        <th>MP</th>
+        <th>Toko</th>
+        <th>Nilai (Rp)</th>
+        <th>Umur<span class="dr-bantu" id="dr_bantu" tabindex="0" aria-label="Arti warna umur">
+          <i class="fa fa-info-circle"></i>
+          <div class="dr-pop">
+            <p>Umur dihitung dari tanggal retur ekspedisi (paket yang sudah diambil kurir lalu dikembalikan ke toko).</p>
+            <div class="dr-lg"><span class="dr-umur dr-umur-oranye">&ge; <?= (int) $umur_oranye ?> hari</span> peringatan</div>
+            <div class="dr-lg"><span class="dr-umur dr-umur-merah">&ge; <?= (int) $umur_merah ?> hari</span> wajib klaim</div>
+            <div class="dr-lg2 text-muted">Paket yang sudah dibuka tidak diberi warna.</div>
+            <div class="dr-lg2 text-muted"><b style="color:#b91c1c;">&asymp;</b> di tanggal retur = perkiraan (tanggal retur tidak tersedia, dipakai tanggal order/kirim).</div>
+          </div>
+        </span></th>
+        <th>Status</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -291,7 +316,7 @@ $(document).ready(function () {
     }
     function aturModeBuka(aktif) {
         $('#dr_wrap').toggleClass('mode-buka', aktif);
-        $('#dr_rentang_lbl').text(aktif ? 'Tanggal buka retur' : 'Tanggal pesan');
+        $('#dr_rentang_lbl').text(aktif ? 'Tgl buka retur' : 'Tgl pesan');
     }
 
     function mulaiMemuat() {
@@ -384,8 +409,8 @@ $(document).ready(function () {
         }
     });
 
-    // Kotak cari: pindah ke ujung kanan bar filter supaya tidak makan satu baris sendiri di atas tabel.
-    $('#dt_daftar_retur_filter').appendTo('.dr-filter').find('input').attr('autocomplete', 'off');
+    // Kotak cari: pindah ke bar filter (setelah tombol atur ulang) supaya tidak makan satu baris sendiri di atas tabel.
+    $('#dt_daftar_retur_filter').insertAfter('#dr_reset').find('input').attr('autocomplete', 'off');
     $('.dr-atas').remove();
 
     // Jumlah per tab + baris "Ada N retur" dari respons server.
@@ -558,7 +583,7 @@ $(document).ready(function () {
         $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
         $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
-        tabel.search('').order([9, 'desc']).ajax.reload();
+        tabel.search('').order([10, 'desc']).ajax.reload();
     });
 });
 </script>

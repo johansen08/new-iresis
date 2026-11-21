@@ -99,11 +99,14 @@ class Daftar_retur extends MY_Controller
                 $this->_sel_tanggal($r->tanggal_pesan),
                 $this->_sel_tanggal($r->tanggal_retur) . $this->_label_sumber($r->sumber_tanggal),
                 $this->_sel_tanggal($r->tanggal_buka),
-                $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan),
+                $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan . "
+" . trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')),
                 $this->_salinan($r->no_resi, true),
-                $this->_h($r->kurir ?: '-'),
-                $this->_h($r->marketplace ?: '-'),
-                '<span class="dr-toko" title="' . $this->_h($r->nama_toko) . '">' . $this->_h($r->nama_toko ?: '-') . '</span>',
+                '<span class="dr-potong" title="' . $this->_h($r->kurir) . '">' . $this->_h($r->kurir ?: '-') . '</span>',
+                '<span class="dr-potong" title="' . $this->_h($r->marketplace) . '">' . $this->_h($r->marketplace ?: '-') . '</span>',
+                '<span class="dr-toko" title="' . $this->_h(trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')) . '">'
+                    . ($r->marketplace ? '<span class="dr-mpx">' . $this->_h($r->marketplace) . '</span>' : '')
+                    . $this->_h($r->nama_toko ?: '-') . '</span>',
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
                 $this->_label_posisi($r->posisi) . $this->_pill_komplain($r),
@@ -377,12 +380,10 @@ class Daftar_retur extends MY_Controller
             return '<span class="dr-umur dr-umur-selesai">' . $teks . '</span>';
         }
         if ($umur >= Daftar_retur_fcd::UMUR_MERAH) {
-            return '<span class="dr-umur dr-umur-merah">' . $teks . '</span>'
-                . '<div><span class="dr-pill dr-pill-merah">Wajib klaim</span></div>';
+            return '<span class="dr-umur dr-umur-merah" title="Wajib klaim">' . $teks . '</span>';
         }
         if ($umur >= Daftar_retur_fcd::UMUR_ORANYE) {
-            return '<span class="dr-umur dr-umur-oranye">' . $teks . '</span>'
-                . '<div><span class="dr-pill dr-pill-oranye">Segera ditindak</span></div>';
+            return '<span class="dr-umur dr-umur-oranye" title="Segera ditindak">' . $teks . '</span>';
         }
         return '<span class="dr-umur dr-umur-aman">' . $teks . '</span>';
     }
@@ -412,8 +413,9 @@ class Daftar_retur extends MY_Controller
     {
         switch ($sumber) {
             case 'RETUR': return '';   // tanggal retur sebenarnya: tidak perlu keterangan tambahan
-            case 'KIRIM': return '<div class="dr-sb dr-sb-kira" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal kirim">≈ tgl kirim</div>';
-            default:      return '<div class="dr-sb dr-sb-kasar" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal order (umur cenderung berlebih)">≈ tgl order</div>';
+            // Tanda ≈ sebaris dengan tanggal (bukan baris kedua) supaya baris tabel tetap satu baris
+            case 'KIRIM': return '<span class="dr-sb dr-sb-kira" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal kirim">≈</span>';
+            default:      return '<span class="dr-sb dr-sb-kasar" title="Perkiraan: tanggal retur tidak tersedia, dipakai tanggal order (umur cenderung berlebih)">≈</span>';
         }
     }
 }
