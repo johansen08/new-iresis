@@ -95,7 +95,15 @@ class Daftar_retur_fcd extends CI_Model
                        GREATEST(
                          (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1),
                          (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1)
-                       ) AS bk_k
+                       ) AS bk_k,
+                       GREATEST(
+                         COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01'),
+                         COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01')
+                       ) AS tb_b,
+                       GREATEST(
+                         COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1), '1000-01-01'),
+                         COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1), '1000-01-01')
+                       ) AS tb_k
                 FROM (
                     SELECT j.no_resi, j.resi_l, j.no_pesanan, j.kurir, j.marketplace, j.nama_toko,
                            j.qty, j.nilai, j.tgl_order,
@@ -140,7 +148,7 @@ class Daftar_retur_fcd extends CI_Model
     public function semua_baris($segarkan = false)
     {
         $db   = $this->db->database;
-        $file = APPPATH . 'cache/daftar_retur2_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
+        $file = APPPATH . 'cache/daftar_retur3_' . preg_replace('/[^A-Za-z0-9_]/', '', $db) . '.json';
 
         if (!$segarkan && is_file($file) && (time() - filemtime($file)) < self::CACHE_DETIK) {
             $isi = json_decode((string) @file_get_contents($file), true);
@@ -186,6 +194,15 @@ class Daftar_retur_fcd extends CI_Model
         return self::POSISI_BELUM_DITERIMA;
     }
 
+    /** Tanggal buka retur terakhir menurut jenis yang dipilih; NULL bila belum pernah dibuka. */
+    private function _tanggal_buka($r, array $jenis)
+    {
+        $t = '';
+        if (in_array(self::JENIS_BIASA, $jenis, true) && (int) $r->bk_b > 0) $t = max($t, (string) $r->tb_b);
+        if (in_array(self::JENIS_KOMPLAIN, $jenis, true) && (int) $r->bk_k > 0) $t = max($t, (string) $r->tb_k);
+        return ($t >= '2000-01-01') ? $t : null;
+    }
+
     /**
      * @param array $p start, end (Y-m-d H:i:s), status (posisi/kosong), search, order (kolom),
      *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
@@ -199,14 +216,17 @@ class Daftar_retur_fcd extends CI_Model
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
             : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
 
-        // Rentang memakai TANGGAL PESAN (tanggal order), bukan tanggal retur.
+        // Rentang: baris SUDAH_DIBUKA memakai TANGGAL BUKA RETUR (scan Buka Retur terakhir); baris
+        // lain memakai TANGGAL PESAN. Jadi di tab Sudah dibuka, filter tanggal = tanggal buka retur.
         $rentang = array();
         $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0);
         foreach ($semua as $r) {
-            if ($r->tanggal_pesan >= $p['start'] && $r->tanggal_pesan <= $p['end']) {
-                $posisi = $this->hitung_posisi($r, $jenis);
-                if ($posisi === null) continue;
-                $r->posisi = $posisi;
+            $posisi = $this->hitung_posisi($r, $jenis);
+            if ($posisi === null) continue;
+            $r->posisi = $posisi;
+            $r->tanggal_buka = $this->_tanggal_buka($r, $jenis);
+            $tgl_filter = ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tanggal_buka) ? $r->tanggal_buka : $r->tanggal_pesan;
+            if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
                 $rentang[] = $r;
                 $tab[$posisi]++;
             }

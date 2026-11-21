@@ -86,10 +86,12 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th { background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:10px 6px; font-size:12px; }
 #dr_wrap table.dataTable tbody td { border:0; border-bottom:1px solid #f1f5f9; padding:8px 6px; vertical-align:middle; }
 /* hanya nomor pesanan & resi yang boleh dipotong di tengah kata; kolom lain dibungkus di spasi */
-#dr_wrap table.dataTable tbody td:nth-child(4), #dr_wrap table.dataTable tbody td:nth-child(5) { overflow-wrap:anywhere; }
-#dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3) { white-space:nowrap; }
-#dr_wrap table.dataTable tbody td:nth-child(9) { text-align:right; font-variant-numeric:tabular-nums; }
-#dr_wrap table.dataTable thead th:nth-child(9) { text-align:left; }
+#dr_wrap table.dataTable tbody td:nth-child(5), #dr_wrap table.dataTable tbody td:nth-child(6) { overflow-wrap:anywhere; }
+#dr_wrap table.dataTable tbody td:nth-child(2), #dr_wrap table.dataTable tbody td:nth-child(3), #dr_wrap table.dataTable tbody td:nth-child(4) { white-space:nowrap; }
+#dr_wrap table.dataTable tbody td:nth-child(10) { text-align:right; font-variant-numeric:tabular-nums; }
+#dr_wrap table.dataTable thead th:nth-child(10) { text-align:left; }
+/* Kolom Tanggal Buka Retur (kolom 4): hanya di tab Sudah dibuka (sama dengan mode centang) */
+#dr_wrap:not(.mode-pilih) table.dataTable th:nth-child(4), #dr_wrap:not(.mode-pilih) table.dataTable td:nth-child(4) { display:none; }
 /* Kolom centang (kolom 1): hanya tampil di tab Sudah dibuka. display:none (kolom tetap ada) supaya urutan kolom tidak bergeser */
 #dr_wrap table.dataTable th:first-child, #dr_wrap table.dataTable td:first-child { text-align:center; padding-left:0; padding-right:0; }
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
@@ -104,7 +106,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-toko { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* layar sempit: kolom Toko disembunyikan (masih bisa dicari lewat kotak Search) */
 @media (max-width: 1200px) {
-  #dr_wrap table.dataTable th:nth-child(8), #dr_wrap table.dataTable td:nth-child(8) { display:none; }
+  #dr_wrap table.dataTable th:nth-child(9), #dr_wrap table.dataTable td:nth-child(9) { display:none; }
 }
 /* jendela sangat sempit: tabel tidak diperas lagi, baru boleh digeser */
 @media (max-width: 899px) {
@@ -167,7 +169,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Filter -->
   <div class="dr-filter">
     <span class="dr-chip"><i class="fa fa-calendar"></i>
-      <span class="text-muted" style="font-size:12px;">Tanggal pesan</span>
+      <span class="text-muted" style="font-size:12px;" id="dr_rentang_lbl" title="Tab Sudah dibuka: tanggal buka retur. Tab lain: tanggal pesan.">Tanggal pesan</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
     <div class="dr-multi" id="dr_jenis">
@@ -216,11 +218,12 @@ $BASE = rtrim(base_url(), '/') . '/';
         <th style="width:3%;"><input type="checkbox" id="dr_pilih_hal" title="Centang semua resi di halaman ini"></th>
         <th style="width:8%;">Tanggal Pesan</th>
         <th style="width:10%;">Tanggal Retur</th>
-        <th style="width:15%;">No. Pesanan</th>
-        <th style="width:13%;">No. Resi</th>
-        <th style="width:10%;">Kurir</th>
+        <th style="width:9%;">Tanggal Buka Retur</th>
+        <th style="width:13%;">No. Pesanan</th>
+        <th style="width:12%;">No. Resi</th>
+        <th style="width:8%;">Kurir</th>
         <th style="width:7%;">MP</th>
-        <th style="width:11%;">Toko</th>
+        <th style="width:10%;">Toko</th>
         <th style="width:8%;">Nilai (Rp)</th>
         <th style="width:9%;">Umur</th>
         <th style="width:9%;">Status Retur</th>
@@ -257,6 +260,7 @@ $(document).ready(function () {
     function aturModePilih(aktif) {
         $('#dr_wrap').toggleClass('mode-pilih', aktif);
         $('#dr_cetak, #dr_pilih_info').toggle(aktif);
+        $('#dr_rentang_lbl').text(aktif ? 'Tanggal buka retur' : 'Tanggal pesan');
     }
 
     function mulaiMemuat() {
@@ -315,7 +319,7 @@ $(document).ready(function () {
         dom: "<'dr-atas'f>rt<'dr-bawah'lip>",
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-        order: [[9, 'desc']],          // umur terbesar di atas
+        order: [[10, 'desc']],          // umur terbesar di atas
         columnDefs: [{ targets: 0, orderable: false, searchable: false }],
         drawCallback: function () {
             // pulihkan centang resi yang sudah dipilih (juga setelah ganti halaman / urutan)
@@ -336,7 +340,7 @@ $(document).ready(function () {
         },
         language: {
             processing: 'Memuat data...',
-            emptyTable: 'Tidak ada retur pada rentang tanggal pesan ini',
+            emptyTable: 'Tidak ada retur pada rentang tanggal ini',
             zeroRecords: 'Tidak ada data yang cocok'
         }
     });
