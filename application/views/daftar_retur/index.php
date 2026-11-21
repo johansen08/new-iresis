@@ -465,7 +465,7 @@ $(document).ready(function () {
         autoWidth: false,
         // Pencarian di atas tabel; jumlah baris per halaman + info + paging di bawah.
         dom: "<'dr-atas'f>rt<'dr-bawah'lip>",   // kotak cari dipindah ke bar filter (lihat bawah)
-        pageLength: 25,
+        pageLength: 10,   // 10 baris: seluruh halaman muat di layar tanpa gulir
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         order: [[10, 'desc']],          // umur terbesar di atas
         columnDefs: [{ targets: 0, orderable: false, searchable: false }],
