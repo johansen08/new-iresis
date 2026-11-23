@@ -173,3 +173,12 @@ mengubah statusnya jadi SELESAI / DITOLAK, resi hilang dari tab ini, padahal lab
 - Tab Semua tetap menampilkan keduanya; baris hangus di tab Semua juga berlencana "Hangus".
 - Tujuh tab tetap satu baris di lebar 1366 (jarak antar tab dan lencana angka dirapatkan).
 - Potensi lost scan (verifikasi tanpa scan terima / buka: 28 resi di produksi) belum ditangani; menunggu keputusan.
+
+## Detail resi saat baris diklik (23 Nov 2026)
+
+Di semua tab Daftar Retur Penjualan, klik baris (di luar kotak centang, tombol salin, dan saat tidak sedang memblok teks) membuka
+drawer dari kanan (pola UI sama dengan drawer Manajemen Komplain CS New). Endpoint: `POST retur/detail-daftar-retur-penjualan`
+(`Daftar_retur::detail` → `Daftar_retur_fcd::detail_resi`), hanya membaca, tanpa cache, prod + arsip digabung per primary key.
+Isi drawer: ringkasan qty per hasil buka, data pesanan, alur Progress (petugas + waktu tiap scan terima / buka / cetak serah
+terima / verifikasi), tabel hasil Buka Retur **per SKU** (KE_DISPLAY / BUKAN_RETUR / REJECT / BARANG_TIDAK_ADA / dst, qty,
+pergantian, alasan, jenis B/K, petugas, status ACC), barang menurut Jubelio, dan komplain CS terkait.

@@ -132,6 +132,33 @@ class Daftar_retur extends MY_Controller
     }
 
     /**
+     * POST: resi. Detail lengkap satu resi untuk drawer saat baris diklik (semua tab): data pesanan, progress tiap tahap,
+     * hasil Buka Retur per SKU (KE_DISPLAY / BUKAN_RETUR / REJECT / dll), serah terima, verifikasi, komplain CS. Hanya membaca.
+     */
+    public function detail()
+    {
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/json');
+
+        if (!$this->_boleh()) {
+            echo json_encode(array('success' => false, 'message' => 'Anda tidak punya akses ke menu ini.'));
+            return;
+        }
+        $resi = $this->input->post('resi');
+        if (!is_string($resi) || trim($resi) === '') {
+            echo json_encode(array('success' => false, 'message' => 'No. resi tidak valid.'));
+            return;
+        }
+
+        $d = $this->daftar_retur_fcd->detail_resi($resi);
+        if ($d === null) {
+            echo json_encode(array('success' => false, 'message' => 'Data resi tidak ditemukan.'));
+            return;
+        }
+        echo json_encode(array('success' => true, 'data' => $d));
+    }
+
+    /**
      * GET: start_date, end_date, status, jenis, q (sama dengan layar). Unduh semua baris yang
      * cocok sebagai xlsx rapi: header tebal rata tengah, garis tegak dan datar. Urut umur terbesar.
      */

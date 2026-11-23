@@ -296,6 +296,74 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sb-ok { color:#166534; }
 .dr-sb-kira { color:#b45309; }
 .dr-sb-kasar { color:#b91c1c; }
+
+/* ===== Drawer detail resi (klik baris). Pola UI sama dengan drawer Manajemen Komplain CS New ===== */
+#dt_daftar_retur tbody tr { cursor:pointer; }
+#dr_drawer { overflow:hidden !important; }
+.modal-dialog.dd-dialog { position:fixed; top:0; right:0; bottom:0; margin:0 !important; height:100vh; width:min(760px, 96vw); max-width:none; }
+.modal.fade .dd-dialog { transform:translateX(100%); transition:transform .28s ease-out; }
+.modal.in .dd-dialog { transform:none; }
+.dd-content { height:100%; display:flex; flex-direction:column; border-radius:16px 0 0 16px; overflow:hidden; font-family:'Inter','Segoe UI',sans-serif; color:#1e293b; box-shadow:-16px 0 48px rgba(15,23,42,.22); }
+.dd-header { flex:none; padding:16px 24px 12px; border-bottom:1px solid #e5e7eb; position:relative; }
+.dd-header .close { position:absolute; right:18px; top:14px; }
+.dd-titlebox { display:flex; align-items:center; gap:12px; padding-right:30px; }
+.dd-icon { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; background:#ccfbf1; color:#0f766e; font-size:17px; flex:none; }
+.dd-titlebox h4 { margin:0; font-size:16px; font-weight:700; color:#0f172a; line-height:1.4; }
+.dd-meta { margin-top:3px; font-size:12.5px; color:#6b7280; }
+.dd-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:18px 24px 8px; }
+.dd-sec { margin-bottom:22px; }
+.dd-sec h5 { margin:0 0 6px; font-size:14px; font-weight:700; color:#0f172a; }
+.dd-sec h5 small { font-weight:400; color:#6b7280; margin-left:6px; }
+.dd-row { display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13.5px; }
+.dd-row > i.fa { flex:none; width:18px; margin-top:2px; text-align:center; color:#94a3b8; }
+.dd-row dt { flex:0 0 130px; margin:0; font-weight:400; color:#6b7280; }
+.dd-row dd { flex:1; margin:0; font-weight:600; color:#0f172a; word-break:break-word; }
+.dd-row dd small { font-weight:400; color:#6b7280; }
+.dd-kosong { color:#9ca3af; font-weight:400; }
+.dd-copy { margin-left:8px; border:0; background:none; color:#94a3b8; cursor:pointer; padding:0 2px; }
+.dd-copy:hover { color:#0f766e; }
+.dd-copy.ok { color:#16a34a; }
+.dd-pill { display:inline-block; padding:0 9px; border-radius:999px; font-size:11.5px; font-weight:700; line-height:20px; white-space:nowrap; background:#f3f4f6; color:#4b5563; }
+.dd-p-hijau { background:#dcfce7; color:#166534; }
+.dd-p-merah { background:#fee2e2; color:#b91c1c; }
+.dd-p-kuning { background:#fef3c7; color:#b45309; }
+.dd-p-biru { background:#dbeafe; color:#1d4ed8; }
+.dd-p-ungu { background:#ede9fe; color:#6d28d9; }
+.dd-p-teal { background:#ccfbf1; color:#0f766e; }
+.dd-p-abu { background:#f3f4f6; color:#4b5563; }
+/* Ringkasan hasil buka retur: kartu kecil per status */
+.dd-rekap { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 2px; }
+.dd-rekap > div { flex:1 1 130px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc; }
+.dd-rekap b { display:block; font-size:20px; line-height:1.2; color:#0f172a; font-variant-numeric:tabular-nums; }
+.dd-rekap span { font-size:11.5px; }
+.dd-table { width:100%; margin-top:6px; border:1px solid #e5e7eb; border-radius:10px; border-collapse:separate; border-spacing:0; overflow:hidden; font-size:13px; }
+.dd-table th { padding:8px 12px; background:#f8fafc; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#6b7280; text-align:left; }
+.dd-table td { padding:9px 12px; border-top:1px solid #f1f5f9; vertical-align:top; }
+.dd-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+.dd-table tr.dd-total td { font-weight:700; background:#f8fafc; }
+.dd-sku { display:flex; gap:10px; align-items:flex-start; }
+.dd-sku .dd-foto { flex:none; width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; background:#f8fafc; }
+.dd-sku b { display:block; color:#0f172a; }
+.dd-sku small { display:block; color:#6b7280; line-height:1.35; }
+.dd-ket { display:block; margin-top:3px; font-size:11.5px; color:#6b7280; line-height:1.4; }
+.dd-ket em { color:#b45309; font-style:normal; }
+/* Alur tahap: garis vertikal dengan titik */
+.dd-alur { list-style:none; margin:6px 0 0; padding:0; }
+.dd-alur li { position:relative; padding:0 0 14px 28px; }
+.dd-alur li:before { content:''; position:absolute; left:8px; top:18px; bottom:-2px; width:2px; background:#e5e7eb; }
+.dd-alur li:last-child { padding-bottom:0; }
+.dd-alur li:last-child:before { display:none; }
+.dd-alur .t { position:absolute; left:0; top:1px; width:18px; height:18px; border-radius:50%; background:#e5e7eb; color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; }
+.dd-alur li.ok .t { background:#0f766e; }
+.dd-alur li.info .t { background:#94a3b8; }
+.dd-alur .n { font-size:13.5px; font-weight:600; color:#0f172a; }
+.dd-alur li.belum .n { color:#9ca3af; font-weight:400; }
+.dd-alur .w { font-size:12.5px; color:#4b5563; font-variant-numeric:tabular-nums; }
+.dd-alur .w small { color:#6b7280; }
+.dd-alur .x { font-size:11.5px; color:#b45309; }
+.dd-footer { flex:none; padding:12px 24px; border-top:1px solid #e5e7eb; text-align:right; background:#fff; }
+.dd-muat { padding:40px 0; text-align:center; color:#6b7280; }
+@media (max-width:767px) { .modal-dialog.dd-dialog { width:100vw; } .dd-content { border-radius:0; } .dd-header, .dd-body, .dd-footer { padding-left:16px; padding-right:16px; } .dd-row dt { flex-basis:104px; } }
 </style>
 
 <div id="dr_wrap" data-tab="">
@@ -423,6 +491,26 @@ $BASE = rtrim(base_url(), '/') . '/';
   </table>
   </div>
 
+</div>
+
+<!-- Drawer detail resi: terbuka saat baris tabel diklik (semua tab). Hanya lihat. -->
+<div class="modal fade" id="dr_drawer" role="dialog" aria-labelledby="dr_drawer_judul" aria-hidden="true">
+  <div class="modal-dialog dd-dialog" role="document">
+    <div class="modal-content dd-content">
+      <div class="dd-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup"><span aria-hidden="true">&times;</span></button>
+        <div class="dd-titlebox">
+          <span class="dd-icon"><i class="fa fa-undo"></i></span>
+          <div>
+            <h4 id="dr_drawer_judul">Detail Retur</h4>
+            <div class="dd-meta" id="dr_drawer_meta"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dd-body" id="dr_drawer_isi"></div>
+      <div class="dd-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Tutup</button></div>
+    </div>
+  </div>
 </div>
 
 <script type="text/javascript">
@@ -892,6 +980,198 @@ $(document).ready(function () {
         Object.keys(FIL).forEach(function (k) { FIL[k].pilih = {}; FIL[k].terapan = ''; tulisTombolF(k); });
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
         tabel.search('').order([8, 'desc']).ajax.reload();
+    });
+
+    // ---------------- Drawer detail resi (klik baris) ----------------
+    var LABEL_HASIL = {
+        KE_DISPLAY: 'KE DISPLAY', REJECT: 'REJECT', REFUND: 'REFUND', PENUKARAN_BERES: 'PENDINGAN BERES (PB)',
+        REQUEST_DARI_PEMBELI: 'REQUEST DARI PEMBELI', KURANG: 'KURANG KIRIM', BUKAN_BARANG_KITA: 'BUKAN BARANG KITA',
+        DIPAKAI_ADMIN: 'DIPAKAI ADMIN', BARANG_TIDAK_ADA: 'BARANG TIDAK ADA', BUKAN_RETUR: 'BUKAN RETUR',
+        ALASAN_LAINNYA: 'ALASAN LAINNYA', PAKET_HILANG: 'PAKET HILANG'
+    };
+    var NADA_HASIL = {
+        KE_DISPLAY: 'hijau', BUKAN_RETUR: 'biru', REJECT: 'merah', BARANG_TIDAK_ADA: 'merah', PAKET_HILANG: 'merah',
+        BUKAN_BARANG_KITA: 'kuning', KURANG: 'kuning', DIPAKAI_ADMIN: 'ungu', PENUKARAN_BERES: 'teal', REFUND: 'teal'
+    };
+    var NADA_TAHAP = ['abu', 'biru', 'teal', 'ungu', 'hijau'];
+    var NADA_JUB = { 'SELESAI': 'hijau', 'DITOLAK': 'merah', 'BARANG RETUR': 'kuning' };
+    var NAMA_JENIS = { B: 'Retur ekspedisi', K: 'Retur komplain' };
+    var reqDetail = null;
+
+    function ddWaktu(t) { return t ? moment(t).format('DD MMM YYYY HH:mm:ss') : null; }
+    function ddRp(n) { return 'Rp ' + (parseFloat(n) || 0).toLocaleString('id-ID'); }
+    function ddPil(teks, nada) { return '<span class="dd-pill dd-p-' + (nada || 'abu') + '">' + esc(teks) + '</span>'; }
+    function ddHasil(st) { return ddPil(LABEL_HASIL[st] || st || '-', NADA_HASIL[st] || 'abu'); }
+    function ddRow(ikon, label, nilai, salin) {
+        var kosong = (nilai === null || nilai === undefined || nilai === '');
+        return '<div class="dd-row"><i class="fa ' + ikon + '"></i><dt>' + esc(label) + '</dt><dd>' +
+            (kosong ? '<span class="dd-kosong">-</span>' : esc(nilai) + (salin ? '<button type="button" class="dd-copy" data-copy="' + esc(nilai) + '" title="Salin"><i class="fa fa-files-o"></i></button>' : '')) +
+            '</dd></div>';
+    }
+    function ddSku(sku, nama, rak, foto) {
+        return '<div class="dd-sku">' + (foto || '') + '<div><b>' + esc(sku || '-') + '</b>' +
+            (nama ? '<small>' + esc(nama) + '</small>' : '') + (rak ? '<small>Rak: ' + esc(rak) + '</small>' : '') + '</div></div>';
+    }
+    // satu langkah alur: ok = ada catatan, isi = baris waktu/petugas (HTML)
+    function ddLangkah(nama, ok, isi, kelas) {
+        return '<li class="' + (kelas || (ok ? 'ok' : 'belum')) + '"><span class="t">' + (ok && kelas !== 'info' ? '<i class="fa fa-check"></i>' : '') + '</span><div class="n">' + esc(nama) + '</div>' + (isi || '') + '</li>';
+    }
+    function ddWP(waktu, petugas, ekstra) {
+        return '<div class="w">' + esc(ddWaktu(waktu) || '-') + (petugas ? ' · ' + esc(petugas) : ' · <small>petugas tidak tercatat</small>') + (ekstra ? ' ' + ekstra : '') + '</div>';
+    }
+
+    function bangunDetail(d) {
+        var h = '', tg = d.tanggal || {}, buka = d.hasil_buka || [], jub = d.barang_jubelio || [];
+
+        // --- Ringkasan hasil buka retur (qty per status)
+        var qtyBuka = 0;
+        buka.forEach(function (x) { qtyBuka += x.qty; });
+        h += '<div class="dd-sec"><h5>Ringkasan barang <small>' + (buka.length ? qtyBuka.toLocaleString('id-ID') + ' pcs sudah dibuka' : 'belum dibuka') + '</small></h5>';
+        if (buka.length) {
+            h += '<div class="dd-rekap">';
+            Object.keys(d.rekap_status).forEach(function (st) {
+                h += '<div>' + ddHasil(st) + '<b>' + parseInt(d.rekap_status[st], 10).toLocaleString('id-ID') + ' pcs</b></div>';
+            });
+            h += '</div>';
+            if (d.qty_total > 0 && qtyBuka !== d.qty_total) {
+                h += '<div class="dd-ket"><em>Qty dibuka (' + qtyBuka + ' pcs) berbeda dengan qty di Jubelio (' + d.qty_total + ' pcs).</em></div>';
+            }
+        } else {
+            h += '<div class="dd-ket">Belum ada hasil Buka Retur untuk resi ini. Tujuan tiap SKU (KE DISPLAY, BUKAN RETUR, REJECT, dll) baru tercatat setelah paket dibuka.</div>';
+        }
+        h += '</div>';
+
+        // --- Pesanan
+        var stJ = (d.status_jubelio || []).map(function (s) { return ddPil(s, NADA_JUB[s]); }).join(' ');
+        h += '<div class="dd-sec"><h5>Pesanan</h5>' +
+            ddRow('fa-barcode', 'No. resi', d.resi, true) +
+            ddRow('fa-hashtag', 'No. pesanan', d.no_pesanan, true) +
+            ddRow('fa-shopping-bag', 'Marketplace', d.marketplace) +
+            ddRow('fa-building-o', 'Toko', d.toko) +
+            ddRow('fa-truck', 'Kurir', d.kurir) +
+            '<div class="dd-row"><i class="fa fa-flag"></i><dt>Status Jubelio</dt><dd>' + (stJ || '<span class="dd-kosong">-</span>') + '</dd></div>' +
+            ddRow('fa-info-circle', 'Status pesanan', d.status_pesanan) +
+            ddRow('fa-calendar', 'Tanggal pesan', ddWaktu(tg.pesan)) +
+            ddRow('fa-calendar-o', 'Tanggal kirim', ddWaktu(tg.kirim)) +
+            ddRow('fa-calendar-check-o', 'Tanggal retur', ddWaktu(tg.retur || tg.retur_jubelio)) +
+            ddRow('fa-calendar-check-o', 'Tanggal selesai', ddWaktu(tg.selesai)) +
+            ddRow('fa-money', 'Tanggal pencairan', ddWaktu(tg.cair)) +
+            ddRow('fa-cubes', 'Total barang', d.qty_total + ' pcs') +
+            ddRow('fa-money', 'Nilai', ddRp(d.nilai_total)) + '</div>';
+
+        // --- Alur progress
+        var p = d.progress || {}, a = '<ul class="dd-alur">';
+        a += ddLangkah('Diretur', !!(tg.retur || tg.retur_jubelio), ddWP(tg.retur || tg.retur_jubelio, null).replace(' · <small>petugas tidak tercatat</small>', ''), 'info');
+        if ((d.scan_terima || []).length) {
+            var it = '';
+            d.scan_terima.forEach(function (x) { it += ddWP(x.waktu, x.petugas, ddPil(NAMA_JENIS[x.jenis] || x.jenis, x.jenis === 'K' ? 'ungu' : 'abu')); });
+            a += ddLangkah('Sudah Terima', true, it);
+        } else a += ddLangkah('Belum Terima', false, '<div class="w">Belum ada scan Terima Retur</div>');
+        if (buka.length) {
+            var bk = p.buka ? ddWP(p.buka.t, p.buka.p) : '';
+            a += ddLangkah('Sudah Buka', true, bk + '<div class="w"><small>' + buka.length + ' baris SKU</small></div>');
+        } else a += ddLangkah('Belum Buka', false, '<div class="w">Belum ada scan Buka Retur</div>');
+        if ((d.serah || []).length) {
+            var sr = '';
+            d.serah.forEach(function (x) { sr += ddWP(x.waktu, x.petugas, ddPil(x.ulang ? 'Cetak ulang ke-' + x.cetak_ke : 'Cetak pertama', x.ulang ? 'kuning' : 'abu')); });
+            a += ddLangkah('Sudah Serah Terima', true, sr);
+        } else a += ddLangkah('Belum Serah Terima', false, '<div class="w">' + (buka.length ? 'Belum dicetak serah terima' : 'Menunggu Buka Retur') + '</div>');
+        if ((d.verifikasi || []).length) {
+            var vf = '';
+            d.verifikasi.forEach(function (x) { vf += ddWP(x.waktu, x.petugas) + (x.catatan ? '<div class="x">' + esc(x.catatan) + '</div>' : ''); });
+            a += ddLangkah('Sudah Verifikasi', true, vf);
+        } else if (p.verif) {
+            a += ddLangkah('Sudah Verifikasi', true, ddWP(p.verif.t, p.verif.p) + '<div class="x">Dari ACC Returan Buka (accounting)</div>');
+        } else a += ddLangkah('Belum Verifikasi', false, '<div class="w">Belum diverifikasi accounting</div>');
+        a += '</ul>';
+        h += '<div class="dd-sec"><h5>Progress <small>' + esc(d.tahap_nama) + '</small></h5>' + a + '</div>';
+
+        // --- Hasil buka retur per SKU
+        h += '<div class="dd-sec"><h5>Hasil Buka Retur per SKU <small>' + buka.length + ' baris</small></h5>';
+        if (buka.length) {
+            h += '<table class="dd-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th>Hasil</th><th>Keterangan</th></tr></thead><tbody>';
+            buka.forEach(function (x) {
+                var ket = [];
+                if (x.pergantian) ket.push('Pergantian: <b>' + esc(x.pergantian) + '</b>' + (x.pergantian_nama ? ' (' + esc(x.pergantian_nama) + ')' : ''));
+                if (x.alasan) ket.push('<em>Alasan: ' + esc(x.alasan) + '</em>');
+                ket.push(esc(NAMA_JENIS[x.jenis] || x.jenis) + (x.sumber ? ' · ' + esc(x.sumber) : ''));
+                ket.push('Dibuka ' + esc(ddWaktu(x.waktu) || '-') + (x.petugas ? ' oleh ' + esc(x.petugas) : ''));
+                if (x.harga !== null) ket.push('Harga ' + ddRp(x.harga));
+                if (x.status === 'KE_DISPLAY') ket.push(x.acc ? 'Stok sudah di-ACC accounting' + (x.acc_oleh ? ' (' + esc(x.acc_oleh) + ')' : '') : 'Belum di-ACC accounting');
+                h += '<tr><td>' + ddSku(x.sku, x.nama, x.rak, x.foto) + '</td><td class="num"><b>' + x.qty + '</b></td><td>' + ddHasil(x.status) +
+                    '</td><td>' + ket.map(function (k) { return '<span class="dd-ket">' + k + '</span>'; }).join('') + '</td></tr>';
+            });
+            h += '<tr class="dd-total"><td class="num">Total</td><td class="num">' + qtyBuka + '</td><td colspan="2"></td></tr></tbody></table>';
+        } else {
+            h += '<div class="dd-ket">Belum ada data.</div>';
+        }
+        h += '</div>';
+
+        // --- Barang menurut Jubelio
+        h += '<div class="dd-sec"><h5>Barang menurut Jubelio <small>' + jub.length + ' baris</small></h5>';
+        if (jub.length) {
+            h += '<table class="dd-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Nilai</th><th>Status</th></tr></thead><tbody>';
+            jub.forEach(function (x) {
+                h += '<tr><td>' + ddSku(x.sku, x.nama) + '</td><td class="num">' + x.qty + '</td><td class="num">' + ddRp(x.nilai) + '</td><td>' +
+                    ddPil(x.status || '-', NADA_JUB[x.status]) + (x.status_jubelio ? '<span class="dd-ket">' + esc(x.status_jubelio) + '</span>' : '') + '</td></tr>';
+            });
+            h += '<tr class="dd-total"><td class="num">Total</td><td class="num">' + d.qty_total + '</td><td class="num">' + ddRp(d.nilai_total) + '</td><td></td></tr></tbody></table>';
+        } else {
+            h += '<div class="dd-ket">Tidak ada baris di data retur Jubelio.</div>';
+        }
+        h += '</div>';
+
+        // --- Komplain CS
+        if ((d.komplain || []).length) {
+            h += '<div class="dd-sec"><h5>Komplain CS terkait <small>' + d.komplain.length + '</small></h5>';
+            d.komplain.forEach(function (c) {
+                h += ddRow('fa-comments-o', 'K-' + ('00000' + c.id_complain).slice(-5),
+                    (c.kategori_komplain || '-') + ' · ' + (c.status_komplain || 'belum ada status') + (c.hasil_investigasi ? ' · CCTV: ' + c.hasil_investigasi : '') + (c.tgl_komplain ? ' · ' + c.tgl_komplain : ''));
+            });
+            h += '</div>';
+        }
+        return h;
+    }
+
+    function bukaDetail(resi) {
+        if (reqDetail) reqDetail.abort();
+        $('#dr_drawer_judul').text('Retur ' + resi);
+        $('#dr_drawer_meta').text('Memuat detail...');
+        $('#dr_drawer_isi').html('<div class="dd-muat"><i class="fa fa-spinner fa-spin"></i> Memuat detail...</div>').scrollTop(0);
+        $('#dr_drawer').modal('show');
+        reqDetail = $.ajax({ url: BASE + 'retur/detail-daftar-retur-penjualan', type: 'POST', dataType: 'json', data: { resi: resi }, timeout: 60000 })
+            .done(function (resp) {
+                if (!resp || !resp.success) {
+                    $('#dr_drawer_meta').text('');
+                    $('#dr_drawer_isi').html('<div class="dd-muat">' + esc((resp && resp.message) || 'Gagal mengambil detail.') + '</div>');
+                    return;
+                }
+                var d = resp.data;
+                $('#dr_drawer_judul').html('Retur ' + esc(d.resi) + ' ' + ddPil(d.tahap_nama, NADA_TAHAP[d.tahap]));
+                $('#dr_drawer_meta').text([d.toko, d.marketplace, d.kurir].filter(Boolean).join(' · '));
+                $('#dr_drawer_isi').html(bangunDetail(d)).scrollTop(0);
+            })
+            .fail(function (xhr, st) {
+                if (st === 'abort') return;
+                $('#dr_drawer_meta').text('');
+                $('#dr_drawer_isi').html('<div class="dd-muat">Gagal memuat detail. Coba klik baris lagi.</div>');
+            });
+    }
+
+    // Klik baris (semua tab). Abaikan klik pada kontrol di dalam baris, ikon salin, dan saat user sedang memblok teks.
+    $('#dt_daftar_retur tbody').on('click', 'tr', function (e) {
+        if ($(e.target).closest('a, button, input, label, .dr-salin').length) return;
+        var s = window.getSelection ? String(window.getSelection()) : '';
+        if (s && s.length > 0) return;
+        var resi = $(this).find('.dr-pilih').attr('data-resi');
+        if (resi) bukaDetail(resi);
+    });
+    $('#dr_drawer').on('click', '.dd-copy', function () {
+        var $b = $(this), teks = String($b.attr('data-copy') || '');
+        salinTeks(teks).then(function () {
+            $b.addClass('ok').find('i').removeClass('fa-files-o').addClass('fa-check');
+            setTimeout(function () { $b.removeClass('ok').find('i').removeClass('fa-check').addClass('fa-files-o'); }, 1200);
+        }, function () { window.prompt('Salin manual (Ctrl+C):', teks); });
     });
 });
 </script>
