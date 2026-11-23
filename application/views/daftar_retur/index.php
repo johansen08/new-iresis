@@ -375,7 +375,16 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dd-table .num { text-align:right; font-variant-numeric:tabular-nums; }
 .dd-table tr.dd-total td { font-weight:700; background:#f8fafc; }
 .dd-sku { display:flex; gap:10px; align-items:flex-start; }
-.dd-sku .dd-foto { flex:none; width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; background:#f8fafc; }
+.dd-fwrap { position:relative; flex:none; width:68px; height:68px; }
+.dd-fwrap .dd-foto { display:block; width:68px; height:68px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb; background:#f8fafc; cursor:zoom-in; }
+.dd-fwrap.dd-tanpafoto { display:flex; align-items:center; justify-content:center; border:1px dashed #d1d5db; border-radius:8px; background:#f8fafc; color:#cbd5e1; font-size:24px; }
+.dd-eye { position:absolute; right:3px; bottom:3px; width:24px; height:24px; padding:0; border:0; border-radius:50%; background:rgba(15,23,42,.72); color:#fff; font-size:12px; line-height:24px; text-align:center; cursor:pointer; }
+.dd-eye:hover { background:#0f766e; }
+#dr_lightbox { display:none; position:fixed; inset:0; z-index:3000; background:rgba(15,23,42,.88); align-items:center; justify-content:center; flex-direction:column; padding:24px; }
+#dr_lightbox.buka { display:flex; }
+#dr_lightbox img { max-width:94vw; max-height:84vh; object-fit:contain; border-radius:8px; background:#fff; box-shadow:0 12px 48px rgba(0,0,0,.5); }
+#dr_lightbox .lb-cap { margin-top:12px; color:#e5e7eb; font-size:13px; font-weight:600; text-align:center; }
+#dr_lightbox .lb-tutup { position:absolute; top:14px; right:20px; border:0; background:none; color:#fff; font-size:34px; line-height:1; cursor:pointer; }
 .dd-sku b { display:block; color:#0f172a; }
 .dd-sku small { display:block; color:#6b7280; line-height:1.35; }
 .dd-ket { display:block; margin-top:3px; font-size:11.5px; color:#6b7280; line-height:1.4; }
@@ -476,6 +485,9 @@ $BASE = rtrim(base_url(), '/') . '/';
 </div>
 
 <!-- Drawer detail resi: terbuka saat baris tabel diklik (semua tab). Hanya lihat. -->
+<!-- Lightbox gambar penuh SKU (di atas drawer) -->
+<div id="dr_lightbox" role="dialog" aria-label="Gambar penuh"><button type="button" class="lb-tutup" aria-label="Tutup">&times;</button><div class="lb-cap"></div></div>
+
 <div class="modal fade" id="dr_drawer" role="dialog" aria-labelledby="dr_drawer_judul" aria-hidden="true">
   <div class="modal-dialog dd-dialog" role="document">
     <div class="modal-content dd-content">
@@ -1074,9 +1086,13 @@ $(document).ready(function () {
             (kosong ? '<span class="dd-kosong">-</span>' : esc(nilai) + (salin ? '<button type="button" class="dd-copy" data-copy="' + esc(nilai) + '" title="Salin"><i class="fa fa-files-o"></i></button>' : '')) +
             '</dd></div>';
     }
-    function ddSku(sku, nama, rak, foto) {
-        return '<div class="dd-sku">' + (foto || '') + '<div><b>' + esc(sku || '-') + '</b>' +
-            (nama ? '<small>' + esc(nama) + '</small>' : '') + (rak ? '<small>Rak: ' + esc(rak) + '</small>' : '') + '</div></div>';
+    // Foto SKU (wajib): thumbnail + ikon mata untuk gambar penuh; SKU tanpa foto tampil sebagai kotak penanda. Nama produk sengaja tidak ditampilkan.
+    function ddFoto(foto) {
+        if (!foto) return '<span class="dd-fwrap dd-tanpafoto" title="Foto produk belum tersedia"><i class="fa fa-image"></i></span>';
+        return '<span class="dd-fwrap">' + foto + '<button type="button" class="dd-eye" title="Lihat gambar penuh"><i class="fa fa-eye"></i></button></span>';
+    }
+    function ddSku(sku, rak, foto) {
+        return '<div class="dd-sku">' + ddFoto(foto) + '<div><b>' + esc(sku || '-') + '</b>' + (rak ? '<small>Rak: ' + esc(rak) + '</small>' : '') + '</div></div>';
     }
     // satu langkah alur: ok = ada catatan, isi = baris waktu/petugas (HTML)
     function ddLangkah(nama, ok, isi, kelas) {
@@ -1158,13 +1174,13 @@ $(document).ready(function () {
             h += '<table class="dd-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th>Hasil</th><th>Keterangan</th></tr></thead><tbody>';
             buka.forEach(function (x) {
                 var ket = [];
-                if (x.pergantian) ket.push('Pergantian: <b>' + esc(x.pergantian) + '</b>' + (x.pergantian_nama ? ' (' + esc(x.pergantian_nama) + ')' : ''));
+                if (x.pergantian) ket.push('Pergantian:<div class="dd-sku" style="margin:4px 0;">' + ddFoto(x.pergantian_foto) + '<div><b>' + esc(x.pergantian) + '</b></div></div>');
                 if (x.alasan) ket.push('<em>Alasan: ' + esc(x.alasan) + '</em>');
                 ket.push(esc(NAMA_JENIS[x.jenis] || x.jenis) + (x.sumber ? ' · ' + esc(x.sumber) : ''));
                 ket.push('Dibuka ' + esc(ddWaktu(x.waktu) || '-') + (x.petugas ? ' oleh ' + esc(x.petugas) : ''));
                 if (x.harga !== null) ket.push('Harga ' + ddRp(x.harga));
                 if (x.status === 'KE_DISPLAY') ket.push(x.acc ? 'Stok sudah di-ACC accounting' + (x.acc_oleh ? ' (' + esc(x.acc_oleh) + ')' : '') : 'Belum di-ACC accounting');
-                h += '<tr><td>' + ddSku(x.sku, x.nama, x.rak, x.foto) + '</td><td class="num"><b>' + x.qty + '</b></td><td>' + ddHasil(x.status) +
+                h += '<tr><td>' + ddSku(x.sku, x.rak, x.foto) + '</td><td class="num"><b>' + x.qty + '</b></td><td>' + ddHasil(x.status) +
                     '</td><td>' + ket.map(function (k) { return '<span class="dd-ket">' + k + '</span>'; }).join('') + '</td></tr>';
             });
             h += '<tr class="dd-total"><td class="num">Total</td><td class="num">' + qtyBuka + '</td><td colspan="2"></td></tr></tbody></table>';
@@ -1178,7 +1194,7 @@ $(document).ready(function () {
         if (jub.length) {
             h += '<table class="dd-table"><thead><tr><th>SKU</th><th class="num">Qty</th><th class="num">Nilai</th><th>Status</th></tr></thead><tbody>';
             jub.forEach(function (x) {
-                h += '<tr><td>' + ddSku(x.sku, x.nama) + '</td><td class="num">' + x.qty + '</td><td class="num">' + ddRp(x.nilai) + '</td><td>' +
+                h += '<tr><td>' + ddSku(x.sku, x.rak, x.foto) + '</td><td class="num">' + x.qty + '</td><td class="num">' + ddRp(x.nilai) + '</td><td>' +
                     ddPil(x.status || '-', NADA_JUB[x.status]) + (x.status_jubelio ? '<span class="dd-ket">' + esc(x.status_jubelio) + '</span>' : '') + '</td></tr>';
             });
             h += '<tr class="dd-total"><td class="num">Total</td><td class="num">' + d.qty_total + '</td><td class="num">' + ddRp(d.nilai_total) + '</td><td></td></tr></tbody></table>';
@@ -1232,6 +1248,23 @@ $(document).ready(function () {
         var resi = $(this).find('.dr-pilih').attr('data-resi');
         if (resi) bukaDetail(resi);
     });
+    // Gambar penuh: klik ikon mata atau thumbnail. Cadangan foto lokal (data-foto-lokal) ditangani assets/js/foto_sku.js.
+    function bukaLightbox(img, judul) {
+        var $i = $('<img alt="">').attr('src', img.getAttribute('src'));
+        if (img.getAttribute('data-foto-lokal')) $i.attr('data-foto-lokal', img.getAttribute('data-foto-lokal'));
+        $('#dr_lightbox img').remove();
+        $('#dr_lightbox').prepend($i).find('.lb-cap').text(judul || '').end().addClass('buka');
+    }
+    function tutupLightbox() { $('#dr_lightbox').removeClass('buka').find('img').remove(); }
+    $('#dr_drawer').on('click', '.dd-eye, .dd-fwrap .dd-foto', function (e) {
+        e.stopPropagation();
+        var $w = $(this).closest('.dd-fwrap'), img = $w.find('img')[0];
+        if (img) bukaLightbox(img, $w.next().find('b').first().text());
+    });
+    $('#dr_lightbox').on('click', function (e) { if (e.target.tagName !== 'IMG') tutupLightbox(); });
+    document.addEventListener('keydown', function (e) {   // Esc menutup gambar dulu, bukan drawer di bawahnya
+        if (e.key === 'Escape' && $('#dr_lightbox').hasClass('buka')) { e.stopPropagation(); e.preventDefault(); tutupLightbox(); }
+    }, true);
     $('#dr_drawer').on('click', '.dd-copy', function () {
         var $b = $(this), teks = String($b.attr('data-copy') || '');
         salinTeks(teks).then(function () {
