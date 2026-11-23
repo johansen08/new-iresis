@@ -403,3 +403,17 @@ dengan keterangan `…lost scan…dari HO` (`Lost_scan_picker_fcd`).
 - Pilihan yang bisa dibahas: tanggung ke picker/packer dari laporan lost scan, ke petugas HO penemu, atau tanpa
   penalti. Setelah diputuskan, cukup ubah/hapus pengecualian `dari_lost_scan_ho` di `sinkron_masalah_picker`.
 - Resi tanpa scan picker/packer dipahami sebagai akibat lost scan di meja itu (penjelasan pemilik proses). Kodenya sudah melewatinya: tanpa scan picker = tidak dicatat ke picker, tanpa scan packer = tidak dicatat ke packer (§18). Contoh JY2176601195 (tolak HO 3 Nov 2026 18:38, "Scan Paket REGULER"): belum ada baris lost scan di `tbllostscanpacker`/`tbllostscanpicker_pending`, jadi jejak lost scannya belum tercatat di data — bahan pengembangan berikutnya (hubungkan resi tanpa scan ke laporan lost scan).
+
+### 16.1 Opsi Pergantian dan Refund (23 Nov 2026)
+
+Selain **Kurang** dan **Salah**, baris SKU yang qty ada-nya kurang punya dua pilihan lagi:
+
+- **Pergantian**: pembeli minta barang diganti, jadi barang itu sengaja tidak ikut paket.
+- **Refund**: pembeli minta dana kembali, barang tidak jadi dikirim.
+
+Seluruh selisih SKU itu dicatat sebagai kejadian `PERGANTIAN` / `REFUND` (kolom `jenis` varchar(16) di
+`tblcancel_paket_selisih` dan `tblcancel_paket_item`, tanpa migrasi). Klien mengirim field `sisa_jenis`
+({SKU: PERGANTIAN|REFUND}); SKU tanpa entri tetap KURANG. Keduanya **tidak dicatat sebagai kesalahan**
+picker / packer (`susun_masalah_picker` melewatinya, jadi tidak ada baris `tblmasalahpicker` tipe 6 /
+`tblmasalahpacker` tipe 7) dan tidak masuk kolom `total_*` di `tblcancel_paket` (tidak ada kolomnya;
+laporan menghitung dari kejadian). Tampil di kartu ringkasan, kolom Isi Laporan, dan popup Edit.

@@ -21,7 +21,7 @@
   </div>
 
   <div class="sec" id="pc_secisi">
-   <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada (tombol &minus; / + atau ketik). Tombol <b>0</b> = barang itu tidak ada di paket. Bila qty ada kurang dari qty resi, pilih <b>Kurang</b> (qty kurang dihitung otomatis) atau <b>Salah</b> (isi SKU yang terambil dan qty-nya; sisa selisih otomatis Kurang). Barang yang tidak tertulis di resi dan bukan salah ambil masuk <b>Barang di luar resi</b>.</div></div>
+   <div class="sect"><b>Isi resi</b><span class="inf" title="Petunjuk" data-act="tg">&#9432;</span><div class="infotxt hide">Isi <b>Qty ada</b> sesuai barang yang benar-benar ada (tombol &minus; / + atau ketik). Tombol <b>0</b> = barang itu tidak ada di paket. Bila qty ada kurang dari qty resi, pilih <b>Kurang</b> (qty kurang dihitung otomatis) atau <b>Salah</b> (isi SKU yang terambil dan qty-nya; sisa selisih otomatis Kurang), <b>Pergantian</b> (pembeli minta barang diganti) atau <b>Refund</b> (pembeli minta dana kembali; barang tidak jadi dikirim). Barang yang tidak tertulis di resi dan bukan salah ambil masuk <b>Barang di luar resi</b>.</div></div>
    <div id="pc_ban"></div>
    <div class="txw"><table class="tx"><thead><tr><th>SKU</th><th>Foto</th><th class="c">Rak</th><th class="c">Qty resi</th><th class="c">Qty ada</th><th>Status</th></tr></thead><tbody id="pc_isi"></tbody></table></div>
   </div>
@@ -154,7 +154,7 @@
         g('cat').value = '';
         g('form').className = 'pcd';
         // Fokus tetap di kolom resi: periksa isi (ubah qty bila perlu), lalu scan resi yang sama sekali lagi untuk menyimpan.
-        U.al('msg', 'ok', 'Periksa isi paket. Bila qty ada kurang dari qty resi, pilih <b>Kurang</b> atau <b>Salah</b>. Setelah semua beres, <b>scan resi ini sekali lagi</b> untuk menyimpan.');
+        U.al('msg', 'ok', 'Periksa isi paket. Bila qty ada kurang dari qty resi, pilih <b>Kurang</b>, <b>Salah</b>, <b>Pergantian</b> atau <b>Refund</b>. Setelah semua beres, <b>scan resi ini sekali lagi</b> untuk menyimpan.');
         g('resi').focus();
         g('resi').select();
     }
@@ -188,7 +188,7 @@
         var bp = K.belumPutus();
         if (bp.length) {
             K.render();
-            U.al('msg', 'bad', 'Pilih <b>Kurang</b> atau <b>Salah</b> untuk ' + bp.map(function (b) { return '<b>' + esc(b.sku) + '</b>'; }).join(', ') + ' (qty ada kurang dari qty resi), lalu scan resi ini lagi.');
+            U.al('msg', 'bad', 'Pilih <b>Kurang</b>, <b>Salah</b>, <b>Pergantian</b> atau <b>Refund</b> untuk ' + bp.map(function (b) { return '<b>' + esc(b.sku) + '</b>'; }).join(', ') + ' (qty ada kurang dari qty resi), lalu scan resi ini lagi.');
             var pr = g('isi').querySelector('tr.perlu');
             if (pr) pr.scrollIntoView({ block: 'center' });
             return;
@@ -199,7 +199,7 @@
         sibuk = true;
         U.post(URL.simpan, {
             noresi: resi.noresi, dari: dari, catatan: cat,
-            items: JSON.stringify(pay.items), salah: JSON.stringify(pay.salah)
+            items: JSON.stringify(pay.items), salah: JSON.stringify(pay.salah), sisa_jenis: JSON.stringify(pay.sisaJenis)
         }).then(function (res) {
             var d = (res && res.data) || {};
             if (!d.ok) { U.al('msg', 'bad', esc(res && res.message ? res.message : 'Gagal menyimpan')); g('resi').select(); return; }
