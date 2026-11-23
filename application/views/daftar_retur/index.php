@@ -96,7 +96,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-multi-pop .dr-cari-opsi:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
 .dr-multi-pop .dr-daftar { max-height:260px; overflow-y:auto; }
 .dr-multi-pop .dr-kosong { padding:10px; color:#9ca3af; font-size:12.5px; }
-.dr-dyn .dr-multi-pop { min-width:240px; }
+.dr-dyn .dr-multi-pop { min-width:240px; max-width:calc(100vw - 32px); }
 .dr-dyn .dr-multi-btn .nilai { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
 
@@ -144,17 +144,17 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th:nth-child(5)  { width:168px; }
 #dr_wrap table.dataTable thead th:nth-child(6)  { width:162px; }
 #dr_wrap table.dataTable thead th:nth-child(8)  { width:90px; }
-#dr_wrap table.dataTable thead th:nth-child(9)  { width:84px; }
+#dr_wrap table.dataTable thead th:nth-child(9)  { width:100px; }
 #dr_wrap table.dataTable thead th:nth-child(10) { width:128px; }
 #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(10) { width:152px; }
 #dr_wrap[data-tab="BELUM_DIBUKA"] table.dataTable thead th:nth-child(10) { width:116px; }
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(10) { width:108px; }
-#dr_wrap table.dataTable thead th:nth-child(11) { width:150px; }
+#dr_wrap table.dataTable thead th:nth-child(11) { width:160px; }
 @media (min-width: 1680px) {
   #dr_wrap table.dataTable thead th:nth-child(5)  { width:190px; }
   #dr_wrap table.dataTable thead th:nth-child(6)  { width:185px; }
   #dr_wrap table.dataTable thead th:nth-child(8)  { width:100px; }
-  #dr_wrap table.dataTable thead th:nth-child(9)  { width:95px; }
+  #dr_wrap table.dataTable thead th:nth-child(9)  { width:104px; }
   #dr_wrap table.dataTable thead th:nth-child(10) { width:150px; }
   #dr_wrap table.dataTable thead th:nth-child(11) { width:180px; }
 }
@@ -162,7 +162,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable thead th:nth-child(5)  { width:220px; }
   #dr_wrap table.dataTable thead th:nth-child(6)  { width:215px; }
   #dr_wrap table.dataTable thead th:nth-child(8)  { width:110px; }
-  #dr_wrap table.dataTable thead th:nth-child(9)  { width:105px; }
+  #dr_wrap table.dataTable thead th:nth-child(9)  { width:110px; }
   #dr_wrap table.dataTable thead th:nth-child(10) { width:170px; }
   #dr_wrap table.dataTable thead th:nth-child(11) { width:200px; }
 }
@@ -210,22 +210,32 @@ $BASE = rtrim(base_url(), '/') . '/';
   .dr-mpx { display:none; }
   #dr_wrap table.dataTable thead th:nth-child(4)  { width:112px; }
   #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(4) { width:150px; }
-  #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:160px; }
-  #dr_wrap table.dataTable thead th:nth-child(5)  { width:150px; }
-  #dr_wrap table.dataTable thead th:nth-child(6)  { width:148px; }
+  #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:150px; }
+  #dr_wrap table.dataTable thead th:nth-child(5)  { width:160px; }
+  #dr_wrap table.dataTable thead th:nth-child(6)  { width:164px; }
   #dr_wrap table.dataTable thead th:nth-child(8)  { width:78px; }
-  #dr_wrap table.dataTable thead th:nth-child(9)  { width:74px; }
-  #dr_wrap table.dataTable thead th:nth-child(10) { width:116px; }
-  #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(10) { width:140px; }
-  #dr_wrap table.dataTable thead th:nth-child(11) { width:118px; }
+  #dr_wrap table.dataTable thead th:nth-child(9)  { width:98px; }
+  #dr_wrap table.dataTable thead th:nth-child(11) { width:150px; }
 }
-/* Layar sempit: tabel boleh digeser bila tetap tidak muat */
-@media (max-width: 1200px) {
+/* Layar sempit (<= 1300: laptop kecil, tablet): tabel boleh digeser mendatar bila tidak muat; lebar minimal menjamin kolom Toko tetap terbaca.
+   Judul kolom tidak lagi menempel (sticky tidak bekerja di dalam wadah yang bisa digeser). */
+@media (max-width: 1300px) {
   #dr_tablewrap { overflow-x:auto; }
-  #dr_wrap table.dataTable { min-width:900px; }
+  #dr_wrap table.dataTable { min-width:980px; }
+  #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable { min-width:1080px; }
+  #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable { min-width:1130px; }
   #dr_wrap table.dataTable thead th { position:static; }
 }
-
+/* Tablet / ponsel: filter memenuhi lebar, panel pilihan tidak keluar layar, paging menumpuk */
+@media (max-width: 768px) {
+  #dr_wrap { padding:0 10px 10px; }
+  .dr-tabs { gap:0 10px; }
+  .dr-filter .dataTables_filter { flex:1 1 100%; max-width:none; order:20; }
+  .dr-acts { margin-left:0; flex:1 1 100%; order:21; }
+  .dr-multi-pop { max-width:calc(100vw - 32px); }
+  #dr_wrap .dr-bawah, #dr_wrap .dr-kanan { flex-wrap:wrap; justify-content:flex-start; margin-left:0; }
+  #dr_wrap .dataTables_paginate { flex-wrap:wrap; }
+}
 /* Indikator memuat: bar bergerak + keterangan, supaya jelas data sedang dimuat (bukan macet) */
 #dr_tablewrap { position:relative; min-height:140px; }
 #dr_tablewrap.memuat table { opacity:.35; pointer-events:none; transition:opacity .15s; }
