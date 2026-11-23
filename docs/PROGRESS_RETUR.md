@@ -182,3 +182,11 @@ drawer dari kanan (pola UI sama dengan drawer Manajemen Komplain CS New). Endpoi
 Isi drawer: ringkasan qty per hasil buka, data pesanan, alur Progress (petugas + waktu tiap scan terima / buka / cetak serah
 terima / verifikasi), tabel hasil Buka Retur **per SKU** (KE_DISPLAY / BUKAN_RETUR / REJECT / BARANG_TIDAK_ADA / dst, qty,
 pergantian, alasan, jenis B/K, petugas, status ACC), barang menurut Jubelio, dan komplain CS terkait.
+
+## Filter satu tombol (23 Nov 2026)
+
+Bar filter Daftar Retur Penjualan sekarang: chip tanggal, **satu tombol Filter** (ikon + angka jumlah kategori aktif), atur ulang, kotak cari, Export.
+Tombol membuka panel dua kolom (kategori di kiri: Jenis retur, Status Jubelio, Kurir, Marketplace, Toko; pilihan di kanan, ada pencarian untuk
+Kurir/MP/Toko). Pilihan baru berlaku setelah **Terapkan** (data dimuat sekali). Filter yang berlaku tampil sebagai chip di bawah bar, tiap chip bisa
+dihapus dengan x. Status Jubelio hanya muncul di tab Semua/Selesai; Jenis retur dinonaktifkan di tab Belum Terima/Hangus.
+Menambah filter baru: tambah satu entri di array `KAT` (view `daftar_retur/index.php`); untuk tipe `dinamis` daftarkan juga kuncinya di `FIL`, `ajax.data`, export, dan `Daftar_retur::_saring`.

@@ -44,7 +44,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-chip input { border:0; outline:0; background:transparent; width:176px; height:36px; padding:0; margin:0; cursor:pointer; color:#111827; font-weight:600; font-size:13px; line-height:36px; }
 .dr-chip .dr-chip-lbl { font-size:12px; color:#6b7280; white-space:nowrap; }
 /* ikon kontrol: kotak 14 px, rata tengah, warna sama di semua tombol */
-.dr-chip > i, .dr-multi-btn > i:first-child, .dr-reset i, .dr-export i { flex:none; width:14px; text-align:center; font-size:13px; line-height:1; color:#6b7280; }
+.dr-chip > i, .dr-reset i, .dr-export i { flex:none; width:14px; text-align:center; font-size:13px; line-height:1; color:#6b7280; }
 .dr-export i { color:inherit; }
 .dr-filter .dataTables_filter { height:38px; margin:0; padding:0; float:none; width:auto; text-align:left; flex:1 1 120px; min-width:120px; max-width:340px; }
 .dr-filter .dataTables_filter label { margin:0; padding:0; display:block; width:100%; height:38px; line-height:0; overflow:visible; }
@@ -62,23 +62,41 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-cetak { background:#0f766e; color:#fff; }
 .dr-cetak:hover { background:#115e59; }
 .dr-cetak[disabled] { background:#e5e7eb; border-color:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
-.dr-reset:focus-visible, .dr-export:focus-visible, .dr-multi-btn:focus-visible { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.25); }
+.dr-reset:focus-visible, .dr-export:focus-visible { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.25); }
 
-/* Filter jenis retur: tombol + panel centang multi (dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
-.dr-multi { position:relative; }
-.dr-multi.nonaktif { opacity:.45; pointer-events:none; }
-.dr-multi-btn { box-sizing:border-box; display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
-                border:1px solid #d1d5db; border-radius:6px; cursor:pointer; color:#111827; }
-.dr-multi-btn:hover, .dr-multi.buka .dr-multi-btn { border-color:#0f766e; }
-.dr-multi-btn .lbl { color:#6b7280; font-size:12px; }
-.dr-multi-btn .nilai { font-weight:600; }
-.dr-multi-btn .cnt { background:#0f766e; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
-.dr-multi-btn .cnt.semua { display:none; }   /* semua jenis terpilih = keadaan normal, tidak perlu angka */
-.dr-multi-btn .fa-angle-down { flex:none; width:10px; text-align:center; color:#9ca3af; transition:transform .15s; }
-.dr-multi.buka .fa-angle-down { transform:rotate(180deg); }
-.dr-multi-pop { display:none; position:absolute; left:0; top:44px; z-index:60; min-width:260px; padding:6px;
-                background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.12); }
-.dr-multi.buka .dr-multi-pop { display:block; }
+/* Filter: satu tombol "Filter" membuka panel dua kolom (kategori di kiri, pilihan di kanan). Filter baru cukup ditambah ke daftar KAT di JS;
+   tampilan panel, hitungan, dan chip filter aktif mengikuti otomatis. Pilihan baru berlaku setelah "Terapkan" (satu kali muat data). */
+#dr_fp { position:relative; }
+.dr-fbtn { box-sizing:border-box; display:inline-flex; align-items:center; gap:8px; height:38px; margin:0; padding:0 14px; background:#fff; border:1px solid #d1d5db; border-radius:6px;
+           color:#111827; font-size:13px; font-weight:600; line-height:1; cursor:pointer; }
+.dr-fbtn i { flex:none; width:14px; text-align:center; font-size:13px; color:#6b7280; }
+.dr-fbtn:hover, #dr_fp.buka .dr-fbtn { border-color:#0f766e; }
+.dr-fbtn:hover i, #dr_fp.buka .dr-fbtn i { color:#0f766e; }
+.dr-fbtn:focus-visible { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.25); }
+.dr-fbtn .cnt { background:#0f766e; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
+.dr-fbtn .cnt.nol { display:none; }
+.dr-fpanel { display:none; position:absolute; left:0; top:44px; z-index:60; width:580px; max-width:calc(100vw - 32px); background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.14); overflow:hidden; }
+#dr_fp.buka .dr-fpanel { display:block; }
+.dr-fp-body { display:flex; height:320px; }
+.dr-fp-nav { flex:none; width:176px; padding:8px; background:#f8fafc; border-right:1px solid #e5e7eb; overflow-y:auto; }
+.dr-fp-item { display:flex; align-items:center; gap:9px; padding:9px 10px; margin-bottom:2px; border-radius:6px; cursor:pointer; color:#374151; font-size:13px; font-weight:600; user-select:none; }
+.dr-fp-item:hover { background:#eef2f7; }
+.dr-fp-item.on { background:#fff; color:#0f766e; box-shadow:0 0 0 1px #ccfbf1; }
+.dr-fp-item i.fa { flex:none; width:14px; text-align:center; color:#9ca3af; }
+.dr-fp-item.on i.fa { color:#0f766e; }
+.dr-fp-item .n { margin-left:auto; background:#0f766e; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
+.dr-fp-pane { flex:1; min-width:0; display:flex; flex-direction:column; padding:12px 14px 8px; }
+.dr-fp-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13.5px; font-weight:700; color:#111827; }
+.dr-fp-head a, .dr-fp-kaki a { cursor:pointer; color:#0f766e; font-size:12px; font-weight:600; }
+.dr-fp-ket { margin:-2px 0 4px; color:#9ca3af; font-size:11.5px; }
+.dr-fp-list { flex:1; min-height:0; overflow-y:auto; }
+.dr-fp-info { margin-bottom:6px; padding:8px 10px; background:#fffbeb; color:#92400e; border-radius:6px; font-size:12px; line-height:1.45; }
+.dr-fp-kaki { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-top:1px solid #e5e7eb; background:#fff; }
+.dr-fok { height:34px; padding:0 18px; border:0; border-radius:6px; background:#0f766e; color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+.dr-fok:hover { background:#115e59; }
+.dr-fpanel .dr-cari-opsi { box-sizing:border-box; width:100%; height:34px; margin:0 0 4px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; }
+.dr-fpanel .dr-cari-opsi:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+.dr-fpanel .dr-kosong { padding:10px; color:#9ca3af; font-size:12.5px; }
 .dr-opsi { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; cursor:pointer; margin:0; font-weight:400; }
 .dr-opsi:hover { background:#f3f4f6; }
 .dr-opsi input { position:absolute; opacity:0; pointer-events:none; }
@@ -87,17 +105,17 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-kotak i { opacity:0; }
 .dr-opsi input:checked + .dr-kotak { background:#0f766e; border-color:#0f766e; }
 .dr-opsi input:checked + .dr-kotak i { opacity:1; }
+.dr-opsi input:disabled + .dr-kotak { opacity:.45; }
 .dr-opsi input:focus-visible + .dr-kotak { box-shadow:0 0 0 3px rgba(15,118,110,.25); }
-.dr-opsi .teks { flex:1; color:#111827; }
+.dr-opsi .teks { flex:1; min-width:0; color:#111827; overflow-wrap:anywhere; }
 .dr-opsi .ket { display:block; color:#9ca3af; font-size:11.5px; }
-.dr-multi-kaki { display:flex; justify-content:space-between; padding:6px 10px 4px; margin-top:4px; border-top:1px solid #f1f5f9; font-size:12px; }
-.dr-multi-kaki a { cursor:pointer; color:#0f766e; font-weight:600; }
-.dr-multi-pop .dr-cari-opsi { box-sizing:border-box; width:100%; height:34px; margin:2px 0 4px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; }
-.dr-multi-pop .dr-cari-opsi:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
-.dr-multi-pop .dr-daftar { max-height:260px; overflow-y:auto; }
-.dr-multi-pop .dr-kosong { padding:10px; color:#9ca3af; font-size:12.5px; }
-.dr-dyn .dr-multi-pop { min-width:240px; max-width:calc(100vw - 32px); }
-.dr-dyn .dr-multi-btn .nilai { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Chip filter yang sedang berlaku (satu baris di bawah bar; hilang bila tidak ada filter) */
+.dr-aktif { display:none; flex-wrap:wrap; gap:6px 8px; padding:0 0 8px; }
+.dr-aktif.ada { display:flex; }
+.dr-achip { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 4px 0 10px; border-radius:999px; background:#f0fdfa; border:1px solid #99f6e4; color:#134e4a; font-size:12px; }
+.dr-achip .v { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dr-achip button { width:18px; height:18px; padding:0; border:0; border-radius:50%; background:none; color:#0f766e; font-size:11px; line-height:18px; cursor:pointer; }
+.dr-achip button:hover { background:#ccfbf1; }
 .dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
 
 /* DataTables: baris per halaman, info, dan paging di bawah */
@@ -185,8 +203,6 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sr-selesai { background:#dcfce7; color:#166534; }
 .dr-sr-tolak { background:#fee2e2; color:#b91c1c; }
 .dr-sr-barang { background:#e0f2fe; color:#0369a1; }
-/* Filter Status Retur hanya tampil di tab Semua */
-#dr_wrap:not([data-tab=""]):not([data-tab="SELESAI"]) #dr_status { display:none; }
 .dr-sr-warn { background:#fef3c7; color:#92400e; padding:0 7px; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:5px 12px; margin:0 0 6px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
@@ -232,7 +248,11 @@ $BASE = rtrim(base_url(), '/') . '/';
   .dr-tabs { gap:0 10px; }
   .dr-filter .dataTables_filter { flex:1 1 100%; max-width:none; order:20; }
   .dr-acts { margin-left:0; flex:1 1 100%; order:21; }
-  .dr-multi-pop { max-width:calc(100vw - 32px); }
+  .dr-fpanel { position:fixed; left:16px; right:16px; top:15%; width:auto; max-width:none; }
+  .dr-fp-body { flex-direction:column; height:auto; max-height:56vh; }
+  .dr-fp-nav { display:flex; width:auto; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid #e5e7eb; }
+  .dr-fp-item { flex:none; margin:0 4px 0 0; }
+  .dr-fp-pane { min-height:0; overflow:hidden; }
   #dr_wrap .dr-bawah, #dr_wrap .dr-kanan { flex-wrap:wrap; justify-content:flex-start; margin-left:0; }
   #dr_wrap .dataTables_paginate { flex-wrap:wrap; }
 }
@@ -386,66 +406,13 @@ $BASE = rtrim(base_url(), '/') . '/';
       <span class="dr-chip-lbl" id="dr_rentang_lbl" title="Filter tanggal mengikuti tab: Belum Diterima = tanggal pesan, Sudah Terima = tanggal terima, Sudah Buka = tanggal buka, Sudah Serah Terima = tanggal serah terima, Sudah Verifikasi = tanggal verifikasi.">Tgl progress</span>
       <input type="text" id="dr_rentang" readonly />
     </span>
-    <div class="dr-multi" id="dr_jenis">
-      <div class="dr-multi-btn" id="dr_jenis_btn" tabindex="0" role="button" aria-haspopup="true">
-        <i class="fa fa-filter"></i>
-        <span class="lbl">Jenis retur</span>
-        <span class="nilai" id="dr_jenis_nilai">Semua</span>
-        <span class="cnt semua" id="dr_jenis_cnt">2</span>
-        <i class="fa fa-angle-down"></i>
+    <!-- Satu tombol Filter: panel dua kolom (kategori | pilihan) digambar JS dari daftar KAT -->
+    <div class="dr-fp" id="dr_fp">
+      <button type="button" class="dr-fbtn" id="dr_fbtn" aria-haspopup="true" title="Filter jenis retur, status Jubelio, kurir, marketplace, toko"><i class="fa fa-sliders"></i> Filter <span class="cnt nol">0</span></button>
+      <div class="dr-fpanel">
+        <div class="dr-fp-body"><div class="dr-fp-nav" id="dr_fp_nav"></div><div class="dr-fp-pane" id="dr_fp_pane"></div></div>
+        <div class="dr-fp-kaki"><a id="dr_fp_reset">Atur ulang pilihan</a><button type="button" class="dr-fok" id="dr_fp_ok">Terapkan</button></div>
       </div>
-      <div class="dr-multi-pop" id="dr_jenis_pop">
-        <label class="dr-opsi">
-          <input type="checkbox" value="B" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">Ekspedisi<span class="ket">Retur ekspedisi (gagal kirim)</span></span>
-        </label>
-        <label class="dr-opsi">
-          <input type="checkbox" value="K" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">Komplain<span class="ket">Pengembalian barang dari customer</span></span>
-        </label>
-        <div class="dr-multi-kaki"><a id="dr_jenis_semua">Pilih semua</a><a id="dr_jenis_hapus">Hapus</a></div>
-      </div>
-    </div>
-    <!-- Status retur Jubelio (hanya tab Semua): SELESAI / DITOLAK / BARANG RETUR -->
-    <div class="dr-multi" id="dr_status">
-      <div class="dr-multi-btn" id="dr_status_btn" tabindex="0" role="button" aria-haspopup="true">
-        <i class="fa fa-tag"></i>
-        <span class="lbl">Status retur</span>
-        <span class="nilai" id="dr_status_nilai">Semua</span>
-        <span class="cnt semua" id="dr_status_cnt">3</span>
-        <i class="fa fa-angle-down"></i>
-      </div>
-      <div class="dr-multi-pop" id="dr_status_pop">
-        <label class="dr-opsi">
-          <input type="checkbox" value="SELESAI" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">SELESAI<span class="ket">Retur selesai diproses di Jubelio</span></span>
-        </label>
-        <label class="dr-opsi">
-          <input type="checkbox" value="DITOLAK" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">DITOLAK<span class="ket">Pengajuan retur ditolak</span></span>
-        </label>
-        <label class="dr-opsi">
-          <input type="checkbox" value="BARANG RETUR" checked><span class="dr-kotak"><i class="fa fa-check"></i></span>
-          <span class="teks">BARANG RETUR<span class="ket">Retur ekspedisi (paket kembali ke toko)</span></span>
-        </label>
-        <div class="dr-multi-kaki"><a id="dr_status_semua">Pilih semua</a><a id="dr_status_hapus">Hapus</a></div>
-      </div>
-    </div>
-    <!-- Filter multi-pilih Kurir / MP / Toko: pilihan diisi JS dari data (kosong = semua) -->
-    <div class="dr-multi dr-dyn" id="dr_f_kurir" data-kunci="kurir">
-      <div class="dr-multi-btn" tabindex="0" role="button" aria-haspopup="true"><i class="fa fa-truck"></i><span class="lbl">Kurir</span><span class="nilai">Semua</span><span class="cnt semua">0</span><i class="fa fa-angle-down"></i></div>
-      <div class="dr-multi-pop"><input type="text" class="dr-cari-opsi" placeholder="Cari kurir..." autocomplete="off"><div class="dr-daftar"></div>
-        <div class="dr-multi-kaki"><span class="text-muted">Kosong = semua</span><a class="dr-f-hapus">Hapus pilihan</a></div></div>
-    </div>
-    <div class="dr-multi dr-dyn" id="dr_f_mp" data-kunci="mp">
-      <div class="dr-multi-btn" tabindex="0" role="button" aria-haspopup="true"><i class="fa fa-shopping-bag"></i><span class="lbl">MP</span><span class="nilai">Semua</span><span class="cnt semua">0</span><i class="fa fa-angle-down"></i></div>
-      <div class="dr-multi-pop"><input type="text" class="dr-cari-opsi" placeholder="Cari marketplace..." autocomplete="off"><div class="dr-daftar"></div>
-        <div class="dr-multi-kaki"><span class="text-muted">Kosong = semua</span><a class="dr-f-hapus">Hapus pilihan</a></div></div>
-    </div>
-    <div class="dr-multi dr-dyn" id="dr_f_toko" data-kunci="toko">
-      <div class="dr-multi-btn" tabindex="0" role="button" aria-haspopup="true"><i class="fa fa-home"></i><span class="lbl">Toko</span><span class="nilai">Semua</span><span class="cnt semua">0</span><i class="fa fa-angle-down"></i></div>
-      <div class="dr-multi-pop"><input type="text" class="dr-cari-opsi" placeholder="Cari toko..." autocomplete="off"><div class="dr-daftar"></div>
-        <div class="dr-multi-kaki"><span class="text-muted">Kosong = semua</span><a class="dr-f-hapus">Hapus pilihan</a></div></div>
     </div>
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
     <!-- kotak cari DataTables disisipkan JS di sini -->
@@ -454,6 +421,8 @@ $BASE = rtrim(base_url(), '/') . '/';
       <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
     </div>
   </div>
+  <!-- Chip filter yang sedang berlaku (diisi JS; tiap chip bisa dihapus dengan x) -->
+  <div class="dr-aktif" id="dr_aktif"></div>
   <!-- Bar pilihan (tab Sudah dibuka): jumlah resi dicentang + Pilih semua hasil / Hapus pilihan -->
   <div class="dr-pilih-info" id="dr_pilih_info" style="display:none;"></div>
 
@@ -567,7 +536,7 @@ $(document).ready(function () {
         $('#dr_wrap').toggleClass('mode-buka', !!n).attr('data-tab', status);
         // Jenis retur baru diketahui setelah scan terima: filter jenis tidak berlaku di tab Belum Terima / Hangus.
         var belum = (status === 'BELUM_DITERIMA' || status === 'BELUM_HANGUS');
-        $('#dr_jenis').toggleClass('nonaktif', belum).attr('title', belum ? 'Jenis retur baru diketahui setelah scan terima, jadi filter ini tidak berlaku di tab Belum Terima' : '');
+        tulisUIFilter();   // kategori Jenis / Status Jubelio mengikuti tab (lihat katTampil / katNonaktif)
         $('#dr_rentang_lbl').text(n ? n[1] : ((status === 'BELUM_DITERIMA' || status === 'BELUM_HANGUS') ? 'Tgl pesan' : 'Tgl progress'));
         if (n && tabel) $(tabel.column(3).header()).text(n[0]);
     }
@@ -781,92 +750,131 @@ $(document).ready(function () {
     });
 
 
-    // Filter jenis retur (centang multi). Data dimuat ulang saat panel ditutup / tombol aksi ditekan,
-    // bukan di tiap centang, supaya memilih dua opsi tidak memicu dua kali muat.
-    var jenisBerubah = false;
-    function bacaJenis() {
-        var v = $('#dr_jenis_pop input:checked').map(function () { return this.value; }).get();
-        return v.length ? v.join(',') : '-';
+    // ---------------- Filter: satu tombol + panel dua kolom ----------------
+    // Menambah filter baru = tambah satu entri di KAT (tipe 'semua' = daftar tetap, semua tercentang secara bawaan; tipe 'dinamis' = pilihan
+    // diambil dari data server (json.opsi), kosong = semua). Untuk filter dinamis juga daftarkan kuncinya di FIL dan di ajax.data + export.
+    var KAT = [
+        { k: 'jenis', t: 'Jenis retur', i: 'fa-exchange', tipe: 'semua', opsi: [['B', 'Ekspedisi', 'Retur ekspedisi (gagal kirim)'], ['K', 'Komplain', 'Pengembalian barang dari customer']] },
+        { k: 'status', t: 'Status Jubelio', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)']] },
+        { k: 'kurir', t: 'Kurir', i: 'fa-truck', tipe: 'dinamis', cari: 'Cari kurir...' },
+        { k: 'mp', t: 'Marketplace', i: 'fa-shopping-bag', tipe: 'dinamis', cari: 'Cari marketplace...' },
+        { k: 'toko', t: 'Toko', i: 'fa-home', tipe: 'dinamis', cari: 'Cari toko...' }
+    ];
+    var draf = {}, katAktif = 'jenis', panelBuka = false, cariOpsi = '';
+    function attr(t) { return esc(t).replace(/"/g, '&quot;'); }
+    function katCari(k) { return KAT.filter(function (x) { return x.k === k; })[0]; }
+    function katTampil(x) { return x.k !== 'status' || statusAktif === '' || statusAktif === 'SELESAI'; }   // status Jubelio hanya relevan di tab Semua / Selesai
+    function katNonaktif(x) { return x.k === 'jenis' && (statusAktif === 'BELUM_DITERIMA' || statusAktif === 'BELUM_HANGUS'); }   // jenis baru diketahui setelah scan terima
+    function jumlah(m) { return Object.keys(m).length; }
+    function setDari(str) { var m = {}; (str === '-' ? [] : str.split(',')).forEach(function (v) { if (v) m[v] = true; }); return m; }
+    function terapanSet(x) { return x.k === 'jenis' ? setDari(jenisAktif) : (x.k === 'status' ? setDari(statusRetAktif) : $.extend({}, FIL[x.k].pilih)); }
+    function bawaan(x) { var m = {}; if (x.tipe === 'semua') x.opsi.forEach(function (o) { m[o[0]] = true; }); return m; }
+    function nondefault(x, m) { return x.tipe === 'semua' ? jumlah(m) !== x.opsi.length : jumlah(m) > 0; }
+    function ringkasSet(x, m) {
+        var a = Object.keys(m);
+        if (x.tipe === 'semua') return x.opsi.filter(function (o) { return m[o[0]]; }).map(function (o) { return o[1]; }).join(', ') || 'Tidak ada';
+        return a.length > 2 ? a.slice(0, 2).join(', ') + ' +' + (a.length - 2) : a.join(', ');
     }
-    function tulisTombolJenis() {
-        var v = $('#dr_jenis_pop input:checked').map(function () { return this.value; }).get();
-        var teks = v.length === 2 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : (v[0] === 'K' ? 'Komplain' : 'Ekspedisi'));
-        $('#dr_jenis_nilai').text(teks);
-        $('#dr_jenis_cnt').text(v.length).toggleClass('semua', v.length === 2);
+    // Tombol Filter (angka) + chip filter yang SUDAH diterapkan.
+    function tulisUIFilter() {
+        if (!KAT) return;
+        var n = 0, h = '';
+        KAT.forEach(function (x) {
+            if (!katTampil(x) || katNonaktif(x)) return;
+            var m = terapanSet(x);
+            if (!nondefault(x, m)) return;
+            n++;
+            h += '<span class="dr-achip"><b>' + esc(x.t) + ':</b><span class="v" title="' + attr(Object.keys(m).join(', ')) + '">' + esc(ringkasSet(x, m)) + '</span>' +
+                '<button type="button" data-k="' + x.k + '" title="Hapus filter ini"><i class="fa fa-times"></i></button></span>';
+        });
+        $('#dr_fbtn .cnt').text(n).toggleClass('nol', n === 0);
+        $('#dr_aktif').html(h).toggleClass('ada', n > 0);
     }
-    function tutupJenis() {
-        if (!$('#dr_jenis').hasClass('buka')) return;
-        $('#dr_jenis').removeClass('buka');
-        var baru = bacaJenis();
-        if (baru !== jenisAktif) { jenisAktif = baru; tabel.ajax.reload(); }
+    function gambarNav() {
+        var h = '';
+        KAT.forEach(function (x) {
+            if (!katTampil(x)) return;
+            var m = draf[x.k];
+            h += '<div class="dr-fp-item' + (x.k === katAktif ? ' on' : '') + '" data-k="' + x.k + '"><i class="fa ' + x.i + '"></i>' + esc(x.t) +
+                (nondefault(x, m) ? '<span class="n">' + jumlah(m) + '</span>' : '') + '</div>';
+        });
+        $('#dr_fp_nav').html(h);
     }
-    $('#dr_jenis_btn').on('click', function (e) {
-        e.stopPropagation();
-        if ($('#dr_jenis').hasClass('buka')) tutupJenis(); else $('#dr_jenis').addClass('buka');
-    }).on('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
-        if (e.key === 'Escape') tutupJenis();
-    });
-    $('#dr_jenis_pop').on('click', function (e) { e.stopPropagation(); });
-    $('#dr_jenis_pop').on('change', 'input', tulisTombolJenis);
-    $('#dr_jenis_semua').on('click', function () { $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); });
-    $('#dr_jenis_hapus').on('click', function () { $('#dr_jenis_pop input').prop('checked', false); tulisTombolJenis(); });
-    $(document).on('click.drjenis', tutupJenis);
+    function gambarPane() {
+        var x = katCari(katAktif), h = '';
+        h += '<div class="dr-fp-head"><span>' + esc(x.t) + '</span><a id="dr_fp_reset_kat">' + (x.tipe === 'semua' ? 'Pilih semua' : 'Hapus pilihan') + '</a></div>';
+        if (katNonaktif(x)) h += '<div class="dr-fp-info">Jenis retur baru diketahui setelah scan terima, jadi filter ini tidak berlaku di tab Belum Terima.</div>';
+        if (x.tipe === 'dinamis') h += '<input type="text" class="dr-cari-opsi" placeholder="' + attr(x.cari) + '" autocomplete="off" value="' + attr(cariOpsi) + '"><div class="dr-fp-ket">Kosong = semua</div>';
+        h += '<div class="dr-fp-list"></div>';
+        $('#dr_fp_pane').html(h);
+        gambarDaftar();
+    }
+    function gambarDaftar() {
+        var x = katCari(katAktif), m = draf[x.k], q = cariOpsi.toLowerCase(), h = '';
+        var opsi = x.tipe === 'semua' ? x.opsi : FIL[x.k].opsi.map(function (v) { return [v, v === '' ? '(kosong)' : v, '']; });
+        opsi.forEach(function (o) {
+            if (q && o[1].toLowerCase().indexOf(q) < 0) return;
+            h += '<label class="dr-opsi"><input type="checkbox" value="' + attr(o[0]) + '"' + (m[o[0]] ? ' checked' : '') + (katNonaktif(x) ? ' disabled' : '') +
+                '><span class="dr-kotak"><i class="fa fa-check"></i></span><span class="teks">' + esc(o[1]) + (o[2] ? '<span class="ket">' + esc(o[2]) + '</span>' : '') + '</span></label>';
+        });
+        $('#dr_fp_pane .dr-fp-list').html(h || '<div class="dr-kosong">' + (opsi.length ? 'Tidak ada yang cocok' : 'Belum ada data') + '</div>');
+    }
+    function bukaPanel() {
+        KAT.forEach(function (x) { draf[x.k] = terapanSet(x); });
+        cariOpsi = '';
+        if (!katTampil(katCari(katAktif))) katAktif = 'jenis';
+        panelBuka = true;
+        $('#dr_fp').addClass('buka');
+        gambarNav(); gambarPane();
+    }
+    function tutupPanel() {
+        if (!panelBuka) return;
+        panelBuka = false;
+        $('#dr_fp').removeClass('buka');
+    }
+    // Terapkan draf ke filter berlaku; muat ulang data sekali saja, hanya bila ada yang berubah.
+    function terapkan() {
+        var urut = function (x) { return x.opsi.map(function (o) { return o[0]; }).filter(function (v) { return draf[x.k][v]; }).join(',') || '-'; };
+        var j = urut(katCari('jenis')), s = urut(katCari('status')), muat = false, ganti = false;
+        if (j !== jenisAktif) { jenisAktif = j; muat = true; }
+        if (s !== statusRetAktif) { statusRetAktif = s; muat = true; }
+        Object.keys(FIL).forEach(function (k) {
+            FIL[k].pilih = $.extend({}, draf[k]);
+            var b = pilihJson(k);
+            if (b !== FIL[k].terapan) { FIL[k].terapan = b; muat = true; ganti = true; }
+        });
+        tutupPanel();
+        tulisUIFilter();
+        if (ganti) sel = {};
+        if (muat) tabel.ajax.reload();
+    }
 
-    // Filter status retur Jubelio (tab Semua): pola sama dengan filter jenis; muat ulang saat panel ditutup.
-    function bacaStatusRet() {
-        var v = $('#dr_status_pop input:checked').map(function () { return this.value; }).get();
-        return v.length ? v.join(',') : '-';
-    }
-    function tulisTombolStatus() {
-        var v = $('#dr_status_pop input:checked').map(function () { return this.value; }).get();
-        var teks = v.length === 3 ? 'Semua' : (v.length === 0 ? 'Tidak ada' : v.join(', '));
-        $('#dr_status_nilai').text(teks);
-        $('#dr_status_cnt').text(v.length).toggleClass('semua', v.length === 3);
-    }
-    function tutupStatus() {
-        if (!$('#dr_status').hasClass('buka')) return;
-        $('#dr_status').removeClass('buka');
-        var baru = bacaStatusRet();
-        if (baru !== statusRetAktif) { statusRetAktif = baru; tabel.ajax.reload(); }
-    }
-    $('#dr_status_btn').on('click', function (e) {
-        e.stopPropagation();
-        tutupJenis();
-        if ($('#dr_status').hasClass('buka')) tutupStatus(); else $('#dr_status').addClass('buka');
-    }).on('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
-        if (e.key === 'Escape') tutupStatus();
+    $('#dr_fp').on('click', function (e) { e.stopPropagation(); });
+    $('#dr_fbtn').on('click', function () { if (panelBuka) tutupPanel(); else bukaPanel(); });
+    $(document).on('click.drfp', tutupPanel).on('keydown.drfp', function (e) { if (e.key === 'Escape') tutupPanel(); });
+    $('#dr_fp_nav').on('click', '.dr-fp-item', function () { katAktif = $(this).attr('data-k'); cariOpsi = ''; gambarNav(); gambarPane(); });
+    $('#dr_fp_pane').on('change', 'input[type=checkbox]', function () {
+        if (this.checked) draf[katAktif][this.value] = true; else delete draf[katAktif][this.value];
+        gambarNav();
     });
-    $('#dr_jenis_btn').on('click.drstatus', tutupStatus);
-    $('#dr_status_pop').on('click', function (e) { e.stopPropagation(); });
-    $('#dr_status_pop').on('change', 'input', tulisTombolStatus);
-    $('#dr_status_semua').on('click', function () { $('#dr_status_pop input').prop('checked', true); tulisTombolStatus(); });
-    $('#dr_status_hapus').on('click', function () { $('#dr_status_pop input').prop('checked', false); tulisTombolStatus(); });
-    $(document).on('click.drstatus', tutupStatus);
+    $('#dr_fp_pane').on('input', '.dr-cari-opsi', function () { cariOpsi = $.trim($(this).val()); gambarDaftar(); });
+    $('#dr_fp_pane').on('click', '#dr_fp_reset_kat', function () { draf[katAktif] = bawaan(katCari(katAktif)); gambarNav(); gambarDaftar(); });
+    $('#dr_fp_reset').on('click', function () { KAT.forEach(function (x) { draf[x.k] = bawaan(x); }); gambarNav(); gambarDaftar(); });
+    $('#dr_fp_ok').on('click', terapkan);
+    $('#dr_aktif').on('click', 'button', function () {   // hapus satu filter dari chip, langsung diterapkan
+        var k = $(this).attr('data-k');
+        KAT.forEach(function (x) { draf[x.k] = terapanSet(x); });
+        draf[k] = bawaan(katCari(k));
+        terapkan();
+    });
 
-    // Filter multi-pilih Kurir / MP / Toko. Pilihan diambil dari data (respons server: json.opsi) dan digabung, tidak pernah dibuang,
+    // Pilihan Kurir / MP / Toko diambil dari data (respons server: json.opsi) dan digabung, tidak pernah dibuang,
     // supaya pilihan yang sudah dicentang tidak hilang saat tab/filter lain berganti. Tidak ada yang dicentang = semua.
     function pilihJson(k) {
         var a = Object.keys(FIL[k].pilih).sort();
         return a.length ? JSON.stringify(a) : '';
     }
-    function tulisTombolF(k) {
-        var a = Object.keys(FIL[k].pilih), $f = $('#dr_f_' + k);
-        $f.find('.nilai').text(a.length === 0 ? 'Semua' : (a.length === 1 ? (a[0] || '(kosong)') : a.length + ' dipilih')).attr('title', a.join(', '));
-        $f.find('.cnt').text(a.length).toggleClass('semua', a.length === 0);
-        gambarOpsi(k);
-    }
-    function gambarOpsi(k) {
-        var $f = $('#dr_f_' + k), q = $.trim($f.find('.dr-cari-opsi').val()).toLowerCase(), h = '';
-        FIL[k].opsi.forEach(function (v) {
-            var label = v === '' ? '(kosong)' : v;
-            if (q && label.toLowerCase().indexOf(q) < 0) return;
-            h += '<label class="dr-opsi"><input type="checkbox" value="' + esc(v).replace(/"/g, '&quot;') + '"' + (FIL[k].pilih[v] ? ' checked' : '') +
-                '><span class="dr-kotak"><i class="fa fa-check"></i></span><span class="teks">' + esc(label) + '</span></label>';
-        });
-        $f.find('.dr-daftar').html(h || '<div class="dr-kosong">' + (FIL[k].opsi.length ? 'Tidak ada yang cocok' : 'Belum ada data') + '</div>');
-    }
+    function gambarOpsi(k) { if (panelBuka && katAktif === k) gambarDaftar(); }
     function gabungOpsi(o) {
         if (!o) return;
         Object.keys(FIL).forEach(function (k) {
@@ -876,34 +884,6 @@ $(document).ready(function () {
             if (baru.length !== FIL[k].opsi.length) { FIL[k].opsi = baru; gambarOpsi(k); }
         });
     }
-    function tutupF(k) {
-        var $f = $('#dr_f_' + k);
-        if (!$f.hasClass('buka')) return;
-        $f.removeClass('buka');
-        var baru = pilihJson(k);
-        if (baru !== FIL[k].terapan) { FIL[k].terapan = baru; sel = {}; tabel.ajax.reload(); }
-    }
-    function tutupSemuaF(kecuali) { Object.keys(FIL).forEach(function (k) { if (k !== kecuali) tutupF(k); }); }
-    $('.dr-dyn').each(function () {
-        var $f = $(this), k = $f.attr('data-kunci');
-        $f.find('.dr-multi-btn').on('click', function (e) {
-            e.stopPropagation();
-            tutupJenis(); tutupStatus(); tutupSemuaF(k);
-            if ($f.hasClass('buka')) tutupF(k); else { $f.addClass('buka'); $f.find('.dr-cari-opsi').focus(); }
-        }).on('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
-            if (e.key === 'Escape') tutupF(k);
-        });
-        $f.find('.dr-multi-pop').on('click', function (e) { e.stopPropagation(); });
-        $f.on('change', '.dr-daftar input', function () {
-            if (this.checked) FIL[k].pilih[this.value] = true; else delete FIL[k].pilih[this.value];
-            tulisTombolF(k);
-        });
-        $f.find('.dr-cari-opsi').on('input', function () { gambarOpsi(k); });
-        $f.find('.dr-f-hapus').on('click', function () { FIL[k].pilih = {}; tulisTombolF(k); });
-    });
-    $(document).on('click.drdyn', function () { tutupSemuaF(); });
-    $('#dr_jenis_btn, #dr_status_btn').on('click.drdyn', function () { tutupSemuaF(); });
 
     $('#dr_rentang').on('apply.daterangepicker', function () { tabel.ajax.reload(); });
 
@@ -973,11 +953,9 @@ $(document).ready(function () {
         aturModeTanggal('');
         sel = {};
         jenisAktif = 'B,K';
-        $('#dr_jenis_pop input').prop('checked', true); tulisTombolJenis(); $('#dr_jenis').removeClass('buka');
         statusRetAktif = STATUS_SEMUA;
-        $('#dr_status_pop input').prop('checked', true); tulisTombolStatus(); $('#dr_status').removeClass('buka');
-        $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');
-        Object.keys(FIL).forEach(function (k) { FIL[k].pilih = {}; FIL[k].terapan = ''; tulisTombolF(k); });
+        Object.keys(FIL).forEach(function (k) { FIL[k].pilih = {}; FIL[k].terapan = ''; });
+        tutupPanel(); tulisUIFilter();
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
         tabel.search('').order([8, 'desc']).ajax.reload();
     });
