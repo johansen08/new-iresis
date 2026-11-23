@@ -318,7 +318,8 @@ class Cron extends CI_Controller
             $result   = $this->retur_fcd->insert_jubelio_batch($rows, $batch_id, null);
 
             $msg = "Upload retur Jubelio selesai: {$result['inserted']} baris baru, "
-                 . "{$result['updated']} diperbarui, {$result['matched']} cocok dengan scan iresis "
+                 . "{$result['updated']} diperbarui, {$result['matched']} cocok dengan scan iresis, "
+                 . "{$result['status_diperbarui']} status pesanan dijadikan RETURNED "
                  . "(batch {$batch_id}).";
 
             $this->_log('auto_upload_retur_jubelio', ['success' => true, 'message' => $msg]);

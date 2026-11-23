@@ -2594,8 +2594,8 @@ class Retur extends MY_Controller
 			if (ob_get_length()) ob_clean();
 			$this->make_ajax_response(
 				201,
-				"Upload Jubelio selesai: {$result['inserted']} baris baru, {$result['updated']} baris diperbarui statusnya, {$result['matched']} resi cocok dengan data scan iresis.",
-				['batch_id' => $batch_id, 'inserted' => $result['inserted'], 'updated' => $result['updated'], 'matched' => $result['matched']]
+				"Upload Jubelio selesai: {$result['inserted']} baris baru, {$result['updated']} baris diperbarui statusnya, {$result['matched']} resi cocok dengan data scan iresis, {$result['status_diperbarui']} status pesanan dijadikan RETURNED.",
+				['batch_id' => $batch_id, 'inserted' => $result['inserted'], 'updated' => $result['updated'], 'matched' => $result['matched'], 'status_diperbarui' => $result['status_diperbarui']]
 			);
 		} catch (Throwable $e) {
 			if (ob_get_length()) ob_clean();
