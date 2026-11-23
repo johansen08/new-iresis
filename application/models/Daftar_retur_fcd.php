@@ -548,6 +548,18 @@ class Daftar_retur_fcd extends CI_Model
             }));
         }
 
+        // Filter rentang Nilai (jumlah amount resi) dan Umur (umur_tampil, hari). Salah satu batas boleh kosong = tidak terbatas.
+        // Sama dengan Kurir/MP/Toko: dipasang sebelum penghitungan tab, jadi angka tiap tab ikut menyempit.
+        foreach (array('nilai' => 'nilai', 'umur' => 'umur_tampil') as $kunci_p => $kolom_r) {
+            $min = isset($p[$kunci_p . '_min']) ? (float) $p[$kunci_p . '_min'] : null;
+            $max = isset($p[$kunci_p . '_max']) ? (float) $p[$kunci_p . '_max'] : null;
+            if ($min === null && $max === null) continue;
+            $semua = array_values(array_filter($semua, function ($r) use ($min, $max, $kolom_r) {
+                $v = (float) $r->$kolom_r;
+                return ($min === null || $v >= $min) && ($max === null || $v <= $max);
+            }));
+        }
+
         $jenis = isset($p['jenis']) && is_array($p['jenis'])
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
             : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
