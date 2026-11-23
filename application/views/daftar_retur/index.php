@@ -192,10 +192,11 @@ $BASE = rtrim(base_url(), '/') . '/';
    Progress (kolom 12) tampil di semua tab: di tab Sudah dibuka ia membedakan Sudah Buka dan Sudah Serah Terima. */
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable td:nth-child(11),
 #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable td:nth-child(11),
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11) { display:none; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable td:nth-child(11),
+#dr_wrap[data-tab="SELESAI"] table.dataTable th:nth-child(11), #dr_wrap[data-tab="SELESAI"] table.dataTable td:nth-child(11) { display:none; }
 /* Status Retur (kolom 13, status_retur Jubelio: SELESAI / DITOLAK / BARANG RETUR) hanya di tab Semua; kolom ditaruh PALING AKHIR supaya indeks kolom lain tidak bergeser. */
-#dr_wrap:not([data-tab=""]):not([data-tab="SUDAH_VERIF"]) table.dataTable th:nth-child(13), #dr_wrap:not([data-tab=""]):not([data-tab="SUDAH_VERIF"]) table.dataTable td:nth-child(13) { display:none; }
-#dr_wrap:not([data-tab=""]):not([data-tab="SUDAH_VERIF"]) table.dataTable thead th:nth-child(12) { border-radius:0 6px 6px 0; }
+#dr_wrap:not([data-tab=""]):not([data-tab="SELESAI"]) table.dataTable th:nth-child(13), #dr_wrap:not([data-tab=""]):not([data-tab="SELESAI"]) table.dataTable td:nth-child(13) { display:none; }
+#dr_wrap:not([data-tab=""]):not([data-tab="SELESAI"]) table.dataTable thead th:nth-child(12) { border-radius:0 6px 6px 0; }
 #dr_wrap table.dataTable thead th:nth-child(13) { width:150px; }
 #dr_wrap table.dataTable tbody td:nth-child(13) { overflow:visible; }
 .dr-sr { display:inline-block; margin-right:4px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:700; line-height:20px; white-space:nowrap; }
@@ -203,7 +204,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-sr-tolak { background:#fee2e2; color:#b91c1c; }
 .dr-sr-barang { background:#e0f2fe; color:#0369a1; }
 /* Filter Status Retur hanya tampil di tab Semua */
-#dr_wrap:not([data-tab=""]):not([data-tab="SUDAH_VERIF"]) #dr_status { display:none; }
+#dr_wrap:not([data-tab=""]):not([data-tab="SELESAI"]) #dr_status { display:none; }
 .dr-sr-warn { background:#fef3c7; color:#92400e; padding:0 7px; }
 .dr-pilih-info { color:#134e4a; font-size:12.5px; background:#f0fdfa; border:1px solid #99f6e4; border-radius:6px; padding:5px 12px; margin:0 0 6px; }
 .dr-pilih-info a { color:#0f766e; font-weight:600; cursor:pointer; margin-left:10px; }
@@ -312,7 +313,8 @@ $BASE = rtrim(base_url(), '/') . '/';
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting (bisa Cetak Ulang)">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
-    <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah diverifikasi accounting, atau sudah final di Jubelio (SELESAI / DITOLAK); bisa difilter Status retur">Sudah Verifikasi <span class="n" id="n_SUDAH_VERIF">-</span></div>
+    <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah diverifikasi accounting, tetapi status di Jubelio masih BARANG RETUR (accounting perlu menuntaskannya di Jubelio)">Sudah Verifikasi <span class="n" id="n_SUDAH_VERIF">-</span></div>
+    <div class="dr-tab" data-status="SELESAI" title="Status di Jubelio sudah SELESAI atau DITOLAK; bisa difilter Status retur">Selesai <span class="n" id="n_SELESAI">-</span></div>
   </div>
 
   <!-- Filter -->
@@ -458,7 +460,8 @@ $(document).ready(function () {
     // Tab -> nama kolom tanggal tahap (judul kolom) dan label filter tanggal.
     var NAMA_TAHAP = {
         'BELUM_DIBUKA': ['Tgl Terima', 'Tgl terima'], 'SUDAH_DIBUKA': ['Tgl Buka', 'Tgl buka'],
-        'SUDAH_SERAH': ['Tgl Serah Terima', 'Tgl serah terima'], 'SUDAH_VERIF': ['Tgl Verifikasi', 'Tgl verifikasi']
+        'SUDAH_SERAH': ['Tgl Serah Terima', 'Tgl serah terima'], 'SUDAH_VERIF': ['Tgl Verifikasi', 'Tgl verifikasi'],
+        'SELESAI': ['Tgl Verifikasi', 'Tgl verifikasi']
     };
     function aturModeTanggal(status) {
         var n = NAMA_TAHAP[status];
@@ -575,13 +578,12 @@ $(document).ready(function () {
         ['BELUM_DITERIMA', 'BELUM_HANGUS', 'BELUM_DIBUKA', 'SUDAH_DIBUKA', 'SUDAH_SERAH', 'SUDAH_VERIF'].forEach(function (k) {
             var n = parseInt(c[k] || 0, 10);
             semua += n;
-            // Angka Sudah Verifikasi yang lengkap (termasuk final di Jubelio) hanya dihitung saat tab Semua / Sudah Verifikasi aktif.
-            if (k !== 'SUDAH_VERIF') $('#n_' + k).text(n.toLocaleString('id-ID'));
+            $('#n_' + k).text(n.toLocaleString('id-ID'));
         });
-        if (json.jumlah_verif !== null && json.jumlah_verif !== undefined) {
-            $('#n_SUDAH_VERIF').text(parseInt(json.jumlah_verif, 10).toLocaleString('id-ID')).data('terisi', true);
-        } else if (!$('#n_SUDAH_VERIF').data('terisi')) {
-            $('#n_SUDAH_VERIF').text((parseInt(c.SUDAH_VERIF || 0, 10)).toLocaleString('id-ID'));
+        // Angka Selesai (final di Jubelio) hanya dihitung server saat tab Semua / Selesai aktif (baris tambahannya berat);
+        // di tab lain angka terakhir dibiarkan.
+        if (json.jumlah_selesai !== null && json.jumlah_selesai !== undefined) {
+            $('#n_SELESAI').text(parseInt(json.jumlah_selesai, 10).toLocaleString('id-ID')).data('terisi', true);
         }
         // Tab Semua = retur ekspedisi + SELESAI/DITOLAK menurut filter Status retur; angkanya hanya dihitung server saat tab Semua
         // aktif (baris tambahannya berat), jadi di tab lain angka terakhir dibiarkan.

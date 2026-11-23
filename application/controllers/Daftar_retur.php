@@ -88,7 +88,7 @@ class Daftar_retur extends MY_Controller
             return;
         }
 
-        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua, $jumlah_verif) = $this->daftar_retur_fcd->get_list(array(
+        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua, $jumlah_selesai) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
             'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis, 'status_retur' => $status_retur,
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
@@ -116,7 +116,7 @@ class Daftar_retur extends MY_Controller
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
                 $this->_sel_progress($r, isset($rincian[strtoupper((string) $r->no_resi)]) ? $rincian[strtoupper((string) $r->no_resi)] : array()),
-                $this->_lencana_status($r),   // kolom 13: hanya tampil di tab Semua dan Sudah Verifikasi (CSS)
+                $this->_lencana_status($r),   // kolom 13: hanya tampil di tab Semua dan Selesai (CSS)
             );
         }
 
@@ -126,7 +126,7 @@ class Daftar_retur extends MY_Controller
             'recordsFiltered' => $total_filter,
             'tab_counts'      => $tab,
             'jumlah_semua'    => $jumlah_semua,   // isi tab Semua menurut filter status; NULL bila bukan tab Semua
-            'jumlah_verif'    => $jumlah_verif,   // isi tab Sudah Verifikasi (termasuk final di Jubelio) menurut filter status; NULL bila tidak dihitung
+            'jumlah_selesai'  => $jumlah_selesai, // isi tab Selesai (final di Jubelio) menurut filter status; NULL bila tidak dihitung
             'dihitung_pada'   => date('H:i:s', $waktu),
             'data'            => $data,
         ));
