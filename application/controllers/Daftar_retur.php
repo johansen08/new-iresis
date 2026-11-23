@@ -215,72 +215,101 @@ class Daftar_retur extends MY_Controller
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($jml);
 
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // Menulis satu sheet berisi $baris (format sama untuk sheet utama dan sheet per marketplace).
+        $tulis = function ($ws, array $baris) use ($kolom, $akhir, $rincian, $langkah, $label_sumber) {
+            foreach ($kolom as $i => $nama) {
+                $ws->setCellValueByColumnAndRow($i + 1, 1, $nama);
+            }
+
+            $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
+            $r = 2;
+            foreach ($baris as $i => $b) {
+                $ws->setCellValueByColumnAndRow(1, $r, $i + 1);
+                $isi = array(
+                    2  => $b->tanggal_pesan ? date('d/m/Y H:i', strtotime($b->tanggal_pesan)) : '-',
+                    3  => $b->tanggal_retur ? date('d/m/Y H:i', strtotime($b->tanggal_retur)) : '-',
+                    4  => isset($label_sumber[$b->sumber_tanggal]) ? $label_sumber[$b->sumber_tanggal] : '-',
+                    // Teks eksplisit supaya nomor panjang tidak jadi notasi ilmiah.
+                    5  => (string) $b->no_pesanan,
+                    6  => (string) $b->no_resi,
+                    7  => (string) $b->kurir,
+                    8  => (string) $b->marketplace,
+                    9  => (string) $b->nama_toko,
+                    12 => $b->posisi === Daftar_retur_fcd::POSISI_BELUM_HANGUS ? 'Belum Terima (Hangus)' : Daftar_retur_fcd::TAHAP_NAMA[(int) $b->tahap],
+                    13 => ((int) $b->ir_k + (int) $b->bk_k) > 0 ? 'Ya' : '-',
+                    14 => $b->tanggal_buka ? date('d/m/Y H:i', strtotime($b->tanggal_buka)) : '-',
+                );
+                $det = isset($rincian[strtoupper((string) $b->no_resi)]) ? $rincian[strtoupper((string) $b->no_resi)] : array();
+                $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
+                $ket = array();
+                if (!empty($b->data_lama)) $ket[] = 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')';
+                if (!empty($b->lost_scan)) $ket[] = 'Kemungkinan lost scan: ada catatan terima tetapi tidak ada scan buka, padahal sudah melewati tahap berikutnya';
+                if (!empty($b->dari_jubelio)) $ket[] = 'Verifikasi disimpulkan dari status Jubelio (' . str_replace(',', ' + ', (string) $b->stat) . '): tidak ada catatan verifikasi di iresis';
+                $isi[16] = $ket ? implode('; ', $ket) : '-';
+                $c = 17;
+                foreach ($langkah as $k => $judul) {
+                    $x = isset($det[$k]) ? $det[$k] : null;
+                    $isi[$c++] = $x ? date('d/m/Y', strtotime($x['t'])) : '-';
+                    $isi[$c++] = $x ? date('H:i:s', strtotime($x['t'])) : '-';
+                    $isi[$c++] = ($x && $x['p'] !== null) ? (string) $x['p'] : '-';
+                }
+                $isi[$c] = str_replace(',', ', ', (string) $b->stat)   // status_retur Jubelio (SELESAI / DITOLAK / BARANG RETUR)
+                    . ($this->daftar_retur_fcd->belum_final_jubelio($b) ? ' (Jubelio belum final)' : '');
+                foreach ($isi as $c => $v) {
+                    $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
+                }
+                $ws->setCellValueByColumnAndRow(10, $r, (float) $b->nilai);
+                $ws->setCellValueByColumnAndRow(11, $r, (int) $b->umur_tampil);
+                $r++;
+            }
+            $terakhir = max(2, $r - 1);
+
+            $rentang = 'A1:' . $akhir . $terakhir;
+            $ws->getStyle($rentang)->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
+            $ws->getStyle($rentang)->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $ws->getStyle('J2:J' . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
+            $head = $ws->getStyle('A1:' . $akhir . '1');
+            $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
+            $ws->getRowDimension(1)->setRowHeight(26);
+            foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 40, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36, 24) as $i => $w) {
+                $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
+            }
+            $ws->freezePane('A2');
+            if ($r > 2) {
+                $ws->setAutoFilter('A1:' . $akhir . $terakhir);
+            }
+        };
+
         $ws = $ss->getActiveSheet();
         $ws->setTitle('Daftar Retur');
-        foreach ($kolom as $i => $nama) {
-            $ws->setCellValueByColumnAndRow($i + 1, 1, $nama);
-        }
+        $tulis($ws, $rows);
 
-        $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
-        $r = 2;
-        foreach ($rows as $i => $b) {
-            $ws->setCellValueByColumnAndRow(1, $r, $i + 1);
-            $isi = array(
-                2  => $b->tanggal_pesan ? date('d/m/Y H:i', strtotime($b->tanggal_pesan)) : '-',
-                3  => $b->tanggal_retur ? date('d/m/Y H:i', strtotime($b->tanggal_retur)) : '-',
-                4  => isset($label_sumber[$b->sumber_tanggal]) ? $label_sumber[$b->sumber_tanggal] : '-',
-                // Teks eksplisit supaya nomor panjang tidak jadi notasi ilmiah.
-                5  => (string) $b->no_pesanan,
-                6  => (string) $b->no_resi,
-                7  => (string) $b->kurir,
-                8  => (string) $b->marketplace,
-                9  => (string) $b->nama_toko,
-                12 => $b->posisi === Daftar_retur_fcd::POSISI_BELUM_HANGUS ? 'Belum Terima (Hangus)' : Daftar_retur_fcd::TAHAP_NAMA[(int) $b->tahap],
-                13 => ((int) $b->ir_k + (int) $b->bk_k) > 0 ? 'Ya' : '-',
-                14 => $b->tanggal_buka ? date('d/m/Y H:i', strtotime($b->tanggal_buka)) : '-',
-            );
-            $det = isset($rincian[strtoupper((string) $b->no_resi)]) ? $rincian[strtoupper((string) $b->no_resi)] : array();
-            $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
-            $ket = array();
-            if (!empty($b->data_lama)) $ket[] = 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')';
-            if (!empty($b->lost_scan)) $ket[] = 'Kemungkinan lost scan: ada catatan terima tetapi tidak ada scan buka, padahal sudah melewati tahap berikutnya';
-            if (!empty($b->dari_jubelio)) $ket[] = 'Verifikasi disimpulkan dari status Jubelio (' . str_replace(',', ' + ', (string) $b->stat) . '): tidak ada catatan verifikasi di iresis';
-            $isi[16] = $ket ? implode('; ', $ket) : '-';
-            $c = 17;
-            foreach ($langkah as $k => $judul) {
-                $x = isset($det[$k]) ? $det[$k] : null;
-                $isi[$c++] = $x ? date('d/m/Y', strtotime($x['t'])) : '-';
-                $isi[$c++] = $x ? date('H:i:s', strtotime($x['t'])) : '-';
-                $isi[$c++] = ($x && $x['p'] !== null) ? (string) $x['p'] : '-';
+        // Tab Belum Terima (termasuk Hangus): tambah satu sheet per marketplace.
+        if ($status === 'BELUM_DITERIMA' || $status === 'BELUM_HANGUS') {
+            $per_mp = array();
+            foreach ($rows as $b) {
+                $mp = trim((string) $b->marketplace);
+                $per_mp[$mp !== '' ? $mp : 'Tanpa Marketplace'][] = $b;
             }
-            $isi[$c] = str_replace(',', ', ', (string) $b->stat)   // status_retur Jubelio (SELESAI / DITOLAK / BARANG RETUR)
-                . ($this->daftar_retur_fcd->belum_final_jubelio($b) ? ' (Jubelio belum final)' : '');
-            foreach ($isi as $c => $v) {
-                $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
+            ksort($per_mp, SORT_NATURAL | SORT_FLAG_CASE);
+            $dipakai = array('daftar retur' => true);
+            foreach ($per_mp as $mp => $baris) {
+                $judul = trim(preg_replace('~[\\\\/?*\[\]:]~', ' ', (string) $mp));
+                $judul = mb_substr($judul !== '' ? $judul : 'Marketplace', 0, 31);
+                for ($n = 2; isset($dipakai[mb_strtolower($judul)]); $n++) {
+                    $judul = mb_substr($judul, 0, 28) . ' ' . $n;
+                }
+                $dipakai[mb_strtolower($judul)] = true;
+                $sh = $ss->createSheet();
+                $sh->setTitle($judul);
+                $tulis($sh, $baris);
             }
-            $ws->setCellValueByColumnAndRow(10, $r, (float) $b->nilai);
-            $ws->setCellValueByColumnAndRow(11, $r, (int) $b->umur_tampil);
-            $r++;
-        }
-        $terakhir = max(2, $r - 1);
-
-        $rentang = 'A1:' . $akhir . $terakhir;
-        $ws->getStyle($rentang)->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
-        $ws->getStyle($rentang)->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $ws->getStyle('J2:J' . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
-        $head = $ws->getStyle('A1:' . $akhir . '1');
-        $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
-        $ws->getRowDimension(1)->setRowHeight(26);
-        foreach (array(6, 17, 17, 20, 24, 22, 14, 14, 24, 14, 12, 20, 11, 19, 12, 40, 12, 11, 36, 12, 11, 36, 12, 11, 36, 12, 11, 36, 24) as $i => $w) {
-            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
-        }
-        $ws->freezePane('A2');
-        if ($r > 2) {
-            $ws->setAutoFilter('A1:' . $akhir . $terakhir);
+            $ss->setActiveSheetIndex(0);
         }
 
         $nama_berkas = 'daftar-retur-penjualan-' . date('Ymd-His') . '.xlsx';
