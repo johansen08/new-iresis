@@ -217,6 +217,7 @@ class Daftar_retur extends MY_Controller
             $isi[15] = ((int) $b->serah_n) > 0 ? (string) (int) $b->serah_n : '-';
             $ket = array();
             if (!empty($b->data_lama)) $ket[] = 'Data lama: serah terima tidak tercatat (dibuka sebelum ' . date('d/m/Y', strtotime(Daftar_retur_fcd::SERAH_MULAI)) . ')';
+            if (!empty($b->lost_scan)) $ket[] = 'Kemungkinan lost scan: ada catatan terima tetapi tidak ada scan buka, padahal sudah melewati tahap berikutnya';
             if (!empty($b->dari_jubelio)) $ket[] = 'Verifikasi disimpulkan dari status Jubelio (' . str_replace(',', ' + ', (string) $b->stat) . '): tidak ada catatan verifikasi di iresis';
             $isi[16] = $ket ? implode('; ', $ket) : '-';
             $c = 17;
@@ -527,6 +528,9 @@ class Daftar_retur extends MY_Controller
                 } else {
                     $baris['lama'] = true;
                 }
+            }
+            if ($k === 'buka' && !$x && !empty($r->lost_scan)) {
+                $baris['x'] = 'Kemungkinan lost scan: scan buka tidak tercatat, padahal paket sudah melewati tahap berikutnya';
             }
             if ($k === 'serah' && $x && !empty($x['n']) && (int) $x['n'] > 1) {
                 list($ta, $wa) = $pecah($x['akhir'] ? $x['akhir']['t'] : null);

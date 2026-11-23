@@ -544,6 +544,23 @@ class Daftar_retur_fcd extends CI_Model
             $r->tgl_serah = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['awal'] : null;
             $r->serah_akhir = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['akhir'] : null;
             $r->serah_n = isset($serah[$kunci_serah]) ? $serah[$kunci_serah]['n'] : 0;
+            // Kemungkinan lost scan: tercatat diterima tapi TIDAK ADA scan buka, padahal paket sudah melewati tahap berikutnya
+            // (sudah dicetak serah terima, sudah diverifikasi accounting, atau retur sudah punya status SELESAI / DITOLAK di Jubelio).
+            // Paket seperti itu tidak mungkin masih menunggu dibuka, jadi bukan lagi "Sudah Terima": pindah ke tahap terjauhnya
+            // (verifikasi / Jubelio -> Sudah Verifikasi, serah terima -> Sudah Serah Terima). Scan buka yang hilang TIDAK dibuatkan data palsu.
+            $r->lost_scan = 0;
+            if ($posisi === self::POSISI_BELUM_DIBUKA) {
+                $ada_verif = ((int) $r->vf === 1);
+                $ada_jub = ($r->ekstra && ((int) $r->stm & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'])) !== 0);
+                if ($ada_verif || $ada_jub) {
+                    $r->lost_scan = 1;
+                    if (!$ada_verif) $r->dari_jubelio = 1;
+                    $posisi = self::POSISI_SUDAH_VERIF;
+                } elseif ($r->tgl_serah !== null) {
+                    $r->lost_scan = 1;
+                    $posisi = self::POSISI_SUDAH_SERAH;
+                }
+            }
             // Sudah dibuka + pernah dicetak serah terima -> pindah ke tab Sudah Serah Terima.
             if ($posisi === self::POSISI_SUDAH_DIBUKA && $r->tgl_serah !== null) $posisi = self::POSISI_SUDAH_SERAH;
             // Belum diterima lebih dari UMUR_HANGUS hari -> tab Belum Terima (Hangus).
