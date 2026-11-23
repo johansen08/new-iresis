@@ -114,7 +114,7 @@ class Daftar_retur_fcd extends CI_Model
             SELECT f.*,
                    DATEDIFF(NOW(), f.tanggal_retur) AS umur_hari
             FROM (
-                SELECT g.no_resi, g.no_pesanan, g.kurir, g.marketplace, g.nama_toko, g.qty, g.nilai,
+                SELECT g.no_resi, g.no_pesanan, g.kurir, g.marketplace, g.nama_toko, g.qty, g.nilai, g.stat,
                        COALESCE(g.d_pesan_p, g.d_pesan_a, g.tgl_order) AS tanggal_pesan,
                        COALESCE(g.d_retur_p, g.d_retur_a, g.d_kirim_p, g.d_kirim_a, g.tgl_order) AS tanggal_retur,
                        CASE
@@ -158,7 +158,7 @@ class Daftar_retur_fcd extends CI_Model
                        ) AS tb_k
                 FROM (
                     SELECT j.no_resi, j.resi_l, j.no_pesanan, j.kurir, j.marketplace, j.nama_toko,
-                           j.qty, j.nilai, j.tgl_order,
+                           j.qty, j.nilai, j.tgl_order, j.stat,
                            CASE WHEN p.tanggal_pesan >= {$sah} THEN p.tanggal_pesan END           AS d_pesan_p,
                            CASE WHEN a.tanggal_pesan >= {$sah} THEN a.tanggal_pesan END           AS d_pesan_a,
                            CASE WHEN p.tanggal_retur >= {$sah} THEN p.tanggal_retur END           AS d_retur_p,
@@ -174,11 +174,15 @@ class Daftar_retur_fcd extends CI_Model
                                MAX(nama_toko)   AS nama_toko,
                                SUM(qty)         AS qty,
                                SUM(amount)      AS nilai,
-                               MIN(tanggal_retur) AS tgl_order
+                               MIN(tanggal_retur) AS tgl_order,
+                               CONCAT_WS(',',
+                                   IF(SUM(status_retur = 'SELESAI') > 0, 'SELESAI', NULL),
+                                   IF(SUM(status_retur = 'DITOLAK') > 0, 'DITOLAK', NULL),
+                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL)) AS stat
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
-                        HAVING SUM(status_retur IS NULL OR status_retur <> 'BARANG RETUR') = 0
+                        HAVING SUM(status_retur = 'BARANG RETUR') > 0
                     ) j
                     LEFT JOIN tblprintresi p ON p.noresi = j.resi_l
                     LEFT JOIN {$arsip}.tblprintresi a ON a.noresi = j.resi_l
@@ -199,7 +203,7 @@ class Daftar_retur_fcd extends CI_Model
      */
     public function semua_baris($segarkan = false)
     {
-        $file = $this->_berkas_cache('daftar_retur5');
+        $file = $this->_berkas_cache('daftar_retur6');
 
         if (!$segarkan && $this->_cache_layak($file, self::CACHE_DETIK)) {
             $isi = json_decode((string) @file_get_contents($file), true);
@@ -217,7 +221,7 @@ class Daftar_retur_fcd extends CI_Model
 
     /**
      * SQL baris tambahan untuk tab Semua: resi yang punya minimal satu baris SELESAI / DITOLAK (atau status kosong)
-     * di tblreturjubelio -- kebalikan dari _sql_dasar() yang hanya mengambil resi BARANG RETUR murni. Kolomnya sama
+     * di tblreturjubelio -- kebalikan dari _sql_dasar() (resi yang masih punya BARANG RETUR, termasuk campuran): hanya resi yang SELURUHNYA final. Kolomnya sama
      * dengan _sql_dasar() ditambah `stat` (daftar status_retur resi itu, dipisah koma).
      *
      * Beda cara hitung: jumlah scan terima/buka/verifikasi diambil dari tabel agregat (GROUP BY satu kali) lalu di-JOIN,
@@ -296,7 +300,7 @@ class Daftar_retur_fcd extends CI_Model
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
-                        HAVING SUM(status_retur IS NULL OR status_retur <> 'BARANG RETUR') > 0
+                        HAVING SUM(status_retur = 'BARANG RETUR') = 0 AND SUM(status_retur IS NULL OR status_retur <> 'BARANG RETUR') > 0
                     ) j
                     LEFT JOIN tblprintresi p ON p.noresi = j.resi_l
                     LEFT JOIN {$arsip}.tblprintresi a ON a.noresi = j.resi_l
@@ -358,7 +362,7 @@ class Daftar_retur_fcd extends CI_Model
      */
     public function baris_tambahan($segarkan = false)
     {
-        $file = $this->_berkas_cache('daftar_retur_semua2', 'dat');
+        $file = $this->_berkas_cache('daftar_retur_semua3', 'dat');
 
         if (!$segarkan && $this->_cache_layak($file, self::CACHE_SEMUA_DETIK)) {
             $isi = @unserialize((string) @file_get_contents($file), array('allowed_classes' => false));
@@ -393,7 +397,7 @@ class Daftar_retur_fcd extends CI_Model
         $t = microtime(true);
         list($dasar) = $this->semua_baris(true);
         $info = array('dasar' => count($dasar));
-        $file = $this->_berkas_cache('daftar_retur_semua2', 'dat');
+        $file = $this->_berkas_cache('daftar_retur_semua3', 'dat');
         if (!is_file($file) || (time() - filemtime($file)) >= $umur_tambahan) {
             $info['tambahan'] = count($this->baris_tambahan(true));
         } else {
@@ -478,7 +482,7 @@ class Daftar_retur_fcd extends CI_Model
      * @param array $p start, end (Y-m-d H:i:s), status (posisi/kosong), search, order (kolom),
      *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
      *                 status_retur (array 'SELESAI'/'DITOLAK'/'BARANG RETUR'; HANYA berlaku di tab Semua, status kosong):
-     *                 tampilkan semua retur Jubelio dengan status itu. Tidak diisi = perilaku lama (hanya BARANG RETUR murni).
+     *                 tampilkan semua retur Jubelio dengan status itu. Tidak diisi = perilaku lama (hanya resi yang masih punya BARANG RETUR).
      *                 Filter status_retur berlaku juga di tab SELESAI (memuat resi final di Jubelio; hanya SELESAI / DITOLAK).
      * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung, jumlah_tab_semua (NULL bila bukan tab Semua),
      *                jumlah_tab_selesai (NULL bila baris tambahan tidak dimuat)]
@@ -487,7 +491,7 @@ class Daftar_retur_fcd extends CI_Model
     {
         list($semua, $waktu) = $this->semua_baris(!empty($p['segarkan']));
 
-        // Tab Semua: selain retur ekspedisi (BARANG RETUR murni) ikut resi yang berstatus SELESAI / DITOLAK.
+        // Tab Semua: selain retur ekspedisi (masih ada BARANG RETUR) ikut resi yang seluruhnya SELESAI / DITOLAK.
         $status_retur = (isset($p['status_retur']) && is_array($p['status_retur']))
             ? array_values(array_intersect($p['status_retur'], self::STATUS_RETUR)) : null;
         $mode_semua = ($status_retur !== null && empty($p['status']));
@@ -499,9 +503,13 @@ class Daftar_retur_fcd extends CI_Model
         foreach ((array) $status_retur as $st) $mask |= self::BIT_STATUS[$st];
         // Tab Selesai: filter Status retur hanya berlaku untuk SELESAI / DITOLAK.
         if ($mode_selesai) $mask &= (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']);
+        // Baris dasar = resi yang masih punya minimal satu baris BARANG RETUR (termasuk campuran dengan SELESAI / DITOLAK); stat dari SQL.
         foreach ($semua as $r) {
-            $r->stat = 'BARANG RETUR';
-            $r->stm = self::BIT_STATUS['BARANG RETUR'];
+            $stm = 0;
+            foreach (explode(',', (string) $r->stat) as $st) {
+                if (isset(self::BIT_STATUS[$st])) $stm |= self::BIT_STATUS[$st];
+            }
+            $r->stm = $stm ?: self::BIT_STATUS['BARANG RETUR'];
             $r->ekstra = 0;
         }
         if ($pakai_ekstra && ($mask & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']))) {
@@ -563,7 +571,7 @@ class Daftar_retur_fcd extends CI_Model
             $r->lost_scan = 0;
             if ($posisi === self::POSISI_BELUM_DIBUKA) {
                 $ada_verif = ((int) $r->vf === 1);
-                $ada_jub = ($r->ekstra && ((int) $r->stm & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'])) !== 0);
+                $ada_jub = (((int) $r->stm & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'])) !== 0);
                 if ($ada_verif || $ada_jub) {
                     $r->lost_scan = 1;
                     if (!$ada_verif) $r->dari_jubelio = 1;
