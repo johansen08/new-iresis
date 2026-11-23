@@ -64,6 +64,7 @@ class Daftar_retur_fcd extends CI_Model
     const POSISI_SUDAH_DIBUKA   = 'SUDAH_DIBUKA';   // sudah scan buka, BELUM diverifikasi accounting
     const POSISI_SUDAH_SERAH    = 'SUDAH_SERAH';    // sudah dibuka DAN sudah dicetak serah terimanya, BELUM diverifikasi
     const POSISI_SUDAH_VERIF    = 'SUDAH_VERIF';    // sudah scan buka DAN sudah diverifikasi accounting
+    const TAB_SELESAI           = 'SELESAI';        // tab tampilan (bukan posisi): sudah verifikasi + status Jubelio final (SELESAI / DITOLAK)
 
     /**
      * Tahap progres retur (kolom Progress): 0 belum terima -> 1 sudah terima (scan Terima Retur) -> 2 sudah buka
@@ -478,9 +479,9 @@ class Daftar_retur_fcd extends CI_Model
      *                 dir, offset, limit, segarkan, jenis (array 'B'/'K'; kosong/tak diisi = keduanya)
      *                 status_retur (array 'SELESAI'/'DITOLAK'/'BARANG RETUR'; HANYA berlaku di tab Semua, status kosong):
      *                 tampilkan semua retur Jubelio dengan status itu. Tidak diisi = perilaku lama (hanya BARANG RETUR murni).
-     *                 Filter status_retur berlaku juga di tab SUDAH_VERIF (memuat resi final di Jubelio).
+     *                 Filter status_retur berlaku juga di tab SELESAI (memuat resi final di Jubelio; hanya SELESAI / DITOLAK).
      * @return array [rows, total_difilter, total_semua_pada_rentang, jumlah_per_status, waktu_hitung, jumlah_tab_semua (NULL bila bukan tab Semua),
-     *                jumlah_tab_verifikasi_lengkap (NULL bila baris tambahan tidak dimuat)]
+     *                jumlah_tab_selesai (NULL bila baris tambahan tidak dimuat)]
      */
     public function get_list(array $p)
     {
@@ -490,11 +491,14 @@ class Daftar_retur_fcd extends CI_Model
         $status_retur = (isset($p['status_retur']) && is_array($p['status_retur']))
             ? array_values(array_intersect($p['status_retur'], self::STATUS_RETUR)) : null;
         $mode_semua = ($status_retur !== null && empty($p['status']));
-        // Tab Sudah Verifikasi ikut memuat resi final di Jubelio (SELESAI / DITOLAK) supaya isinya sama dengan label Sudah Verifikasi di tab Semua.
-        $mode_verif = ($status_retur !== null && isset($p['status']) && $p['status'] === self::POSISI_SUDAH_VERIF);
-        $pakai_ekstra = ($mode_semua || $mode_verif);
+        // Tab Selesai memuat resi final di Jubelio (SELESAI / DITOLAK). Tab Sudah Verifikasi hanya resi yang di Jubelio MASIH BARANG RETUR
+        // (baris dasar), jadi tidak butuh baris tambahan.
+        $mode_selesai = ($status_retur !== null && isset($p['status']) && $p['status'] === self::TAB_SELESAI);
+        $pakai_ekstra = ($mode_semua || $mode_selesai);
         $mask = 0;
         foreach ((array) $status_retur as $st) $mask |= self::BIT_STATUS[$st];
+        // Tab Selesai: filter Status retur hanya berlaku untuk SELESAI / DITOLAK.
+        if ($mode_selesai) $mask &= (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']);
         foreach ($semua as $r) {
             $r->stat = 'BARANG RETUR';
             $r->stm = self::BIT_STATUS['BARANG RETUR'];
@@ -518,7 +522,7 @@ class Daftar_retur_fcd extends CI_Model
         $serah = $this->peta_serah();
         $rentang = array();
         $tab = array(self::POSISI_BELUM_DITERIMA => 0, self::POSISI_BELUM_HANGUS => 0, self::POSISI_BELUM_DIBUKA => 0, self::POSISI_SUDAH_DIBUKA => 0,
-            self::POSISI_SUDAH_SERAH => 0, self::POSISI_SUDAH_VERIF => 0);
+            self::POSISI_SUDAH_SERAH => 0, self::POSISI_SUDAH_VERIF => 0, self::TAB_SELESAI => 0);
         $kandidat = array();
         $perlu_terima = array();
         $perlu_verif = array();
@@ -574,7 +578,9 @@ class Daftar_retur_fcd extends CI_Model
             // Belum diterima lebih dari UMUR_HANGUS hari -> tab Belum Terima (Hangus).
             if ($posisi === self::POSISI_BELUM_DITERIMA && (int) $r->umur_hari > self::UMUR_HANGUS) $posisi = self::POSISI_BELUM_HANGUS;
             $r->posisi = $posisi;
-            $r->tahap = $this->hitung_tahap($posisi, $r->tgl_serah !== null);
+            // Tab tampilan: final di Jubelio (SELESAI / DITOLAK) -> tab Selesai; verifikasi lain (Jubelio masih BARANG RETUR) -> Sudah Verifikasi.
+            $r->tab = ($posisi === self::POSISI_SUDAH_VERIF && $r->final_jubelio) ? self::TAB_SELESAI : $posisi;
+            $r->tahap =$this->hitung_tahap($posisi, $r->tgl_serah !== null);
             // Data lama: sudah dibuka sebelum alur serah terima ada dan tidak punya catatan serah terima.
             $r->data_lama = ($r->tgl_serah === null && $r->tanggal_buka !== null && $r->tanggal_buka < self::SERAH_MULAI
                 && ($posisi === self::POSISI_SUDAH_DIBUKA || $posisi === self::POSISI_SUDAH_VERIF));
@@ -605,20 +611,20 @@ class Daftar_retur_fcd extends CI_Model
             if ($tgl_filter >= $p['start'] && $tgl_filter <= $p['end']) {
                 $rentang[] = $r;
                 // Hitungan tab hanya dari retur ekspedisi, supaya angka tab lain tidak berubah oleh baris tambahan tab Semua.
-                if (!$r->ekstra) $tab[$r->posisi]++;
+                if (!$r->ekstra) $tab[$r->tab]++;
             }
         }
         $total_rentang = count($rentang);
-        // Angka tab Semua dan Sudah Verifikasi (lengkap, termasuk resi final di Jubelio) hanya dihitung saat baris tambahan dimuat.
+        // Angka tab Semua dan Selesai (resi final di Jubelio) hanya dihitung saat baris tambahan dimuat.
         $jumlah_semua = null;
-        $jumlah_verif = null;
+        $jumlah_selesai = null;
         if ($pakai_ekstra) {
-            $jumlah_verif = 0;
+            $jumlah_selesai = 0;
             if ($mode_semua) $jumlah_semua = 0;
             foreach ($rentang as $r) {
                 if (!($r->stm & $mask)) continue;
                 if ($mode_semua) $jumlah_semua++;
-                if ($r->posisi === self::POSISI_SUDAH_VERIF) $jumlah_verif++;
+                if ($r->tab === self::TAB_SELESAI) $jumlah_selesai++;
             }
         }
 
@@ -626,7 +632,7 @@ class Daftar_retur_fcd extends CI_Model
         $status = (!empty($p['status']) && isset($tab[$p['status']])) ? $p['status'] : '';
         $hasil = array();
         foreach ($rentang as $r) {
-            if ($status !== '' && $r->posisi !== $status) continue;
+            if ($status !== '' && $r->tab !== $status) continue;
             if ($pakai_ekstra && !($r->stm & $mask)) continue;
             if ($cari !== '') {
                 $gabung = mb_strtolower($r->no_resi . ' ' . $r->no_pesanan . ' ' . $r->kurir . ' ' . $r->marketplace . ' ' . $r->nama_toko);
@@ -655,7 +661,7 @@ class Daftar_retur_fcd extends CI_Model
 
         $rows = array_slice($hasil, (int) $p['offset'], (int) $p['limit']);
 
-        return array($rows, $total_filter, $total_rentang, $tab, $waktu, $jumlah_semua, $jumlah_verif);
+        return array($rows, $total_filter, $total_rentang, $tab, $waktu, $jumlah_semua, $jumlah_selesai);
     }
 
     /** Tahap progres 0..4 dari posisi paket; serah terima hanya relevan untuk paket yang sudah dibuka dan belum diverifikasi. */
