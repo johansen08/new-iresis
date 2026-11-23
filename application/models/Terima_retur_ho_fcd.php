@@ -32,6 +32,10 @@ class Terima_retur_ho_fcd extends CI_Model
     const KODE_KOSONG     = 'kosong';
     const KODE_JENIS      = 'jenis_belum_dipilih';
     const KODE_GAGAL      = 'gagal';
+    const KODE_SALAH_MENU = 'salah_menu';
+    const KODE_KONFIRMASI = 'konfirmasi';
+    const KODE_DIPROSES   = 'sudah_diproses';
+    const KODE_TIDAK_RETUR = 'tidak_ada_retur';
 
     public static function label_jenis($jenis)
     {
@@ -103,6 +107,14 @@ class Terima_retur_ho_fcd extends CI_Model
             return $hasil;
         }
 
+        // Paket reguler/NDD yang masih PROCESSING belum pernah dikirim, jadi tidak mungkin retur:
+        // petugas salah membuka menu scan.
+        if ($status === 'PROCESSING') {
+            $hasil['kode']    = self::KODE_SALAH_MENU;
+            $hasil['message'] = 'Salah Menu Scan. Paket ini masih berstatus PROCESSING (belum dikirim), bukan retur.';
+            return $hasil;
+        }
+
         // Kunci per resi: dua scan resi yang sama yang tiba bersamaan (scan beruntun,
         // dua PC) tidak boleh sama-sama lolos cek double lalu sama-sama INSERT.
         $kunci = 'terima_retur_' . (int) $resi['id_printresi'];
@@ -158,6 +170,112 @@ class Terima_retur_ho_fcd extends CI_Model
 
             $hasil['kode']    = self::KODE_OK;
             $hasil['message'] = 'Tersimpan sebagai ' . self::label_jenis($jenis) . '.';
+            return $hasil;
+        } finally {
+            $this->db->query('SELECT RELEASE_LOCK(?)', [$kunci]);
+        }
+    }
+
+    /**
+     * Hapus resi yang salah scan (mis. paket reguler/NDD ikut terscan sebagai retur) dari tblresiretur.
+     * Dua tahap: $konfirmasi=false hanya memeriksa dan mengembalikan kode 'konfirmasi' beserta detail;
+     * $konfirmasi=true menyalin baris ke tblresiretur_salah_scan (jejak: siapa, kapan) lalu menghapusnya.
+     * Hanya baris berstatus "Terima Retur" yang belum dibuka (tanpa tblbukaretur) yang boleh dihapus.
+     *
+     * @return array ['kode', 'message', 'noresi', 'resi_balik', 'baris' => [[jenis, tanggal], ...]]
+     */
+    public function hapus($input, $id_user, $konfirmasi)
+    {
+        $input = trim((string) $input);
+        $hasil = ['kode' => '', 'message' => '', 'noresi' => $input, 'resi_balik' => null, 'baris' => []];
+
+        if ($input === '') {
+            $hasil['kode']    = self::KODE_KOSONG;
+            $hasil['message'] = 'Resi kosong.';
+            return $hasil;
+        }
+
+        $noresi = resolusi_noresi_retur($input);
+        if ($noresi !== $input) {
+            $hasil['resi_balik'] = $input;
+        }
+        $hasil['noresi'] = $noresi;
+
+        $resi = $this->db->select('id_printresi, noresi')->get_where('tblprintresi', ['noresi' => $noresi])->row_array();
+        if (empty($resi)) {
+            $hasil['kode']    = self::KODE_TIDAK_ADA;
+            $hasil['message'] = "Resi $noresi tidak ditemukan.";
+            return $hasil;
+        }
+        $id_resi = (int) $resi['id_printresi'];
+
+        $kunci = 'terima_retur_' . $id_resi;   // kunci yang sama dengan terima(): tidak bisa hapus & terima bersamaan
+        $dapat = $this->db->query('SELECT GET_LOCK(?, 5) AS k', [$kunci])->row();
+        if (!$dapat || (int) $dapat->k !== 1) {
+            $hasil['kode']    = self::KODE_GAGAL;
+            $hasil['message'] = 'Server sibuk memproses resi ini. Coba lagi.';
+            return $hasil;
+        }
+
+        try {
+            $semua = $this->db->select('*')
+                ->group_start()->where('id_resi', $id_resi)->or_where('noresi', $noresi)->group_end()
+                ->get('tblresiretur')->result_array();
+
+            if (!$semua) {
+                $hasil['kode']    = self::KODE_TIDAK_RETUR;
+                $hasil['message'] = 'Resi ini tidak ada di data retur, tidak ada yang perlu dihapus.';
+                return $hasil;
+            }
+
+            $bisa = [];
+            foreach ($semua as $r) {
+                if ($r['status_retur'] === 'Terima Retur') {
+                    $bisa[] = $r;
+                }
+            }
+            $sudah_buka = $this->db->where('resi_buka', $noresi)->count_all_results('tblbukaretur') > 0;
+            if (!$bisa || $sudah_buka) {
+                $hasil['kode']    = self::KODE_DIPROSES;
+                $hasil['message'] = 'Resi ini sudah diproses lebih lanjut (Buka Retur), tidak bisa dihapus dari sini. Hubungi admin.';
+                return $hasil;
+            }
+
+            foreach ($bisa as $r) {
+                $hasil['baris'][] = [
+                    'jenis'   => !empty($r['is_komplain']) ? 'Retur Komplain' : 'Retur Ekspedisi',
+                    'tanggal' => $r['tanggal_resiretur'],
+                ];
+            }
+
+            if (!$konfirmasi) {
+                $hasil['kode']    = self::KODE_KONFIRMASI;
+                $hasil['message'] = 'Resi ditemukan di data retur.';
+                return $hasil;
+            }
+
+            $prev_debug = $this->db->db_debug;
+            $this->db->db_debug = FALSE;
+            $this->db->trans_start();
+            foreach ($bisa as $r) {
+                $log = $r;
+                $log['dihapus_oleh'] = $id_user;
+                $log['dihapus_at']   = date('Y-m-d H:i:s');
+                $this->db->insert('tblresiretur_salah_scan', $log);
+                $this->db->delete('tblresiretur', ['id_resiretur' => $r['id_resiretur'], 'status_retur' => 'Terima Retur']);
+            }
+            $this->db->trans_complete();
+            $ok = $this->db->trans_status();
+            $this->db->db_debug = $prev_debug;
+
+            if (!$ok) {
+                $hasil['kode']    = self::KODE_GAGAL;
+                $hasil['message'] = 'Gagal menghapus. Tidak ada data yang berubah, coba lagi.';
+                return $hasil;
+            }
+
+            $hasil['kode']    = self::KODE_OK;
+            $hasil['message'] = 'Resi dihapus dari data retur (salinan tersimpan di log salah scan).';
             return $hasil;
         } finally {
             $this->db->query('SELECT RELEASE_LOCK(?)', [$kunci]);

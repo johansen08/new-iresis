@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-21.2';
+    const BOOTSTRAP_VERSI = '2026-11-23.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2627,6 +2627,16 @@ class MY_Controller extends CI_Controller
             $menu_id = $this->db->insert_id();
         } else {
             $menu_id = $menu->id;
+        }
+
+        // Jejak hapus resi salah scan: salinan baris tblresiretur + siapa/kapan dihapus.
+        $this->db->query("CREATE TABLE IF NOT EXISTS `tblresiretur_salah_scan` LIKE `tblresiretur`");
+        foreach (array('dihapus_oleh' => "int(11) DEFAULT NULL", 'dihapus_at' => "datetime DEFAULT NULL") as $kolom => $def) {
+            $ada = $this->db->query("SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema = DATABASE()
+                AND table_name = 'tblresiretur_salah_scan' AND column_name = ?", array($kolom))->row();
+            if ((int) $ada->n === 0) {
+                $this->db->query("ALTER TABLE `tblresiretur_salah_scan` ADD COLUMN `{$kolom}` {$def}");
+            }
         }
 
         $role_boleh = [1, 5];
