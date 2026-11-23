@@ -33,40 +33,48 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-tab .n.hot { background:#ccfbf1; color:#0f766e; }
 .dr-tab.on .n { background:#0f766e; color:#fff; }
 
-/* Bar filter: filter di kiri, kotak cari menyusul, aksi (Export/Cetak) rata kanan */
-.dr-filter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0 8px; }
-.dr-chip { display:inline-flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:6px;
+/* Bar filter: filter di kiri (tanggal, jenis, status, atur ulang), kotak cari menyusul, aksi (Export/Cetak) rata kanan.
+   Satu spesifikasi kontrol: tinggi 38, sudut 6, garis #d1d5db, teks 13, jarak antar kontrol 10 (antar baris saat membungkus 8),
+   ikon 14 px selebar sama berwarna abu, jarak ikon-teks 8. Hover = garis teal, fokus papan ketik = cincin teal 3 px. */
+.dr-filter { display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; padding:10px 0; }
+.dr-chip { box-sizing:border-box; display:inline-flex; align-items:center; gap:8px; border:1px solid #d1d5db; border-radius:6px;
            padding:0 12px; height:38px; background:#fff; }
 .dr-chip:hover { border-color:#0f766e; }
-.dr-chip i { color:#6b7280; }
-.dr-chip input { border:0; outline:0; background:transparent; width:176px; cursor:pointer; color:#111827; font-weight:600; font-size:13px; }
+.dr-chip:focus-within { border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+.dr-chip input { border:0; outline:0; background:transparent; width:176px; height:36px; padding:0; margin:0; cursor:pointer; color:#111827; font-weight:600; font-size:13px; line-height:36px; }
 .dr-chip .dr-chip-lbl { font-size:12px; color:#6b7280; white-space:nowrap; }
-.dr-filter .dataTables_filter { margin:0; float:none; width:auto; text-align:left; flex:1 1 120px; min-width:120px; max-width:340px; }
-.dr-filter .dataTables_filter label { margin:0; display:block; width:100%; }
-.dr-filter .dataTables_filter input { width:100%; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;
+/* ikon kontrol: kotak 14 px, rata tengah, warna sama di semua tombol */
+.dr-chip > i, .dr-multi-btn > i:first-child, .dr-reset i, .dr-export i { flex:none; width:14px; text-align:center; font-size:13px; line-height:1; color:#6b7280; }
+.dr-export i { color:inherit; }
+.dr-filter .dataTables_filter { height:38px; margin:0; padding:0; float:none; width:auto; text-align:left; flex:1 1 120px; min-width:120px; max-width:340px; }
+.dr-filter .dataTables_filter label { margin:0; padding:0; display:block; width:100%; height:38px; line-height:0; overflow:visible; }
+.dr-filter .dataTables_filter input { box-sizing:border-box; display:block; width:100%; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; line-height:36px; color:#111827;
   background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 12px center; }
+.dr-filter .dataTables_filter input:hover { border-color:#0f766e; }
 .dr-filter .dataTables_filter input:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
 .dr-acts { display:flex; align-items:center; gap:10px; margin-left:auto; }
-.dr-reset { width:38px; height:38px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; color:#6b7280; }
+.dr-reset { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; padding:0; margin:0; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; color:#6b7280; }
 .dr-reset:hover { border-color:#0f766e; color:#0f766e; }
+.dr-reset:hover i { color:#0f766e; }
 /* Export = aksi sekunder (garis), Cetak = aksi utama konteks tab (isi) */
-.dr-export { height:38px; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.dr-export { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; margin:0; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; line-height:1; cursor:pointer; white-space:nowrap; }
 .dr-export:hover { background:#f0fdfa; }
 .dr-cetak { background:#0f766e; color:#fff; }
 .dr-cetak:hover { background:#115e59; }
 .dr-cetak[disabled] { background:#e5e7eb; border-color:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
+.dr-reset:focus-visible, .dr-export:focus-visible, .dr-multi-btn:focus-visible { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.25); }
 
 /* Filter jenis retur: tombol + panel centang multi (dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
 .dr-multi { position:relative; }
 .dr-multi.nonaktif { opacity:.45; pointer-events:none; }
-.dr-multi-btn { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
+.dr-multi-btn { box-sizing:border-box; display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
                 border:1px solid #d1d5db; border-radius:6px; cursor:pointer; color:#111827; }
 .dr-multi-btn:hover, .dr-multi.buka .dr-multi-btn { border-color:#0f766e; }
 .dr-multi-btn .lbl { color:#6b7280; font-size:12px; }
 .dr-multi-btn .nilai { font-weight:600; }
 .dr-multi-btn .cnt { background:#0f766e; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:0 7px; line-height:18px; }
 .dr-multi-btn .cnt.semua { display:none; }   /* semua jenis terpilih = keadaan normal, tidak perlu angka */
-.dr-multi-btn .fa-angle-down { color:#9ca3af; transition:transform .15s; }
+.dr-multi-btn .fa-angle-down { flex:none; width:10px; text-align:center; color:#9ca3af; transition:transform .15s; }
 .dr-multi.buka .fa-angle-down { transform:rotate(180deg); }
 .dr-multi-pop { display:none; position:absolute; left:0; top:44px; z-index:60; min-width:260px; padding:6px;
                 background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.12); }
@@ -315,7 +323,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     </span>
     <div class="dr-multi" id="dr_jenis">
       <div class="dr-multi-btn" id="dr_jenis_btn" tabindex="0" role="button" aria-haspopup="true">
-        <i class="fa fa-filter" style="color:#6b7280;"></i>
+        <i class="fa fa-filter"></i>
         <span class="lbl">Jenis retur</span>
         <span class="nilai" id="dr_jenis_nilai">Semua</span>
         <span class="cnt semua" id="dr_jenis_cnt">2</span>
@@ -336,7 +344,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     <!-- Status retur Jubelio (hanya tab Semua): SELESAI / DITOLAK / BARANG RETUR -->
     <div class="dr-multi" id="dr_status">
       <div class="dr-multi-btn" id="dr_status_btn" tabindex="0" role="button" aria-haspopup="true">
-        <i class="fa fa-tag" style="color:#6b7280;"></i>
+        <i class="fa fa-tag"></i>
         <span class="lbl">Status retur</span>
         <span class="nilai" id="dr_status_nilai">Semua</span>
         <span class="cnt semua" id="dr_status_cnt">3</span>
