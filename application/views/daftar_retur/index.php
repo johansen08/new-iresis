@@ -786,7 +786,7 @@ $(document).ready(function () {
     var draf = {}, katAktif = 'jenis', panelBuka = false, cariOpsi = '';
     function attr(t) { return esc(t).replace(/"/g, '&quot;'); }
     function katCari(k) { return KAT.filter(function (x) { return x.k === k; })[0]; }
-    function katTampil(x) { return x.k !== 'status' || statusAktif === '' || statusAktif === 'SELESAI'; }   // status Jubelio hanya relevan di tab Semua / Selesai
+    function katTampil(x) { return true; }   // semua kategori tampil di semua tab (Status Jubelio berlaku di semua tab sejak 23 Nov 2026)
     function katNonaktif(x) { return x.k === 'jenis' && (statusAktif === 'BELUM_DITERIMA' || statusAktif === 'BELUM_HANGUS'); }   // jenis baru diketahui setelah scan terima
     function jumlah(m) { return Object.keys(m).length; }
     function setDari(str) { var m = {}; (str === '-' ? [] : str.split(',')).forEach(function (v) { if (v) m[v] = true; }); return m; }

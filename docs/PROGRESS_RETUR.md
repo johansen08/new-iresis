@@ -197,3 +197,7 @@ Panel Filter punya dua kategori rentang: **Nilai (Rp)** (total amount per resi) 
 Isi salah satu sisi saja boleh: hanya Minimum = tanpa batas atas, hanya Maksimum = tanpa batas bawah. Minimum > Maksimum ditolak dengan pesan di panel.
 Server: parameter `f_nilai_min/max`, `f_umur_min/max` (`Daftar_retur::_saring` → `Daftar_retur_fcd::get_list`), dipasang sebelum hitungan tab sehingga angka semua tab ikut menyempit; ikut ke Export dan "Pilih semua hasil".
 Diuji di browser (salinan DB uji, 63.022 resi) pada 8 tab: min saja + max saja selalu menjumlah ke total tab, batas tiap baris benar, kombinasi Nilai+Umur benar.
+
+## Filter Status Jubelio di semua tab (23 Nov 2026)
+
+Kategori **Status Jubelio** (SELESAI / DITOLAK / BARANG RETUR) di panel Filter sekarang muncul dan berlaku di semua tab, tidak lagi hanya Semua/Selesai. Resi disaring menurut status_retur yang dimilikinya (resi campuran lolos bila salah satu statusnya dipilih); dipasang sebelum hitungan tab. Semua status terpilih = tanpa filter. Diuji di 7 tab (salinan DB uji): tiap status hanya memunculkan baris yang membawa status itu, bawaan sama dengan sebelumnya.

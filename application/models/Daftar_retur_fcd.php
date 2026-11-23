@@ -501,6 +501,9 @@ class Daftar_retur_fcd extends CI_Model
         $pakai_ekstra = ($mode_semua || $mode_selesai);
         $mask = 0;
         foreach ((array) $status_retur as $st) $mask |= self::BIT_STATUS[$st];
+        // Filter Status Jubelio berlaku di SEMUA tab: resi disaring menurut status_retur yang dimilikinya (resi campuran lolos bila salah satu
+        // statusnya dipilih). Dipasang sebelum hitungan tab, jadi angka tab ikut menyempit. Semua status terpilih = tanpa filter.
+        $mask_saring = $mask;
         // Tab Selesai: filter Status retur hanya berlaku untuk SELESAI / DITOLAK.
         if ($mode_selesai) $mask &= (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']);
         // Baris dasar = resi yang masih punya minimal satu baris BARANG RETUR (termasuk campuran dengan SELESAI / DITOLAK); stat dari SQL.
@@ -518,6 +521,10 @@ class Daftar_retur_fcd extends CI_Model
                 $r->ekstra = 1;
                 $semua[] = $r;
             }
+        }
+
+        if ($status_retur !== null && $mask_saring !== (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'] | self::BIT_STATUS['BARANG RETUR'])) {
+            $semua = array_values(array_filter($semua, function ($r) use ($mask_saring) { return ($r->stm & $mask_saring) !== 0; }));
         }
 
         // Umur yang ditampilkan: dari tanggal retur sebenarnya; bila tidak ada, dari tanggal pesan. (umur_hari tetap dipakai
