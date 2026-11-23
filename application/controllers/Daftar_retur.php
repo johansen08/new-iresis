@@ -397,6 +397,14 @@ class Daftar_retur extends MY_Controller
                 if (!$hasil[$kunci]) unset($hasil[$kunci]);
             }
         }
+        // Filter rentang Nilai (Rp) dan Umur (hari): f_nilai_min / f_nilai_max / f_umur_min / f_umur_max. Boleh hanya salah satu
+        // (min saja = tanpa batas atas, max saja = tanpa batas bawah); kosong / bukan angka = tidak dipasang.
+        foreach (array('nilai', 'umur') as $kunci) {
+            foreach (array('min', 'max') as $sisi) {
+                $v = is_array($sumber) && isset($sumber['f_' . $kunci . '_' . $sisi]) ? trim((string) $sumber['f_' . $kunci . '_' . $sisi]) : '';
+                if ($v !== '' && is_numeric($v) && (float) $v >= 0) $hasil[$kunci . '_' . $sisi] = (float) $v;
+            }
+        }
         return $hasil;
     }
 

@@ -116,6 +116,19 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-achip .v { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dr-achip button { width:18px; height:18px; padding:0; border:0; border-radius:50%; background:none; color:#0f766e; font-size:11px; line-height:18px; cursor:pointer; }
 .dr-achip button:hover { background:#ccfbf1; }
+/* Isian rentang Min / Maks di panel Filter */
+.dr-rng { display:flex; align-items:flex-end; gap:8px; margin-top:4px; }
+.dr-rng label { flex:1; min-width:0; margin:0; font-weight:400; }
+.dr-rng-l { display:block; margin-bottom:4px; color:#6b7280; font-size:12px; }
+.dr-rng-s { flex:none; padding-bottom:9px; color:#9ca3af; }
+.dr-rng-in { display:flex; align-items:center; gap:6px; height:38px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+.dr-rng-in:focus-within { border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+.dr-rng-in em { flex:none; font-style:normal; color:#9ca3af; font-size:12px; }
+.dr-rng-in input { flex:1; min-width:0; width:100%; height:36px; padding:0; border:0; outline:0; background:transparent; font-size:13px; font-weight:600; color:#111827; font-variant-numeric:tabular-nums; }
+.dr-rng-p { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.dr-rng-p button { height:28px; padding:0 10px; border:1px solid #d1d5db; border-radius:999px; background:#fff; color:#374151; font-size:12px; cursor:pointer; }
+.dr-rng-p button:hover { border-color:#0f766e; color:#0f766e; background:#f0fdfa; }
+.dr-fp-err { margin-top:10px; min-height:18px; color:#b91c1c; font-size:12px; }
 .dr-pill-komplain { background:#ede9fe; color:#6d28d9; }
 
 /* DataTables: baris per halaman, info, dan paging di bawah */
@@ -494,6 +507,11 @@ $(document).ready(function () {
     var tabel;
     var sel = {};                  // resi yang dicentang (bertahan antar halaman) untuk cetak serah terima
     // filter multi-pilih Kurir / MP / Toko (lihat modul di bawah); harus ada sebelum DataTable dibuat karena ajax.data memakainya
+    // filter rentang Nilai (Rp) / Umur (hari): '' = tanpa batas (boleh isi salah satu sisi saja); juga harus ada sebelum DataTable dibuat
+    var RNG = { nilai: { min: '', max: '' }, umur: { min: '', max: '' } };
+    function rentangParam() {
+        return { f_nilai_min: RNG.nilai.min, f_nilai_max: RNG.nilai.max, f_umur_min: RNG.umur.min, f_umur_max: RNG.umur.max };
+    }
     var FIL = { kurir: { pilih: {}, opsi: [], terapan: '' }, mp: { pilih: {}, opsi: [], terapan: '' }, toko: { pilih: {}, opsi: [], terapan: '' } };
 
     // Tema (actions.js page_content_onresize) menyetel tinggi .page-content = tinggi daftar menu samping: saat halaman dimuat menu itu
@@ -617,6 +635,7 @@ $(document).ready(function () {
                 d.jenis = jenisAktif;
                 d.status_retur = statusRetAktif;
                 d.f_kurir = pilihJson('kurir'); d.f_mp = pilihJson('mp'); d.f_toko = pilihJson('toko');
+                $.extend(d, rentangParam());
                 d.segarkan = segarkanBerikut ? '1' : '0';
             }
         },
@@ -758,7 +777,11 @@ $(document).ready(function () {
         { k: 'status', t: 'Status Jubelio', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)']] },
         { k: 'kurir', t: 'Kurir', i: 'fa-truck', tipe: 'dinamis', cari: 'Cari kurir...' },
         { k: 'mp', t: 'Marketplace', i: 'fa-shopping-bag', tipe: 'dinamis', cari: 'Cari marketplace...' },
-        { k: 'toko', t: 'Toko', i: 'fa-home', tipe: 'dinamis', cari: 'Cari toko...' }
+        { k: 'toko', t: 'Toko', i: 'fa-home', tipe: 'dinamis', cari: 'Cari toko...' },
+        // tipe 'rentang': dua isian Minimum / Maksimum; boleh isi salah satu (kosong = tanpa batas). Nilai di RNG, bukan FIL.
+        { k: 'nilai', t: 'Nilai (Rp)', i: 'fa-money', tipe: 'rentang', sat: 'Rp', ket: 'Total nilai barang per resi.', pilihan: [] },
+        { k: 'umur', t: 'Umur', i: 'fa-hourglass-half', tipe: 'rentang', sat: 'hari', ket: 'Umur dari tanggal retur (sama dengan kolom Umur).',
+          pilihan: [['&ge; <?= (int) $umur_oranye ?> hari (peringatan)', <?= (int) $umur_oranye ?>], ['&ge; <?= (int) $umur_merah ?> hari (wajib klaim)', <?= (int) $umur_merah ?>]] }
     ];
     var draf = {}, katAktif = 'jenis', panelBuka = false, cariOpsi = '';
     function attr(t) { return esc(t).replace(/"/g, '&quot;'); }
@@ -767,10 +790,25 @@ $(document).ready(function () {
     function katNonaktif(x) { return x.k === 'jenis' && (statusAktif === 'BELUM_DITERIMA' || statusAktif === 'BELUM_HANGUS'); }   // jenis baru diketahui setelah scan terima
     function jumlah(m) { return Object.keys(m).length; }
     function setDari(str) { var m = {}; (str === '-' ? [] : str.split(',')).forEach(function (v) { if (v) m[v] = true; }); return m; }
-    function terapanSet(x) { return x.k === 'jenis' ? setDari(jenisAktif) : (x.k === 'status' ? setDari(statusRetAktif) : $.extend({}, FIL[x.k].pilih)); }
-    function bawaan(x) { var m = {}; if (x.tipe === 'semua') x.opsi.forEach(function (o) { m[o[0]] = true; }); return m; }
-    function nondefault(x, m) { return x.tipe === 'semua' ? jumlah(m) !== x.opsi.length : jumlah(m) > 0; }
+    function terapanSet(x) {
+        if (x.tipe === 'rentang') return { min: RNG[x.k].min, max: RNG[x.k].max };
+        return x.k === 'jenis' ? setDari(jenisAktif) : (x.k === 'status' ? setDari(statusRetAktif) : $.extend({}, FIL[x.k].pilih));
+    }
+    function bawaan(x) {
+        if (x.tipe === 'rentang') return { min: '', max: '' };
+        var m = {}; if (x.tipe === 'semua') x.opsi.forEach(function (o) { m[o[0]] = true; }); return m;
+    }
+    function nondefault(x, m) {
+        if (x.tipe === 'rentang') return m.min !== '' || m.max !== '';
+        return x.tipe === 'semua' ? jumlah(m) !== x.opsi.length : jumlah(m) > 0;
+    }
+    function angkaId(v) { return parseInt(v, 10).toLocaleString('id-ID'); }
     function ringkasSet(x, m) {
+        if (x.tipe === 'rentang') {
+            var u = (x.sat === 'Rp' ? 'Rp ' : ''), s = (x.sat === 'hari' ? ' hari' : '');
+            if (m.min !== '' && m.max !== '') return u + angkaId(m.min) + s + ' – ' + u + angkaId(m.max) + s;
+            return m.min !== '' ? '≥ ' + u + angkaId(m.min) + s : '≤ ' + u + angkaId(m.max) + s;
+        }
         var a = Object.keys(m);
         if (x.tipe === 'semua') return x.opsi.filter(function (o) { return m[o[0]]; }).map(function (o) { return o[1]; }).join(', ') || 'Tidak ada';
         return a.length > 2 ? a.slice(0, 2).join(', ') + ' +' + (a.length - 2) : a.join(', ');
@@ -784,7 +822,7 @@ $(document).ready(function () {
             var m = terapanSet(x);
             if (!nondefault(x, m)) return;
             n++;
-            h += '<span class="dr-achip"><b>' + esc(x.t) + ':</b><span class="v" title="' + attr(Object.keys(m).join(', ')) + '">' + esc(ringkasSet(x, m)) + '</span>' +
+            h += '<span class="dr-achip"><b>' + esc(x.t) + ':</b><span class="v" title="' + attr(x.tipe === 'rentang' ? ringkasSet(x, m) : Object.keys(m).join(', ')) + '">' + esc(ringkasSet(x, m)) + '</span>' +
                 '<button type="button" data-k="' + x.k + '" title="Hapus filter ini"><i class="fa fa-times"></i></button></span>';
         });
         $('#dr_fbtn .cnt').text(n).toggleClass('nol', n === 0);
@@ -796,13 +834,30 @@ $(document).ready(function () {
             if (!katTampil(x)) return;
             var m = draf[x.k];
             h += '<div class="dr-fp-item' + (x.k === katAktif ? ' on' : '') + '" data-k="' + x.k + '"><i class="fa ' + x.i + '"></i>' + esc(x.t) +
-                (nondefault(x, m) ? '<span class="n">' + jumlah(m) + '</span>' : '') + '</div>';
+                (nondefault(x, m) ? '<span class="n">' + (x.tipe === 'rentang' ? '1' : jumlah(m)) + '</span>' : '') + '</div>';
         });
         $('#dr_fp_nav').html(h);
     }
     function gambarPane() {
         var x = katCari(katAktif), h = '';
         h += '<div class="dr-fp-head"><span>' + esc(x.t) + '</span><a id="dr_fp_reset_kat">' + (x.tipe === 'semua' ? 'Pilih semua' : 'Hapus pilihan') + '</a></div>';
+        if (x.tipe === 'rentang') {
+            var m = draf[x.k];
+            h += '<div class="dr-fp-ket">' + esc(x.ket) + ' Isi salah satu juga boleh: kosong = tanpa batas.</div><div class="dr-rng">';
+            [['min', 'Minimum'], ['max', 'Maksimum']].forEach(function (f, i) {
+                h += (i ? '<span class="dr-rng-s">&ndash;</span>' : '') + '<label><span class="dr-rng-l">' + f[1] + '</span><span class="dr-rng-in"><em>' + esc(x.sat) +
+                    '</em><input type="text" inputmode="numeric" autocomplete="off" data-f="' + f[0] + '" value="' + attr(m[f[0]]) + '" placeholder="' + (f[0] === 'min' ? '0' : 'tanpa batas') + '"></span></label>';
+            });
+            h += '</div>';
+            if (x.pilihan.length) {
+                h += '<div class="dr-rng-p">';
+                x.pilihan.forEach(function (p) { h += '<button type="button" data-min="' + p[1] + '">' + p[0] + '</button>'; });
+                h += '</div>';
+            }
+            h += '<div class="dr-fp-err" id="dr_fp_err"></div>';
+            $('#dr_fp_pane').html(h);
+            return;
+        }
         if (katNonaktif(x)) h += '<div class="dr-fp-info">Jenis retur baru diketahui setelah scan terima, jadi filter ini tidak berlaku di tab Belum Terima.</div>';
         if (x.tipe === 'dinamis') h += '<input type="text" class="dr-cari-opsi" placeholder="' + attr(x.cari) + '" autocomplete="off" value="' + attr(cariOpsi) + '"><div class="dr-fp-ket">Kosong = semua</div>';
         h += '<div class="dr-fp-list"></div>';
@@ -836,9 +891,22 @@ $(document).ready(function () {
     function terapkan() {
         var urut = function (x) { return x.opsi.map(function (o) { return o[0]; }).filter(function (v) { return draf[x.k][v]; }).join(',') || '-'; };
         var j = urut(katCari('jenis')), s = urut(katCari('status')), muat = false, ganti = false;
+        // Rentang: min tidak boleh lebih besar dari max (bila keduanya diisi); kalau salah, panel tetap terbuka dan menunjuk kesalahannya.
+        var salah = KAT.filter(function (x) { return x.tipe === 'rentang' && draf[x.k].min !== '' && draf[x.k].max !== '' && parseInt(draf[x.k].min, 10) > parseInt(draf[x.k].max, 10); })[0];
+        if (salah) {
+            katAktif = salah.k; cariOpsi = ''; gambarNav(); gambarPane();
+            $('#dr_fp_err').text('Minimum tidak boleh lebih besar dari maksimum.');
+            return;
+        }
+        KAT.forEach(function (x) {
+            if (x.tipe !== 'rentang') return;
+            var baru = { min: draf[x.k].min, max: draf[x.k].max };
+            if (baru.min !== RNG[x.k].min || baru.max !== RNG[x.k].max) { RNG[x.k] = baru; muat = true; ganti = true; }
+        });
         if (j !== jenisAktif) { jenisAktif = j; muat = true; }
         if (s !== statusRetAktif) { statusRetAktif = s; muat = true; }
         Object.keys(FIL).forEach(function (k) {
+            if (!draf[k]) return;
             FIL[k].pilih = $.extend({}, draf[k]);
             var b = pilihJson(k);
             if (b !== FIL[k].terapan) { FIL[k].terapan = b; muat = true; ganti = true; }
@@ -857,9 +925,21 @@ $(document).ready(function () {
         if (this.checked) draf[katAktif][this.value] = true; else delete draf[katAktif][this.value];
         gambarNav();
     });
+    // Isian rentang: hanya angka (tanpa pemisah ribuan); simpan di draf, angka kategori di kiri ikut berubah. Enter = Terapkan.
+    $('#dr_fp_pane').on('input', '.dr-rng input', function () {
+        var v = $(this).val().replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+        if (v !== $(this).val()) $(this).val(v);
+        draf[katAktif][$(this).attr('data-f')] = v;
+        $('#dr_fp_err').text('');
+        gambarNav();
+    }).on('keydown', '.dr-rng input', function (e) { if (e.key === 'Enter') { e.preventDefault(); terapkan(); } });
+    $('#dr_fp_pane').on('click', '.dr-rng-p button', function () {   // pilihan cepat: isi minimum, maksimum dikosongkan
+        draf[katAktif] = { min: String($(this).attr('data-min')), max: '' };
+        gambarNav(); gambarPane();
+    });
     $('#dr_fp_pane').on('input', '.dr-cari-opsi', function () { cariOpsi = $.trim($(this).val()); gambarDaftar(); });
-    $('#dr_fp_pane').on('click', '#dr_fp_reset_kat', function () { draf[katAktif] = bawaan(katCari(katAktif)); gambarNav(); gambarDaftar(); });
-    $('#dr_fp_reset').on('click', function () { KAT.forEach(function (x) { draf[x.k] = bawaan(x); }); gambarNav(); gambarDaftar(); });
+    $('#dr_fp_pane').on('click', '#dr_fp_reset_kat', function () { draf[katAktif] = bawaan(katCari(katAktif)); gambarNav(); gambarPane(); });
+    $('#dr_fp_reset').on('click', function () { KAT.forEach(function (x) { draf[x.k] = bawaan(x); }); gambarNav(); gambarPane(); });
     $('#dr_fp_ok').on('click', terapkan);
     $('#dr_aktif').on('click', 'button', function () {   // hapus satu filter dari chip, langsung diterapkan
         var k = $(this).attr('data-k');
@@ -910,10 +990,10 @@ $(document).ready(function () {
     });
     $('#dr_pilih_info').on('click', '#dr_pilih_semua', function () {
         var v = $('#dr_rentang').val().split(' s/d ');
-        $.post(BASE + 'retur/get-daftar-retur-penjualan', {
+        $.post(BASE + 'retur/get-daftar-retur-penjualan', $.extend({
             ids_saja: '1', start_date: v[0] || '', end_date: v[1] || '', status: statusAktif,
             jenis: jenisAktif, f_kurir: pilihJson('kurir'), f_mp: pilihJson('mp'), f_toko: pilihJson('toko'), search: { value: tabel.search() }
-        }, function (res) {
+        }, rentangParam()), function (res) {
             (res.resi || []).forEach(function (r) { sel[r] = true; });
             $('#dt_daftar_retur .dr-pilih').each(function () { this.checked = !!sel[$(this).attr('data-resi')]; });
             ubahInfoPilih();
@@ -939,7 +1019,7 @@ $(document).ready(function () {
 
     $('#dr_export').on('click', function () {
         var v = $('#dr_rentang').val().split(' s/d ');
-        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, status_retur: statusRetAktif, f_kurir: pilihJson('kurir'), f_mp: pilihJson('mp'), f_toko: pilihJson('toko'), q: tabel.search() });
+        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, status_retur: statusRetAktif, f_kurir: pilihJson('kurir'), f_mp: pilihJson('mp'), f_toko: pilihJson('toko'), q: tabel.search() }) + '&' + $.param(rentangParam());
         window.location.href = BASE + 'retur/export-daftar-retur-penjualan?' + q;
     });
 
@@ -955,6 +1035,7 @@ $(document).ready(function () {
         jenisAktif = 'B,K';
         statusRetAktif = STATUS_SEMUA;
         Object.keys(FIL).forEach(function (k) { FIL[k].pilih = {}; FIL[k].terapan = ''; });
+        RNG = { nilai: { min: '', max: '' }, umur: { min: '', max: '' } };
         tutupPanel(); tulisUIFilter();
         segarkanBerikut = true;            // atur ulang sekaligus ambil data terbaru
         tabel.search('').order([8, 'desc']).ajax.reload();
