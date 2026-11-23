@@ -165,8 +165,8 @@ mengubah statusnya jadi SELESAI / DITOLAK, resi hilang dari tab ini, padahal lab
 
 ## Tab Belum Terima dibagi menurut umur (21 Nov 2026)
 
-- **Belum Terima**: belum ada scan terima dan **umur <= 60 hari** (umur = hari sejak tanggal retur, lihat urutan sumber tanggal di atas).
-- **Belum Terima (Hangus)** (tab baru, `POSISI_BELUM_HANGUS`): belum ada scan terima dan **umur > 60 hari** (`Daftar_retur_fcd::UMUR_HANGUS`).
+- **Belum Terima**: belum ada scan terima dan **umur <= 30 hari** (umur = hari sejak tanggal retur, lihat urutan sumber tanggal di atas).
+- **Belum Terima (Hangus)** (tab baru, `POSISI_BELUM_HANGUS`): belum ada scan terima dan **umur > 30 hari** (`Daftar_retur_fcd::UMUR_HANGUS`).
   Paket yang tak kunjung diterima lewat batas ini dianggap hangus. Lencana Progress "Hangus" (merah), umur ditandai merah dengan tooltip,
   Excel menulis "Belum Terima (Hangus)". Filter tanggal tab ini memakai tanggal pesan, sama dengan Belum Terima.
 - Angka kedua tab dijumlahkan sama dengan angka Belum Terima sebelumnya (data uji: 68 + 6.489 = 6.557). Tab lain tidak berubah.

@@ -56,7 +56,7 @@ class Daftar_retur_fcd extends CI_Model
      * Belum Terima dibagi menurut umur dari tanggal retur: <= UMUR_HANGUS hari tetap di tab Belum Terima, lebih dari itu masuk tab
      * Belum Terima (Hangus) -- paket yang tak kunjung diterima sampai lewat batas ini dianggap hangus (tidak lagi ditunggu / dibuka klaim).
      */
-    const UMUR_HANGUS = 60;
+    const UMUR_HANGUS = 30;
 
     const POSISI_BELUM_DITERIMA = 'BELUM_DITERIMA';
     const POSISI_BELUM_HANGUS   = 'BELUM_HANGUS';   // belum ada scan terima DAN umur > UMUR_HANGUS hari
