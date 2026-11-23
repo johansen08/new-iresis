@@ -885,6 +885,195 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /**
+     * Detail lengkap SATU resi untuk drawer "klik baris" Daftar Retur Penjualan. Hanya membaca, dibaca langsung dari tabel
+     * (tidak lewat cache daftar) sehingga selalu terbaru. Prod + arsip digabung (arsip superset; baris yang sama dibuang
+     * berdasarkan primary key).
+     *
+     * @return array|null NULL bila resi tidak ada di tblreturjubelio maupun tabel scan retur
+     */
+    public function detail_resi($resi)
+    {
+        $resi = trim((string) $resi);
+        if ($resi === '') return null;
+        $e = $this->db->escape($resi);
+        $jenis_semua = array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
+
+        // 1. Baris pesanan dari Jubelio (barang yang diretur menurut marketplace).
+        $jub = $this->db->query("SELECT sku, nama_barang, qty, amount, no_pesanan, marketplace, nama_toko, kurir, status_jubelio, status_retur, tanggal_retur
+            FROM tblreturjubelio WHERE no_resi = {$e} ORDER BY id_jubelio")->result_array();
+
+        // 2. Data resi asal (tblprintresi): tanggal pesan/kirim/retur/selesai + status pesanan.
+        $cetak = null;
+        foreach ($this->_skema('tblprintresi') as $sk) {
+            $r = $this->db->query("SELECT status_pesanan, tanggal_pesan, tanggal_pengiriman, tanggal_retur, tanggal_selesai, tanggal_pencairan, nilai_pesanan, toko
+                FROM {$sk}.tblprintresi WHERE noresi = {$e} LIMIT 1")->row_array();
+            if ($r) { $cetak = $r; break; }
+        }
+
+        // 3. Scan Terima Retur, 4. Buka Retur per SKU (prod + arsip, dedupe PK), 5. serah terima, 6. verifikasi.
+        $terima = array(); $buka = array(); $serah = array(); $verif = array();
+        foreach ($this->_skema('tblresiretur') as $sk) {
+            foreach ($this->db->query("SELECT id_resiretur, tanggal_resiretur, id_pegawai, is_komplain, status_detail, status_retur
+                FROM {$sk}.tblresiretur WHERE noresi = {$e}")->result_array() as $x) {
+                $terima[(int) $x['id_resiretur']] = $x;
+            }
+        }
+        foreach ($this->_skema('tblbukaretur') as $sk) {
+            foreach ($this->db->query("SELECT id_bukaretur, status_detail_buka, sku, qty, sku_pergantian, alasan_ditolak, harga, is_komplain, sumber_input,
+                    hasil_scan_buka, COALESCE(tanggal_buka_retur, created_at) AS waktu, id_pegawai, status_acc, acc_by, updated_at
+                FROM {$sk}.tblbukaretur WHERE resi_buka = {$e} ORDER BY id_bukaretur")->result_array() as $x) {
+                $buka[(int) $x['id_bukaretur']] = $x;
+            }
+        }
+        if ($this->db->table_exists('tblretur_serah_terima')) {
+            foreach ($this->_skema('tblretur_serah_terima') as $sk) {
+                foreach ($this->db->query("SELECT id_serah, tanggal_serah, id_pegawai, petugas, cetak_ke, is_ulang
+                    FROM {$sk}.tblretur_serah_terima WHERE no_resi = {$e}")->result_array() as $x) {
+                    $serah[(int) $x['id_serah']] = $x;
+                }
+            }
+        }
+        foreach ($this->_skema('tblreturverifikasi') as $sk) {
+            foreach ($this->db->query("SELECT id, verified, catatan, verified_by, verified_at
+                FROM {$sk}.tblreturverifikasi WHERE no_resi = {$e} AND verified = 1")->result_array() as $x) {
+                $verif[(int) $x['id']] = $x;
+            }
+        }
+
+        if (!$jub && !$terima && !$buka) return null;
+
+        // Nama petugas (kolom id_pegawai / acc_by / verified_by menyimpan tbluser.id_user).
+        $ids = array();
+        foreach ($terima as $x) $ids[(int) $x['id_pegawai']] = true;
+        foreach ($buka as $x) { $ids[(int) $x['id_pegawai']] = true; if (!empty($x['acc_by'])) $ids[(int) $x['acc_by']] = true; }
+        foreach ($serah as $x) $ids[(int) $x['id_pegawai']] = true;
+        foreach ($verif as $x) if (!empty($x['verified_by'])) $ids[(int) $x['verified_by']] = true;
+        unset($ids[0]);
+        $nama = array();
+        if ($ids) {
+            foreach ($this->db->query('SELECT id_user, name FROM tbluser WHERE id_user IN (' . implode(',', array_keys($ids)) . ')')->result() as $u) {
+                $nama[(int) $u->id_user] = $this->format_petugas($u->name);
+            }
+        }
+        $orang = function ($id) use ($nama) { return ($id && isset($nama[(int) $id])) ? $nama[(int) $id] : null; };
+
+        // Nama SKU + rak (tblsku.id_sku = kode SKU). Gabungan SKU dari Jubelio dan Buka Retur.
+        $kode = array();
+        foreach ($jub as $x) if ((string) $x['sku'] !== '') $kode[(string) $x['sku']] = true;
+        foreach ($buka as $x) {
+            if ((string) $x['sku'] !== '') $kode[(string) $x['sku']] = true;
+            if ((string) $x['sku_pergantian'] !== '') $kode[(string) $x['sku_pergantian']] = true;
+        }
+        $info_sku = array();
+        if ($kode) {
+            $in = implode(',', array_map(array($this->db, 'escape'), array_keys($kode)));
+            foreach ($this->db->query("SELECT id_sku, nama_sku, no_rak, link_foto, foto_lokal FROM tblsku WHERE id_sku IN ({$in})")->result_array() as $s) {
+                $info_sku[strtoupper((string) $s['id_sku'])] = $s;
+            }
+        }
+        $sku_info = function ($k) use ($info_sku) {
+            $s = isset($info_sku[strtoupper((string) $k)]) ? $info_sku[strtoupper((string) $k)] : null;
+            return array(
+                'nama' => $s ? (string) $s['nama_sku'] : null,
+                'rak'  => $s ? (string) $s['no_rak'] : null,
+                'foto' => $s ? foto_sku_img($s['link_foto'], $s['foto_lokal'], 'class="dd-foto" loading="lazy" alt=""') : '',
+            );
+        };
+
+        // Barang yang diretur menurut Jubelio (jumlah qty per SKU).
+        $barang_jub = array();
+        foreach ($jub as $x) {
+            $barang_jub[] = array(
+                'sku' => (string) $x['sku'], 'nama' => ($x['nama_barang'] !== null && $x['nama_barang'] !== '') ? (string) $x['nama_barang'] : $sku_info($x['sku'])['nama'],
+                'qty' => (int) $x['qty'], 'nilai' => (float) $x['amount'], 'status' => (string) $x['status_retur'], 'status_jubelio' => (string) $x['status_jubelio'],
+            );
+        }
+
+        // Hasil Buka Retur per SKU: ke mana barangnya (KE_DISPLAY / BUKAN_RETUR / REJECT / dll).
+        $hasil_buka = array();
+        $rekap_status = array();   // status_detail_buka => total qty
+        foreach ($buka as $x) {
+            $st = (string) $x['status_detail_buka'];
+            $rekap_status[$st] = (isset($rekap_status[$st]) ? $rekap_status[$st] : 0) + (int) $x['qty'];
+            $si = $sku_info($x['sku']);
+            $hasil_buka[] = array(
+                'sku' => (string) $x['sku'], 'nama' => $si['nama'], 'rak' => $si['rak'], 'foto' => $si['foto'],
+                'qty' => (int) $x['qty'], 'status' => $st,
+                'pergantian' => (string) $x['sku_pergantian'] !== '' ? (string) $x['sku_pergantian'] : null,
+                'pergantian_nama' => (string) $x['sku_pergantian'] !== '' ? $sku_info($x['sku_pergantian'])['nama'] : null,
+                'alasan' => (string) $x['alasan_ditolak'] !== '' ? (string) $x['alasan_ditolak'] : null,
+                'harga' => $x['harga'] !== null ? (float) $x['harga'] : null,
+                'jenis' => (int) $x['is_komplain'] === 1 ? self::JENIS_KOMPLAIN : self::JENIS_BIASA,
+                'sumber' => (string) $x['sumber_input'],
+                'waktu' => $x['waktu'], 'petugas' => $orang($x['id_pegawai']),
+                'acc' => (int) $x['status_acc'] === 1, 'acc_oleh' => $orang($x['acc_by']), 'acc_waktu' => (int) $x['status_acc'] === 1 ? $x['updated_at'] : null,
+            );
+        }
+
+        // Rincian tahap (pakai logika yang sama dengan kolom Progress).
+        $pr = $this->detail_progress(array($resi), $jenis_semua);
+        $pr = isset($pr[strtoupper($resi)]) ? $pr[strtoupper($resi)] : array('terima' => null, 'buka' => null, 'serah' => null, 'verif' => null);
+        $tahap = $pr['verif'] ? 4 : ($pr['serah'] ? 3 : ($pr['buka'] ? 2 : ($pr['terima'] ? 1 : 0)));
+
+        $scan_terima = array();
+        foreach ($terima as $x) {
+            $scan_terima[] = array(
+                'waktu' => $x['tanggal_resiretur'], 'petugas' => $orang($x['id_pegawai']),
+                'jenis' => (int) $x['is_komplain'] === 1 ? self::JENIS_KOMPLAIN : self::JENIS_BIASA,
+                'status' => (string) $x['status_retur'], 'detail' => (string) $x['status_detail'],
+            );
+        }
+        usort($scan_terima, function ($a, $b) { return strcmp((string) $a['waktu'], (string) $b['waktu']); });
+
+        $cetak_serah = array();
+        foreach ($serah as $x) {
+            $cetak_serah[] = array('waktu' => $x['tanggal_serah'], 'petugas' => ($x['petugas'] !== null && $x['petugas'] !== '') ? (string) $x['petugas'] : $orang($x['id_pegawai']),
+                'cetak_ke' => (int) $x['cetak_ke'], 'ulang' => (int) $x['is_ulang'] === 1);
+        }
+        usort($cetak_serah, function ($a, $b) { return strcmp((string) $a['waktu'], (string) $b['waktu']); });
+
+        $verifikasi = array();
+        foreach ($verif as $x) {
+            $verifikasi[] = array('waktu' => $x['verified_at'], 'petugas' => $orang($x['verified_by']), 'catatan' => (string) $x['catatan']);
+        }
+
+        // Komplain CS yang terkait resi ini.
+        $komplain = $this->db->query("SELECT id_complain, kategori_komplain, status_komplain, tgl_komplain, hasil_investigasi, nominal_total
+            FROM tblcs_complain WHERE no_resi = {$e} AND is_deleted = 0 ORDER BY id_complain")->result_array();
+
+        $j0 = $jub ? $jub[0] : array();
+        $nilai = 0; $qty = 0;
+        foreach ($jub as $x) { $nilai += (float) $x['amount']; $qty += (int) $x['qty']; }
+        $stat = array();
+        foreach ($jub as $x) if ((string) $x['status_retur'] !== '') $stat[(string) $x['status_retur']] = true;
+
+        return array(
+            'resi' => $resi,
+            'no_pesanan' => isset($j0['no_pesanan']) ? (string) $j0['no_pesanan'] : '',
+            'marketplace' => isset($j0['marketplace']) ? (string) $j0['marketplace'] : '',
+            'toko' => isset($j0['nama_toko']) ? (string) $j0['nama_toko'] : ($cetak ? (string) $cetak['toko'] : ''),
+            'kurir' => isset($j0['kurir']) ? (string) $j0['kurir'] : '',
+            'status_jubelio' => array_keys($stat),
+            'qty_total' => $qty, 'nilai_total' => $nilai,
+            'tanggal' => array(
+                'pesan' => $cetak ? $cetak['tanggal_pesan'] : null, 'kirim' => $cetak ? $cetak['tanggal_pengiriman'] : null,
+                'retur' => $cetak ? $cetak['tanggal_retur'] : null, 'selesai' => $cetak ? $cetak['tanggal_selesai'] : null,
+                'cair' => $cetak ? $cetak['tanggal_pencairan'] : null, 'retur_jubelio' => isset($j0['tanggal_retur']) ? $j0['tanggal_retur'] : null,
+            ),
+            'status_pesanan' => $cetak ? (string) $cetak['status_pesanan'] : null,
+            'tahap' => $tahap, 'tahap_nama' => self::TAHAP_NAMA[$tahap],
+            'progress' => $pr,
+            'barang_jubelio' => $barang_jub,
+            'hasil_buka' => $hasil_buka,
+            'rekap_status' => $rekap_status,
+            'scan_terima' => $scan_terima,
+            'serah' => $cetak_serah,
+            'verifikasi' => $verifikasi,
+            'komplain' => $komplain,
+        );
+    }
+
+    /**
      * Tanggal tahap untuk sekumpulan resi: 'terima' = scan Terima Retur PERTAMA, 'verif' = verifikasi accounting
      * (tblreturverifikasi.verified_at; bila tidak ada, ACC Returan Buka = tblbukaretur.updated_at saat status_acc = 1).
      * @return array resi(huruf besar) => 'Y-m-d H:i:s'
