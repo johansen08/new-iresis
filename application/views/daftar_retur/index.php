@@ -421,7 +421,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     </span>
     <!-- Satu tombol Filter: panel dua kolom (kategori | pilihan) digambar JS dari daftar KAT -->
     <div class="dr-fp" id="dr_fp">
-      <button type="button" class="dr-fbtn" id="dr_fbtn" aria-haspopup="true" title="Filter jenis retur, status Jubelio, kurir, marketplace, toko"><i class="fa fa-sliders"></i> Filter <span class="cnt nol">0</span></button>
+      <button type="button" class="dr-fbtn" id="dr_fbtn" aria-haspopup="true" title="Filter jenis retur, status retur, kurir, marketplace, toko"><i class="fa fa-sliders"></i> Filter <span class="cnt nol">0</span></button>
       <div class="dr-fpanel">
         <div class="dr-fp-body"><div class="dr-fp-nav" id="dr_fp_nav"></div><div class="dr-fp-pane" id="dr_fp_pane"></div></div>
         <div class="dr-fp-kaki"><a id="dr_fp_reset">Atur ulang pilihan</a><button type="button" class="dr-fok" id="dr_fp_ok">Terapkan</button></div>
@@ -466,7 +466,7 @@ $BASE = rtrim(base_url(), '/') . '/';
           </div>
         </span></th>
         <th>Progress</th>
-        <th title="Status retur di Jubelio. Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Jubelio</th>
+        <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -774,7 +774,7 @@ $(document).ready(function () {
     // diambil dari data server (json.opsi), kosong = semua). Untuk filter dinamis juga daftarkan kuncinya di FIL dan di ajax.data + export.
     var KAT = [
         { k: 'jenis', t: 'Jenis retur', i: 'fa-exchange', tipe: 'semua', opsi: [['B', 'Ekspedisi', 'Retur ekspedisi (gagal kirim)'], ['K', 'Komplain', 'Pengembalian barang dari customer']] },
-        { k: 'status', t: 'Status Jubelio', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)']] },
+        { k: 'status', t: 'Status Retur', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio (status_retur SELESAI)'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)']] },
         { k: 'kurir', t: 'Kurir', i: 'fa-truck', tipe: 'dinamis', cari: 'Cari kurir...' },
         { k: 'mp', t: 'Marketplace', i: 'fa-shopping-bag', tipe: 'dinamis', cari: 'Cari marketplace...' },
         { k: 'toko', t: 'Toko', i: 'fa-home', tipe: 'dinamis', cari: 'Cari toko...' },
@@ -1115,7 +1115,7 @@ $(document).ready(function () {
             ddRow('fa-shopping-bag', 'Marketplace', d.marketplace) +
             ddRow('fa-building-o', 'Toko', d.toko) +
             ddRow('fa-truck', 'Kurir', d.kurir) +
-            '<div class="dd-row"><i class="fa fa-flag"></i><dt>Status Jubelio</dt><dd>' + (stJ || '<span class="dd-kosong">-</span>') + '</dd></div>' +
+            '<div class="dd-row"><i class="fa fa-flag"></i><dt>Status Retur</dt><dd>' + (stJ || '<span class="dd-kosong">-</span>') + '</dd></div>' +
             ddRow('fa-info-circle', 'Status pesanan', d.status_pesanan) +
             ddRow('fa-calendar', 'Tanggal pesan', ddWaktu(tg.pesan)) +
             ddRow('fa-calendar-o', 'Tanggal kirim', ddWaktu(tg.kirim)) +
