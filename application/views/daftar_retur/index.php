@@ -58,6 +58,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 
 /* Filter jenis retur: tombol + panel centang multi (dropdown berisi checkbox, tombol menampilkan ringkasan pilihan, ada Pilih semua / Hapus) */
 .dr-multi { position:relative; }
+.dr-multi.nonaktif { opacity:.45; pointer-events:none; }
 .dr-multi-btn { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; background:#fff;
                 border:1px solid #d1d5db; border-radius:6px; cursor:pointer; color:#111827; }
 .dr-multi-btn:hover, .dr-multi.buka .dr-multi-btn { border-color:#0f766e; }
@@ -454,6 +455,9 @@ $(document).ready(function () {
     function aturModeTanggal(status) {
         var n = NAMA_TAHAP[status];
         $('#dr_wrap').toggleClass('mode-buka', !!n).attr('data-tab', status);
+        // Jenis retur baru diketahui setelah scan terima: filter jenis tidak berlaku di tab Belum Terima / Hangus.
+        var belum = (status === 'BELUM_DITERIMA' || status === 'BELUM_HANGUS');
+        $('#dr_jenis').toggleClass('nonaktif', belum).attr('title', belum ? 'Jenis retur baru diketahui setelah scan terima, jadi filter ini tidak berlaku di tab Belum Terima' : '');
         $('#dr_rentang_lbl').text(n ? n[1] : ((status === 'BELUM_DITERIMA' || status === 'BELUM_HANGUS') ? 'Tgl pesan' : 'Tgl progress'));
         if (n && tabel) $(tabel.column(3).header()).text(n[0]);
     }

@@ -525,6 +525,14 @@ class Daftar_retur_fcd extends CI_Model
         foreach ($semua as $r) {
             $posisi = $this->hitung_posisi($r, $jenis);
             if ($posisi === null) continue;
+            // Jenis retur (ekspedisi / komplain) baru diketahui SETELAH scan terima, jadi tab Belum Terima & Hangus TIDAK boleh
+            // terpengaruh filter jenis: resi tanpa scan terima/buka apa pun (jenis apa pun) selalu Belum Terima, dan resi yang sudah
+            // di-scan sebagai jenis lain (mis. komplain saat filter ekspedisi) bukan Belum Terima, melainkan tidak ikut jenis ini.
+            if ($this->hitung_posisi($r, array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)) === self::POSISI_BELUM_DITERIMA) {
+                $posisi = self::POSISI_BELUM_DITERIMA;
+            } elseif ($posisi === self::POSISI_BELUM_DITERIMA) {
+                continue;
+            }
             // Final di Jubelio: SEMUA barisnya SELESAI / DITOLAK (tanpa BARANG RETUR) = accounting sudah menyelesaikan / menolak
             // retur itu di Jubelio dan tidak bisa diubah lagi, jadi setara Sudah Verifikasi walau iresis tidak punya scan atau
             // catatan verifikasi (data lama). Jejak scan yang tidak ada TIDAK dibuatkan data palsu; dari_jubelio = 1 menandai
