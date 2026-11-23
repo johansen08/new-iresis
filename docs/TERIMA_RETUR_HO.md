@@ -52,10 +52,13 @@ sama-sama lolos cek dan menghasilkan dua baris.
 Hal yang sengaja **tidak** ada dibanding menu lama: mode Update (reset baris + hapus
 `tblbukaretur`) dan penghitung harian yang tidak memisahkan jenis.
 
-## Hapus resi salah scan
+## Batal Scan Terima Retur (hapus resi salah scan)
 
-Kartu ketiga di layar: paket reguler/NDD yang terlanjur terscan sebagai retur dapat dihapus dari
-data retur (`POST terima-retur-ho/hapus`, `Terima_retur_ho_fcd::hapus`). Dua tahap: scan resi →
+Menu terpisah **TIM HO → Batal Scan Terima Retur** (`batal-scan-terima-retur`, controller
+`Batal_scan_terima_retur`, view `views/batal_scan_terima_retur/index.php`; sebelumnya kartu di layar
+Terima Retur). Paket reguler/NDD yang terlanjur terscan sebagai retur dapat dihapus dari
+data retur (`POST batal-scan-terima-retur/hapus`, logika `Terima_retur_ho_fcd::hapus`).
+Menu dibuat migrasi `run_terima_retur_ho_migration()` (versi `2026-11-23.2`), hak akses disalin dari Terima Retur. Dua tahap: scan resi →
 server memeriksa dan menampilkan baris yang akan dihapus → klik **Hapus dari data retur**
 (`konfirmasi=1`). Kode hasil: `konfirmasi`, `ok`, `tidak_ditemukan`, `tidak_ada_retur`,
 `sudah_diproses`, `gagal`.

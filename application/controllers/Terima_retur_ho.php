@@ -55,29 +55,4 @@ class Terima_retur_ho extends MY_Controller
 
         $this->make_ajax_response(200, $hasil['message'], $hasil);
     }
-
-    /**
-     * POST resi (+ konfirmasi=1) -> hapus resi salah scan dari data retur. Tanpa konfirmasi hanya memeriksa.
-     * Selalu HTTP 200; status ada di data.kode.
-     */
-    public function hapus()
-    {
-        if ($this->input->method() !== 'post') {
-            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
-        }
-        if (!$this->boleh()) {
-            $this->make_ajax_response(403, 'Anda tidak punya akses ke menu ini.', ['kode' => 'ditolak']);
-        }
-        if ($this->session->userdata('mode_arsip')) {
-            $this->make_ajax_response(200, 'Mode Arsip aktif: data tidak bisa diubah.', ['kode' => 'gagal']);
-        }
-
-        $hasil = $this->terima_retur_ho_fcd->hapus(
-            $this->input->post('resi'),
-            $this->data['user']['id_user'],
-            $this->input->post('konfirmasi') === '1'
-        );
-
-        $this->make_ajax_response(200, $hasil['message'], $hasil);
-    }
 }
