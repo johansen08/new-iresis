@@ -1764,6 +1764,7 @@ class Retur_fcd extends CI_Model
         $inserted = 0;
         $updated  = 0;
         $matched  = 0;
+        $status_diperbarui = 0; // resi di tblprintresi yang status_pesanan-nya dijadikan RETURNED
 
         // Consolidate rows in memory by unique key (no_resi, no_pesanan, sku) to sum Qty and Amount
         $consolidated = [];
@@ -1872,11 +1873,26 @@ class Retur_fcd extends CI_Model
             } elseif ($affected >= 2) {
                 $updated++;
             }
+
+            // Selaraskan status pesanan di iresis: resi yang berstatus RETURNED di
+            // Jubelio harus RETURNED juga di tblprintresi. HANYA RETURNED yang
+            // menimpa (status Jubelio lain, mis. COMPLETED, tidak mengubah apa pun).
+            // Hanya menyentuh baris yang statusnya belum RETURNED.
+            if ($no_resi !== '' && strtoupper(trim((string) $status_j)) === 'RETURNED') {
+                $this->db->query(
+                    "UPDATE tblprintresi
+                        SET status_pesanan = 'RETURNED', modified_at = ?, modified_by = ?
+                      WHERE noresi = ?
+                        AND (status_pesanan IS NULL OR UPPER(TRIM(status_pesanan)) <> 'RETURNED')",
+                    [$now, $user_id, $no_resi]
+                );
+                $status_diperbarui += max(0, (int) $this->db->affected_rows());
+            }
         }
 
         $this->db->trans_complete();
 
-        return array('inserted' => $inserted, 'updated' => $updated, 'matched' => $matched);
+        return array('inserted' => $inserted, 'updated' => $updated, 'matched' => $matched, 'status_diperbarui' => $status_diperbarui);
     }
 
     /**
