@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-23.1';
+    const BOOTSTRAP_VERSI = '2026-11-23.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2650,6 +2650,41 @@ class MY_Controller extends CI_Controller
                 $this->db->insert('roleaccess', [
                     'roleid'    => $roleid,
                     'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
+            }
+        }
+
+        // Menu anak "Batal Scan Terima Retur" (hapus resi salah scan): sebelumnya kartu di layar Terima Retur.
+        // Induk sama dengan Terima Retur; hak akses disalin dari Terima Retur (+ role 1 dan 5).
+        $uri_batal = 'batal-scan-terima-retur';
+        $batal = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri_batal])->row();
+        if (!$batal) {
+            $this->db->insert('menu', [
+                'name'        => 'Batal Scan Terima Retur',
+                'parentid'    => $saudara ? $saudara->parentid : 27,
+                'uri'         => $uri_batal,
+                'icon'        => 'fa fa-eraser',
+                'sortorder'   => 6,
+                'description' => 'Hapus resi yang salah scan di Terima Retur (mis. paket reguler/NDD) dari data retur.',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $batal_id = $this->db->insert_id();
+        } else {
+            $batal_id = $batal->id;
+        }
+        $role_batal = [1, 5];
+        foreach ($this->db->get_where('roleaccess', ['menuid' => $menu_id])->result_array() as $r) {
+            $role_batal[] = (int) $r['roleid'];
+        }
+        foreach (array_unique($role_batal) as $roleid) {
+            if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $batal_id])->row()) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $batal_id,
                     'created'   => date('Y-m-d H:i:s'),
                     'createdby' => 1
                 ]);
