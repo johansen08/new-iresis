@@ -190,3 +190,10 @@ Tombol membuka panel dua kolom (kategori di kiri: Jenis retur, Status Jubelio, K
 Kurir/MP/Toko). Pilihan baru berlaku setelah **Terapkan** (data dimuat sekali). Filter yang berlaku tampil sebagai chip di bawah bar, tiap chip bisa
 dihapus dengan x. Status Jubelio hanya muncul di tab Semua/Selesai; Jenis retur dinonaktifkan di tab Belum Terima/Hangus.
 Menambah filter baru: tambah satu entri di array `KAT` (view `daftar_retur/index.php`); untuk tipe `dinamis` daftarkan juga kuncinya di `FIL`, `ajax.data`, export, dan `Daftar_retur::_saring`.
+
+## Filter rentang Nilai dan Umur (23 Nov 2026)
+
+Panel Filter punya dua kategori rentang: **Nilai (Rp)** (total amount per resi) dan **Umur** (hari, = kolom Umur; ada pilihan cepat ≥ 25 / ≥ 30 hari).
+Isi salah satu sisi saja boleh: hanya Minimum = tanpa batas atas, hanya Maksimum = tanpa batas bawah. Minimum > Maksimum ditolak dengan pesan di panel.
+Server: parameter `f_nilai_min/max`, `f_umur_min/max` (`Daftar_retur::_saring` → `Daftar_retur_fcd::get_list`), dipasang sebelum hitungan tab sehingga angka semua tab ikut menyempit; ikut ke Export dan "Pilih semua hasil".
+Diuji di browser (salinan DB uji, 63.022 resi) pada 8 tab: min saja + max saja selalu menjumlah ke total tab, batas tiap baris benar, kombinasi Nilai+Umur benar.
