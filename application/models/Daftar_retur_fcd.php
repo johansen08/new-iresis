@@ -918,7 +918,7 @@ class Daftar_retur_fcd extends CI_Model
         $jenis_semua = array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
 
         // 1. Baris pesanan dari Jubelio (barang yang diretur menurut marketplace).
-        $jub = $this->db->query("SELECT sku, nama_barang, qty, amount, no_pesanan, marketplace, nama_toko, kurir, status_jubelio, status_retur, tanggal_retur
+        $jub = $this->db->query("SELECT sku, qty, amount, no_pesanan, marketplace, nama_toko, kurir, status_jubelio, status_retur, tanggal_retur
             FROM tblreturjubelio WHERE no_resi = {$e} ORDER BY id_jubelio")->result_array();
 
         // 2. Data resi asal (tblprintresi): tanggal pesan/kirim/retur/selesai + status pesanan.
@@ -986,14 +986,13 @@ class Daftar_retur_fcd extends CI_Model
         $info_sku = array();
         if ($kode) {
             $in = implode(',', array_map(array($this->db, 'escape'), array_keys($kode)));
-            foreach ($this->db->query("SELECT id_sku, nama_sku, no_rak, link_foto, foto_lokal FROM tblsku WHERE id_sku IN ({$in})")->result_array() as $s) {
+            foreach ($this->db->query("SELECT id_sku, no_rak, link_foto, foto_lokal FROM tblsku WHERE id_sku IN ({$in})")->result_array() as $s) {
                 $info_sku[strtoupper((string) $s['id_sku'])] = $s;
             }
         }
         $sku_info = function ($k) use ($info_sku) {
             $s = isset($info_sku[strtoupper((string) $k)]) ? $info_sku[strtoupper((string) $k)] : null;
             return array(
-                'nama' => $s ? (string) $s['nama_sku'] : null,
                 'rak'  => $s ? (string) $s['no_rak'] : null,
                 'foto' => $s ? foto_sku_img($s['link_foto'], $s['foto_lokal'], 'class="dd-foto" loading="lazy" alt=""') : '',
             );
@@ -1003,7 +1002,7 @@ class Daftar_retur_fcd extends CI_Model
         $barang_jub = array();
         foreach ($jub as $x) {
             $barang_jub[] = array(
-                'sku' => (string) $x['sku'], 'nama' => ($x['nama_barang'] !== null && $x['nama_barang'] !== '') ? (string) $x['nama_barang'] : $sku_info($x['sku'])['nama'],
+                'sku' => (string) $x['sku'], 'rak' => $sku_info($x['sku'])['rak'], 'foto' => $sku_info($x['sku'])['foto'],
                 'qty' => (int) $x['qty'], 'nilai' => (float) $x['amount'], 'status' => (string) $x['status_retur'], 'status_jubelio' => (string) $x['status_jubelio'],
             );
         }
@@ -1016,10 +1015,10 @@ class Daftar_retur_fcd extends CI_Model
             $rekap_status[$st] = (isset($rekap_status[$st]) ? $rekap_status[$st] : 0) + (int) $x['qty'];
             $si = $sku_info($x['sku']);
             $hasil_buka[] = array(
-                'sku' => (string) $x['sku'], 'nama' => $si['nama'], 'rak' => $si['rak'], 'foto' => $si['foto'],
+                'sku' => (string) $x['sku'], 'rak' => $si['rak'], 'foto' => $si['foto'],
                 'qty' => (int) $x['qty'], 'status' => $st,
                 'pergantian' => (string) $x['sku_pergantian'] !== '' ? (string) $x['sku_pergantian'] : null,
-                'pergantian_nama' => (string) $x['sku_pergantian'] !== '' ? $sku_info($x['sku_pergantian'])['nama'] : null,
+                'pergantian_foto' => (string) $x['sku_pergantian'] !== '' ? $sku_info($x['sku_pergantian'])['foto'] : '',
                 'alasan' => (string) $x['alasan_ditolak'] !== '' ? (string) $x['alasan_ditolak'] : null,
                 'harga' => $x['harga'] !== null ? (float) $x['harga'] : null,
                 'jenis' => (int) $x['is_komplain'] === 1 ? self::JENIS_KOMPLAIN : self::JENIS_BIASA,

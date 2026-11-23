@@ -201,3 +201,7 @@ Diuji di browser (salinan DB uji, 63.022 resi) pada 8 tab: min saja + max saja s
 ## Filter Status Jubelio di semua tab (23 Nov 2026)
 
 Kategori **Status Jubelio** (SELESAI / DITOLAK / BARANG RETUR) di panel Filter sekarang muncul dan berlaku di semua tab, tidak lagi hanya Semua/Selesai. Resi disaring menurut status_retur yang dimilikinya (resi campuran lolos bila salah satu statusnya dipilih); dipasang sebelum hitungan tab. Semua status terpilih = tanpa filter. Diuji di 7 tab (salinan DB uji): tiap status hanya memunculkan baris yang membawa status itu, bawaan sama dengan sebelumnya.
+
+## Detail resi: foto SKU, tanpa nama produk (23 Nov 2026)
+
+Drawer detail resi tidak lagi menampilkan nama produk. Setiap SKU (hasil Buka Retur, barang menurut Jubelio, SKU pergantian) memakai foto thumbnail 68 px dengan ikon mata untuk gambar penuh (lightbox; Esc / klik latar menutup, drawer tetap). SKU tanpa foto di tblsku tampil sebagai kotak penanda. Cadangan foto lokal lewat foto_sku.js. Diuji di 6 tab (salinan DB uji): semua SKU berfoto dan berikon mata.
