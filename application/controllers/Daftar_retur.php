@@ -44,8 +44,7 @@ class Daftar_retur extends MY_Controller
         $urut = array(
             // kolom 0 = kotak centang (tidak bisa diurutkan)
             1 => 'tanggal_pesan', 2 => 'tanggal_retur', 3 => 'tanggal_tahap', 4 => 'no_pesanan', 5 => 'no_resi',
-            6 => 'kurir', 7 => 'marketplace', 8 => 'nama_toko', 9 => 'nilai',
-            10 => 'umur', 11 => 'tahap',
+            6 => 'nama_toko', 7 => 'nilai', 8 => 'umur', 9 => 'tahap', 10 => 'stat',
         );
         $kol = 'umur';
         $dir = 'desc';
@@ -76,6 +75,7 @@ class Daftar_retur extends MY_Controller
         }
 
         $status_retur = $this->_status_retur($this->input->post('status_retur'));
+        $saring = $this->_saring($this->input->post());
 
         // "Pilih semua hasil": kembalikan daftar resi seluruh hasil filter, tanpa paging.
         if ($this->input->post('ids_saja') === '1') {
@@ -83,16 +83,16 @@ class Daftar_retur extends MY_Controller
                 'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
                 'segarkan' => false, 'jenis' => $jenis,
                 'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
-            ));
+            ) + $saring);
             echo json_encode(array('resi' => array_map(function ($x) { return (string) $x->no_resi; }, $semua)));
             return;
         }
 
-        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua, $jumlah_selesai) = $this->daftar_retur_fcd->get_list(array(
+        list($rows, $total_filter, $total, $tab, $waktu, $jumlah_semua, $jumlah_selesai, $opsi) = $this->daftar_retur_fcd->get_list(array(
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
             'segarkan' => $this->input->post('segarkan') === '1', 'jenis' => $jenis, 'status_retur' => $status_retur,
             'order' => $kol, 'dir' => $dir, 'offset' => $offset, 'limit' => $limit,
-        ));
+        ) + $saring);
 
         // Rincian tiap tahap (petugas + tanggal/jam) hanya dibaca untuk baris di halaman ini.
         $rincian = $this->daftar_retur_fcd->detail_progress(
@@ -108,15 +108,13 @@ class Daftar_retur extends MY_Controller
                 $this->_sel_tanggal($r->tanggal_tahap) . $this->_lencana_ulang($r) . $this->_lencana_lama($r),
                 $this->_salinan($this->_ringkas_pesanan($r->no_pesanan), false, $r->no_pesanan . "\n" . trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')),
                 $this->_salinan($r->no_resi, true),
-                '<span class="dr-potong" title="' . $this->_h($r->kurir) . '">' . $this->_h($r->kurir ?: '-') . '</span>',
-                '<span class="dr-potong" title="' . $this->_h($r->marketplace) . '">' . $this->_h($r->marketplace ?: '-') . '</span>',
                 '<span class="dr-toko" title="' . $this->_h(trim($r->marketplace . ' · ' . $r->nama_toko, ' ·')) . '">'
                     . ($r->marketplace ? '<span class="dr-mpx">' . $this->_h($r->marketplace) . '</span>' : '')
                     . $this->_h($r->nama_toko ?: '-') . '</span>',
                 number_format((float) $r->nilai, 0, ',', '.'),
                 $this->_badge_umur($r),
                 $this->_sel_progress($r, isset($rincian[strtoupper((string) $r->no_resi)]) ? $rincian[strtoupper((string) $r->no_resi)] : array()),
-                $this->_lencana_status($r),   // kolom 13: hanya tampil di tab Semua dan Selesai (CSS)
+                $this->_lencana_status($r),   // kolom 11: status retur Jubelio, tampil di semua tab
             );
         }
 
@@ -127,6 +125,7 @@ class Daftar_retur extends MY_Controller
             'tab_counts'      => $tab,
             'jumlah_semua'    => $jumlah_semua,   // isi tab Semua menurut filter status; NULL bila bukan tab Semua
             'jumlah_selesai'  => $jumlah_selesai, // isi tab Selesai (final di Jubelio) menurut filter status; NULL bila tidak dihitung
+            'opsi'            => $opsi,           // pilihan filter Kurir / MP / Toko (dari data tab ini, sebelum disaring)
             'dihitung_pada'   => date('H:i:s', $waktu),
             'data'            => $data,
         ));
@@ -167,7 +166,7 @@ class Daftar_retur extends MY_Controller
             'start' => $start, 'end' => $end, 'status' => $status, 'search' => $cari,
             'segarkan' => false, 'jenis' => $jenis, 'status_retur' => $this->_status_retur($this->input->get('status_retur')),
             'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
-        ));
+        ) + $this->_saring($this->input->get()));
 
         $rincian = $this->daftar_retur_fcd->detail_progress(
             array_map(function ($x) { return (string) $x->no_resi; }, $rows), $jenis
@@ -233,7 +232,7 @@ class Daftar_retur extends MY_Controller
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, $teks);
             }
             $ws->setCellValueByColumnAndRow(10, $r, (float) $b->nilai);
-            $ws->setCellValueByColumnAndRow(11, $r, (int) $b->umur_hari);
+            $ws->setCellValueByColumnAndRow(11, $r, (int) $b->umur_tampil);
             $r++;
         }
         $terakhir = max(2, $r - 1);
@@ -357,6 +356,23 @@ class Daftar_retur extends MY_Controller
             ->count_all_results('roleaccess') > 0;
     }
 
+    /**
+     * Filter multi-pilih Kurir / MP / Toko dari POST/GET: f_kurir, f_mp, f_toko = string JSON array nilai persis.
+     * Tidak dikirim / kosong / bukan array = tanpa filter (kunci tidak dimasukkan).
+     */
+    private function _saring($sumber)
+    {
+        $hasil = array();
+        foreach (array('kurir' => 'f_kurir', 'mp' => 'f_mp', 'toko' => 'f_toko') as $kunci => $nama) {
+            $mentah = is_array($sumber) && isset($sumber[$nama]) && is_string($sumber[$nama]) ? json_decode($sumber[$nama], true) : null;
+            if (is_array($mentah) && $mentah) {
+                $hasil[$kunci] = array_values(array_filter($mentah, 'is_string') ?: array());
+                if (!$hasil[$kunci]) unset($hasil[$kunci]);
+            }
+        }
+        return $hasil;
+    }
+
     /** Rentang tanggal 'Y-m-d H:i:s' (tanggal pesan; baris Sudah dibuka = tanggal buka retur); default 1 Januari tahun ini s/d hari ini. */
     private function _rentang()
     {
@@ -446,7 +462,7 @@ class Daftar_retur extends MY_Controller
      */
     private function _badge_umur($r)
     {
-        $umur = (int) $r->umur_hari;
+        $umur = (int) $r->umur_tampil;
         $teks = number_format($umur, 0, ',', '.') . ' hari';
 
         // Resi yang tidak berstatus BARANG RETUR (SELESAI / DITOLAK = pengembalian complain) bukan retur ekspedisi: umur tanpa warna klaim.

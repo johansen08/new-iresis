@@ -520,6 +520,34 @@ class Daftar_retur_fcd extends CI_Model
             }
         }
 
+        // Umur yang ditampilkan: dari tanggal retur sebenarnya; bila tidak ada, dari tanggal pesan. (umur_hari tetap dipakai
+        // untuk batas Hangus: tanggal retur berlapis retur -> kirim -> order.) Sekaligus kumpulkan pilihan filter Kurir / MP / Toko.
+        $sekarang = strtotime(date('Y-m-d'));
+        $opsi = array('kurir' => array(), 'mp' => array(), 'toko' => array());
+        foreach ($semua as $r) {
+            $dasar = ($r->sumber_tanggal === 'RETUR') ? $r->tanggal_retur : $r->tanggal_pesan;
+            $ts = $dasar ? strtotime(substr($dasar, 0, 10)) : false;
+            $r->umur_tampil = $ts ? max(0, (int) floor(($sekarang - $ts) / 86400)) : (int) $r->umur_hari;
+            $opsi['kurir'][trim((string) $r->kurir)] = true;
+            $opsi['mp'][trim((string) $r->marketplace)] = true;
+            $opsi['toko'][trim((string) $r->nama_toko)] = true;
+        }
+        foreach ($opsi as $k => $v) {
+            $v = array_keys($v);
+            sort($v, SORT_NATURAL | SORT_FLAG_CASE);
+            $opsi[$k] = $v;
+        }
+        // Filter multi-pilih Kurir / MP / Toko (array nilai persis; tidak diisi / kosong = tanpa filter). Dipasang SEBELUM penghitungan
+        // tab, jadi angka tiap tab ikut menyempit.
+        $saring = array('kurir' => 'kurir', 'mp' => 'marketplace', 'toko' => 'nama_toko');
+        foreach ($saring as $kunci_p => $kolom_r) {
+            if (empty($p[$kunci_p]) || !is_array($p[$kunci_p])) continue;
+            $boleh = array_flip(array_map('strval', $p[$kunci_p]));
+            $semua = array_values(array_filter($semua, function ($r) use ($boleh, $kolom_r) {
+                return isset($boleh[trim((string) $r->$kolom_r)]);
+            }));
+        }
+
         $jenis = isset($p['jenis']) && is_array($p['jenis'])
             ? array_values(array_intersect($p['jenis'], array(self::JENIS_BIASA, self::JENIS_KOMPLAIN)))
             : array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
@@ -650,11 +678,11 @@ class Daftar_retur_fcd extends CI_Model
         }
         $total_filter = count($hasil);
 
-        // Kolom pengurutan. 'umur' dibalik: umur terbesar = tanggal retur terkecil.
+        // Kolom pengurutan. 'umur' = umur yang tampil di tabel (umur_tampil).
         $kol = $p['order'];
         $asc = ($p['dir'] === 'asc');
-        if ($kol === 'umur') { $kol = 'tanggal_retur'; $asc = !$asc; }
-        $angka = in_array($kol, array('nilai', 'umur_hari', 'tahap'), true);
+        if ($kol === 'umur') $kol = 'umur_tampil';
+        $angka = in_array($kol, array('nilai', 'umur_hari', 'umur_tampil', 'tahap'), true);
 
         // Urut lewat array_multisort (kunci dihitung sekali): usort dengan closure untuk puluhan ribu baris memakan ~1 detik.
         // Kunci sama -> urut no_resi, arah mengikuti kolom (sama dengan perilaku usort sebelumnya).
@@ -669,7 +697,7 @@ class Daftar_retur_fcd extends CI_Model
 
         $rows = array_slice($hasil, (int) $p['offset'], (int) $p['limit']);
 
-        return array($rows, $total_filter, $total_rentang, $tab, $waktu, $jumlah_semua, $jumlah_selesai);
+        return array($rows, $total_filter, $total_rentang, $tab, $waktu, $jumlah_semua, $jumlah_selesai, $opsi);
     }
 
     /** Tahap progres 0..4 dari posisi paket; serah terima hanya relevan untuk paket yang sudah dibuka dan belum diverifikasi. */
