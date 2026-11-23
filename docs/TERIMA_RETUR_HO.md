@@ -41,12 +41,31 @@ Urutan pengecekan, dan kode hasil yang dikembalikan:
 6. Sudah ada baris pada jenis sebelah → `salah_jenis` (pesan menyebut jenis yang benar).
 7. Selain itu INSERT → `ok`.
 
+Sisipan (23 Nov 2026): setelah cek CANCEL, `status_pesanan = PROCESSING` → `salah_menu`
+("Salah Menu Scan"): paket belum dikirim, jadi bukan retur. Layar menampilkan banner, bunyi
+`audio-wrong`, dan `alert()`. Tidak ada baris yang ditulis.
+
 Langkah 5–7 dijaga `GET_LOCK('terima_retur_<id_printresi>')`. `tblresiretur` tidak punya unique
 key `(id_resi, is_komplain)`, jadi tanpa kunci dua scan resi yang sama yang tiba bersamaan bisa
 sama-sama lolos cek dan menghasilkan dua baris.
 
 Hal yang sengaja **tidak** ada dibanding menu lama: mode Update (reset baris + hapus
 `tblbukaretur`) dan penghitung harian yang tidak memisahkan jenis.
+
+## Hapus resi salah scan
+
+Kartu ketiga di layar: paket reguler/NDD yang terlanjur terscan sebagai retur dapat dihapus dari
+data retur (`POST terima-retur-ho/hapus`, `Terima_retur_ho_fcd::hapus`). Dua tahap: scan resi →
+server memeriksa dan menampilkan baris yang akan dihapus → klik **Hapus dari data retur**
+(`konfirmasi=1`). Kode hasil: `konfirmasi`, `ok`, `tidak_ditemukan`, `tidak_ada_retur`,
+`sudah_diproses`, `gagal`.
+
+- Hanya baris `status_retur = 'Terima Retur'` yang belum punya `tblbukaretur` (`resi_buka`). Yang
+  sudah dibuka → `sudah_diproses` (hubungi admin).
+- Memakai `GET_LOCK('terima_retur_<id_printresi>')` yang sama dengan terima, dalam transaksi.
+- Jejak: baris disalin dulu ke `tblresiretur_salah_scan` (struktur `LIKE tblresiretur` +
+  `dihapus_oleh`, `dihapus_at`), baru dihapus dari `tblresiretur`. Tabel dibuat migrasi
+  (`BOOTSTRAP_VERSI 2026-11-23.1`). Hak akses sama dengan menu; Mode Arsip ditolak.
 
 ## Data yang disimpan
 

@@ -36,6 +36,25 @@
       <table id="trh_hist"></table>
     </div>
   </div>
+
+  <!-- 3. Hapus resi salah scan -->
+  <div class="tr-card">
+    <h2>Hapus resi salah scan</h2>
+    <div class="tr-b" id="trh_hapus_box">
+      <p class="tr-msg" style="margin-top:0">Paket reguler/NDD yang terlanjur terscan sebagai retur? Scan resinya di sini untuk menghapusnya dari data retur. Hanya resi yang belum dibuka (Buka Retur) yang bisa dihapus.</p>
+      <input type="text" class="form-control" id="trh_hapus_resi" placeholder="Scan resi yang akan dihapus…" autocomplete="off" spellcheck="false">
+      <div class="tr-res" id="trh_hapus_res" style="display:none">
+        <div class="h"><div class="tr-dot" id="trh_hapus_dot">·</div>
+          <div><div class="tr-tt" id="trh_hapus_tt"></div><div class="tr-rn" id="trh_hapus_rn"></div></div></div>
+        <p class="tr-msg" id="trh_hapus_msg"></p>
+        <div class="tr-meta" id="trh_hapus_meta"></div>
+        <div id="trh_hapus_aksi" style="margin-top:8px;display:none">
+          <button type="button" class="btn btn-danger" id="trh_hapus_ya">Hapus dari data retur</button>
+          <button type="button" class="btn btn-default" id="trh_hapus_batal">Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="text/javascript">
@@ -48,6 +67,7 @@
     // Kode hasil -> suara. Semua berkas bawaan proyek (main.php), dipakai juga di menu picker/packer.
     var SUARA = {
         ok: 'audio-alexis',
+        salah_menu: 'audio-wrong',
         'double': 'audio-sudah-scan',
         cancel: 'audio-cancel-order',
         tidak_ditemukan: 'audio-tidak-ditemukan',
@@ -58,6 +78,7 @@
     };
     var JUDUL = {
         ok: 'DITERIMA',
+        salah_menu: 'SALAH MENU SCAN',
         'double': 'DOUBLE — SUDAH DISCAN',
         cancel: 'PAKET CANCEL',
         tidak_ditemukan: 'RESI TIDAK DITEMUKAN',
@@ -67,7 +88,7 @@
         ditolak: 'TIDAK ADA AKSES'
     };
     var LABEL_HASIL = {
-        ok: 'Diterima', 'double': 'Double', cancel: 'Cancel', tidak_ditemukan: 'Tidak ditemukan',
+        ok: 'Diterima', salah_menu: 'Salah menu', 'double': 'Double', cancel: 'Cancel', tidak_ditemukan: 'Tidak ditemukan',
         salah_jenis: 'Salah jenis', jenis_belum_dipilih: 'Jenis belum dipilih', gagal: 'Gagal', ditolak: 'Ditolak'
     };
 
@@ -150,7 +171,69 @@
             gambarRiwayat();
         }
         suara(SUARA[r.kode] || 'audio-wrong');
+        if (r.kode === 'salah_menu') {   // alert eksplisit: paket PROCESSING bukan retur
+            setTimeout(function () { alert('SALAH MENU SCAN\n\nResi ' + (r.noresi || item.input) + ' masih berstatus PROCESSING (belum dikirim), bukan retur.'); fokus(); }, 50);
+        }
     }
+
+    // ---- hapus resi salah scan ----
+    var URL_HAPUS = '<?= base_url('terima-retur-ho/hapus') ?>';
+    var hapusResi = null;      // resi yang menunggu konfirmasi
+    function hapusBanner(cls, dot, judul, rn, msg, meta, aksi) {
+        $('#trh_hapus_res').attr('class', 'tr-res ' + cls).show();
+        $('#trh_hapus_dot').text(dot);
+        $('#trh_hapus_tt').text(judul);
+        $('#trh_hapus_rn').text(rn || '—');
+        $('#trh_hapus_msg').text(msg || '');
+        $('#trh_hapus_meta').html(meta || '');
+        $('#trh_hapus_aksi').toggle(!!aksi);
+    }
+    function hapusKirim(resi, konfirmasi) {
+        hapusBanner('wait', '…', 'MEMPROSES', resi, '', '', false);
+        $.ajax({
+            url: URL_HAPUS, type: 'post', dataType: 'json', cache: false, timeout: 15000,
+            data: {resi: resi, konfirmasi: konfirmasi ? '1' : '0'},
+            success: function (res) {
+                var d = (res && res.data) ? res.data : {};
+                var msg = d.message || (res && res.message) || 'Respons server tidak dikenal.';
+                if (!hidup()) return;
+                if (d.kode === 'konfirmasi') {
+                    hapusResi = resi;
+                    var meta = '';
+                    $.each(d.baris || [], function (i, b) { meta += '<span class="tr-pill">' + esc(b.jenis) + ' <b>' + esc(b.tanggal) + '</b></span>'; });
+                    if (d.resi_balik) meta = '<span class="tr-pill">Resi balik <b>' + esc(d.resi_balik) + '</b></span>' + meta;
+                    hapusBanner('dbl', '?', 'HAPUS RESI INI?', d.noresi || resi, 'Baris ini akan dihapus dari data retur. Salinannya disimpan di log salah scan.', meta, true);
+                    suara('audio-sudah-scan');
+                } else if (d.kode === 'ok') {
+                    hapusResi = null;
+                    hapusBanner('ok', '✓', 'DIHAPUS', d.noresi || resi, msg, '', false);
+                    suara('audio-alexis');
+                    $('#trh_hapus_resi').val('').focus();
+                } else {
+                    hapusResi = null;
+                    hapusBanner('err', '✕', 'TIDAK DIHAPUS', d.noresi || resi, msg, '', false);
+                    suara(d.kode === 'tidak_ditemukan' ? 'audio-tidak-ditemukan' : 'audio-wrong');
+                }
+            },
+            error: function () {
+                hapusResi = null;
+                if (hidup()) hapusBanner('err', '✕', 'GAGAL', resi, 'Terjadi kesalahan jaringan/server. Coba lagi.', '', false);
+            }
+        });
+    }
+    $('#trh_hapus_resi').on('keydown', function (e) {
+        if (e.which !== 13) return;
+        e.preventDefault();
+        var v = $.trim(this.value);
+        if (!v) return;
+        hapusKirim(v, false);
+    });
+    $('#trh_hapus_ya').on('click', function () { if (hapusResi) { var r = hapusResi; hapusResi = null; hapusKirim(r, true); } });
+    $('#trh_hapus_batal').on('click', function () {
+        hapusResi = null;
+        $('#trh_hapus_res').hide();
+        $('#trh_hapus_resi').val('').focus();
+    });
 
     // Antrian berurutan: scan beruntun tidak saling tumpang tindih di server, kolom tetap langsung kosong.
     function proses() {
@@ -210,7 +293,14 @@
 
     // Kunci kursor di kolom scan. Handler dipasang di document dengan namespace dan dilepas
     // otomatis begitu halaman diganti menu lain.
-    function fokus() { setTimeout(function () { if (hidup()) { $resi.focus(); } }, 0); }
+    function fokus() {
+        setTimeout(function () {
+            if (!hidup()) return;
+            var a = document.activeElement;   // jangan rebut fokus dari kolom/tombol hapus
+            if (a && $(a).closest('#trh_hapus_box').length) return;
+            $resi.focus();
+        }, 0);
+    }
     $resi.on('blur', fokus);
     $(document).off('click.trh keydown.trh').on('click.trh', function () {
         if (!hidup()) { $(document).off('.trh'); return; }
