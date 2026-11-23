@@ -298,8 +298,8 @@ $BASE = rtrim(base_url(), '/') . '/';
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="" title="Semua retur Jubelio (ekspedisi + SELESAI / DITOLAK, bisa difilter Status retur); tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
-    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Belum ada scan terima, umur 60 hari atau kurang">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
-    <div class="dr-tab" data-status="BELUM_HANGUS" title="Belum ada scan terima dan umur lebih dari 60 hari (dianggap hangus)">Belum Terima (Hangus) <span class="n" id="n_BELUM_HANGUS">-</span></div>
+    <div class="dr-tab" data-status="BELUM_DITERIMA" title="Belum ada scan terima, umur 30 hari atau kurang">Belum Terima <span class="n hot" id="n_BELUM_DITERIMA">-</span></div>
+    <div class="dr-tab" data-status="BELUM_HANGUS" title="Belum ada scan terima dan umur lebih dari 30 hari (dianggap hangus)">Belum Terima (Hangus) <span class="n" id="n_BELUM_HANGUS">-</span></div>
     <div class="dr-tab" data-status="BELUM_DIBUKA" title="Sudah scan terima, belum dibuka">Sudah Terima <span class="n hot" id="n_BELUM_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting (bisa Cetak Ulang)">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
