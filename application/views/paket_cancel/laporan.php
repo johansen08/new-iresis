@@ -58,7 +58,7 @@
     // Ringkasan kejadian per paket: hanya KURANG / SALAH / LEBIH (SKU di luar resi dihitung LEBIH)
     function tagSelisih(p) {
         var t = p.jenis_total || {};
-        return [['KURANG', t.KURANG || 0], ['LEBIH', (t.LEBIH || 0) + (t.DI_LUAR_RESI || 0)], ['SALAH_AMBIL', t.SALAH_AMBIL || 0]]
+        return [['KURANG', t.KURANG || 0], ['LEBIH', (t.LEBIH || 0) + (t.DI_LUAR_RESI || 0)], ['SALAH_AMBIL', t.SALAH_AMBIL || 0], ['PERGANTIAN', t.PERGANTIAN || 0], ['REFUND', t.REFUND || 0]]
             .filter(function (x) { return x[1] > 0; }).map(function (x) { return U.tag(x[0], x[1]); }).join(' ');
     }
     // Paket lama menyimpan kode alasan; paket baru tidak (pilihan Kurang / Salah saja)
@@ -376,10 +376,11 @@
         // Keadaan awal dari kejadian tersimpan: SALAH -> SKU terambil + qty, KURANG -> pilihan Kurang
         var isiResi = p.items.filter(function (i) { return i.qty_resi > 0; });
         var luarItem = p.items.filter(function (i) { return i.qty_resi === 0; });
-        var salah = [], kurang = [], pakai = {};
+        var salah = [], kurang = [], pakai = {}, sisaJenis = {};
         if (!p.tanpa_resi) {
             (p.grup || []).forEach(function (k) {
                 if (k.jenis === 'KURANG') { kurang.push(k.sku); return; }
+                if (k.jenis === 'PERGANTIAN' || k.jenis === 'REFUND') { sisaJenis[k.sku] = k.jenis; return; }
                 if (k.jenis !== 'SALAH_AMBIL') return;
                 var pi = luarItem.filter(function (x) { return x.sku.toUpperCase() === String(k.pasangan || '').toUpperCase(); })[0];
                 if (!pi) { kurang.push(k.sku); return; } // pasangan di dalam resi (aturan lama): jadi Kurang + Lebih
@@ -392,7 +393,7 @@
         }).filter(function (x) { return x.ada > 0; });
         edK.tanpa = !!p.tanpa_resi;
         if (p.tanpa_resi) g('edisi').style.display = 'none';
-        edK.muat(isiResi.map(function (i) { return { sku: i.sku, no_rak: i.no_rak, qty: i.qty_resi, ada: i.qty_ditemukan, foto: i.foto, foto_lokal: i.foto_lokal }; }), luar, salah, kurang);
+        edK.muat(isiResi.map(function (i) { return { sku: i.sku, no_rak: i.no_rak, qty: i.qty_resi, ada: i.qty_ditemukan, foto: i.foto, foto_lokal: i.foto_lokal }; }), luar, salah, kurang, sisaJenis);
     }
     function edTambah() {
         var teks = g('edsku').value.trim(), q = +g('edq').value;
@@ -416,7 +417,7 @@
         var bp = edK.belumPutus();
         if (bp.length) {
             edK.render();
-            U.al('edmsg', 'bad', 'Pilih <b>Kurang</b> atau <b>Salah</b> untuk ' + bp.map(function (b) { return '<b>' + esc(b.sku) + '</b>'; }).join(', ') + ' (qty ada kurang dari qty resi).');
+            U.al('edmsg', 'bad', 'Pilih <b>Kurang</b>, <b>Salah</b>, <b>Pergantian</b> atau <b>Refund</b> untuk ' + bp.map(function (b) { return '<b>' + esc(b.sku) + '</b>'; }).join(', ') + ' (qty ada kurang dari qty resi).');
             return;
         }
         var pay = edK.payload(), cat = g('edcat').value.trim();
@@ -437,10 +438,10 @@
         // Pilihan Kurang / Salah yang berubah dengan qty tetap: ikut ringkasan
         var ttd = function (g2) { return g2.map(function (k) { return k.j + '|' + k.s.toUpperCase() + '|' + (k.p || '').toUpperCase() + '|' + k.q; }).sort().join(';'); };
         var kejLama = (p.grup || []).map(function (k) { return { j: k.jenis, s: k.sku, p: k.pasangan || '', q: k.qty }; });
-        if (!ch.length && !p.tanpa_resi && ttd(kejLama) !== ttd(edK.grup())) ch.push('Pilihan Kurang / Salah diubah');
+        if (!ch.length && !p.tanpa_resi && ttd(kejLama) !== ttd(edK.grup())) ch.push('Pilihan Kurang / Salah / Pergantian / Refund diubah');
         if (!ch.length) { U.al('edmsg', 'warn', 'Tidak ada perubahan untuk disimpan.'); return; }
         U.konfirm('Simpan perubahan?', 'Perubahan pada paket <b>' + esc(nr(p)) + '</b>:<ul style="margin:8px 0 0;padding-left:20px">' + ch.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>', 'Ya, simpan', 'g', function () {
-            return U.post(URL.edit, { id: p.id, dari: dari, catatan: cat, items: JSON.stringify(pay.items), salah: JSON.stringify(pay.salah) }).then(function (res) {
+            return U.post(URL.edit, { id: p.id, dari: dari, catatan: cat, items: JSON.stringify(pay.items), salah: JSON.stringify(pay.salah), sisa_jenis: JSON.stringify(pay.sisaJenis) }).then(function (res) {
                 if (!(res && res.data && res.data.ok)) return esc(res && res.message ? res.message : 'Gagal menyimpan perubahan');
                 U.mdTutup(edO);
                 pesan('ok', 'Paket <b>' + esc(nr(p)) + '</b> berhasil diperbarui.');

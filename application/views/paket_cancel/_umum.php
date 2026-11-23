@@ -203,9 +203,10 @@ window.PCU = (function () {
     // Qty ada per SKU resi; bila kurang dari qty resi petugas WAJIB memilih Kurang atau Salah:
     //   Kurang = qty kurang langsung dihitung (qty resi - qty ada).
     //   Salah  = isi SKU yang terambil dan qty-nya (boleh beberapa SKU); sisa selisih otomatis Kurang.
-    // Label tampil hanya KURANG / SALAH / LEBIH (SKU di luar resi tampil LEBIH; di data tetap DI_LUAR_RESI).
-    U.NMJ = { SESUAI: 'SESUAI', KURANG: 'KURANG', LEBIH: 'LEBIH', SALAH_AMBIL: 'SALAH', DI_LUAR_RESI: 'LEBIH' };
-    U.CLSJ = { SESUAI: 'ok', KURANG: 'bad', LEBIH: 'info', SALAH_AMBIL: 'warn', DI_LUAR_RESI: 'info' };
+    //   Pergantian / Refund = seluruh selisih SKU itu karena barang diganti / di-refund pembeli (bukan salah picker).
+    // Label tampil KURANG / SALAH / PERGANTIAN / REFUND / LEBIH (SKU di luar resi tampil LEBIH; di data tetap DI_LUAR_RESI).
+    U.NMJ = { SESUAI: 'SESUAI', KURANG: 'KURANG', LEBIH: 'LEBIH', SALAH_AMBIL: 'SALAH', DI_LUAR_RESI: 'LEBIH', PERGANTIAN: 'PERGANTIAN', REFUND: 'REFUND' };
+    U.CLSJ = { SESUAI: 'ok', KURANG: 'bad', LEBIH: 'info', SALAH_AMBIL: 'warn', DI_LUAR_RESI: 'info', PERGANTIAN: 'info', REFUND: 'info' };
     U.tag = function (j, n) { return '<span class="b ' + U.CLSJ[j] + '">' + U.NMJ[j] + (n ? ' ' + n : '') + '</span>'; };
 
     /**
@@ -217,7 +218,9 @@ window.PCU = (function () {
         var selisih = function (b) { return Math.max(0, b.qr - b.ada); };
         var sumSalah = function (b) { return b.salah.reduce(function (n, x) { return n + x.qty; }, 0); };
         var sisa = function (b) { return selisih(b) - sumSalah(b); };
-        var putus = function (b) { return selisih(b) === 0 || b.pilih === 'KURANG' || b.salah.length > 0; };
+        var putus = function (b) { return selisih(b) === 0 || b.pilih === 'KURANG' || b.pilih === 'PERGANTIAN' || b.pilih === 'REFUND' || b.salah.length > 0; };
+        // Jenis sisa selisih (setelah alokasi salah ambil): KURANG, atau PERGANTIAN / REFUND bila dipilih
+        var jenisSisa = function (b) { return b.pilih === 'PERGANTIAN' || b.pilih === 'REFUND' ? b.pilih : 'KURANG'; };
         var up = function (s) { return String(s).toUpperCase(); };
 
         // Qty ada berubah: alokasi salah ambil tidak boleh melebihi selisih; selisih 0 = pilihan dibuang
@@ -232,9 +235,10 @@ window.PCU = (function () {
 
         /**
          * isi: [{sku, no_rak, qty, ada?, foto, foto_lokal}] (SKU resi); luar: [{sku, no_rak, ada, foto, foto_lokal}];
-         * salah: [{sku (SKU resi), pasangan: {sku, no_rak, foto, foto_lokal}, qty}]; kurang: [SKU yang dipilih Kurang]
+         * salah: [{sku (SKU resi), pasangan: {sku, no_rak, foto, foto_lokal}, qty}]; kurang: [SKU yang dipilih Kurang];
+         * sisaJenis: {SKU: 'PERGANTIAN' | 'REFUND'}
          */
-        K.muat = function (isi, luar, salah, kurang) {
+        K.muat = function (isi, luar, salah, kurang, sisaJenis) {
             K.b = (isi || []).map(function (i) {
                 return { sku: i.sku, it: i, qr: +i.qty, ada: i.ada === undefined ? +i.qty : +i.ada, pilih: null, salah: [], edit: false };
             });
@@ -248,6 +252,9 @@ window.PCU = (function () {
             (kurang || []).forEach(function (sku) {
                 K.b.forEach(function (b) { if (up(b.sku) === up(sku) && selisih(b) > 0 && !b.salah.length) b.pilih = 'KURANG'; });
             });
+            Object.keys(sisaJenis || {}).forEach(function (sku) {
+                K.b.forEach(function (b) { if (up(b.sku) === up(sku) && selisih(b) > 0 && !b.salah.length) b.pilih = sisaJenis[sku]; });
+            });
             K.b.forEach(rapikan);
             K.render();
         };
@@ -259,7 +266,7 @@ window.PCU = (function () {
                 var S = selisih(b);
                 b.salah.forEach(function (x) { g.push({ j: 'SALAH_AMBIL', s: b.sku, p: x.sku, q: x.qty }); });
                 var sq = S - sumSalah(b);
-                if (S > 0 && sq > 0 && (b.pilih === 'KURANG' || b.salah.length)) g.push({ j: 'KURANG', s: b.sku, p: '', q: sq });
+                if (S > 0 && sq > 0 && putus(b)) g.push({ j: jenisSisa(b), s: b.sku, p: '', q: sq });
                 if (b.ada > b.qr) g.push({ j: 'LEBIH', s: b.sku, p: '', q: b.ada - b.qr });
             });
             K.l.forEach(function (x) { if (x.ada > 0) g.push({ j: 'DI_LUAR_RESI', s: x.sku, p: '', q: x.ada }); });
@@ -267,13 +274,14 @@ window.PCU = (function () {
         };
         K.belumPutus = function () { return K.b.filter(function (b) { return !putus(b); }); };
         K.payload = function () {
-            var items = [], salah = [];
+            var items = [], salah = [], sisaJenis = {};
             K.b.forEach(function (b) {
                 items.push({ sku: b.sku, qty: b.ada });
+                if (selisih(b) > 0 && jenisSisa(b) !== 'KURANG') sisaJenis[b.sku] = jenisSisa(b);
                 b.salah.forEach(function (s) { items.push({ sku: s.sku, qty: s.qty }); salah.push({ sku: b.sku, pasangan: s.sku, qty: s.qty }); });
             });
             K.l.forEach(function (x) { if (x.ada > 0) items.push({ sku: x.sku, qty: x.ada }); });
-            return { items: items, salah: salah };
+            return { items: items, salah: salah, sisaJenis: sisaJenis };
         };
         K.adaSelisih = function () { return K.grup().length > 0 || K.belumPutus().length > 0; };
         K.tutupEditor = function () {
@@ -290,7 +298,9 @@ window.PCU = (function () {
             if (!putus(b)) {
                 return '<div class="pilih"><div class="pilih-t">Selisih <b>' + S + '</b></div><div class="pilih-b">' +
                     '<button type="button" class="a x s" data-k="pilihkurang" data-i="' + i + '">Kurang ' + S + '</button>' +
-                    '<button type="button" class="a x s" data-k="pilihsalah" data-i="' + i + '">Salah</button></div></div>';
+                    '<button type="button" class="a x s" data-k="pilihsalah" data-i="' + i + '">Salah</button>' +
+                    '<button type="button" class="a x s" data-k="pilihpergantian" data-i="' + i + '">Pergantian</button>' +
+                    '<button type="button" class="a x s" data-k="pilihrefund" data-i="' + i + '">Refund</button></div></div>';
             }
             b.salah.forEach(function (s, j) {
                 h.push('<div class="sa">' + U.tag('SALAH_AMBIL') + '<div class="sa-r">' + U.foto(Object.assign({}, s.it, { sku: s.sku })) + '<b>' + esc(s.sku) + '</b>' + (s.it.no_rak ? '<small>rak ' + esc(s.it.no_rak) + '</small>' : '') + '</div>' +
@@ -299,7 +309,7 @@ window.PCU = (function () {
                     '<button type="button" class="a x s" data-k="shapus" data-i="' + i + '" data-j="' + j + '">Hapus</button></div></div>');
             });
             var sq = S - sumSalah(b);
-            if (sq > 0) h.push('<div class="sa">' + U.tag('KURANG', sq) + '</div>');
+            if (sq > 0) h.push('<div class="sa">' + U.tag(jenisSisa(b), sq) + '</div>');
             var aksi = [];
             if (sq > 0 && b.salah.length) aksi.push('<button type="button" class="a x s" data-k="pilihsalah" data-i="' + i + '">+ Salah</button>');
             aksi.push('<button type="button" class="a x s" data-k="ubahpilih" data-i="' + i + '">Ubah</button>');
@@ -340,11 +350,11 @@ window.PCU = (function () {
             if (cfg.onChange) cfg.onChange(K);
         };
         function ringkasan() {
-            var tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0 }, sesuai = 0;
+            var tot = { KURANG: 0, LEBIH: 0, SALAH_AMBIL: 0, DI_LUAR_RESI: 0, PERGANTIAN: 0, REFUND: 0 }, sesuai = 0;
             K.grup().forEach(function (g) { tot[g.j] += g.q; });
             K.b.forEach(function (b) { if (b.ada === b.qr) sesuai++; });
             if (K.tanpa) { cfg.ban.innerHTML = ''; return; }
-            var kartu = [['o', 'Sesuai', sesuai], ['k', 'Kurang', tot.KURANG], ['l', 'Lebih', tot.LEBIH + tot.DI_LUAR_RESI], ['s', 'Salah', tot.SALAH_AMBIL], ['w', 'Belum dipilih', K.belumPutus().length]];
+            var kartu = [['o', 'Sesuai', sesuai], ['k', 'Kurang', tot.KURANG], ['l', 'Lebih', tot.LEBIH + tot.DI_LUAR_RESI], ['s', 'Salah', tot.SALAH_AMBIL], ['g', 'Pergantian', tot.PERGANTIAN], ['r', 'Refund', tot.REFUND], ['w', 'Belum dipilih', K.belumPutus().length]];
             cfg.ban.innerHTML = '<div class="sum">' + kartu.map(function (k) { return '<div class="' + k[0] + (k[2] > 0 ? ' on' : '') + '"><b>' + k[2] + '</b><small>' + k[1] + '</small></div>'; }).join('') + '</div>';
         }
         function pesanEd(tipe, html) { var e = cfg.isi.querySelector('.emsg'); if (e) e.innerHTML = '<div class="al ' + tipe + '" style="margin:6px 0 0">' + html + '</div>'; }
@@ -391,6 +401,7 @@ window.PCU = (function () {
             else if (a === 'lmin' || a === 'lplus') { K.l[i].ada = Math.max(0, K.l[i].ada + (a === 'lplus' ? 1 : -1)); K.render(); }
             else if (a === 'lhapus') { K.l.splice(i, 1); K.render(); }
             else if (a === 'pilihkurang') { b.pilih = 'KURANG'; b.salah = []; b.edit = false; K.render(); }
+            else if (a === 'pilihpergantian' || a === 'pilihrefund') { b.pilih = a === 'pilihrefund' ? 'REFUND' : 'PERGANTIAN'; b.salah = []; b.edit = false; K.render(); }
             else if (a === 'pilihsalah') { K.b.forEach(function (x) { x.edit = false; }); b.pilih = 'SALAH'; b.edit = true; K.render(); }
             else if (a === 'ubahpilih') { b.pilih = null; b.salah = []; b.edit = false; K.render(); }
             else if (a === 'etutup') { K.tutupEditor(); }

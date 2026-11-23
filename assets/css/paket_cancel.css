@@ -225,7 +225,7 @@ font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:var(--tx);position:relat
 .pc .sum b{display:block;font-size:20px;line-height:1.1;font-variant-numeric:tabular-nums}
 .pc .sum small{font-size:11.5px;color:var(--mut)}
 .pc .sum .on{border-color:currentColor}
-.pc .sum .k.on{color:var(--bad)} .pc .sum .l.on{color:var(--info)} .pc .sum .s.on{color:var(--warn)} .pc .sum .x.on{color:#6941c6} .pc .sum .o.on{color:var(--ok)}
+.pc .sum .k.on{color:var(--bad)} .pc .sum .l.on{color:var(--info)} .pc .sum .s.on{color:var(--warn)} .pc .sum .x.on{color:#6941c6} .pc .sum .o.on{color:var(--ok)} .pc .sum .g.on{color:var(--info)} .pc .sum .r.on{color:#6941c6}
 .pc .stp3{display:inline-flex;align-items:center;gap:4px}
 .pc .stp3 button{width:30px;height:30px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:8px;font-size:17px;line-height:1;cursor:pointer;padding:0}
 .pc .stp3 button:hover{border-color:var(--pri);color:var(--pri)}
