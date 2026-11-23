@@ -881,6 +881,12 @@ $(document).ready(function () {
         panelBuka = true;
         $('#dr_fp').addClass('buka');
         gambarNav(); gambarPane();
+        // Tombol Filter bisa jauh dari kiri (layar sempit): geser panel ke kiri bila tepi kanannya keluar layar.
+        var $p = $('#dr_fp .dr-fpanel').css('left', '');
+        if ($p.css('position') === 'absolute') {
+            var r = $p[0].getBoundingClientRect(), lebih = r.right - (window.innerWidth - 12);
+            if (lebih > 0) $p.css('left', -Math.min(lebih, Math.max(0, r.left - 12)) + 'px');
+        }
     }
     function tutupPanel() {
         if (!panelBuka) return;
@@ -1034,6 +1040,7 @@ $(document).ready(function () {
         sel = {};
         jenisAktif = 'B,K';
         statusRetAktif = STATUS_SEMUA;
+        $('#dr_tabs .dr-tab').removeClass('on').first().addClass('on');   // sempat hilang saat filter dijadikan satu tombol
         Object.keys(FIL).forEach(function (k) { FIL[k].pilih = {}; FIL[k].terapan = ''; });
         RNG = { nilai: { min: '', max: '' }, umur: { min: '', max: '' } };
         tutupPanel(); tulisUIFilter();
