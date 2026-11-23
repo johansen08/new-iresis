@@ -57,7 +57,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-reset:hover { border-color:#0f766e; color:#0f766e; }
 .dr-reset:hover i { color:#0f766e; }
 /* Export = aksi sekunder (garis), Cetak = aksi utama konteks tab (isi) */
-.dr-export { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; margin:0; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; line-height:1; cursor:pointer; white-space:nowrap; }
+.dr-export { box-sizing:border-box; width:128px; flex:none; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; margin:0; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; line-height:1; cursor:pointer; white-space:nowrap; }
 .dr-export:hover { background:#f0fdfa; }
 .dr-cetak { background:#0f766e; color:#fff; }
 .dr-cetak:hover { background:#115e59; }
@@ -431,7 +431,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     <!-- kotak cari DataTables disisipkan JS di sini -->
     <div class="dr-acts">
       <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
-      <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak dulu"><i class="fa fa-print"></i> Cetak Serah Terima</button>
+      <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak serah terimanya dulu"><i class="fa fa-print"></i> Cetak</button>
     </div>
   </div>
   <!-- Chip filter yang sedang berlaku (diisi JS; tiap chip bisa dihapus dengan x) -->
@@ -541,7 +541,7 @@ $(document).ready(function () {
         $('#dr_wrap').toggleClass('mode-pilih', aktif);
         $('#dr_cetak, #dr_pilih_info').toggle(aktif);
         var ulang = (statusAktif === 'SUDAH_SERAH');
-        $('#dr_cetak').html('<i class="fa fa-print"></i> ' + (ulang ? 'Cetak Ulang Serah Terima' : 'Cetak Serah Terima'));
+        $('#dr_cetak').html('<i class="fa fa-print"></i> ' + (ulang ? 'Cetak Ulang' : 'Cetak'));
     }
     // Tab -> nama kolom tanggal tahap (judul kolom) dan label filter tanggal.
     var NAMA_TAHAP = {
