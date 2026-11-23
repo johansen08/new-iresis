@@ -218,15 +218,15 @@ window.PCU = (function () {
         var selisih = function (b) { return Math.max(0, b.qr - b.ada); };
         var sumSalah = function (b) { return b.salah.reduce(function (n, x) { return n + x.qty; }, 0); };
         var sisa = function (b) { return selisih(b) - sumSalah(b); };
-        var putus = function (b) { return selisih(b) === 0 || b.pilih === 'KURANG' || b.pilih === 'PERGANTIAN' || b.pilih === 'REFUND' || b.salah.length > 0; };
+        var putus = function (b) { return selisih(b) === 0 || b.pilih === 'KURANG' || b.salah.length > 0 || !!b.sisa; };
         // Jenis sisa selisih (setelah alokasi salah ambil): KURANG, atau PERGANTIAN / REFUND bila dipilih
-        var jenisSisa = function (b) { return b.pilih === 'PERGANTIAN' || b.pilih === 'REFUND' ? b.pilih : 'KURANG'; };
+        var jenisSisa = function (b) { return b.sisa === 'PERGANTIAN' || b.sisa === 'REFUND' ? b.sisa : 'KURANG'; };
         var up = function (s) { return String(s).toUpperCase(); };
 
         // Qty ada berubah: alokasi salah ambil tidak boleh melebihi selisih; selisih 0 = pilihan dibuang
         function rapikan(b) {
             var S = selisih(b);
-            if (S === 0) { b.pilih = null; b.salah = []; b.edit = false; return; }
+            if (S === 0) { b.pilih = null; b.sisa = null; b.salah = []; b.edit = false; return; }
             while (sumSalah(b) > S && b.salah.length) {
                 var l = b.salah[b.salah.length - 1], lebih = sumSalah(b) - S;
                 if (l.qty > lebih) l.qty -= lebih; else b.salah.pop();
@@ -240,7 +240,7 @@ window.PCU = (function () {
          */
         K.muat = function (isi, luar, salah, kurang, sisaJenis) {
             K.b = (isi || []).map(function (i) {
-                return { sku: i.sku, it: i, qr: +i.qty, ada: i.ada === undefined ? +i.qty : +i.ada, pilih: null, salah: [], edit: false };
+                return { sku: i.sku, it: i, qr: +i.qty, ada: i.ada === undefined ? +i.qty : +i.ada, pilih: null, sisa: null, salah: [], edit: false };
             });
             K.l = (luar || []).map(function (x) { return { sku: x.sku, it: x, ada: +x.ada }; });
             (salah || []).forEach(function (s) {
@@ -253,7 +253,7 @@ window.PCU = (function () {
                 K.b.forEach(function (b) { if (up(b.sku) === up(sku) && selisih(b) > 0 && !b.salah.length) b.pilih = 'KURANG'; });
             });
             Object.keys(sisaJenis || {}).forEach(function (sku) {
-                K.b.forEach(function (b) { if (up(b.sku) === up(sku) && selisih(b) > 0 && !b.salah.length) b.pilih = sisaJenis[sku]; });
+                K.b.forEach(function (b) { if (up(b.sku) === up(sku) && selisih(b) > 0) { b.sisa = sisaJenis[sku]; if (!b.salah.length) b.pilih = 'KURANG'; } });
             });
             K.b.forEach(rapikan);
             K.render();
@@ -311,7 +311,12 @@ window.PCU = (function () {
             var sq = S - sumSalah(b);
             if (sq > 0) h.push('<div class="sa">' + U.tag(jenisSisa(b), sq) + '</div>');
             var aksi = [];
-            if (sq > 0 && b.salah.length) aksi.push('<button type="button" class="a x s" data-k="pilihsalah" data-i="' + i + '">+ Salah</button>');
+            if (sq > 0) aksi.push('<button type="button" class="a x s" data-k="pilihsalah" data-i="' + i + '">+ Salah</button>');
+            if (sq > 0 && b.salah.length) {
+                ['KURANG', 'PERGANTIAN', 'REFUND'].forEach(function (j) {
+                    if (j !== jenisSisa(b)) aksi.push('<button type="button" class="a x s" data-k="sisa" data-v="' + j + '" data-i="' + i + '">Sisa ' + U.NMJ[j].toLowerCase() + '</button>');
+                });
+            }
             aksi.push('<button type="button" class="a x s" data-k="ubahpilih" data-i="' + i + '">Ubah</button>');
             h.push('<div class="sa-btn">' + aksi.join(' ') + '</div>');
             return h.join('');
@@ -400,10 +405,11 @@ window.PCU = (function () {
             else if (a === 'nol') setAda(b, 0);
             else if (a === 'lmin' || a === 'lplus') { K.l[i].ada = Math.max(0, K.l[i].ada + (a === 'lplus' ? 1 : -1)); K.render(); }
             else if (a === 'lhapus') { K.l.splice(i, 1); K.render(); }
-            else if (a === 'pilihkurang') { b.pilih = 'KURANG'; b.salah = []; b.edit = false; K.render(); }
-            else if (a === 'pilihpergantian' || a === 'pilihrefund') { b.pilih = a === 'pilihrefund' ? 'REFUND' : 'PERGANTIAN'; b.salah = []; b.edit = false; K.render(); }
+            else if (a === 'pilihkurang') { b.pilih = 'KURANG'; b.sisa = null; b.salah = []; b.edit = false; K.render(); }
+            else if (a === 'pilihpergantian' || a === 'pilihrefund') { b.pilih = 'KURANG'; b.sisa = a === 'pilihrefund' ? 'REFUND' : 'PERGANTIAN'; b.salah = []; b.edit = false; K.render(); }
+            else if (a === 'sisa') { b.sisa = t.dataset.v === 'KURANG' ? null : t.dataset.v; K.render(); }
             else if (a === 'pilihsalah') { K.b.forEach(function (x) { x.edit = false; }); b.pilih = 'SALAH'; b.edit = true; K.render(); }
-            else if (a === 'ubahpilih') { b.pilih = null; b.salah = []; b.edit = false; K.render(); }
+            else if (a === 'ubahpilih') { b.pilih = null; b.sisa = null; b.salah = []; b.edit = false; K.render(); }
             else if (a === 'etutup') { K.tutupEditor(); }
             else if (a === 'etambah') simpanEditor(i);
             else if (a === 'eqmin' || a === 'eqplus') { var q = cfg.isi.querySelector('.eq'); q.value = Math.max(1, (parseInt(q.value, 10) || 1) + (a === 'eqplus' ? 1 : -1)); }
