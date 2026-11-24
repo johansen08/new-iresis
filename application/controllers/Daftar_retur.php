@@ -217,6 +217,11 @@ class Daftar_retur extends MY_Controller
         }
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        // Penanda ke layar bahwa file siap diunduh (tombol Export berhenti menampilkan "Menyiapkan file...").
+        $token = $this->input->get('unduh_token');
+        if (is_string($token) && preg_match('/^\d{6,30}$/', $token)) {
+            setcookie('dr_unduh', $token, 0, '/');
+        }
         header('Content-Length: ' . filesize($tmp));
         header('Cache-Control: max-age=0');
         readfile($tmp);
