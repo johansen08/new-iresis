@@ -191,6 +191,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:176px; }
 #dr_wrap table.dataTable thead th:nth-child(5)  { width:168px; }
 #dr_wrap table.dataTable thead th:nth-child(6)  { width:162px; }
+#dr_wrap table.dataTable thead th:nth-child(7)  { width:190px; }
 #dr_wrap table.dataTable thead th:nth-child(8)  { width:90px; }
 #dr_wrap table.dataTable thead th:nth-child(9)  { width:100px; }
 #dr_wrap table.dataTable thead th:nth-child(10) { width:128px; }
@@ -199,6 +200,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(10) { width:108px; }
 #dr_wrap table.dataTable thead th:nth-child(11) { width:160px; }
 @media (min-width: 1680px) {
+  #dr_wrap table.dataTable thead th:nth-child(7)  { width:230px; }
   #dr_wrap table.dataTable thead th:nth-child(5)  { width:190px; }
   #dr_wrap table.dataTable thead th:nth-child(6)  { width:185px; }
   #dr_wrap table.dataTable thead th:nth-child(8)  { width:100px; }
@@ -207,6 +209,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable thead th:nth-child(11) { width:180px; }
 }
 @media (min-width: 1900px) {
+  #dr_wrap table.dataTable thead th:nth-child(7)  { width:260px; }
   #dr_wrap table.dataTable thead th:nth-child(5)  { width:220px; }
   #dr_wrap table.dataTable thead th:nth-child(6)  { width:215px; }
   #dr_wrap table.dataTable thead th:nth-child(8)  { width:110px; }
@@ -254,6 +257,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* Di bawah 1400 (laptop 1280/1366): kolom dirapatkan dan awalan MP di sel Toko dibuang (MP tetap di tooltip) supaya nama toko dapat ruang */
 @media (max-width: 1399px) {
   .dr-mpx { display:none; }
+  #dr_wrap table.dataTable thead th:nth-child(7)  { width:160px; }
   #dr_wrap table.dataTable thead th:nth-child(4)  { width:112px; }
   #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable thead th:nth-child(4) { width:150px; }
   #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable thead th:nth-child(4) { width:150px; }
