@@ -701,9 +701,23 @@
                 }
             });
 
-            var pusher = new Pusher('c32db7f53e0dc19fc7b7', {
+            <?php
+            // Server kompatibel-Pusher lokal (Soketi) bila pusher_host diisi di secrets.php;
+            // kosong = Pusher cloud (butuh internet).
+            $this->load->config('pusher', TRUE);
+            $ps_host = $this->config->item('pusher_host', 'pusher');
+            ?>
+            var pusher = new Pusher('c32db7f53e0dc19fc7b7', <?php if ($ps_host): ?>{
+                cluster: 'mt1',
+                wsHost: <?= json_encode($ps_host === '127.0.0.1' || $ps_host === 'localhost' ? '' : $ps_host) ?> || window.location.hostname,
+                wsPort: <?= (int) $this->config->item('pusher_port', 'pusher') ?>,
+                wssPort: <?= (int) $this->config->item('pusher_port', 'pusher') ?>,
+                forceTLS: false,
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true
+            }<?php else: ?>{
                 cluster: 'ap1'
-            });
+            }<?php endif; ?>);
 
             var channelName = 'notif-role-' + userRoleId;
             var channel = pusher.subscribe(channelName);

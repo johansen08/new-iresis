@@ -401,7 +401,7 @@ function submitKirimGudang() {
                     <input type="hidden" name="foto_base64" id="foto_base64">
                     <br>
                     <small class="text-muted">Atau masukkan Link Foto:</small>
-                    <input type="text" id="foto_link" name="foto_link" class="form-control" placeholder="https://...">
+                    <input type="text" id="foto_link" name="foto_link" class="form-control" placeholder="https://... (diunduh & disimpan di server)">
                 </div>
             </div>
             <div class="modal-footer">

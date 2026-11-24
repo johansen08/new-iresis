@@ -12,11 +12,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Alias /foto-produk/ (conf/extra/httpd-iresis-foto-produk.conf) -- tanpa PHP,
  * dengan cache browser 30 hari -- jadi jalur lokal tetap ringan.
  *
- * Urutan di browser: <img src="URL asli" data-foto-lokal="/foto-produk/x.jpg">.
- * assets/js/foto_sku.js mengganti ke salinan lokal hanya kalau URL asli gagal
- * atau tidak selesai dalam beberapa detik. Helper ini hanya menyiapkan atribut
- * itu; foto_lokal dipakai bila cocok dengan link_foto sekarang (md5), supaya
- * SKU yang fotonya baru diganti tidak menampilkan foto lama.
+ * Urutan di browser: SALINAN LOKAL DULU (aplikasi berjalan penuh di LAN tanpa
+ * internet). <img src="/foto-produk/x.jpg" data-foto-lokal="/foto-produk/x.jpg"
+ * data-foto-asli="URL asli">; assets/js/foto_sku.js kembali ke URL asli hanya
+ * bila berkas lokal gagal dimuat. View yang merakit <img> sendiri (src = URL asli
+ * + data-foto-lokal) otomatis dialihkan oleh JS yang sama. foto_lokal dipakai
+ * bila cocok dengan link_foto sekarang (md5), supaya SKU yang fotonya baru
+ * diganti tidak menampilkan foto lama.
  */
 
 /** Awalan URL Alias Apache untuk folder foto produk. */
@@ -64,7 +66,8 @@ function foto_sku_lokal_url($link_foto, $foto_lokal)
 }
 
 /**
- * Tag <img> lengkap: src = URL asli, data-foto-lokal = cadangan lokal.
+ * Tag <img> lengkap: src = salinan lokal bila ada (URL asli jadi cadangan di
+ * data-foto-asli), selain itu URL asli.
  * $attr = atribut tambahan yang sudah aman untuk HTML (class, style, data-*).
  * Kosong bila tidak ada foto sama sekali.
  */
@@ -75,10 +78,11 @@ function foto_sku_img($link_foto, $foto_lokal, $attr = '')
     if ($url === '' && $lokal === '') {
         return '';
     }
-    $src  = $url !== '' ? $url : $lokal;
+    $src  = $lokal !== '' ? $lokal : $url;
     $html = '<img src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"';
     if ($lokal !== '' && $url !== '') {
-        $html .= ' data-foto-lokal="' . htmlspecialchars($lokal, ENT_QUOTES, 'UTF-8') . '"';
+        $html .= ' data-foto-lokal="' . htmlspecialchars($lokal, ENT_QUOTES, 'UTF-8') . '"'
+            . ' data-foto-asli="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"';
     }
     if ($attr !== '') {
         $html .= ' ' . $attr;
