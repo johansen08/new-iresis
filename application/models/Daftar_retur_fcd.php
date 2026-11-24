@@ -39,10 +39,19 @@ class Daftar_retur_fcd extends CI_Model
     const CACHE_SEMUA_DETIK = 600;
 
     /** Nilai tblreturjubelio.status_retur yang bisa dipilih di filter tab Semua. */
-    const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR');
+    const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR', 'SELESAI (PESANAN COMPLETED)');
+
+    /**
+     * Status retur FINAL buatan iresis (bukan dari Excel Jubelio): pesanan yang tadinya RETURNED ternyata berubah COMPLETED di Jubelio.
+     * Diisi oleh Cron::terapkan_status_retur (tugas terjadwal cek_status_retur_jubelio.py); upload Excel TIDAK boleh menimpanya.
+     */
+    const STATUS_COMPLETED = 'SELESAI (PESANAN COMPLETED)';
 
     /** Bit status_retur (kolom stm) supaya penyaringan puluhan ribu baris tanpa explode/array_intersect per baris. */
-    const BIT_STATUS = array('SELESAI' => 1, 'DITOLAK' => 2, 'BARANG RETUR' => 4);
+    const BIT_STATUS = array('SELESAI' => 1, 'DITOLAK' => 2, 'BARANG RETUR' => 4, 'SELESAI (PESANAN COMPLETED)' => 8);
+
+    /** Gabungan bit status final (selain BARANG RETUR). */
+    const BIT_FINAL = 11;
 
     /**
      * Cache basi boleh disajikan (user tidak menunggu hitung ulang) selama tugas terjadwal "segarkan_daftar_retur" hidup:
@@ -178,7 +187,8 @@ class Daftar_retur_fcd extends CI_Model
                                CONCAT_WS(',',
                                    IF(SUM(status_retur = 'SELESAI') > 0, 'SELESAI', NULL),
                                    IF(SUM(status_retur = 'DITOLAK') > 0, 'DITOLAK', NULL),
-                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL)) AS stat
+                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL),
+                                   IF(SUM(status_retur = 'SELESAI (PESANAN COMPLETED)') > 0, 'SELESAI (PESANAN COMPLETED)', NULL)) AS stat
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
@@ -296,7 +306,8 @@ class Daftar_retur_fcd extends CI_Model
                                CONCAT_WS(',',
                                    IF(SUM(status_retur = 'SELESAI') > 0, 'SELESAI', NULL),
                                    IF(SUM(status_retur = 'DITOLAK') > 0, 'DITOLAK', NULL),
-                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL)) AS stat
+                                   IF(SUM(status_retur = 'BARANG RETUR') > 0, 'BARANG RETUR', NULL),
+                                   IF(SUM(status_retur = 'SELESAI (PESANAN COMPLETED)') > 0, 'SELESAI (PESANAN COMPLETED)', NULL)) AS stat
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
@@ -505,7 +516,7 @@ class Daftar_retur_fcd extends CI_Model
         // statusnya dipilih). Dipasang sebelum hitungan tab, jadi angka tab ikut menyempit. Semua status terpilih = tanpa filter.
         $mask_saring = $mask;
         // Tab Selesai: filter Status retur hanya berlaku untuk SELESAI / DITOLAK.
-        if ($mode_selesai) $mask &= (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']);
+        if ($mode_selesai) $mask &= self::BIT_FINAL;
         // Baris dasar = resi yang masih punya minimal satu baris BARANG RETUR (termasuk campuran dengan SELESAI / DITOLAK); stat dari SQL.
         foreach ($semua as $r) {
             $stm = 0;
@@ -515,7 +526,7 @@ class Daftar_retur_fcd extends CI_Model
             $r->stm = $stm ?: self::BIT_STATUS['BARANG RETUR'];
             $r->ekstra = 0;
         }
-        if ($pakai_ekstra && ($mask & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK']))) {
+        if ($pakai_ekstra && ($mask & self::BIT_FINAL)) {
             foreach ($this->baris_tambahan(!empty($p['segarkan'])) as $r) {
                 if (!($r->stm & $mask)) continue;
                 $r->ekstra = 1;
@@ -523,7 +534,7 @@ class Daftar_retur_fcd extends CI_Model
             }
         }
 
-        if ($status_retur !== null && $mask_saring !== (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'] | self::BIT_STATUS['BARANG RETUR'])) {
+        if ($status_retur !== null && $mask_saring !== (self::BIT_FINAL | self::BIT_STATUS['BARANG RETUR'])) {
             $semua = array_values(array_filter($semua, function ($r) use ($mask_saring) { return ($r->stm & $mask_saring) !== 0; }));
         }
 
@@ -618,7 +629,7 @@ class Daftar_retur_fcd extends CI_Model
             $r->lost_scan = 0;
             if ($posisi === self::POSISI_BELUM_DIBUKA) {
                 $ada_verif = ((int) $r->vf === 1);
-                $ada_jub = (((int) $r->stm & (self::BIT_STATUS['SELESAI'] | self::BIT_STATUS['DITOLAK'])) !== 0);
+                $ada_jub = (((int) $r->stm & self::BIT_FINAL) !== 0);
                 if ($ada_verif || $ada_jub) {
                     $r->lost_scan = 1;
                     if (!$ada_verif) $r->dari_jubelio = 1;
@@ -1136,5 +1147,147 @@ class Daftar_retur_fcd extends CI_Model
         }
         foreach ($acc as $k => $t) if (!isset($peta[$k])) $peta[$k] = $t;
         return $peta;
+    }
+
+    // ==================== CEK STATUS JUBELIO (tab Belum Terima & Sudah Verifikasi) ====================
+
+    /** Tabel jejak perubahan status oleh cek_status_retur_jubelio (dibuat saat pertama dipakai; satu baris per resi+pesanan yang diubah). */
+    private function _pastikan_tabel_log_cek()
+    {
+        $this->db->query("CREATE TABLE IF NOT EXISTS tblretur_cek_status_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            run_id VARCHAR(40) NOT NULL,
+            waktu DATETIME NOT NULL,
+            tab VARCHAR(30) NULL,
+            no_resi VARCHAR(100) NOT NULL,
+            no_pesanan VARCHAR(100) NOT NULL,
+            status_jubelio_api VARCHAR(60) NULL,
+            status_retur_lama VARCHAR(100) NULL,
+            status_retur_baru VARCHAR(100) NULL,
+            status_jubelio_lama VARCHAR(100) NULL,
+            status_pesanan_lama VARCHAR(100) NULL,
+            status_pesanan_baru VARCHAR(100) NULL,
+            baris_retur_berubah INT NOT NULL DEFAULT 0,
+            printresi_berubah TINYINT(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (id),
+            KEY idx_resi (no_resi),
+            KEY idx_run (run_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    }
+
+    /**
+     * Kandidat cek status Jubelio: pesanan pada tab Belum Terima (+ Hangus) dan Sudah Verifikasi yang masih BARANG RETUR.
+     * Memakai get_list() supaya isi tab persis sama dengan yang dilihat user. BACA SAJA.
+     *
+     * @return array daftar array('no_resi','no_pesanan','tab','marketplace','nama_toko','status_pesanan')
+     */
+    public function kandidat_cek_status()
+    {
+        $jenis = array(self::JENIS_BIASA, self::JENIS_KOMPLAIN);
+        $hasil = array();
+        $pertama = true;
+        foreach (array(self::POSISI_BELUM_DITERIMA, self::POSISI_BELUM_HANGUS, self::POSISI_SUDAH_VERIF) as $tab) {
+            list($rows) = $this->get_list(array(
+                'start' => '2000-01-01 00:00:00', 'end' => '2999-12-31 23:59:59', 'status' => $tab, 'search' => '',
+                'segarkan' => $pertama, 'jenis' => $jenis, 'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
+            ));
+            $pertama = false;
+            foreach ($rows as $r) $hasil[(string) $r->no_resi] = array('tab' => $tab, 'row' => $r);
+        }
+        if (!$hasil) return array();
+
+        // Pesanan (bisa lebih dari satu per resi) yang masih BARANG RETUR + status_pesanan di tblprintresi.
+        $out = array();
+        foreach (array_chunk(array_keys($hasil), 500) as $potong) {
+            $in = implode(',', array_fill(0, count($potong), '?'));
+            $q = $this->db->query(
+                "SELECT j.no_resi, j.no_pesanan, MAX(j.marketplace) mp, MAX(j.nama_toko) toko,
+                        (SELECT p.status_pesanan FROM tblprintresi p WHERE p.noresi = CONVERT(j.no_resi USING latin1) LIMIT 1) st_p
+                 FROM tblreturjubelio j
+                 WHERE j.no_resi IN ($in) AND j.status_retur = 'BARANG RETUR' AND j.no_pesanan <> ''
+                 GROUP BY j.no_resi, j.no_pesanan", $potong
+            )->result();
+            foreach ($q as $x) {
+                $out[] = array(
+                    'no_resi' => (string) $x->no_resi, 'no_pesanan' => (string) $x->no_pesanan,
+                    'tab' => $hasil[(string) $x->no_resi]['tab'], 'marketplace' => (string) $x->mp, 'nama_toko' => (string) $x->toko,
+                    'status_pesanan' => (string) $x->st_p,
+                );
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Terapkan hasil cek Jubelio. Hanya pesanan yang di Jubelio COMPLETED yang diubah:
+     *   - tblreturjubelio: baris resi+pesanan itu yang masih 'BARANG RETUR' -> 'SELESAI (PESANAN COMPLETED)' (status_jubelio -> COMPLETED).
+     *     Baris yang sudah berstatus final (SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED)) TIDAK disentuh.
+     *   - tblprintresi.status_pesanan RETURNED -> COMPLETED, hanya bila setelah itu resi tidak punya baris BARANG RETUR lagi.
+     * Status Jubelio selain COMPLETED (RETURNED dst.) tidak mengubah apa pun. Tiap perubahan dicatat di tblretur_cek_status_log.
+     *
+     * @param array  $items  tiap elemen: no_resi, no_pesanan, tab, status_jubelio (internal_status dari API)
+     * @param bool   $kering true = hanya hitung, tidak menulis
+     * @return array ringkasan + daftar perubahan
+     */
+    public function terapkan_cek_status(array $items, $run_id, $kering = true)
+    {
+        $this->_pastikan_tabel_log_cek();
+        $now = date('Y-m-d H:i:s');
+        $ringkas = array('diperiksa' => 0, 'completed' => 0, 'diubah' => 0, 'baris_retur' => 0, 'printresi' => 0, 'dilewati' => 0, 'perubahan' => array());
+        foreach ($items as $it) {
+            $resi = trim((string) (isset($it['no_resi']) ? $it['no_resi'] : ''));
+            $psn  = trim((string) (isset($it['no_pesanan']) ? $it['no_pesanan'] : ''));
+            $stj  = strtoupper(trim((string) (isset($it['status_jubelio']) ? $it['status_jubelio'] : '')));
+            if ($resi === '' || $psn === '') continue;
+            $ringkas['diperiksa']++;
+            if ($stj !== 'COMPLETED') continue;
+            $ringkas['completed']++;
+
+            $lama = $this->db->query(
+                "SELECT COUNT(*) n, MAX(status_jubelio) sj FROM tblreturjubelio WHERE no_resi = ? AND no_pesanan = ? AND status_retur = 'BARANG RETUR'",
+                array($resi, $psn)
+            )->row();
+            if ((int) $lama->n === 0) { $ringkas['dilewati']++; continue; }   // sudah final / berubah sejak kandidat dibuat
+            $p_lama = $this->db->query('SELECT status_pesanan FROM tblprintresi WHERE noresi = ? LIMIT 1', array($resi))->row();
+            $st_lama = $p_lama ? (string) $p_lama->status_pesanan : null;
+
+            $baris = (int) $lama->n;
+            $print_ubah = 0;
+            if (!$kering) {
+                $this->db->trans_start();
+                $this->db->query(
+                    "UPDATE tblreturjubelio SET status_retur = ?, status_jubelio = 'COMPLETED'
+                     WHERE no_resi = ? AND no_pesanan = ? AND status_retur = 'BARANG RETUR'",
+                    array(self::STATUS_COMPLETED, $resi, $psn)
+                );
+                $baris = (int) $this->db->affected_rows();
+                $sisa = $this->db->query("SELECT COUNT(*) n FROM tblreturjubelio WHERE no_resi = ? AND status_retur = 'BARANG RETUR'", array($resi))->row();
+                if ((int) $sisa->n === 0 && $p_lama && strtoupper(trim((string) $st_lama)) === 'RETURNED') {
+                    $this->db->query(
+                        "UPDATE tblprintresi SET status_pesanan = 'COMPLETED', modified_at = ?, modified_by = 'cek_status_retur_jubelio'
+                         WHERE noresi = ? AND UPPER(TRIM(status_pesanan)) = 'RETURNED'", array($now, $resi)
+                    );
+                    $print_ubah = (int) $this->db->affected_rows() > 0 ? 1 : 0;
+                }
+                $this->db->query(
+                    "INSERT INTO tblretur_cek_status_log (run_id, waktu, tab, no_resi, no_pesanan, status_jubelio_api, status_retur_lama, status_retur_baru,
+                        status_jubelio_lama, status_pesanan_lama, status_pesanan_baru, baris_retur_berubah, printresi_berubah)
+                     VALUES (?, ?, ?, ?, ?, ?, 'BARANG RETUR', ?, ?, ?, ?, ?, ?)",
+                    array($run_id, $now, isset($it['tab']) ? $it['tab'] : null, $resi, $psn, $stj, self::STATUS_COMPLETED,
+                        $lama->sj, $st_lama, $print_ubah ? 'COMPLETED' : $st_lama, $baris, $print_ubah)
+                );
+                $this->db->trans_complete();
+                if (!$this->db->trans_status()) { $ringkas['dilewati']++; continue; }
+            }
+            $ringkas['diubah']++;
+            $ringkas['baris_retur'] += $baris;
+            $ringkas['printresi'] += $print_ubah;
+            $ringkas['perubahan'][] = array(
+                'tab' => isset($it['tab']) ? $it['tab'] : '', 'no_resi' => $resi, 'no_pesanan' => $psn,
+                'status_retur_lama' => 'BARANG RETUR', 'status_retur_baru' => self::STATUS_COMPLETED,
+                'status_pesanan_lama' => $st_lama, 'status_pesanan_baru' => $print_ubah ? 'COMPLETED' : $st_lama, 'baris_retur' => $baris,
+            );
+        }
+        return $ringkas;
     }
 }

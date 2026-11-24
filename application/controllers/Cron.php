@@ -335,6 +335,53 @@ class Cron extends CI_Controller
     }
 
     /**
+     * Cek status Jubelio (tab Belum Terima & Sudah Verifikasi Daftar Retur Penjualan): daftar pesanan yang perlu dicek.
+     * Dipanggil scripts/cek_status_retur_jubelio.py. BACA SAJA. Balas {"success":true,"jumlah":N,"kandidat":[{no_resi,no_pesanan,tab,...}]}.
+     */
+    public function kandidat_cek_status_retur()
+    {
+        ini_set('memory_limit', '3072M');
+        set_time_limit(0);
+        header('Content-Type: application/json');
+        try {
+            $this->load->model('daftar_retur_fcd');
+            $k = $this->daftar_retur_fcd->kandidat_cek_status();
+            echo json_encode(['success' => true, 'jumlah' => count($k), 'kandidat' => $k]);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * Cek status Jubelio: terapkan hasil. Body JSON {"run_id":"...","kering":true|false,"hasil":[{no_resi,no_pesanan,tab,status_jubelio}]}.
+     * Hanya pesanan COMPLETED di Jubelio yang diubah (lihat Daftar_retur_fcd::terapkan_cek_status). kering=true tidak menulis apa pun.
+     */
+    public function terapkan_status_retur()
+    {
+        ini_set('memory_limit', '1024M');
+        set_time_limit(0);
+        header('Content-Type: application/json');
+        try {
+            $body = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($body) || !isset($body['hasil']) || !is_array($body['hasil'])) {
+                throw new \Exception('Body harus JSON dengan kunci "hasil".');
+            }
+            $run_id = preg_replace('/[^A-Za-z0-9_\-]/', '', (string) (isset($body['run_id']) ? $body['run_id'] : date('YmdHis')));
+            $kering = !isset($body['kering']) || $body['kering'] !== false;   // aman: hanya false eksplisit yang menulis
+            $this->load->model('daftar_retur_fcd');
+            $r = $this->daftar_retur_fcd->terapkan_cek_status($body['hasil'], $run_id, $kering);
+            $this->_log('terapkan_status_retur', ['success' => true, 'kering' => $kering, 'diperiksa' => $r['diperiksa'],
+                'completed' => $r['completed'], 'diubah' => $r['diubah'], 'printresi' => $r['printresi']]);
+            echo json_encode(['success' => true, 'kering' => $kering] + $r);
+        } catch (\Throwable $e) {
+            $this->_log('terapkan_status_retur', ['success' => false, 'message' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
      * Segarkan cache menu Daftar Retur Penjualan di latar belakang supaya user tidak menunggu hitung ulang
      * (daftar dasar ~2 detik, baris tambahan tab Semua ~5-8 detik) dan cache yang sudah lewat umur tetap boleh
      * disajikan selama tugas ini hidup (Daftar_retur_fcd::_cache_layak). Hanya membaca DB dan menulis berkas
