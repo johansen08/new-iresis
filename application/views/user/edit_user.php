@@ -16,15 +16,14 @@
                         <div style="display: inline-block;">
                             <?php 
                                 $foto_url = base_url('assets/img/no-image.jpg');
-                                if (!empty($user['foto'])) {
-                                    $foto_url = (strpos($user['foto'], 'http') === 0) ? $user['foto'] : base_url($user['foto']);
-                                }
+                                $foto_url = avatar_src(empty($user['foto']) ? '' : $user['foto']);
+                                $inisial  = avatar_inisial(empty($user) ? array() : $user);
                             ?>
                             <a href="<?= $foto_url ?>" class="gallery-item" title="Foto Profil: <?= $user['username'] ?? 'User' ?>" data-gallery>
                                 <div style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #f5f5f5; cursor: pointer;">
                                     <img id="preview_foto" src="<?= $foto_url ?>" 
                                          style="width: 100%; height: 100%; object-fit: cover;" 
-                                         onerror="this.src='<?= base_url('assets/img/no-image.jpg') ?>'"/>
+                                         data-inisial="<?= htmlspecialchars($inisial, ENT_QUOTES, 'UTF-8') ?>" onerror="avatarGagal(this)"/>
                                 </div>
                             </a>
                             <p style="margin-top: 10px;"><small>Klik foto untuk memperbesar</small></p>

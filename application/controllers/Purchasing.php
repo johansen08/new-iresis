@@ -247,7 +247,9 @@ class Purchasing extends MY_Controller
                     }
                     $field = null; // jatuh ke gambar default di bawah
                 } else {
-                    redirect($field);
+                    // Lokal dulu (aplikasi berjalan di LAN tanpa internet); URL asli hanya bila belum disinkron.
+                    $lokal = foto_sku_lokal_url($field, $row->foto_lokal ?? '');
+                    redirect($lokal !== '' ? $lokal : $field);
                 }
             }
             // Jika base64

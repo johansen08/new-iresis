@@ -118,15 +118,13 @@ tr.save-flash td {
                             <td class="text-center">
                                 <?php 
                                     $foto_url = base_url('assets/img/no-image.jpg');
-                                    if (!empty($user['foto'])) {
-                                        $foto_url = (strpos($user['foto'], 'http') === 0) ? $user['foto'] : base_url($user['foto']);
-                                    }
+                                    $foto_url = avatar_src(empty($user['foto']) ? '' : $user['foto']);
                                 ?>
                                 <a href="<?= $foto_url ?>" class="gallery-item" title="User: <?= $user['username'] ?>" data-gallery>
                                     <img src="<?= $foto_url ?>" 
                                          style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd;" 
                                          alt="Profile"
-                                         onerror="this.src='<?= base_url('assets/img/no-image.jpg') ?>'">
+                                         data-inisial="<?= htmlspecialchars(avatar_inisial($user), ENT_QUOTES, 'UTF-8') ?>" onerror="avatarGagal(this)">
                                 </a>
                             </td>
                             <td><?= $user['username'] ?></td>

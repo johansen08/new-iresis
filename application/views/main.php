@@ -77,6 +77,30 @@
         </div>
     </div>
     <script>
+        // Foto profil gagal dimuat (internet mati / berkas hilang) -> tampilkan huruf pertama nama.
+        // Dipakai lewat onerror="avatarGagal(this)" + data-inisial pada <img> avatar.
+        window.avatarGagal = function (img) {
+            if (!img || img.__avatarGagal) { return; }
+            img.__avatarGagal = true;
+            var span = document.createElement('span');
+            span.className = 'avatar-inisial';
+            span.textContent = img.getAttribute('data-inisial') || '?';
+            var w = img.offsetWidth || parseInt(img.getAttribute('width'), 10) || 32;
+            var h = img.offsetHeight || w;
+            span.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' +
+                'background:#1e88e5;color:#fff;font-weight:700;text-transform:uppercase;vertical-align:middle;' +
+                'width:' + w + 'px;height:' + h + 'px;font-size:' + Math.round(Math.min(w, h) * 0.5) + 'px;line-height:1;';
+            img.style.display = 'none';
+            img.parentNode.insertBefore(span, img);
+            // Preview di form edit mengganti src: kembalikan foto bila kali ini berhasil dimuat.
+            img.addEventListener('load', function () {
+                img.style.display = '';
+                if (span.parentNode) { span.parentNode.removeChild(span); }
+                img.__avatarGagal = false;
+            }, { once: true });
+        };
+    </script>
+    <script>
         (function() {
             var bar = document.getElementById('loader-bar');
             var overlay = document.getElementById('preloader');
@@ -115,15 +139,14 @@
 								$username = isset($user['username']) ? $user['username'] : 'User';
 								$akses = isset($user['akses']) ? $user['akses'] : '-';
 								
-								if (!empty($user['foto'])) {
-									$foto_url = (strpos($user['foto'], 'http') === 0) ? $user['foto'] : base_url($user['foto']);
-								}
+								$foto_url = avatar_src(isset($user['foto']) ? $user['foto'] : '');
+									$inisial  = avatar_inisial($user);
 							?>
-							<img src="<?= $foto_url ?>" alt="<?= $username ?>" />
+							<img src="<?= $foto_url ?>" alt="<?= $username ?>" data-inisial="<?= htmlspecialchars($inisial, ENT_QUOTES, 'UTF-8') ?>" onerror="avatarGagal(this)" />
 						</a>
 						<div class="profile">
 							<div class="profile-image">
-								<img src="<?= $foto_url ?>" alt="<?= $username ?>" />
+								<img src="<?= $foto_url ?>" alt="<?= $username ?>" data-inisial="<?= htmlspecialchars($inisial, ENT_QUOTES, 'UTF-8') ?>" onerror="avatarGagal(this)" />
 							</div>
 						<div class="profile-data">
 							<div class="profile-data-name"><?= $username ?></div>
