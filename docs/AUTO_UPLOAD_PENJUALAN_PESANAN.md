@@ -92,3 +92,11 @@ Sebelum run pertama (24 Nov 2026) `tblprintresi` dicadangkan penuh: `logs/backup
   (status sama dilewati).
 * **Cek status retur Jubelio** — pesanan yang sudah `SELESAI (PESANAN COMPLETED)` di `tblreturjubelio` tidak ditimpa; `COMPLETED` di
   `tblprintresi` tidak diubah balik oleh upload ini.
+
+## Uji tulis pertama (24 Nov 2026, 7 hari)
+
+* Percobaan 1 menemukan bug: `Cron::auto_upload_resi` mengirim `user_id` null → `admin_pegawai` NOT NULL gagal, transaksi dibatalkan
+  (tidak ada data tertulis), tetapi respons `success:true` dengan teks "Error…". Diperbaiki: `user_id` = `'0'` dan respons berawalan
+  "Error" kini `success:false`; skrip juga menolak pesan berawalan "Error" sebagai sukses.
+* Percobaan 2: unduh 25 dtk, **upload+olah PHP hanya 11 dtk** untuk ±85 rb baris → `Terinput 1 | Dilewati 9485 (baris tanpa SKU/resi) | Duplikat 5201
+  (COMPLETED, dilewati) | Diupdate 4349 | Tidak berubah 65794`. Perkiraan 90 hari: ±13 potongan, kurang dari 15 menit.
