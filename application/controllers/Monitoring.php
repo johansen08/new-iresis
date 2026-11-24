@@ -282,15 +282,20 @@ class Monitoring extends MY_Controller
     /** Tanggal Y-m-d yang sah dan tidak di masa depan; selain itu hari ini. */
     /**
      * Monitoring penyimpanan video packing di HDD backup (D:): total video dan
-     * ukuran per tanggal, sisa ruang, dan perkiraan kapan penuh.
+     * ukuran per tanggal, sisa ruang, dan perkiraan kapan penuh. Hanya webmaster.
      */
     public function penyimpanan_video()
     {
         session_write_close();
+        if (!$this->webmaster_saja()) {
+            $this->show(['title' => 'Penyimpanan Video', 'akses_ditolak' => TRUE, 'snapshot' => NULL], 'monitoring/penyimpanan_video');
+            return;
+        }
         $this->load->model('penyimpanan_video_fcd');
 
-        $data['title']    = 'Penyimpanan Video';
-        $data['snapshot'] = $this->penyimpanan_video_fcd->snapshot();
+        $data['title']         = 'Penyimpanan Video';
+        $data['akses_ditolak'] = FALSE;
+        $data['snapshot']      = $this->penyimpanan_video_fcd->snapshot();
         $this->show($data, 'monitoring/penyimpanan_video');
     }
 
@@ -298,6 +303,9 @@ class Monitoring extends MY_Controller
     public function penyimpanan_video_data()
     {
         session_write_close();
+        if (!$this->webmaster_saja()) {
+            $this->make_ajax_response(403, 'Hanya webmaster yang punya akses ke menu Penyimpanan Video.');
+        }
         $this->load->model('penyimpanan_video_fcd');
 
         $snapshot = $this->penyimpanan_video_fcd->snapshot();
@@ -305,6 +313,12 @@ class Monitoring extends MY_Controller
             $this->make_ajax_response(500, 'Data penyimpanan gagal dihitung. Coba lagi sebentar lagi.');
         }
         $this->make_ajax_response(200, 'OK', $snapshot);
+    }
+
+    /** Role webmaster = 1 (sama seperti Cabut SKU). */
+    private function webmaster_saja()
+    {
+        return isset($this->data['user']['hakakses']) && (int) $this->data['user']['hakakses'] === 1;
     }
 
     private function tanggal_pemenuhan($masukan)
