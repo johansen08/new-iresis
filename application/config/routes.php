@@ -427,6 +427,8 @@ $route['monitoring/pemenuhan-kirim-harian'] = 'monitoring/pemenuhan_kirim_harian
 $route['monitoring/pemenuhan-kirim-harian-data'] = 'monitoring/pemenuhan_kirim_harian_data';
 $route['monitoring/pemenuhan-kirim-harian-detail'] = 'monitoring/pemenuhan_kirim_harian_detail';
 $route['monitoring/pemenuhan-kirim-harian-excel'] = 'monitoring/pemenuhan_kirim_harian_excel';
+$route['monitoring/penyimpanan-video'] = 'monitoring/penyimpanan_video';
+$route['monitoring/penyimpanan-video-data'] = 'monitoring/penyimpanan_video_data';
 
 $route['restock/laporan-masalah-picker'] = 'restock/laporan_masalah_picker';
 $route['restock/get-laporan-masalah-picker-data'] = 'restock/get_laporan_masalah_picker_data';

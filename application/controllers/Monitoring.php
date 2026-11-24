@@ -280,6 +280,33 @@ class Monitoring extends MY_Controller
     }
 
     /** Tanggal Y-m-d yang sah dan tidak di masa depan; selain itu hari ini. */
+    /**
+     * Monitoring penyimpanan video packing di HDD backup (D:): total video dan
+     * ukuran per tanggal, sisa ruang, dan perkiraan kapan penuh.
+     */
+    public function penyimpanan_video()
+    {
+        session_write_close();
+        $this->load->model('penyimpanan_video_fcd');
+
+        $data['title']    = 'Penyimpanan Video';
+        $data['snapshot'] = $this->penyimpanan_video_fcd->snapshot();
+        $this->show($data, 'monitoring/penyimpanan_video');
+    }
+
+    /** Data JSON untuk tombol Muat ulang. */
+    public function penyimpanan_video_data()
+    {
+        session_write_close();
+        $this->load->model('penyimpanan_video_fcd');
+
+        $snapshot = $this->penyimpanan_video_fcd->snapshot();
+        if ($snapshot === NULL) {
+            $this->make_ajax_response(500, 'Data penyimpanan gagal dihitung. Coba lagi sebentar lagi.');
+        }
+        $this->make_ajax_response(200, 'OK', $snapshot);
+    }
+
     private function tanggal_pemenuhan($masukan)
     {
         $masukan = (string) $masukan;
