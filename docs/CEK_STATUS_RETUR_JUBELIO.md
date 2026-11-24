@@ -18,6 +18,7 @@ tetapi IRESIS tidak pernah memperbaruinya, sehingga resi tersangkut di dua tab i
 * **`SELESAI (PESANAN COMPLETED)` adalah status final.** Tidak ada kode yang boleh mengubahnya lagi: pengecekan ini hanya menyentuh baris
   `BARANG RETUR`, dan upload Excel (`Retur_fcd::insert_jubelio_batch`) mempertahankan `status_retur` + `status_jubelio` baris itu serta
   tidak lagi menimpa `tblprintresi` jadi RETURNED untuk resinya.
+* **`SELESAI (DATA LAMA)`** = status final kedua, ditetapkan manual (24 Nov 2026) untuk 19 pesanan Shopee > 3 bulan (25 Jun-21 Agu 2026) yang sudah tidak ada di Jubelio/Excel sehingga tak bisa dicek lagi (27 baris; jejak di `tblretur_cek_status_log`, `run_id = DATA_LAMA-20261124`; cadangan `logs/backup/bak_returjubelio_datalama_20261124.sql`). Aturan perlindungannya sama dengan `SELESAI (PESANAN COMPLETED)`: tidak ditimpa upload Excel, tidak disentuh pengecekan.
 * Resi yang semua barisnya berubah final keluar dari tab Belum Terima / Sudah Verifikasi dan muncul di tab **Selesai** (dan tab Semua; filter
   *Status Retur* punya pilihan baru `SELESAI (PESANAN COMPLETED)`).
 * `tblprintresi` hanya diubah bila resi masih ada di prod dan tidak tersisa baris `BARANG RETUR` pada resi itu. Resi yang sudah dipurna ke arsip

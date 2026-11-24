@@ -547,7 +547,7 @@ class Daftar_retur extends MY_Controller
      */
     private function _lencana_status($r)
     {
-        $kelas = array('SELESAI' => 'dr-sr-selesai', 'DITOLAK' => 'dr-sr-tolak', 'BARANG RETUR' => 'dr-sr-barang', 'SELESAI (PESANAN COMPLETED)' => 'dr-sr-selesai');
+        $kelas = array('SELESAI' => 'dr-sr-selesai', 'DITOLAK' => 'dr-sr-tolak', 'BARANG RETUR' => 'dr-sr-barang', 'SELESAI (PESANAN COMPLETED)' => 'dr-sr-selesai', 'SELESAI (DATA LAMA)' => 'dr-sr-selesai');
         $out = '';
         foreach (explode(',', (string) $r->stat) as $s) {
             if ($s === '') continue;
