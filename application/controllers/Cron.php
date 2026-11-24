@@ -326,6 +326,7 @@ class Cron extends CI_Controller
                  . "{$result['status_diperbarui']} status pesanan dijadikan RETURNED "
                  . "(batch {$batch_id}).";
 
+            $this->daftar_retur_fcd_catat('upload');
             $this->_log('auto_upload_retur_jubelio', ['success' => true, 'message' => $msg]);
             echo json_encode(array_merge(
                 ['success' => true, 'message' => $msg, 'batch_id' => $batch_id],
@@ -336,6 +337,13 @@ class Cron extends CI_Controller
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit;
+    }
+
+    /** Catat waktu jalan terakhir schedule untuk ditampilkan di Daftar Retur Penjualan. */
+    private function daftar_retur_fcd_catat($kunci)
+    {
+        $this->load->model('daftar_retur_fcd');
+        $this->daftar_retur_fcd->catat_jadwal($kunci);
     }
 
     /**
@@ -375,6 +383,7 @@ class Cron extends CI_Controller
             $kering = !isset($body['kering']) || $body['kering'] !== false;   // aman: hanya false eksplisit yang menulis
             $this->load->model('daftar_retur_fcd');
             $r = $this->daftar_retur_fcd->terapkan_cek_status($body['hasil'], $run_id, $kering);
+            if (!$kering) $this->daftar_retur_fcd->catat_jadwal('cek_status');
             $this->_log('terapkan_status_retur', ['success' => true, 'kering' => $kering, 'diperiksa' => $r['diperiksa'],
                 'completed' => $r['completed'], 'diubah' => $r['diubah'], 'printresi' => $r['printresi']]);
             echo json_encode(['success' => true, 'kering' => $kering] + $r);

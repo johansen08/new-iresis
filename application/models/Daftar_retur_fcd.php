@@ -32,6 +32,28 @@ class Daftar_retur_fcd extends CI_Model
     const UMUR_ORANYE = 25;
     const UMUR_MERAH  = 30;
 
+    /** Berkas penanda waktu jalan terakhir schedule (upload Excel Jubelio & cek status Jubelio). */
+    private function _berkas_jadwal()
+    {
+        return APPPATH . 'cache/jadwal_retur_terakhir.json';
+    }
+
+    /** Catat bahwa schedule $kunci ('upload'|'cek_status') baru saja berhasil jalan. */
+    public function catat_jadwal($kunci)
+    {
+        $data = $this->baca_jadwal();
+        $data[$kunci] = date('Y-m-d H:i:s');
+        @file_put_contents($this->_berkas_jadwal(), json_encode($data), LOCK_EX);
+    }
+
+    /** @return array ['upload' => 'Y-m-d H:i:s', 'cek_status' => '...'] (kunci hilang bila belum pernah jalan) */
+    public function baca_jadwal()
+    {
+        $f = $this->_berkas_jadwal();
+        $d = is_file($f) ? json_decode((string) @file_get_contents($f), true) : null;
+        return is_array($d) ? $d : array();
+    }
+
     /** Lama cache daftar (detik). Perubahan scan retur terlihat paling lambat segini. */
     const CACHE_DETIK = 120;
 
