@@ -112,9 +112,11 @@ $BASE = rtrim(base_url(), '/') . '/';
 .dr-fpanel .dr-cari-opsi { box-sizing:border-box; width:100%; height:34px; margin:0 0 4px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; }
 .dr-fpanel .dr-cari-opsi:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
 .dr-fpanel .dr-kosong { padding:10px; color:#9ca3af; font-size:12.5px; }
-.dr-opsi { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; cursor:pointer; margin:0; font-weight:400; }
+/* position:relative WAJIB: checkbox tersembunyi di bawah absolute; tanpa induk berposisi di dalam daftar, fokus ke opsi di daftar panjang
+   (Kurir / Toko) menggulung seluruh panel (overflow:hidden) sampai isinya hilang dan panel tampak putih kosong. */
+.dr-opsi { position:relative; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:6px; cursor:pointer; margin:0; font-weight:400; }
 .dr-opsi:hover { background:#f3f4f6; }
-.dr-opsi input { position:absolute; opacity:0; pointer-events:none; }
+.dr-opsi input { position:absolute; left:0; top:0; width:1px; height:1px; opacity:0; pointer-events:none; }
 .dr-kotak { flex:none; width:18px; height:18px; border:1.5px solid #9ca3af; border-radius:4px; background:#fff;
             display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; transition:all .12s; }
 .dr-kotak i { opacity:0; }
@@ -971,6 +973,8 @@ $(document).ready(function () {
     }
 
     $('#dr_fp').on('click', function (e) { e.stopPropagation(); });
+    // Pengaman: panel (overflow:hidden) tidak boleh tergulung oleh fokus / scrollIntoView; hanya daftar di dalamnya yang boleh bergulir.
+    $('#dr_fp .dr-fpanel').on('scroll', function () { if (this.scrollTop || this.scrollLeft) { this.scrollTop = 0; this.scrollLeft = 0; } });
     $('#dr_fbtn').on('click', function () { if (panelBuka) tutupPanel(); else bukaPanel(); });
     $(document).on('click.drfp', tutupPanel).on('keydown.drfp', function (e) { if (e.key === 'Escape') tutupPanel(); });
     $('#dr_fp_nav').on('click', '.dr-fp-item', function () { katAktif = $(this).attr('data-k'); cariOpsi = ''; gambarNav(); gambarPane(); });
