@@ -1063,15 +1063,11 @@ $(document).ready(function () {
     $('#dr_cetak').on('click', function () {
         if (!jmlPilih()) return;
         if (jenisAktif !== 'B') {
-            window.alert('Cetak serah terima hanya untuk Retur Ekspedisi.
-
-Filter Jenis sekarang masih menyertakan Retur Komplain. Ubah filter Jenis ke "Retur Ekspedisi" saja, lalu cetak lagi.');
+            window.alert('Cetak serah terima hanya untuk Retur Ekspedisi.\n\nFilter Jenis sekarang masih menyertakan Retur Komplain. Ubah filter Jenis ke "Retur Ekspedisi" saja, lalu cetak lagi.');
             return;
         }
         var ulang = (statusAktif === 'SUDAH_SERAH');
-        if (!window.confirm((ulang ? 'Cetak ULANG' : 'Cetak') + ' serah terima ' + jmlPilih() + ' resi RETUR EKSPEDISI?
-
-Data Retur Komplain tidak ikut dicetak.' + (ulang ? ' Ini akan tercatat sebagai cetak ulang.' : ''))) return;
+        if (!window.confirm((ulang ? 'Cetak ULANG' : 'Cetak') + ' serah terima ' + jmlPilih() + ' resi RETUR EKSPEDISI?\n\nData Retur Komplain tidak ikut dicetak.' + (ulang ? ' Ini akan tercatat sebagai cetak ulang.' : ''))) return;
         var v = $('#dr_rentang').val().split(' s/d ');
         // Kelas nojs wajib: tanpa itu plugins.js membajak submit jadi AJAX ke halaman SPA ("Invalid response format").
         var $f = $('<form method="post" target="_blank" class="nojs" style="display:none;"></form>')
