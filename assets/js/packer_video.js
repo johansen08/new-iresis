@@ -1061,6 +1061,12 @@
         }, MAKS_DURASI_DTK * 1000);
     }
 
+    /** Batalkan start yang masih menunggu kamera/codec (lihat tokenMulai di mulai()). */
+    function batalkanStartTertunda() {
+        tokenMulai++;
+        resiMenyiapkan = '';
+    }
+
     function bersihkanTimer() {
         if (timerMaks) { window.clearTimeout(timerMaks); timerMaks = null; }
         if (timerDurasi) { window.clearInterval(timerDurasi); timerDurasi = null; }
@@ -1109,6 +1115,7 @@
      */
     function hentikan() {
         bersihkanTimer();
+        batalkanStartTertunda();
 
         if (!sedangMerekam()) {
             return;
@@ -1133,6 +1140,9 @@
     function tutupDenganEkor() {
         if (!sedangMerekam()) {
             bersihkanTimer();
+            // Packing sudah berakhir sebelum kamera/codec sempat siap: jangan biarkan start yang tertunda
+            // menyalakan rekaman baru yang tidak punya penutup.
+            batalkanStartTertunda();
             return;
         }
 

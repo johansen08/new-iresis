@@ -50,6 +50,7 @@ WHERE a.mulai_at >= CURDATE();
 | C-1 | Scan **C1**, lalu sebelum selesai scan resi lain **C2** (ganti resi). | C1 tertutup rapi (`SELESAI`/`TERPUTUS` dengan ukuran kecil), C2 mulai MEREKAM. Tidak ada rekaman ketiga. | ☐ |
 | C-2 | Saat C2 merekam, klik **Batal Scan**. | Rekaman berhenti, status baris `DIBATALKAN` bila fitur batal berlaku. | ☐ |
 | C-3 | Saat merekam, pindah menu lain (tanpa reload). | Rekaman berhenti, status panel tidak tertinggal MEREKAM. | ☐ |
+| C-5 | Tepat setelah membuka menu (kamera belum siap), scan resi **C3** dua kali cepat (scan 1 dan 2 berselang < 2 detik). | Tidak ada rekaman yang menyala sendiri setelah itu (status panel bukan MEREKAM). | ☐ |
 | C-4 | Saat merekam, tutup tab. | Baris tertutup (potongan terakhir naik) atau menunggu cron menandai `TERPUTUS`. | ☐ |
 
 ## D. Batas 90 menit (butuh waktu)
@@ -80,3 +81,14 @@ Jalankan hanya di salinan DB uji; atau cukup tunggu 105 menit pada recorder yang
 
 Kalau B-3 atau F-2 masih menunjukkan sesi kembar: catat `nama_komputer`, `id_user`, dan jam; periksa apakah
 PC itu sudah memuat ulang halaman (cek `Network` → `packer_video.js?v=` berisi versi terbaru).
+
+## Hasil uji simulasi di browser (24 Nov 2026)
+
+Dijalankan dengan kamera tiruan (canvas) dan unggahan tiruan, memuat `packer_video.js` lama (sebelum `beb99dd`) dan baru:
+
+| Skenario | JS lama | JS baru |
+|---|---|---|
+| `sinkron(resi sama)` dipanggil 3x beruntun (< 0,2 detik) | **2 sesi** berjalan bersamaan | **1 sesi** |
+| Scan kedua (`auto_save_success`) | satu sesi ditutup, **satu sesi yatim** terus mengunggah (tidak pernah ada potongan penutup, `aktif()` = false) | satu sesi ditutup dengan potongan penutup, tidak ada unggahan lagi |
+| Ganti resi A1 → B1 beruntun | - | hanya sesi B1 |
+| Scan kedua sebelum kamera siap | - | tidak ada rekaman yang menyala |
