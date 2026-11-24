@@ -19,7 +19,7 @@ class Stok_retur_buka_fcd extends CI_Model
      *                                  terima dari Daftar Retur). Aturan stoknya TETAP sama, jadi qty di kertas
      *                                  serah terima dan di menu ini selalu sama.
      */
-    public function stok(array $resi_pilih = null, $pakai_status_acc = false)
+    public function stok(array $resi_pilih = null, $pakai_status_acc = false, $tanpa_komplain = false)
     {
         if ($resi_pilih !== null) {
             $resi_pilih = array_flip(array_map('strtoupper', array_map('strval', $resi_pilih)));
@@ -35,6 +35,8 @@ class Stok_retur_buka_fcd extends CI_Model
             if (!preg_match('/^[A-Za-z0-9_]+$/', $arsip)) $arsip = 'iresis_arsip';
             $sql = "SELECT {$kolom} FROM %s.tblbukaretur b LEFT JOIN tblsku s ON s.id_sku = b.sku
                     WHERE b.status_detail_buka = 'KE_DISPLAY' AND b.qty > 0 AND b.status_acc = 0";
+            // Cetak serah terima hanya untuk retur ekspedisi: baris komplain (is_komplain = 1) tidak boleh ikut ke kertas.
+            if ($tanpa_komplain) $sql .= " AND (b.is_komplain IS NULL OR b.is_komplain = 0)";
             if ($resi_pilih !== null) {
                 if (!$resi_pilih) return array('rows' => array(), 'ringkas' => array('sku' => 0, 'qty' => 0, 'resi' => 0, 'resi_komplain' => 0));
                 $in = implode(',', array_map(array($this->db, 'escape'), array_keys($resi_pilih)));
