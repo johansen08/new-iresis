@@ -137,8 +137,6 @@ if (!empty($akses_ditolak)) : ?>
         <th style="width:250px;">Tanggal</th>
         <th>Total video</th>
         <th>Ukuran video</th>
-        <th>Hasil MP4</th>
-        <th>Total ukuran</th>
         <th>Rata-rata</th>
         <th title="Rekaman berstatus MEREKAM lebih dari 2 jam (sesi tidak pernah ditutup)">Macet</th>
         <th>Kumulatif</th>
@@ -223,7 +221,7 @@ if (!empty($akses_ditolak)) : ?>
 
   function isiTabel(d) {
     var baris = d.hari.map(function (h) {
-      return [h.tanggal, h.total_video, h.byte_webm, h.byte_mp4, h.byte_total, h.total_video ? h.byte_total / h.total_video : 0, [h.n_macet, h.byte_macet], h.kumulatif];
+      return [h.tanggal, h.total_video, h.byte_total, h.total_video ? h.byte_total / h.total_video : 0, [h.n_macet, h.byte_macet], h.kumulatif];
     });
     tabel.clear().rows.add(baris).draw(false);
   }
@@ -245,8 +243,6 @@ if (!empty($akses_ditolak)) : ?>
             return esc(tgl(v)) + '<small>' + hariNama(v) + '</small>' + (ini ? '<span class="pv-tag">Hari ini</span>' : '');
           } },
         { render: function (v, t) { return t === 'display' ? nf(v) : v; } },
-        { render: function (v, t) { return t === 'display' ? ukuran(v) : v; } },
-        { render: function (v, t) { return t === 'display' ? (v ? ukuran(v) : '-') : v; } },
         { className: 'tebal', render: function (v, t) { return t === 'display' ? ukuran(v) : v; } },
         { render: function (v, t) { return t === 'display' ? (v ? ukuran(v) : '-') : v; } },
         { className: 'macet', render: function (v, t) {
