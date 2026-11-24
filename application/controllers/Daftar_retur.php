@@ -345,11 +345,13 @@ class Daftar_retur extends MY_Controller
         $e = $this->input->post('end_date');
         $cari = $this->input->post('q');
         $ulang = ($this->input->post('ulang') === '1');
-        $jenis = array(Daftar_retur_fcd::JENIS_BIASA, Daftar_retur_fcd::JENIS_KOMPLAIN);
+        // GUARD: cetak serah terima HANYA untuk retur ekspedisi. Jenis yang dikirim browser harus persis 'B'; selain itu
+        // (komplain atau campuran) ditolak, bukan diam-diam disaring, supaya petugas tahu kertasnya tidak boleh bercampur.
         $jenis_raw = $this->input->post('jenis');
-        if (is_string($jenis_raw) && $jenis_raw !== '') {
-            $jenis = array_values(array_intersect(explode(',', $jenis_raw), $jenis));
+        if ($jenis_raw !== Daftar_retur_fcd::JENIS_BIASA) {
+            show_error('Cetak serah terima hanya untuk Retur Ekspedisi. Ubah filter Jenis ke "Retur Ekspedisi" saja lalu cetak ulang. Data Retur Komplain tidak boleh dicetak di sini.', 400);
         }
+        $jenis = array(Daftar_retur_fcd::JENIS_BIASA);
 
         list($rows) = $this->daftar_retur_fcd->get_list(array(
             'start' => ($ok($s) ? $s : date('Y-01-01')) . ' 00:00:00',
@@ -377,7 +379,7 @@ class Daftar_retur extends MY_Controller
         // Kertas hanya berisi SKU + qty yang berstatus KE_DISPLAY dan belum di-ACC accounting (status_acc = 0),
         // sama dengan isi tab Sudah dibuka. Baris reject / bukan barang kita / dll tidak ikut.
         $this->load->model('stok_retur_buka_fcd');
-        $stok = $this->stok_retur_buka_fcd->stok($resi, true);
+        $stok = $this->stok_retur_buka_fcd->stok($resi, true, true);
         $masuk = (int) $stok['ringkas']['resi'];
 
         // Catat serah terima untuk SEMUA resi yang dicentang dan masih tampil di tab asalnya (petugas + waktu):
@@ -393,8 +395,8 @@ class Daftar_retur extends MY_Controller
             'det' => $this->stok_retur_buka_fcd->baris_serah_terima($stok['rows']),
             'ulang' => $ulang,
             'per_lantai' => true,
-            'sub' => ($ulang ? 'CETAK ULANG · ' : '') . count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
-                . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: tanpa barang KE_DISPLAY / sudah di-ACC accounting)' : '')
+            'sub' => ($ulang ? 'CETAK ULANG · ' : '') . 'HANYA RETUR EKSPEDISI · ' . count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
+                . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: tanpa barang KE_DISPLAY / sudah di-ACC accounting / hanya berisi barang komplain)' : '')
                 . ' · ' . count($stok['rows']) . ' SKU',
             'petugas' => $petugas,
             'tanggal' => date('Y-m-d'),

@@ -558,9 +558,11 @@ $(document).ready(function () {
     function ubahInfoPilih() {
         if (!tabel) return;
         var n = jmlPilih(), total = tabel.page.info().recordsDisplay;
-        $('#dr_cetak').prop('disabled', n === 0)
-            .attr('title', n ? (statusAktif === 'SUDAH_SERAH' ? 'Cetak ulang serah terima ' : 'Cetak serah terima ') + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
-        var h = n ? '<b>' + n.toLocaleString('id-ID') + ' resi dipilih</b> <a id="dr_pilih_hapus">Hapus pilihan</a>' : 'Centang resi untuk ' + (statusAktif === 'SUDAH_SERAH' ? 'Cetak Ulang Serah Terima.' : 'Cetak Serah Terima.');
+        var campur = (jenisAktif !== 'B');   // guard: cetak hanya saat filter Jenis = Retur Ekspedisi saja
+        $('#dr_cetak').prop('disabled', n === 0 || campur)
+            .attr('title', campur ? 'Cetak hanya untuk Retur Ekspedisi. Ubah filter Jenis ke Retur Ekspedisi saja.' : n ? (statusAktif === 'SUDAH_SERAH' ? 'Cetak ulang serah terima ' : 'Cetak serah terima ') + n + ' resi yang dicentang' : 'Centang resi yang mau dicetak dulu');
+        var h = campur ? '<b style="color:#c0392b;"><i class="fa fa-exclamation-triangle"></i> Cetak hanya untuk Retur Ekspedisi. Ubah filter Jenis ke "Retur Ekspedisi" saja (data komplain tidak boleh ikut tercetak).</b> ' : '';
+        h += n ? '<b>' + n.toLocaleString('id-ID') + ' resi dipilih</b> <a id="dr_pilih_hapus">Hapus pilihan</a>' : 'Centang resi untuk ' + (statusAktif === 'SUDAH_SERAH' ? 'Cetak Ulang Serah Terima.' : 'Cetak Serah Terima.');
         if (total > 0 && n < total) h += '<a id="dr_pilih_semua">Pilih semua ' + total.toLocaleString('id-ID') + ' hasil</a>';
         $('#dr_pilih_info').html(h);
         var $hal = $('#dt_daftar_retur .dr-pilih');
@@ -1060,8 +1062,16 @@ $(document).ready(function () {
     // Cetak: POST lewat form ke tab baru (daftar resi bisa panjang, tidak muat di URL).
     $('#dr_cetak').on('click', function () {
         if (!jmlPilih()) return;
+        if (jenisAktif !== 'B') {
+            window.alert('Cetak serah terima hanya untuk Retur Ekspedisi.
+
+Filter Jenis sekarang masih menyertakan Retur Komplain. Ubah filter Jenis ke "Retur Ekspedisi" saja, lalu cetak lagi.');
+            return;
+        }
         var ulang = (statusAktif === 'SUDAH_SERAH');
-        if (ulang && !window.confirm('Cetak ulang serah terima ' + jmlPilih() + ' resi? Ini akan tercatat sebagai cetak ulang.')) return;
+        if (!window.confirm((ulang ? 'Cetak ULANG' : 'Cetak') + ' serah terima ' + jmlPilih() + ' resi RETUR EKSPEDISI?
+
+Data Retur Komplain tidak ikut dicetak.' + (ulang ? ' Ini akan tercatat sebagai cetak ulang.' : ''))) return;
         var v = $('#dr_rentang').val().split(' s/d ');
         // Kelas nojs wajib: tanpa itu plugins.js membajak submit jadi AJAX ke halaman SPA ("Invalid response format").
         var $f = $('<form method="post" target="_blank" class="nojs" style="display:none;"></form>')
