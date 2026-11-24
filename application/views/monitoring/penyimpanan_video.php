@@ -159,10 +159,15 @@ if (!empty($akses_ditolak)) : ?>
   function $e(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function nf(n) { return Number(n).toLocaleString('id-ID'); }
+  // Satuan sama dengan Windows Explorer: 1 KB = 1024 B (labelnya tetap KB/MB/GB/TB), tiga angka bermakna,
+  // dipotong (bukan dibulatkan). Contoh: 4.000.768.323.584 B = "3,63 TB", sama seperti properti drive D.
   function ukuranParts(b) {
     var u = ['B','KB','MB','GB','TB'], i = 0, v = Number(b);
-    while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
-    return [v.toLocaleString('id-ID', { maximumFractionDigits: i >= 3 ? 2 : 0 }), u[i]];
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    var d = i === 0 ? 0 : (v < 10 ? 2 : (v < 100 ? 1 : 0));
+    var f = Math.pow(10, d);
+    var t = (Math.floor(v * f) / f).toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+    return [t, u[i]];
   }
   function ukuran(b) { var x = ukuranParts(b); return x[0] + ' ' + x[1]; }
   function tgl(s) { var p = s.split('-'); return (+p[2]) + ' ' + BLN[+p[1] - 1] + ' ' + p[0]; }
@@ -174,7 +179,7 @@ if (!empty($akses_ditolak)) : ?>
   }
 
   function isiKartu(d) {
-    $e('pv_sub').innerHTML = 'Folder <b>' + esc(d.folder) + '</b> · dihitung ' + esc(d.dihitung_pada.substr(11, 5));
+    $e('pv_sub').innerHTML = 'Folder <b>' + esc(d.folder) + '</b> · satuan seperti Windows (1 TB = 1024 GB) · dihitung ' + esc(d.dihitung_pada.substr(11, 5));
     angka('pv_total', d.terpakai_video);
     $e('pv_total_cat').innerHTML = '<b>' + nf(d.total_video) + '</b> video'
       + (d.terpakai_disk !== null ? '<br>Terpakai di drive (semua data): <b>' + ukuran(d.terpakai_disk) + '</b>' : '');
