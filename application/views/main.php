@@ -742,6 +742,24 @@
                 cluster: 'ap1'
             }<?php endif; ?>);
 
+            // Tanpa koneksi realtime (internet mati / server Pusher tidak terjangkau) lonceng
+            // diperbarui berkala lewat server lokal, jadi notifikasi tetap sampai.
+            var pollNotif = null;
+            function mulaiPollNotif() {
+                if (pollNotif) return;
+                pollNotif = setInterval(function () { if (!document.hidden) refreshNotifications(); }, 30000);
+                $('#notif-ringkas').attr('title', 'Notifikasi realtime tidak aktif; daftar diperbarui tiap 30 detik.');
+            }
+            function hentiPollNotif() {
+                if (pollNotif) { clearInterval(pollNotif); pollNotif = null; }
+                $('#notif-ringkas').removeAttr('title');
+            }
+            pusher.connection.bind('connected', hentiPollNotif);
+            pusher.connection.bind('unavailable', mulaiPollNotif);
+            pusher.connection.bind('failed', mulaiPollNotif);
+            pusher.connection.bind('disconnected', mulaiPollNotif);
+            setTimeout(function () { if (pusher.connection.state !== 'connected') mulaiPollNotif(); }, 8000);
+
             var channelName = 'notif-role-' + userRoleId;
             var channel = pusher.subscribe(channelName);
 

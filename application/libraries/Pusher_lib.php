@@ -31,7 +31,7 @@ class Pusher_lib {
         $options = array(
             'cluster' => $CI->config->item('pusher_cluster', 'pusher'),
             'useTLS'  => true,
-            'timeout' => 2
+            'timeout' => 1
         );
 
         // Server kompatibel-Pusher lokal (mis. Soketi): isi pusher_host di secrets.php.
