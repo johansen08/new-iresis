@@ -46,9 +46,16 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* ikon kontrol: kotak 14 px, rata tengah, warna sama di semua tombol */
 .dr-chip > i, .dr-reset i, .dr-export i { flex:none; width:14px; text-align:center; font-size:13px; line-height:1; color:#6b7280; }
 .dr-export i { color:inherit; }
-.dr-filter .dataTables_filter { height:38px; margin:0; padding:0; float:none; width:auto; text-align:left; flex:1 1 120px; min-width:120px; max-width:340px; }
+/* Kotak cari: paling kiri, lebih lebar, ikon kaca pembesar jelas, tombol hapus (x) saat terisi, petunjuk tombol "/" saat kosong. */
+.dr-filter .dataTables_filter { position:relative; height:38px; margin:0; padding:0; float:none; width:auto; text-align:left; flex:1 1 300px; min-width:220px; max-width:440px; }
 .dr-filter .dataTables_filter label { margin:0; padding:0; display:block; width:100%; height:38px; line-height:0; overflow:visible; }
-.dr-filter .dataTables_filter input { box-sizing:border-box; display:block; width:100%; height:38px; margin:0; padding:0 12px 0 34px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; line-height:36px; color:#111827;
+.dr-cari-x { display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); width:22px; height:22px; padding:0; border:0; border-radius:50%; background:#e5e7eb; color:#4b5563; font-size:12px; line-height:22px; text-align:center; cursor:pointer; }
+.dr-cari-x:hover { background:#d1d5db; color:#111827; }
+.dr-cari-kbd { position:absolute; right:10px; top:50%; transform:translateY(-50%); min-width:20px; padding:1px 6px; border:1px solid #d1d5db; border-bottom-width:2px; border-radius:4px; background:#f9fafb; color:#6b7280; font:600 11px/16px monospace; text-align:center; pointer-events:none; }
+.dr-filter .dataTables_filter.terisi .dr-cari-x { display:block; }
+.dr-filter .dataTables_filter.terisi .dr-cari-kbd, .dr-filter .dataTables_filter.fokus .dr-cari-kbd { display:none; }
+.dr-filter .dataTables_filter.terisi input { border-color:#0f766e; background-color:#f0fdfa; }
+.dr-filter .dataTables_filter input { box-sizing:border-box; display:block; width:100%; height:38px; margin:0; padding:0 40px 0 34px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; line-height:36px; color:#111827;
   background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 12px center; }
 .dr-filter .dataTables_filter input:hover { border-color:#0f766e; }
 .dr-filter .dataTables_filter input:focus { outline:0; border-color:#0f766e; box-shadow:0 0 0 3px rgba(15,118,110,.15); }
@@ -59,6 +66,14 @@ $BASE = rtrim(base_url(), '/') . '/';
 /* Export = aksi sekunder (garis), Cetak = aksi utama konteks tab (isi) */
 .dr-export { box-sizing:border-box; width:128px; flex:none; display:inline-flex; align-items:center; justify-content:center; gap:8px; height:38px; margin:0; padding:0 14px; border:1px solid #0f766e; border-radius:6px; background:#fff; color:#0f766e; font-size:13px; font-weight:600; line-height:1; cursor:pointer; white-space:nowrap; }
 .dr-export:hover { background:#f0fdfa; }
+/* Export Excel: tombol terlihat jelas (isi teal muda + tebal), bawa jumlah baris yang akan diunduh. */
+#dr_export { width:auto; min-width:150px; background:#ccfbf1; color:#115e59; border-width:1.5px; font-weight:700; }
+#dr_export:hover { background:#99f6e4; }
+#dr_export .jml { padding:1px 7px; border-radius:999px; background:#0f766e; color:#fff; font-size:11px; font-weight:700; line-height:16px; }
+#dr_export .jml:empty { display:none; }
+#dr_export[disabled] { background:#f3f4f6; border-color:#d1d5db; color:#9ca3af; cursor:not-allowed; }
+#dr_export[disabled] .jml { background:#9ca3af; }
+#dr_export.siap { cursor:progress; background:#99f6e4; }
 .dr-cetak { background:#0f766e; color:#fff; }
 .dr-cetak:hover { background:#115e59; }
 .dr-cetak[disabled] { background:#e5e7eb; border-color:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
@@ -439,7 +454,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     <button type="button" class="dr-reset" id="dr_reset" title="Atur ulang filter"><i class="fa fa-undo"></i></button>
     <!-- kotak cari DataTables disisipkan JS di sini -->
     <div class="dr-acts">
-      <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai filter, tab, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> Export</button>
+      <button type="button" class="dr-export" id="dr_export" title="Unduh Excel sesuai tab, filter, dan pencarian saat ini"><i class="fa fa-file-excel-o"></i> <span class="teks">Export Excel</span> <span class="jml"></span></button>
       <button type="button" class="dr-export dr-cetak" id="dr_cetak" style="display:none;" disabled title="Centang resi yang mau dicetak serah terimanya dulu"><i class="fa fa-print"></i> Cetak</button>
     </div>
   </div>
@@ -656,7 +671,7 @@ $(document).ready(function () {
             emptyTable: 'Tidak ada retur pada rentang tanggal ini',
             zeroRecords: 'Tidak ada data yang cocok',
             search: '',
-            searchPlaceholder: 'Cari resi, pesanan, kurir, toko...',
+            searchPlaceholder: 'Cari resi, pesanan, toko, kurir...',
             lengthMenu: 'Baris per halaman _MENU_',
             info: 'Menampilkan _START_–_END_ dari _TOTAL_ data',
             infoEmpty: 'Tidak ada data',
@@ -666,8 +681,28 @@ $(document).ready(function () {
         }
     });
 
-    // Kotak cari: pindah ke bar filter (setelah tombol atur ulang) supaya tidak makan satu baris sendiri di atas tabel.
-    $('#dt_daftar_retur_filter').insertAfter('#dr_reset').find('input').attr('autocomplete', 'off');
+    // Kotak cari: pindah ke paling kiri bar filter supaya langsung terlihat dan tidak makan satu baris sendiri di atas tabel.
+    var $cari = $('#dt_daftar_retur_filter').prependTo('.dr-filter');
+    var $cariInput = $cari.find('input').attr({ autocomplete: 'off', title: 'Cari no. resi, no. pesanan, toko, marketplace, atau kurir di tab ini (sesuai filter). Tekan / untuk langsung mengetik.', 'aria-label': 'Cari data retur' });
+    $cari.find('label').append('<button type="button" class="dr-cari-x" title="Hapus pencarian" aria-label="Hapus pencarian"><i class="fa fa-times"></i></button><span class="dr-cari-kbd" title="Tekan / untuk mencari">/</span>');
+    function tandaiCari() { $cari.toggleClass('terisi', $.trim($cariInput.val()) !== ''); }
+    $cariInput.on('input', tandaiCari)
+        .on('focus', function () { $cari.addClass('fokus'); })
+        .on('blur', function () { $cari.removeClass('fokus'); })
+        .on('keydown', function (e) { if (e.which === 27 && $cariInput.val() !== '') { $cariInput.val('').trigger('input').trigger('keyup'); } });
+    $cari.on('click', '.dr-cari-x', function () { $cariInput.val('').trigger('input').trigger('keyup').focus(); });
+    // Pintasan "/" = fokus ke kotak cari (kecuali saat sedang mengetik di kolom lain).
+    // Halaman ini dimuat ulang lewat AJAX (SPA semu): pendengar lama dilepas bila kotaknya sudah tidak ada di layar.
+    function pintasCari(e) {
+        if (!$.contains(document.documentElement, $cariInput[0])) { $(document).off('keydown', pintasCari); return; }
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+        if ($(e.target).is('input, textarea, select, [contenteditable]')) return;
+        if (!$cariInput.is(':visible')) return;
+        e.preventDefault();
+        $cariInput.focus().select();
+    }
+    $(document).on('keydown', pintasCari);
+    tabel.on('draw.dt', tandaiCari);
     $('.dr-atas').remove();
 
     // Jumlah per tab + baris "Ada N retur" dari respons server.
@@ -1035,10 +1070,47 @@ $(document).ready(function () {
         setTimeout(function () { sel = {}; tabel.ajax.reload(); }, 2000);
     });
 
+    // Tombol Export: menampilkan jumlah baris yang akan diunduh (ikut tab, filter, pencarian) dan mati bila kosong.
+    function namaTabAktif() { return $.trim($('#dr_tabs .dr-tab.on').clone().children().remove().end().text()); }
+    function ubahTombolExport(n) {
+        var $b = $('#dr_export');
+        if ($b.hasClass('siap')) return;
+        n = parseInt(n, 10) || 0;
+        $b.prop('disabled', n < 1).find('.jml').text(n > 0 ? n.toLocaleString('id-ID') : '');
+        $b.attr('title', n > 0
+            ? 'Unduh ' + n.toLocaleString('id-ID') + ' paket (tab ' + namaTabAktif() + ', sesuai filter & pencarian) sebagai Excel klaim-retur'
+            : 'Tidak ada data untuk diunduh pada tab & filter ini');
+    }
+    tabel.on('xhr.dt', function (e, settings, json) { if (json) ubahTombolExport(json.recordsFiltered); });
+
+    // Unduh lewat iframe tersembunyi (halaman tidak berpindah bila server menolak). Server menaruh cookie dr_unduh=<token>
+    // begitu file siap dikirim; selama itu tombol menampilkan "Menyiapkan file...".
     $('#dr_export').on('click', function () {
+        var $b = $(this);
+        if ($b.hasClass('siap') || $b.prop('disabled')) return;
         var v = $('#dr_rentang').val().split(' s/d ');
-        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, status_retur: statusRetAktif, f_kurir: pilihJson('kurir'), f_mp: pilihJson('mp'), f_toko: pilihJson('toko'), q: tabel.search() }) + '&' + $.param(rentangParam());
-        window.location.href = BASE + 'retur/export-daftar-retur-penjualan?' + q;
+        var token = String(Date.now()) + Math.floor(Math.random() * 1000);
+        var q = $.param({ start_date: v[0] || '', end_date: v[1] || '', status: statusAktif, jenis: jenisAktif, status_retur: statusRetAktif, f_kurir: pilihJson('kurir'), f_mp: pilihJson('mp'), f_toko: pilihJson('toko'), q: tabel.search(), unduh_token: token }) + '&' + $.param(rentangParam());
+        var asal = $b.html(), mulai = Date.now(), timer, $if;
+        $b.addClass('siap').prop('disabled', false).html('<i class="fa fa-spinner fa-spin"></i> <span class="teks">Menyiapkan file...</span>');
+        function selesai(pesan) {
+            clearInterval(timer);
+            document.cookie = 'dr_unduh=; Max-Age=0; path=/';
+            if ($if) $if.remove();
+            $b.removeClass('siap').html(asal);
+            ubahTombolExport(tabel.page.info().recordsDisplay);
+            if (pesan) window.alert(pesan);
+        }
+        timer = setInterval(function () {
+            if (document.cookie.indexOf('dr_unduh=' + token) !== -1) { selesai(); return; }
+            var d = Math.floor((Date.now() - mulai) / 1000);
+            $b.find('.teks').text(d >= 3 ? 'Menyiapkan file... ' + d + ' dtk' : 'Menyiapkan file...');
+            if (d >= 180) selesai('Export terlalu lama. Coba persempit filter atau ulangi.');
+        }, 300);
+        // Server menjawab halaman (bukan file) = ditolak / error: iframe memicu load; file unduhan tidak memicu load.
+        $if = $('<iframe style="display:none;"></iframe>').on('load', function () {
+            if (document.cookie.indexOf('dr_unduh=' + token) === -1) selesai('Export gagal. Anda mungkin tidak punya akses, atau terjadi kesalahan di server.');
+        }).attr('src', BASE + 'retur/export-daftar-retur-penjualan?' + q).appendTo('body');
     });
 
     $('#dr_reset').on('click', function () {
