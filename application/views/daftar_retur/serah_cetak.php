@@ -5,8 +5,27 @@ $bulan = array('', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli
 $t = strtotime($tanggal);
 $tgl_indo = date('d', $t) . ' ' . $bulan[(int) date('n', $t)] . ' ' . date('Y', $t);
 
-// Tinggi baris & huruf menyesuaikan jumlah baris supaya muat satu halaman
-$n = max(count($det), 1);
+// Per lantai (digit pertama No. Rak). Rak kosong / berawalan huruf = LAINNYA. Satu dokumen, tiap lantai mulai halaman baru.
+$per_lantai = !empty($per_lantai);
+$grup = array();
+if ($per_lantai) {
+    foreach ($det as $x) {
+        $k = (isset($x['rak'][0]) && ctype_digit($x['rak'][0])) ? $x['rak'][0] : 'LAINNYA';
+        $grup[$k][] = $x;
+    }
+    uksort($grup, function ($a, $b) {
+        if ($a === 'LAINNYA') return $b === 'LAINNYA' ? 0 : 1;
+        if ($b === 'LAINNYA') return -1;
+        return (int) $a - (int) $b;
+    });
+} else {
+    $grup[''] = $det;
+}
+$judul = $per_lantai ? 'PENGEMBALIAN BARANG (RETUR KE RESTOK)' : 'PENGEMBALIAN BARANG (DARI RETUR KE RESTOK)';
+
+// Tinggi baris & huruf menyesuaikan jumlah baris terbanyak per halaman supaya muat satu halaman
+$n = 1;
+foreach ($grup as $g) $n = max($n, count($g));
 $rowH = max(5.5, min(10, (297 - 24 - 14 - 6 - 46) / ($n + 1)));
 $fs = max(7.5, min(11.5, $rowH * 1.45));
 ?>
@@ -39,20 +58,27 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
 </style>
 </head>
 <body>
+<?php if (empty($det)): ?>
 <div class="head">
-    <h1>PENGEMBALIAN BARANG (DARI RETUR KE RESTOK)<?php if (!empty($ulang)): ?> <span style="font-size:11pt;border:2px solid #111;padding:1px 6px;margin-left:6px;">CETAK ULANG</span><?php endif; ?></h1>
+    <h1><?= $judul ?><?php if (!empty($ulang)): ?> <span style="font-size:11pt;border:2px solid #111;padding:1px 6px;margin-left:6px;">CETAK ULANG</span><?php endif; ?></h1>
     <b><?= html_escape($tgl_indo) ?></b>
 </div>
 <div class="sub"><?= html_escape($sub) ?></div>
-<?php if (empty($det)): ?>
-    <div class="kosong">Tidak ada barang yang perlu diserahterimakan pada filter ini.</div>
+<div class="kosong">Tidak ada barang yang perlu diserahterimakan pada filter ini.</div>
 <?php else: ?>
+<?php $gi = 0; foreach ($grup as $kunci => $baris): $gi++; ?>
+<div<?= $gi > 1 ? ' style="page-break-before:always"' : '' ?>>
+<div class="head">
+    <h1><?= $judul ?><?php if ($per_lantai): ?> <?= $kunci === 'LAINNYA' ? 'LAINNYA' : 'LANTAI ' . html_escape($kunci) ?><?php endif; ?><?php if (!empty($ulang)): ?> <span style="font-size:11pt;border:2px solid #111;padding:1px 6px;margin-left:6px;">CETAK ULANG</span><?php endif; ?></h1>
+    <b><?= html_escape($tgl_indo) ?></b>
+</div>
+<div class="sub"><?= html_escape($sub) ?></div>
 <table>
     <thead>
         <tr><th class="fit">No</th><th class="fit">No. Rak</th><th class="fit">SKU</th><th class="fit">Qty</th><th class="fit real">Qty Real</th><th>Ket</th></tr>
     </thead>
     <tbody>
-    <?php foreach ($det as $i => $x): ?>
+    <?php foreach ($baris as $i => $x): ?>
         <tr>
             <td class="c fit"><?= $i + 1 ?></td>
             <td class="c fit"><?= html_escape($x['rak']) ?></td>
@@ -64,6 +90,8 @@ thead{display:table-header-group}tr{page-break-inside:avoid}
     <?php endforeach; ?>
     </tbody>
 </table>
+</div>
+<?php endforeach; ?>
 <?php endif; ?>
 <div class="ttd">
     <div>

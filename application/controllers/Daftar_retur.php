@@ -392,6 +392,7 @@ class Daftar_retur extends MY_Controller
         $this->load->view('daftar_retur/serah_cetak', array(
             'det' => $this->stok_retur_buka_fcd->baris_serah_terima($stok['rows']),
             'ulang' => $ulang,
+            'per_lantai' => true,
             'sub' => ($ulang ? 'CETAK ULANG · ' : '') . count($resi) . ' resi dicentang · ' . $masuk . ' resi ikut serah terima'
                 . (count($resi) > $masuk ? ' (' . (count($resi) - $masuk) . ' dilewati: tanpa barang KE_DISPLAY / sudah di-ACC accounting)' : '')
                 . ' · ' . count($stok['rows']) . ' SKU',
