@@ -1836,7 +1836,7 @@ class Retur_fcd extends CI_Model
             $tgl         = $r['tanggal_retur'] ?? null;
 
             // --- UPSERT: INSERT baru, atau UPDATE status saja jika sudah ada ---
-            // status_retur 'SELESAI (PESANAN COMPLETED)' / 'SELESAI (DATA LAMA)' = final (diisi tugas cek_status_retur_jubelio): TIDAK boleh ditimpa Excel
+            // status_retur 'SELESAI (PESANAN COMPLETED)' / 'SELESAI (DATA LAMA)' / 'DITOLAK (PENYESUAIAN)' = final (diisi tugas cek_status_retur_jubelio): TIDAK boleh ditimpa Excel
             // (kolom status_jubelio ikut dipertahankan agar tidak kembali RETURNED).
             $sql = "INSERT INTO tblreturjubelio
                         (batch_id, no_resi, no_pesanan, sku, nama_barang, qty, amount,
@@ -1852,8 +1852,8 @@ class Retur_fcd extends CI_Model
                         marketplace     = VALUES(marketplace),
                         nama_toko       = VALUES(nama_toko),
                         kurir           = VALUES(kurir),
-                        status_jubelio  = IF(status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)'), status_jubelio, VALUES(status_jubelio)),
-                        status_retur    = IF(status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)'), status_retur, VALUES(status_retur)),
+                        status_jubelio  = IF(status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)', 'DITOLAK (PENYESUAIAN)'), status_jubelio, VALUES(status_jubelio)),
+                        status_retur    = IF(status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)', 'DITOLAK (PENYESUAIAN)'), status_retur, VALUES(status_retur)),
                         tanggal_retur   = VALUES(tanggal_retur),
                         match_resi      = VALUES(match_resi),
                         match_pesanan   = VALUES(match_pesanan),
@@ -1886,7 +1886,7 @@ class Retur_fcd extends CI_Model
                         SET status_pesanan = 'RETURNED', modified_at = ?, modified_by = ?
                       WHERE noresi = ?
                         AND (status_pesanan IS NULL OR UPPER(TRIM(status_pesanan)) <> 'RETURNED')
-                        AND NOT EXISTS (SELECT 1 FROM tblreturjubelio x WHERE x.no_resi = ? AND x.status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)'))",
+                        AND NOT EXISTS (SELECT 1 FROM tblreturjubelio x WHERE x.no_resi = ? AND x.status_retur IN ('SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)', 'DITOLAK (PENYESUAIAN)'))",
                     [$now, $user_id, $no_resi, $no_resi]
                 );
                 $status_diperbarui += max(0, (int) $this->db->affected_rows());
