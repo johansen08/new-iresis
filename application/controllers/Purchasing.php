@@ -307,7 +307,7 @@ class Purchasing extends MY_Controller
         
         $foto_final = '';
         if(!empty($foto_link)) {
-            $foto_final = $foto_link;
+            $foto_final = $this->_foto_dari_link($foto_link);
         } else if(!empty($foto_base64)) {
             $foto_final = $this->_upload_base64_img($foto_base64, 'giveaway');
         }
@@ -385,7 +385,7 @@ class Purchasing extends MY_Controller
         
         $foto_final = '';
         if(!empty($foto_link)) {
-            $foto_final = $foto_link;
+            $foto_final = $this->_foto_dari_link($foto_link);
         } else if(!empty($foto_base64)) {
             $foto_final = $this->_upload_base64_img($foto_base64, 'repair');
         }
@@ -417,7 +417,7 @@ class Purchasing extends MY_Controller
         
         $foto_final = '';
         if(!empty($foto_link)) {
-            $foto_final = $foto_link;
+            $foto_final = $this->_foto_dari_link($foto_link);
         } else if(!empty($foto_base64)) {
             $foto_final = $this->_upload_base64_img($foto_base64, 'reject');
         }
@@ -438,6 +438,21 @@ class Purchasing extends MY_Controller
         }
 
         redirect('purchasing/reject');
+    }
+
+    /**
+     * Link foto eksternal diunduh dan disimpan di server (aplikasi berjalan di LAN
+     * tanpa internet). Bila gagal diunduh (offline / bukan gambar) link asli tetap
+     * disimpan supaya data tidak hilang.
+     */
+    private function _foto_dari_link($link)
+    {
+        $link = trim((string) $link);
+        if ( ! foto_lokal_adalah_url($link)) {
+            return $link;
+        }
+        $lokal = foto_lokal_unduh($link, 'uploads/qc_proof/', 'link');
+        return $lokal !== '' ? base_url($lokal) : $link;
     }
 
     private function _upload_base64_img($base64_string, $prefix = 'qc')

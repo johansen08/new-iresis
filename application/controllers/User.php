@@ -70,27 +70,16 @@ class User extends MY_Controller
             }
         }
 
-        // Auto-convert Google Drive links to direct links (supports resourcekey)
-        if (strpos($user['foto'], 'drive.google.com') !== false) {
-            $id = '';
-            $rk = '';
-            
-            // Extract ID
-            if (preg_match('/\/file\/d\/([^\/\?]+)/', $user['foto'], $matches)) {
-                $id = $matches[1];
-            } elseif (preg_match('/id=([^\&]+)/', $user['foto'], $matches)) {
-                $id = $matches[1];
+        // Link foto (termasuk Google Drive) diunduh dan disimpan di server: aplikasi
+        // berjalan di LAN tanpa internet, jadi yang disimpan adalah salinan lokal.
+        if (foto_lokal_adalah_url($user['foto'])) {
+            $lokal = foto_lokal_unduh($user['foto'], 'assets/img/users/', 'user_' . ($user['id_user'] ? $user['id_user'] : 'new'));
+            if ($lokal === '') {
+                $this->set_message('Error', 'Foto dari link tidak dapat diunduh (internet putus, link bukan gambar, atau file terlalu besar). Gunakan tab Upload File.', 'error');
+                $this->show_index();
+                return;
             }
-            
-            // Extract ResourceKey
-            if (preg_match('/resourcekey=([^\&]+)/', $user['foto'], $matches)) {
-                $rk = $matches[1];
-            }
-            
-            if ($id) {
-                // thumbnail link is more reliable for embedding
-                $user['foto'] = "https://drive.google.com/thumbnail?id=" . $id . ($rk ? "&resourcekey=" . $rk : "") . "&sz=w1000";
-            }
+            $user['foto'] = $lokal;
         }
 
         // Validasi username duplikat

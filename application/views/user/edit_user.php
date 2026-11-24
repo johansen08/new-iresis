@@ -105,7 +105,7 @@
                                 </div>
                                 <div class="tab-pane" id="tab-link">
                                     <input type="text" id="input_foto" name="foto" class="form-control" value="<?= empty($user) ? '' : $user['foto'] ?>" placeholder="Link Google Drive, Dropbox, atau lainnya"/>
-                                    <span class="help-block">Copy-paste link foto di sini. Otomatis support Google Drive.</span>
+                                    <span class="help-block">Link diunduh server saat disimpan dan disimpan sebagai salinan lokal (butuh internet saat itu saja; gunakan Upload File bila offline).</span>
                                 </div>
                             </div>
                         </div>
