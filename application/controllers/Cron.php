@@ -82,10 +82,14 @@ class Cron extends CI_Controller
             $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'W');
 
             $this->load->model('receipt_fcd');
-            $result = $this->receipt_fcd->insert_receipt($dataRaw, null);
+            // admin_pegawai NOT NULL tanpa default: user_id wajib bernilai valid ('0' = sistem), bukan null
+            // (sama seperti auto_upload_resi_api). null membuat insert resi baru gagal.
+            $result = $this->receipt_fcd->insert_receipt($dataRaw, '0');
 
-            $this->_log('auto_upload_resi', ['success' => true, 'message' => $result]);
-            echo json_encode(['success' => true, 'message' => $result]);
+            // insert_receipt() mengembalikan pesan "Error ..." (bukan exception) saat transaksi dibatalkan.
+            $ok = stripos((string) $result, 'Error') !== 0;
+            $this->_log('auto_upload_resi', ['success' => $ok, 'message' => $result]);
+            echo json_encode(['success' => $ok, 'message' => $result]);
         } catch (\Throwable $e) {
             $this->_log('auto_upload_resi', ['success' => false, 'message' => $e->getMessage()]);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

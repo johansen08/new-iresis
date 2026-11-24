@@ -209,6 +209,10 @@ def upload_ke_iresis(path, base_url, token):
         else:
             saran += 'Cek application/logs/ untuk detail.'
         raise TahapGagal('UPLOAD', 'IRESIS menjawab gagal: %s' % pesan, saran)
+    # Pengaman: insert_receipt() mengembalikan teks "Error ..." saat transaksi dibatalkan; jangan dihitung sukses.
+    if str(hasil.get('message', '')).lstrip().lower().startswith('error'):
+        raise TahapGagal('UPLOAD', 'IRESIS melaporkan error pada data: %s' % hasil.get('message'),
+                         'Transaksi dibatalkan (tidak ada data tertulis). Cek application/logs/ dan header kolom xlsx.')
     return hasil
 
 
