@@ -8,3 +8,4 @@ Menu `monitoring/penyimpanan-video` memantau HDD backup tempat rekaman video pac
 - Drive tidak terbaca (HDD belum terpasang) → alert merah.
 - Hanya webmaster (role 1): menu disembunyikan dari sidebar role lain (`MY_Controller::ambil_menu_tree`) dan `Monitoring::penyimpanan_video[_data]` menolak role selain 1. Tampilan mengikuti Retur → Daftar Retur Penjualan.
 - File: `Monitoring::penyimpanan_video[_data]`, `models/Penyimpanan_video_fcd.php`, `views/monitoring/penyimpanan_video.php`.
+- **Rekaman macet**: status `MEREKAM` lebih dari 120 menit (`Penyimpanan_video_fcd::MACET_MENIT`, sejajar ambang `Cron::tutup_video_menggantung`) = sesi tidak pernah ditutup. Muncul sebagai banner kuning (jumlah + ukuran) dan kolom **Macet** per tanggal. Ukurannya ikut dihitung di rata-rata pertumbuhan, jadi bisa mempercepat estimasi penuh.
