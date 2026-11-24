@@ -23,6 +23,7 @@ class Daftar_retur extends MY_Controller
         $this->show(array(
             'umur_oranye' => Daftar_retur_fcd::UMUR_ORANYE,
             'umur_merah'  => Daftar_retur_fcd::UMUR_MERAH,
+            'jadwal'      => $this->daftar_retur_fcd->baca_jadwal(),
         ));
     }
 

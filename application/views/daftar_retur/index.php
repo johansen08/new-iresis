@@ -427,6 +427,16 @@ $BASE = rtrim(base_url(), '/') . '/';
 
 <div id="dr_wrap" data-tab="">
 
+  <?php
+  $fmt_jadwal = function ($t) { return $t ? date('d/m/Y H:i', strtotime($t)) : 'belum pernah'; };
+  $jadwal = isset($jadwal) && is_array($jadwal) ? $jadwal : array();
+  ?>
+  <div class="dr-jadwal" style="padding:8px 0 0;font-size:12px;color:#6b7280;">
+    <i class="fa fa-clock-o"></i> Update terakhir schedule:
+    Upload Excel Jubelio <b style="color:#111827"><?= $fmt_jadwal(isset($jadwal['upload']) ? $jadwal['upload'] : null) ?></b>
+    &middot; Cek status Jubelio <b style="color:#111827"><?= $fmt_jadwal(isset($jadwal['cek_status']) ? $jadwal['cek_status'] : null) ?></b>
+  </div>
+
   <!-- Tab status retur -->
   <div class="dr-tabs" id="dr_tabs">
     <div class="dr-tab on" data-status="" title="Semua retur Jubelio (ekspedisi + SELESAI / DITOLAK, bisa difilter Status retur); tanggal disaring menurut tanggal tahap masing-masing">Semua <span class="n" id="n_semua">-</span></div>
