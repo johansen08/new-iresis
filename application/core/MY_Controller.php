@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-23.2';
+    const BOOTSTRAP_VERSI = '2026-11-24.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -174,6 +174,7 @@ class MY_Controller extends CI_Controller
         $this->run_tipe_masalah_selisih_paket_cancel();
         $this->run_tipe_masalah_packer_selisih_paket_cancel();
         $this->run_pemenuhan_kirim_harian_migration();
+        $this->run_penyimpanan_video_migration();
         $this->run_upload_resi_spesial_migration();
         $this->run_laporan_resi_spesial_migration();
         $this->run_bonus_picker_migration();
@@ -2568,6 +2569,51 @@ class MY_Controller extends CI_Controller
             if (!$this->db->get_where('tb_config_operasional', ['kunci' => $kunci])->row()) {
                 $this->db->insert('tb_config_operasional', ['kunci' => $kunci, 'nilai' => $isi[0], 'keterangan' => $isi[1]]);
             }
+        }
+    }
+
+    /**
+     * Menu "Penyimpanan Video" di grup TIM MONITORING: total video + ukuran per
+     * tanggal di HDD backup, sisa ruang, dan perkiraan kapan penuh. Tanpa tabel
+     * baru. Induk dan hak akses disalin dari menu saudara Pemenuhan Kirim Harian.
+     */
+    protected function run_penyimpanan_video_migration()
+    {
+        $uri = 'monitoring/penyimpanan-video';
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        if ($menu) {
+            return;
+        }
+
+        $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'monitoring/pemenuhan-kirim-harian'])->row();
+
+        $this->db->insert('menu', [
+            'name'        => 'Penyimpanan Video',
+            'parentid'    => $saudara ? $saudara->parentid : 83,
+            'uri'         => $uri,
+            'icon'        => 'fa fa-hdd-o',
+            'sortorder'   => 11,
+            'description' => 'Total video dan ukuran per tanggal di HDD backup, sisa ruang, dan perkiraan kapan penuh.',
+            'isactive'    => 1,
+            'createdby'   => 1,
+            'created'     => date('Y-m-d H:i:s')
+        ]);
+        $menu_id = $this->db->insert_id();
+
+        $role_boleh = $saudara
+            ? array_column($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result_array(), 'roleid')
+            : [];
+        if (empty($role_boleh)) {
+            $role_boleh = [1, 2, 6];
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            $this->db->insert('roleaccess', [
+                'roleid'    => $roleid,
+                'menuid'    => $menu_id,
+                'created'   => date('Y-m-d H:i:s'),
+                'createdby' => 1
+            ]);
         }
     }
 
