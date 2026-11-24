@@ -106,6 +106,9 @@
   .vj-pager .pagination > .active > a, .vj-pager .pagination > .active > a:hover { background: var(--vj-primary) !important; border-color: var(--vj-primary) !important; color: #fff !important; }
   .vj-pager .pagination > .disabled > a { color: #cbd5e1; background: #fff; }
 
+  /* Badge kapan data Jubelio terakhir diperbarui (hijau <=12 jam, kuning <=24 jam, merah lebih lama) */
+  .vj-fresh { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+  .vj-fresh-ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; } .vj-fresh-warn { background: #fffbeb; color: #b45309; border-color: #fde68a; } .vj-fresh-old { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
   @media (max-width: 1199px) { .vj-kpis { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 767px) {
     .vj-kpis { gap: 10px; }
@@ -119,6 +122,25 @@
 <div class="row">
   <div class="col-md-12">
     <div class="vj-page">
+
+      <?php
+        // Badge "terakhir update" data Jubelio (upload otomatis 06.00/12.00/20.00 atau upload manual).
+        $tu = isset($terakhir_update) ? $terakhir_update : null;
+        if ($tu) {
+            $umur_jam = (time() - strtotime($tu)) / 3600;
+            $kelas = $umur_jam <= 12 ? 'vj-fresh-ok' : ($umur_jam <= 24 ? 'vj-fresh-warn' : 'vj-fresh-old');
+            $teks = $umur_jam < 1 ? 'baru saja' : ($umur_jam < 24 ? floor($umur_jam) . ' jam lalu' : floor($umur_jam / 24) . ' hari lalu');
+        }
+      ?>
+      <div style="margin-bottom:6px">
+        <?php if (!empty($tu)): ?>
+          <span class="vj-fresh <?= $kelas ?>" title="Data retur Jubelio terakhir diunggah ke IRESIS">
+            <i class="fa fa-refresh"></i> Data Jubelio terakhir update: <?= date('d/m/Y H:i', strtotime($tu)) ?> (<?= $teks ?>)
+          </span>
+        <?php else: ?>
+          <span class="vj-fresh vj-fresh-old"><i class="fa fa-exclamation-triangle"></i> Data Jubelio belum pernah diunggah</span>
+        <?php endif; ?>
+      </div>
 
       <!-- Filter periode (data dimuat saat tombol Tampilkan ditekan) -->
       <div class="vj-head">

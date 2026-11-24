@@ -2530,6 +2530,8 @@ class Retur extends MY_Controller
 	{
 		$data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
 		$data['title'] = 'Verifikasi Retur';
+		$fresh = $this->retur_fcd->rekap_freshness();
+		$data['terakhir_update'] = ($fresh && $fresh->last_upload) ? $fresh->last_upload : null;
 
 		$this->show($data);
 	}
@@ -2539,6 +2541,8 @@ class Retur extends MY_Controller
 		$data['list_kurir'] = $this->courrier_fcd->get_courrier()->result();
 		$data['is_komplain'] = true;
 		$data['title'] = 'Verifikasi Retur Komplain';
+		$fresh = $this->retur_fcd->rekap_freshness();
+		$data['terakhir_update'] = ($fresh && $fresh->last_upload) ? $fresh->last_upload : null;
 
 		$this->show($data, 'retur/validasi_jubelio');
 	}
