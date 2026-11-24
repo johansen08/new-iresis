@@ -225,6 +225,7 @@ class Jubelio_stok
      */
     private function multi(array $daftar_path, $paralel)
     {
+        $this->cek_offline();
         $token = $this->token();
         $antre = $daftar_path;
         $hasil = array();
@@ -280,6 +281,11 @@ class Jubelio_stok
                         $antre[$kunci] = $path;
                         continue;
                     }
+                    if ($galat !== 0 && $kode === 0) {
+                        // tidak ada jawaban sama sekali (DNS gagal, koneksi ditolak, timeout): internet mati, jangan diulang
+                        $this->tandai_offline();
+                        throw new RuntimeException(self::PESAN_OFFLINE, self::KODE_OFFLINE);
+                    }
                     $coba[$kunci] = isset($coba[$kunci]) ? $coba[$kunci] + 1 : 1;
                     if (($kode === 429 || $kode >= 500 || $galat !== 0) && $coba[$kunci] <= 4) {
                         usleep(400000 * $coba[$kunci]);
@@ -289,7 +295,7 @@ class Jubelio_stok
                     if ($kode === 429) {
                         throw new RuntimeException('Jubelio sedang membatasi permintaan. Tunggu beberapa detik, lalu coba lagi.');
                     }
-                    throw new RuntimeException($galat !== 0 ? 'Tidak bisa terhubung ke Jubelio. Periksa koneksi internet.' : 'Jubelio menjawab galat ' . $kode . '.');
+                    throw new RuntimeException('Jubelio menjawab galat ' . $kode . '.');
                 }
             }
         } finally {
@@ -586,13 +592,25 @@ class Jubelio_stok
     /** Setelah gagal terhubung, request berikutnya langsung gagal selama sekian detik (tanpa menunggu timeout lagi). */
     const JEDA_OFFLINE_DETIK = 15;
 
-    private function http($metode, $url, $badan, $token)
+    /** Lempar galat offline bila koneksi baru saja gagal (tanpa menunggu timeout lagi). */
+    private function cek_offline()
     {
-        $tanda = $this->dir . 'offline.txt';
-        $t = @filemtime($tanda);
+        $t = @filemtime($this->dir . 'offline.txt');
         if ($t !== false && (time() - $t) < self::JEDA_OFFLINE_DETIK) {
             throw new RuntimeException(self::PESAN_OFFLINE, self::KODE_OFFLINE);
         }
+    }
+
+    private function tandai_offline()
+    {
+        $this->siapkan_dir();
+        @file_put_contents($this->dir . 'offline.txt', date('c'));
+    }
+
+    private function http($metode, $url, $badan, $token)
+    {
+        $tanda = $this->dir . 'offline.txt';
+        $this->cek_offline();
         $c = curl_init($url);
         curl_setopt_array($c, $this->opsi($metode, $badan, $token));
         $isi = curl_exec($c);
@@ -606,8 +624,7 @@ class Jubelio_stok
             return $this->http($metode, $url, $badan, $token);
         }
         if ($isi === false || $galat) {
-            $this->siapkan_dir();
-            @file_put_contents($tanda, date('c'));
+            $this->tandai_offline();
             throw new RuntimeException(self::PESAN_OFFLINE, self::KODE_OFFLINE);
         }
         if (is_file($tanda)) {
