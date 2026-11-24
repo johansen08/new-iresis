@@ -195,82 +195,130 @@ class Daftar_retur extends MY_Controller
             'order' => 'umur', 'dir' => 'desc', 'offset' => 0, 'limit' => PHP_INT_MAX,
         ) + $this->_saring($this->input->get()));
 
-        // Urut tanggal pesan terlama dulu (kosong di akhir), lalu no. pesanan.
-        usort($rows, function ($a, $b) {
-            $ta = $a->tanggal_pesan ? strtotime($a->tanggal_pesan) : PHP_INT_MAX;
-            $tb = $b->tanggal_pesan ? strtotime($b->tanggal_pesan) : PHP_INT_MAX;
-            return $ta === $tb ? strcmp((string) $a->no_pesanan, (string) $b->no_pesanan) : ($ta <=> $tb);
-        });
-
-        $kolom = array('NO. PESANAN', 'NO. RESI', 'TOKO', 'MARKETPLACE', 'EKSPEDISI', 'NILAI', 'TANGGAL PESAN');
-        $h = 4;   // baris 1 = TOTAL PAKET, baris 2 = TOTAL NILAI, baris 3 = pemisah, tabel mulai baris 4
-        $akhir = 'G';
-        $teks = \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING;
-        $A = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
-
-        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $ws = $ss->getActiveSheet();
-        $ws->setTitle('DAFTAR RETUR');
-
-        $total_nilai = 0.0;
-        foreach ($rows as $b) $total_nilai += (float) $b->nilai;
-        $ws->setCellValue('A1', 'TOTAL PAKET');
-        $ws->setCellValue('B1', count($rows));
-        $ws->setCellValue('A2', 'TOTAL NILAI');
-        $ws->setCellValue('B2', $total_nilai);
-        $ws->getStyle('B1:B2')->getAlignment()->setHorizontal($A::HORIZONTAL_LEFT);
-        $ws->getStyle('B1')->getNumberFormat()->setFormatCode('#,##0');
-        $ws->getStyle('B2')->getNumberFormat()->setFormatCode('"Rp "#,##0');
-        $ws->getStyle('A1:B2')->getFont()->setBold(true);
-        $ws->getStyle('A1:A2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('F0FDFA');
-
-        foreach ($kolom as $i => $nama) {
-            $ws->setCellValueByColumnAndRow($i + 1, $h, $nama);
-        }
-        $r = $h + 1;
+        // Urut tanggal pesan terlama dulu (kosong di akhir), lalu no. pesanan. Kunci dihitung sekali (lebih cepat dari usort).
+        $k_tgl = array(); $k_pes = array(); $baris = array(); $total_nilai = 0.0;
         foreach ($rows as $b) {
-            // Teks eksplisit supaya nomor panjang tidak jadi notasi ilmiah.
-            $ws->setCellValueExplicit('A' . $r, (string) $b->no_pesanan, $teks);
-            $ws->setCellValueExplicit('B' . $r, (string) $b->no_resi, $teks);
-            $ws->setCellValueExplicit('C' . $r, (string) $b->nama_toko, $teks);
-            $ws->setCellValueExplicit('D' . $r, (string) $b->marketplace, $teks);
-            $ws->setCellValueExplicit('E' . $r, (string) $b->kurir, $teks);
-            $ws->setCellValue('F' . $r, (float) $b->nilai);
-            $ws->setCellValueExplicit('G' . $r, $b->tanggal_pesan ? date('d/m/Y H:i', strtotime($b->tanggal_pesan)) : '-', $teks);
-            $r++;
+            $k_tgl[] = $b->tanggal_pesan ? (string) $b->tanggal_pesan : '9999-99-99';
+            $k_pes[] = (string) $b->no_pesanan;
+            $total_nilai += (float) $b->nilai;
+            $baris[] = array(
+                (string) $b->no_pesanan, (string) $b->no_resi, (string) $b->nama_toko, (string) $b->marketplace, (string) $b->kurir,
+                (float) $b->nilai, $b->tanggal_pesan ? date('d/m/Y H:i', strtotime($b->tanggal_pesan)) : '-',
+            );
         }
-        $terakhir = max($h + 1, $r - 1);
-        $rentang = 'A' . $h . ':' . $akhir . $terakhir;
-
-        $ws->getStyle($rentang)->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('94A3B8');
-        $ws->getStyle($rentang)->getAlignment()->setVertical($A::VERTICAL_CENTER);
-        $ws->getStyle('A' . ($h + 1) . ':E' . $terakhir)->getAlignment()->setHorizontal($A::HORIZONTAL_LEFT);
-        $ws->getStyle('F' . ($h + 1) . ':F' . $terakhir)->getAlignment()->setHorizontal($A::HORIZONTAL_RIGHT);
-        $ws->getStyle('F' . ($h + 1) . ':F' . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
-        $ws->getStyle('G' . ($h + 1) . ':G' . $terakhir)->getAlignment()->setHorizontal($A::HORIZONTAL_CENTER);
-        $head = $ws->getStyle('A' . $h . ':' . $akhir . $h);
-        $head->getAlignment()->setHorizontal($A::HORIZONTAL_CENTER);
-        $head->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('0F766E');
-        $ws->getRowDimension($h)->setRowHeight(26);
-        foreach (array(26, 24, 24, 16, 16, 16, 18) as $i => $w) {
-            $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
-        }
-        $ws->freezePane('A' . ($h + 1));
-        if ($r > $h + 1) {
-            $ws->setAutoFilter('A' . $h . ':' . $akhir . $terakhir);
-        }
+        unset($rows);
+        array_multisort($k_tgl, SORT_ASC, SORT_STRING, $k_pes, SORT_ASC, SORT_STRING, $baris);
 
         $nama_berkas = 'klaim-retur-' . date('Ymd-His') . '.xlsx';
+        // PhpSpreadsheet butuh >10 detik untuk 20 ribu baris; file ini sederhana, jadi ditulis langsung (XML + zip), <1 detik.
+        $tmp = $this->_xlsx_klaim_retur($baris, $total_nilai);
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $nama_berkas . '"');
+        header('Content-Length: ' . filesize($tmp));
         header('Cache-Control: max-age=0');
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        readfile($tmp);
+        @unlink($tmp);
         exit();
+    }
+
+    /**
+     * Tulis xlsx "klaim-retur" langsung (XML + ZipArchive), tanpa PhpSpreadsheet. Sheet DAFTAR RETUR: baris 1 TOTAL PAKET, baris 2
+     * TOTAL NILAI, baris 3 kosong, header baris 4 (beku + auto-filter), data mulai baris 5.
+     * $baris: tiap elemen [no_pesanan, no_resi, toko, marketplace, ekspedisi, nilai(float), tanggal_pesan(teks)].
+     * @return string path berkas sementara (pemanggil menghapusnya)
+     */
+    private function _xlsx_klaim_retur(array $baris, $total_nilai)
+    {
+        $x = function ($t) {
+            $t = preg_replace('/[^\x09\x0A\x0D\x20-\x{D7FF}\x{E000}-\x{FFFD}]/u', '', (string) $t);
+            return htmlspecialchars($t === null ? '' : $t, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        };
+        // Sel teks (inlineStr, nomor panjang aman dari notasi ilmiah) dan sel angka.
+        $s = function ($ref, $teks, $gaya) use ($x) {
+            return '<c r="' . $ref . '" s="' . $gaya . '" t="inlineStr"><is><t xml:space="preserve">' . $x($teks) . '</t></is></c>';
+        };
+        $n = function ($ref, $angka, $gaya) {
+            return '<c r="' . $ref . '" s="' . $gaya . '"><v>' . $angka . '</v></c>';
+        };
+        $jml = count($baris);
+        $terakhir = max(5, $jml + 4);
+
+        $d = '<row r="1">' . $s('A1', 'TOTAL PAKET', 5) . $n('B1', $jml, 6) . '</row>'
+           . '<row r="2">' . $s('A2', 'TOTAL NILAI', 5) . $n('B2', $total_nilai, 7) . '</row>'
+           . '<row r="4" ht="26" customHeight="1">';
+        foreach (array('NO. PESANAN', 'NO. RESI', 'TOKO', 'MARKETPLACE', 'EKSPEDISI', 'NILAI', 'TANGGAL PESAN') as $i => $h) {
+            $d .= $s(chr(65 + $i) . '4', $h, 1);
+        }
+        $d .= '</row>';
+        $r = 5;
+        foreach ($baris as $b) {
+            $d .= '<row r="' . $r . '">'
+                . $s('A' . $r, $b[0], 2) . $s('B' . $r, $b[1], 2) . $s('C' . $r, $b[2], 2) . $s('D' . $r, $b[3], 2) . $s('E' . $r, $b[4], 2)
+                . $n('F' . $r, $b[5], 3) . $s('G' . $r, $b[6], 4) . '</row>';
+            $r++;
+        }
+
+        $lebar = '';
+        foreach (array(26, 24, 24, 16, 16, 16, 18) as $i => $w) {
+            $lebar .= '<col min="' . ($i + 1) . '" max="' . ($i + 1) . '" width="' . $w . '" customWidth="1"/>';
+        }
+        $ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ' . $ns . '>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/>'
+            . '<selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="15"/><cols>' . $lebar . '</cols><sheetData>' . $d . '</sheetData>'
+            . '<autoFilter ref="A4:G' . $terakhir . '"/></worksheet>';
+
+        $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet ' . $ns . '>'
+            . '<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;Rp &quot;#,##0"/></numFmts>'
+            . '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
+            . '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+            . '<fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/></patternFill></fill>'
+            . '<fill><patternFill patternType="solid"><fgColor rgb="FFF0FDFA"/></patternFill></fill></fills>'
+            . '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
+            . '<border><left style="thin"><color rgb="FF94A3B8"/></left><right style="thin"><color rgb="FF94A3B8"/></right>'
+            . '<top style="thin"><color rgb="FF94A3B8"/></top><bottom style="thin"><color rgb="FF94A3B8"/></bottom><diagonal/></border></borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="8">'
+            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            . '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+            . '<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
+            . '<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>'
+            . '<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+            . '<xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+            . '<xf numFmtId="3" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left"/></xf>'
+            . '<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left"/></xf>'
+            . '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+        $buku = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ' . $ns . ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets><sheet name="DAFTAR RETUR" sheetId="1" r:id="rId1"/></sheets>'
+            . '<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'DAFTAR RETUR\'!$A$4:$G$' . $terakhir . '</definedName></definedNames></workbook>';
+
+        $rel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+        $tipe = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        $tmp = tempnam(sys_get_temp_dir(), 'klr');
+        $zip = new \ZipArchive();
+        $zip->open($tmp, \ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="' . $rel . '">'
+            . '<Relationship Id="rId1" Type="' . $tipe . '/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="' . $rel . '">'
+            . '<Relationship Id="rId1" Type="' . $tipe . '/worksheet" Target="worksheets/sheet1.xml"/>'
+            . '<Relationship Id="rId2" Type="' . $tipe . '/styles" Target="styles.xml"/></Relationships>');
+        $zip->addFromString('xl/workbook.xml', $buku);
+        $zip->addFromString('xl/styles.xml', $styles);
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+        $zip->close();
+        return $tmp;
     }
 
     /**
