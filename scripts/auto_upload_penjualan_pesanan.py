@@ -45,6 +45,7 @@ import os
 import re
 import sys
 import time
+import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -73,6 +74,7 @@ POTONG_DEFAULT = 7              # hari per xlsx (~77 rb baris, ~9 MB)
 UPLOAD_TIMEOUT = 1800           # parse + upsert puluhan ribu baris di PHP
 LOCK_USANG_DETIK = 6 * 3600     # run penuh bisa berjam-jam; lock lebih tua dari ini dianggap sisa run mati
 LOGIN_BARU_SETELAH = 20 * 60    # detik
+UNDUH_PARALEL_DEFAULT = 3       # unduhan Jubelio bersamaan (upload ke PHP tetap satu-satu, berurutan)
 GAGAL_BERUNTUN_MAKS = 3         # berhenti lebih awal bila 3 potongan berturut-turut gagal (Apache/Jubelio mati)
 REFERENSI = 'order'             # "Pesanan" (bukan "invoice"/Faktur)
 
@@ -115,12 +117,14 @@ class SesiJubelio:
     def __init__(self, email, password):
         self.email, self.password = email, password
         self.s, self.t_login = None, 0
+        self._kunci = threading.Lock()      # beberapa thread unduh memanggil get() bersamaan
 
     def get(self):
-        if self.s is None or time.time() - self.t_login > LOGIN_BARU_SETELAH:
-            self.s = b.login(self.email, self.password)
-            self.t_login = time.time()
-        return self.s
+        with self._kunci:
+            if self.s is None or time.time() - self.t_login > LOGIN_BARU_SETELAH:
+                self.s = b.login(self.email, self.password)
+                self.t_login = time.time()
+            return self.s
 
 
 def ambil_url_laporan(sesi, dari, sampai):
@@ -275,9 +279,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--hari', type=int, default=HARI_DEFAULT, help='jumlah hari ke belakang (bawaan 90 = 3 bulan)')
     ap.add_argument('--potong-hari', type=int, default=POTONG_DEFAULT, help='hari per berkas xlsx (bawaan 7)')
+    ap.add_argument('--unduh-paralel', type=int, default=UNDUH_PARALEL_DEFAULT,
+                    help='jumlah unduhan Jubelio bersamaan (bawaan 3; 1 = berurutan)')
     ap.add_argument('--tanpa-upload', action='store_true', help='hanya unduh & validasi, tidak kirim ke IRESIS')
     args = ap.parse_args()
     hari, potong = max(1, args.hari), max(1, args.potong_hari)
+    paralel = max(1, args.unduh_paralel)
 
     mulai = datetime.now()
     log('=== AUTO UPLOAD DAFTAR PENJUALAN PESANAN %d HARI (mulai) ===' % hari)
@@ -299,19 +306,25 @@ def main():
         log('Login Jubelio OK.')
 
         gagal_beruntun = 0
-        with ThreadPoolExecutor(max_workers=1) as unduh:
-            # Pipeline: potongan i+1 diunduh sementara potongan i diunggah.
-            nxt = unduh.submit(unduh_potongan, sesi, daftar[0])
+        log('Unduhan paralel: %d; upload ke IRESIS berurutan.' % paralel)
+        with ThreadPoolExecutor(max_workers=paralel) as unduh:
+            # Pipeline: hingga `paralel` potongan diunduh bersamaan sementara potongan i diunggah satu-satu
+            # (upload tidak diparalelkan: semuanya menulis tblprintresi dalam satu transaksi besar).
+            antre = {}
+            for k in range(min(paralel, len(daftar))):
+                antre[k] = unduh.submit(unduh_potongan, sesi, daftar[k])
             for i, p in enumerate(daftar):
                 p['status'] = 'BERHASIL'
                 path = ''
                 try:
                     try:
-                        path, p['ukuran'], p['detik_unduh'] = nxt.result()
+                        path, p['ukuran'], p['detik_unduh'] = antre.pop(i).result()
                         p['detik_unduh'] = round(p['detik_unduh'])
                     finally:
-                        # mulai unduh potongan berikut walau yang ini gagal (kecuali sudah ada yang menunggu)
-                        nxt = unduh.submit(unduh_potongan, sesi, daftar[i + 1]) if i + 1 < len(daftar) else None
+                        # isi kembali antrean unduhan (juga bila potongan ini gagal)
+                        k = i + paralel
+                        if k < len(daftar):
+                            antre[k] = unduh.submit(unduh_potongan, sesi, daftar[k])
                     log('  [potongan %d/%d] file valid, %d byte' % (p['no'], len(daftar), p['ukuran']))
                     if args.tanpa_upload:
                         p['ringkasan'] = 'Mode --tanpa-upload: unduh OK, tidak dikirim ke IRESIS.'
@@ -346,12 +359,8 @@ def main():
                 if gagal_beruntun >= GAGAL_BERUNTUN_MAKS and i + 1 < len(daftar):
                     log('Dihentikan: %d potongan berturut-turut gagal; sisa %d potongan tidak dicoba.' % (
                         gagal_beruntun, len(daftar) - i - 1))
-                    if nxt is not None:
-                        nxt.cancel()
-                        try:
-                            nxt.result(timeout=900)     # tunggu unduhan yang sudah berjalan agar thread bersih
-                        except Exception:
-                            pass
+                    for f in antre.values():
+                        f.cancel()
                     break
 
         dicoba = [p for p in daftar if 'status' in p]

@@ -27,7 +27,9 @@ Uji 24 Nov 2026: 7 hari ≈ 7,8–10 MB, unduh 27–49 detik; header persis sama
 
 * **Dipecah per 7 hari, terbaru dulu.** 90 hari ≈ 1 juta baris: tidak muat satu xlsx (batas Excel 1.048.576 baris) dan akan
   membuat PHP/Jubelio timeout. Terbaru dulu supaya kalau run terpotong, yang paling berguna sudah masuk. Ubah dengan `--potong-hari`.
-* **Pipeline.** Potongan berikutnya diunduh *sementara* potongan sekarang diolah PHP → waktu ≈ max(unduh, upload), bukan jumlahnya.
+* **Paralel.** Hingga `--unduh-paralel` (bawaan **3**) potongan diunduh bersamaan *sementara* potongan sekarang diunggah/diolah PHP.
+  Upload ke PHP sengaja **berurutan** (semuanya menulis `tblprintresi` dalam satu transaksi besar; paralel berisiko lock/deadlock dan
+  untungnya kecil karena PHP hanya ±10 dtk per potongan). Unduhan yang putus di tengah diulang otomatis (3×).
 * **Satu login** untuk seluruh run (login ulang otomatis bila > 20 menit).
 * Sisi PHP sudah cepat: pembaca xlsx streaming (`Xlsx_cepat`), insert 500/query, update 200/query, resi tanpa perubahan dilewati.
 * **Tahan gagal:** satu potongan gagal tidak menghentikan yang lain; berhenti lebih awal hanya bila 3 potongan berturut-turut gagal
@@ -100,3 +102,8 @@ Sebelum run pertama (24 Nov 2026) `tblprintresi` dicadangkan penuh: `logs/backup
   "Error" kini `success:false`; skrip juga menolak pesan berawalan "Error" sebagai sukses.
 * Percobaan 2: unduh 25 dtk, **upload+olah PHP hanya 11 dtk** untuk ±85 rb baris → `Terinput 1 | Dilewati 9485 (baris tanpa SKU/resi) | Duplikat 5201
   (COMPLETED, dilewati) | Diupdate 4349 | Tidak berubah 65794`. Perkiraan 90 hari: ±13 potongan, kurang dari 15 menit.
+
+## Uji paralel (24 Nov 2026, 1-24 Nov, 4 potongan, 3 unduhan bersamaan)
+
+Total **2 mnt 47 dtk** (unduh 27-62 dtk per potongan, 1 unduhan putus di tengah lalu berhasil di percobaan ke-2; upload PHP 5-12 dtk
+per potongan). Hasil: 4/4 berhasil; Diupdate 203 + 2.232 + 972 + 94 = **3.501 resi**, Terinput 4. Perkiraan 90 hari ±13 potongan: ±8 menit.
