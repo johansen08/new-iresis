@@ -431,10 +431,21 @@ $BASE = rtrim(base_url(), '/') . '/';
   $fmt_jadwal = function ($t) { return $t ? date('d/m/Y H:i', strtotime($t)) : 'belum pernah'; };
   $jadwal = isset($jadwal) && is_array($jadwal) ? $jadwal : array();
   ?>
-  <div class="dr-jadwal" style="padding:8px 0 0;font-size:12px;color:#6b7280;">
-    <i class="fa fa-clock-o"></i> Update terakhir schedule:
-    Upload Excel Jubelio <b style="color:#111827"><?= $fmt_jadwal(isset($jadwal['upload']) ? $jadwal['upload'] : null) ?></b>
-    &middot; Cek status Jubelio <b style="color:#111827"><?= $fmt_jadwal(isset($jadwal['cek_status']) ? $jadwal['cek_status'] : null) ?></b>
+  <style>
+  .dr-jadwal { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 0 2px; font-size:12px; color:#6b7280; }
+  .dr-jadwal .jd-judul { font-weight:600; color:#4b5563; }
+  .dr-jadwal .jd-item { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#f9fafb; }
+  .dr-jadwal .jd-item i { color:#0f766e; }
+  .dr-jadwal .jd-item b { color:#111827; font-weight:600; }
+  .dr-jadwal .jd-item.kosong i, .dr-jadwal .jd-item.kosong b { color:#9ca3af; font-weight:400; }
+  </style>
+  <div class="dr-jadwal">
+    <span class="jd-judul"><i class="fa fa-refresh"></i> Update otomatis terakhir</span>
+    <?php foreach (array('upload' => 'Upload Excel Jubelio', 'cek_status' => 'Cek status Jubelio') as $k => $lbl): $t = isset($jadwal[$k]) ? $jadwal[$k] : null; ?>
+      <span class="jd-item<?= $t ? '' : ' kosong' ?>" title="<?= $t ? htmlspecialchars(date('d/m/Y H:i:s', strtotime($t))) : 'Belum ada catatan; terisi saat schedule berikutnya selesai' ?>">
+        <i class="fa <?= $t ? 'fa-check-circle' : 'fa-circle-o' ?>"></i> <?= $lbl ?>: <b><?= $t ? date('d/m/Y H:i', strtotime($t)) : 'belum ada catatan' ?></b>
+      </span>
+    <?php endforeach; ?>
   </div>
 
   <!-- Tab status retur -->
