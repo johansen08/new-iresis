@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-24.2';
+    const BOOTSTRAP_VERSI = '2026-11-24.3';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -1453,6 +1453,14 @@ class MY_Controller extends CI_Controller
                 'created'   => date('Y-m-d H:i:s'),
                 'createdby' => 1
             ]);
+        }
+
+        // Penanda berkas yang dibuang manual (dikirim ke Recycle Bin): baris tetap ada sebagai jejak, tetapi
+        // tidak ikut hitungan Penyimpanan Video, daftar video CS, dan antrean finalisasi.
+        if (!$this->db->field_exists('berkas_dihapus', 'tblvideopacking')) {
+            $this->db->query("ALTER TABLE `tblvideopacking`
+                ADD COLUMN `berkas_dihapus` TINYINT(1) NOT NULL DEFAULT 0,
+                ADD COLUMN `berkas_dihapus_at` DATETIME NULL DEFAULT NULL");
         }
 
         // Kolom finalisasi (remux WebM oleh ffmpeg agar punya durasi/cues) dan

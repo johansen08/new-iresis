@@ -234,6 +234,8 @@ class Video_packing_fcd extends CI_Model
         // Sesi yang dibatalkan hanya tersisa sebagai nisan tanpa berkas; jangan
         // ikut ditawarkan ke CS.
         $this->db->where('v.status !=', 'DIBATALKAN');
+        // Berkasnya sudah dibuang manual (berkas_dihapus = 1): barisnya tinggal jejak, jangan ditawarkan ke CS.
+        $this->db->where('v.berkas_dihapus', 0);
         $this->db->order_by('v.bagian', 'ASC');
         $this->db->order_by('v.mulai_at', 'ASC');
 
@@ -342,6 +344,7 @@ class Video_packing_fcd extends CI_Model
         $kandidat = $this->db
             ->select('id_videopacking')
             ->where('finalisasi', 'BELUM')
+            ->where('berkas_dihapus', 0)
             ->where_in('status', ['SELESAI', 'TERPUTUS'])
             ->order_by('selesai_at', 'ASC')
             ->order_by('id_videopacking', 'ASC')
@@ -429,6 +432,7 @@ class Video_packing_fcd extends CI_Model
             ->select('id_videopacking')
             ->where('mp4_status', 'ANTRI')
             ->where('finalisasi !=', 'PROSES')
+            ->where('berkas_dihapus', 0)
             ->where_in('status', ['SELESAI', 'TERPUTUS'])
             ->order_by('mp4_diminta_at', 'ASC')
             ->order_by('id_videopacking', 'ASC')

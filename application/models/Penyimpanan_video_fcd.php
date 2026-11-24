@@ -43,7 +43,7 @@ class Penyimpanan_video_fcd extends CI_Model
                     SUM(status = 'MEREKAM' AND mulai_at < ?) AS n_macet,
                     SUM(CASE WHEN status = 'MEREKAM' AND mulai_at < ? THEN ukuran_byte ELSE 0 END) AS byte_macet
                FROM tblvideopacking
-              WHERE status <> 'DIBATALKAN'
+              WHERE status <> 'DIBATALKAN' AND berkas_dihapus = 0
               GROUP BY DATE(mulai_at)
               ORDER BY tgl ASC",
             [$batas_macet, $batas_macet]

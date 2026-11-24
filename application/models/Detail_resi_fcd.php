@@ -126,7 +126,7 @@ class Detail_resi_fcd extends CI_Model
         $d['video'] = $this->db->query(
             "SELECT id_videopacking, bagian, durasi_detik, mulai_at
              FROM tblvideopacking
-             WHERE noresi = ? AND status <> 'DIBATALKAN'
+             WHERE noresi = ? AND status <> 'DIBATALKAN' AND berkas_dihapus = 0
              ORDER BY bagian, id_videopacking",
             [$noresi]
         )->result_array();
