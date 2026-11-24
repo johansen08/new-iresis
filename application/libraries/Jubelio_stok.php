@@ -580,8 +580,19 @@ class Jubelio_stok
         return $o;
     }
 
+    /** Kode RuntimeException untuk "internet mati / Jubelio tidak terjangkau" (dibedakan dari galat jawaban Jubelio). */
+    const KODE_OFFLINE = 599;
+    const PESAN_OFFLINE = 'Data stok Jubelio tidak tersedia karena jaringan internet sedang mati.';
+    /** Setelah gagal terhubung, request berikutnya langsung gagal selama sekian detik (tanpa menunggu timeout lagi). */
+    const JEDA_OFFLINE_DETIK = 15;
+
     private function http($metode, $url, $badan, $token)
     {
+        $tanda = $this->dir . 'offline.txt';
+        $t = @filemtime($tanda);
+        if ($t !== false && (time() - $t) < self::JEDA_OFFLINE_DETIK) {
+            throw new RuntimeException(self::PESAN_OFFLINE, self::KODE_OFFLINE);
+        }
         $c = curl_init($url);
         curl_setopt_array($c, $this->opsi($metode, $badan, $token));
         $isi = curl_exec($c);
@@ -595,7 +606,12 @@ class Jubelio_stok
             return $this->http($metode, $url, $badan, $token);
         }
         if ($isi === false || $galat) {
-            throw new RuntimeException('Tidak bisa terhubung ke Jubelio. Periksa koneksi internet.');
+            $this->siapkan_dir();
+            @file_put_contents($tanda, date('c'));
+            throw new RuntimeException(self::PESAN_OFFLINE, self::KODE_OFFLINE);
+        }
+        if (is_file($tanda)) {
+            @unlink($tanda);
         }
         return array('kode' => $kode, 'isi' => (string) $isi);
     }

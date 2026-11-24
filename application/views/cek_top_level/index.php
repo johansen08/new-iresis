@@ -76,7 +76,7 @@ $this->load->view('top_level/_dasar'); ?>
       // Bundle sudah diganti SKU isinya (server): tampilkan asal bundle-nya (qty pesanan sengaja tidak ditampilkan); bila isi bundle gagal dibaca, beri peringatan.
       var ket = '';
       if (it.dari && it.dari.length) ket += '<span class="tlj-mut" style="display:block;font-size:12px">Isi bundle ' + T.esc(it.dari.join(', ')) + '</span>';
-      if (it.bundle_gagal) ket += '<span class="tlj-mut" style="display:block;font-size:12px;color:#b45309">SKU bundle, isinya belum bisa dibaca dari Jubelio</span>';
+      if (it.bundle_gagal) ket += '<span class="tlj-mut" style="display:block;font-size:12px;color:#b45309">SKU bundle, isinya belum bisa dibaca dari Jubelio (data tidak tersedia, kemungkinan jaringan internet mati)</span>';
       h += '<div class="tlc-row"><div class="tlc-rm"><div><span class="lbl">SKU</span><span class="sk">' + T.esc(it.sku) + '</span>' + ket + '</div>' +
         '<div class="rkw"><span class="lbl">Rak display</span>' + rak + '</div><div class="ac">' + ac + '</div></div>' +
         (buka === i ? hasilCek(i) : '') + '</div>';

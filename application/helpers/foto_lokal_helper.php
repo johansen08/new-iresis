@@ -41,6 +41,26 @@ function foto_lokal_url_publik($url)
     return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== FALSE;
 }
 
+/** Huruf pertama dari nama depan (fallback username) untuk avatar bila foto tidak tersedia. */
+function avatar_inisial($user)
+{
+    $nama = trim((string) (isset($user['name']) ? $user['name'] : ''));
+    if ($nama === '') {
+        $nama = trim((string) (isset($user['username']) ? $user['username'] : ''));
+    }
+    return $nama === '' ? '?' : mb_strtoupper(mb_substr($nama, 0, 1, 'UTF-8'), 'UTF-8');
+}
+
+/** src avatar: path lokal -> base_url; kosong -> 'data:,' (sengaja gagal agar onerror menampilkan huruf). */
+function avatar_src($foto)
+{
+    $foto = trim((string) $foto);
+    if ($foto === '') {
+        return 'data:,';
+    }
+    return preg_match('#^https?://#i', $foto) ? $foto : base_url($foto);
+}
+
 /** TRUE bila $s tampak seperti URL http(s) (bukan path lokal). */
 function foto_lokal_adalah_url($s)
 {
