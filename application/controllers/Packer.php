@@ -39,6 +39,15 @@ class Packer extends MY_Controller
     const MAKS_BAGIAN_VIDEO = 20;
 
     /**
+     * Umur maksimum satu sesi rekaman di server (detik). Browser menghentikan rekaman
+     * di 90 menit (MAKS_DURASI_DTK di packer_video.js); selisih 15 menit untuk antrean
+     * unggah yang tertunda. Potongan dari sesi yang lebih tua ditolak -- pengaman kalau
+     * ada recorder yatim di browser yang tidak pernah berhenti (24 Nov 2026: satu resi
+     * menumpuk 29 GB dalam 16 jam).
+     */
+    const MAKS_UMUR_SESI_DTK = 6300;
+
+    /**
      * Umur siklus minimum sebelum resi boleh ditutup otomatis oleh batas durasi
      * rekaman. HARUS sama dengan MAKS_DURASI_DTK di assets/js/packer_video.js.
      *
@@ -1008,6 +1017,17 @@ class Packer extends MY_Controller
         // pembatalan tidak boleh menghidupkan lagi berkas yang sudah dihapus.
         if ($sesi && $sesi->status === 'DIBATALKAN') {
             $this->make_ajax_response(200, 'Rekaman sudah dibatalkan, potongan diabaikan.');
+        }
+
+        // Pengaman recorder yatim: sesi yang sudah lewat batas umur tidak menerima potongan lagi.
+        if ($sesi && !empty($sesi->mulai_at) && strtotime($sesi->mulai_at) < time() - self::MAKS_UMUR_SESI_DTK) {
+            if ($sesi->status === 'MEREKAM') {
+                $this->db->update('tblvideopacking', ['status' => 'TERPUTUS'], [
+                    'id_videopacking' => (int) $sesi->id_videopacking,
+                    'status'          => 'MEREKAM'
+                ]);
+            }
+            $this->make_ajax_response(200, 'Rekaman melewati batas durasi, potongan diabaikan.');
         }
 
         if ($sesi) {

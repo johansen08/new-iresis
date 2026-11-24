@@ -214,6 +214,10 @@
      */
     var mentokBatas = {};
     var timerMaks = null;
+    // Pengaman start ganda: mulai() async (kamera+codec), dua pemanggilan beruntun untuk resi yang sama
+    // sebelum yang pertama selesai dulu menghasilkan DUA recorder; yang pertama jadi yatim dan tidak pernah berhenti.
+    var tokenMulai = 0;
+    var resiMenyiapkan = '';
     var timerDurasi = null;
     var timerEkor = null;     // ekor rekaman setelah scan kedua, lihat tutupDenganEkor()
 
@@ -996,6 +1000,10 @@
             seq:    0,
             mime:   codecAktif ? codecAktif.mime : ''
         };
+        // Jangan pernah menimpa recorder yang masih hidup: hentikan dulu supaya tidak jadi yatim.
+        if (recorder && recorder.state !== 'inactive') {
+            try { recorder.stop(); } catch (e) {}
+        }
         recorder = rec;
         sesi = sesiIni;
 
@@ -1037,7 +1045,12 @@
             var durasiIni = sesi ? Math.round((Date.now() - sesi.mulai) / 1000) : MAKS_DURASI_DTK;
 
             mentokBatas[noresiIni] = true;
-            hentikan();
+            // Hentikan recorder milik timer ini, bukan sembarang recorder yang kebetulan aktif.
+            if (recorder === rec) {
+                hentikan();
+            } else {
+                try { rec.stop(); } catch (e) {}
+            }
 
             kabari({
                 jenis:  'batas-habis',
@@ -1070,11 +1083,21 @@
             hentikan(); // resi berganti: tutup rekaman lama dulu
         }
 
+        // Resi yang sama sedang disiapkan (kamera/codec belum siap): jangan mulai kedua kalinya.
+        if (resiMenyiapkan === noresi) return;
+
+        var token = ++tokenMulai;
+        resiMenyiapkan = noresi;
+
         bukaKamera().then(function () {
             return pilihCodecTerbaik();
         }).then(function () {
+            // Batal kalau sudah ada permintaan mulai yang lebih baru (resi lain).
+            if (token !== tokenMulai) return;
             jalankanRekaman(noresi);
-        }).catch(function () { /* pesan error sudah ditampilkan di panel */ });
+        }).catch(function () { /* pesan error sudah ditampilkan di panel */ }).then(function () {
+            if (token === tokenMulai) resiMenyiapkan = '';
+        });
     }
 
     /**
