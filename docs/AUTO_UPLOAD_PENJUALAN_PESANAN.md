@@ -1,0 +1,94 @@
+# Auto Upload Daftar Penjualan (Pesanan) 3 Bulan — update status & tanggal/waktu retur
+
+Task Scheduler **"IRESIS - Upload penjualan pesanan 3 bulan"** jalan **tiap hari 22.00**: unduh laporan
+*Daftar Penjualan (Pesanan)* Jubelio untuk **90 hari terakhir**, lalu unggah ke IRESIS lewat `cron/auto_upload_resi`
+(logika sama dengan menu **Upload Resi**: `Receipt_fcd::insert_receipt()`).
+
+Efeknya pada `tblprintresi`:
+
+* `status_pesanan` resi yang statusnya berubah diperbarui (SHIPPED → COMPLETED / RETURNED / CANCELED, dst.) beserta
+  tanggal pesan/batas kirim/pengiriman/selesai, kurir, marketplace, toko, `status_wms`.
+* `tanggal_retur` diisi dari kolom **TGL_RETUR + WAKTU_RETUR** (tanggal & jam retur). Bila Excel membawa nilai baru yang
+  beda dengan DB, nilainya ditimpa; baris tanpa tanggal retur **tidak** mengosongkan yang sudah ada.
+* Resi yang sudah `COMPLETED` di IRESIS tidak diubah (aturan lama `insert_receipt`); resi baru di rentang itu di-insert.
+
+## Alur (jalur laporan hasil sniff 21 Nov 2026, tanpa browser)
+
+| # | Request | Hasil |
+|---|---------|-------|
+| 1 | `POST open.jubelio.com/core-api/login` | token JWT |
+| 2 | `GET open.jubelio.com/core-api/reports/sales-list/date-range/?date_from=…&date_to=…&reference=order&hpp=true&tz=Asia/Bangkok` | `{"status":"ok","url":"https://report-prod.jubelio.com/?&token=T"}` |
+| 3 | `GET https://report-prod.jubelio.com/xlsx/?&token=T` | xlsx kolom A..W (NO_PESANAN … STATUS_PESANAN, TGL_RETUR, WAKTU_RETUR) |
+| 4 | `POST <IRESIS>/cron/auto_upload_resi?token=…` (field `receiptFile`) | JSON `{success, message}` |
+
+Uji 24 Nov 2026: 7 hari ≈ 7,8–10 MB, unduh 27–49 detik; header persis sama dengan yang dibaca `insert_receipt`.
+
+## Optimasi
+
+* **Dipecah per 7 hari, terbaru dulu.** 90 hari ≈ 1 juta baris: tidak muat satu xlsx (batas Excel 1.048.576 baris) dan akan
+  membuat PHP/Jubelio timeout. Terbaru dulu supaya kalau run terpotong, yang paling berguna sudah masuk. Ubah dengan `--potong-hari`.
+* **Pipeline.** Potongan berikutnya diunduh *sementara* potongan sekarang diolah PHP → waktu ≈ max(unduh, upload), bukan jumlahnya.
+* **Satu login** untuk seluruh run (login ulang otomatis bila > 20 menit).
+* Sisi PHP sudah cepat: pembaca xlsx streaming (`Xlsx_cepat`), insert 500/query, update 200/query, resi tanpa perubahan dilewati.
+* **Tahan gagal:** satu potongan gagal tidak menghentikan yang lain; berhenti lebih awal hanya bila 3 potongan berturut-turut gagal
+  (mis. Apache mati). Run berikutnya aman diulang (upsert idempotent).
+* Lock `scratch/penjualan_pesanan/berjalan.lock` mencegah dua run tumpang tindih (task `IgnoreNew` + lock; lock > 6 jam dianggap usang).
+
+## Mencatat hasil — cara menelusuri
+
+Tiap run **selalu** menulis di `logs/`:
+
+1. **`riwayat_penjualan_pesanan.csv`** — satu baris per run (buka di Excel): `status` (BERHASIL/GAGAL), `tahap_gagal`, `alasan`
+   (semua potongan yang gagal + penyebabnya), `saran_perbaikan`, `ringkasan` (mis. `13/13 potongan berhasil`), `durasi_detik`.
+   Filter `status = GAGAL` untuk melihat semua kegagalan.
+2. **`riwayat_penjualan_pesanan_potongan.csv`** — satu baris per **potongan tanggal** per run: rentang tanggal, status, tahap gagal,
+   alasan, saran, ukuran file, detik unduh/upload, dan pesan hasil IRESIS (jumlah resi baru/diperbarui/dilewati). Cocokkan lewat `run_id`.
+3. **`auto_upload_penjualan_pesanan.log`** — log rinci, tiap baris diberi `run_id`; error tak terduga menyertakan traceback. Token/JWT disensor.
+4. `auto_upload_penjualan_pesanan_stdout.log` — output mentah yang lolos dari logger (mis. Python gagal start).
+
+Exit code 1 bila ada potongan gagal (*Last Run Result* = 1 di Task Scheduler). Berkas xlsx potongan yang gagal dipertahankan di
+`scratch/penjualan_pesanan/` (berkas > 3 hari dibersihkan otomatis).
+
+| `tahap_gagal` | Penyebab umum | Tindakan |
+|---|---|---|
+| `PERSIAPAN` | kredensial/`secrets_local.py` kosong; run sebelumnya masih jalan (lock); potongan tidak dicoba karena 3 gagal beruntun | isi secrets; tunggu / hapus lock usang; lihat alasan potongan yang gagal |
+| `LOGIN` | password Jubelio diganti, akun dikunci, internet putus | login manual di v2.jubelio.com, perbarui `jubelio_password` di `secrets.php` |
+| `URL_LAPORAN` | 429 rate limit, akun tanpa akses laporan penjualan, endpoint `sales-list` berubah | tunggu jadwal berikut; bila berulang sniff ulang |
+| `UNDUH` | token laporan ditolak, koneksi putus (3× coba), report server error | cek internet; bila 403/404 sniff ulang tombol Cetak → Excel |
+| `VALIDASI_FILE` | file kosong/bukan xlsx | buka berkas di `scratch/penjualan_pesanan/` |
+| `UPLOAD` | Apache mati, token cron salah (403), PHP kehabisan memori/timeout, header xlsx berubah | pesan IRESIS ada di `alasan`; cek `application/logs/`; perkecil `--potong-hari` |
+| `TAK_TERDUGA` | bug di script | baca traceback di `.log` |
+
+## File
+
+| File | Fungsi |
+|------|--------|
+| `scripts/auto_upload_penjualan_pesanan.py` | Program utama (memakai ulang fungsi Jubelio dari `auto_upload_retur_penjualan.py`) |
+| `scripts/penjualan_pesanan_senyap.vbs` | Pembungkus tanpa jendela konsol (dipanggil Task Scheduler) |
+| `scripts/daftar_task_penjualan_pesanan.ps1` | Mendaftarkan task harian 22.00 (aman diulang) |
+
+Butuh `scripts/jubelio_credentials.py` dan `scripts/secrets_local.py` (`IRESIS_CRON_TOKEN`, `IRESIS_BASE_URL`) — sama dengan skrip lain.
+
+## Pasang / uji
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\daftar_task_penjualan_pesanan.ps1
+```
+
+Uji tanpa menulis ke DB: `python scripts\auto_upload_penjualan_pesanan.py --tanpa-upload --hari 14`.
+Uji tulis kecil: `python scripts\auto_upload_penjualan_pesanan.py --hari 7`.
+
+Jam 22.00 dipilih setelah cek status retur 20.30 selesai dan sebelum arsip 01.00 / refresh status 03.00, di luar jam kerja
+(upsert besar membebani MySQL). Ubah jam di `daftar_task_penjualan_pesanan.ps1`.
+
+## Cadangan & pembatalan
+
+Sebelum run pertama (24 Nov 2026) `tblprintresi` dicadangkan penuh: `logs/backup/bak_printresi_sebelum_penjualan_pesanan_20261124.sql`
+(mysqldump, folder di-gitignore). Pemulihan butuh persetujuan sesuai aturan UPDATE proyek.
+
+## Interaksi dengan job lain
+
+* **Refresh status resi (03.00)** dan **Upload resi API** memakai jalur upsert yang sama — saling melengkapi, tidak bentrok
+  (status sama dilewati).
+* **Cek status retur Jubelio** — pesanan yang sudah `SELESAI (PESANAN COMPLETED)` di `tblreturjubelio` tidak ditimpa; `COMPLETED` di
+  `tblprintresi` tidak diubah balik oleh upload ini.
