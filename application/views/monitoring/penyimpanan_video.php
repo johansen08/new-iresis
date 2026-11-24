@@ -76,6 +76,7 @@ if (!empty($akses_ditolak)) : ?>
 #pv_wrap table.dataTable tbody td.hari { font-weight:600; color:#111827; }
 #pv_wrap table.dataTable tbody td.hari small { margin-left:6px; font-weight:400; color:#9ca3af; font-size:12px; }
 #pv_wrap table.dataTable tbody td.tebal { font-weight:700; color:#111827; }
+.pv-macet { display:inline-block; padding:0 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:11.5px; font-weight:700; line-height:20px; }
 .pv-tag { display:inline-block; margin-left:6px; padding:0 8px; border-radius:999px; background:#ccfbf1; color:#0f766e; font-size:11px; font-weight:700; line-height:20px; }
 
 /* Bawah: info + baris per halaman + paging */
@@ -101,6 +102,7 @@ if (!empty($akses_ditolak)) : ?>
   </div>
 
   <div class="pv-alert" id="pv_alert" role="alert" hidden></div>
+  <div class="pv-alert waspada" id="pv_macet" role="alert" hidden></div>
 
   <div class="pv-cards">
     <div class="pv-card" id="pv_c_total">
@@ -138,6 +140,7 @@ if (!empty($akses_ditolak)) : ?>
         <th>Hasil MP4</th>
         <th>Total ukuran</th>
         <th>Rata-rata</th>
+        <th title="Rekaman berstatus MEREKAM lebih dari 2 jam (sesi tidak pernah ditutup)">Macet</th>
         <th>Kumulatif</th>
       </tr>
     </thead>
@@ -206,9 +209,16 @@ if (!empty($akses_ditolak)) : ?>
     }
   }
 
+  function isiMacet(d) {
+    var m = d.macet, a = $e('pv_macet');
+    if (!m || !m.jumlah) { a.hidden = true; return; }
+    a.hidden = false;
+    a.innerHTML = '<i class="fa fa-exclamation-circle"></i><span><b>' + nf(m.jumlah) + ' rekaman macet</b> (status Merekam lebih dari ' + (m.menit / 60) + ' jam, belum pernah ditutup) memakai <b>' + ukuran(m.byte) + '</b>. Rekaman macet ikut menaikkan rata-rata harian dan mempercepat estimasi penuh; lihat kolom Macet di tabel.</span>';
+  }
+
   function isiTabel(d) {
     var baris = d.hari.map(function (h) {
-      return [h.tanggal, h.total_video, h.byte_webm, h.byte_mp4, h.byte_total, h.total_video ? h.byte_total / h.total_video : 0, h.kumulatif];
+      return [h.tanggal, h.total_video, h.byte_webm, h.byte_mp4, h.byte_total, h.total_video ? h.byte_total / h.total_video : 0, [h.n_macet, h.byte_macet], h.kumulatif];
     });
     tabel.clear().rows.add(baris).draw(false);
   }
@@ -234,6 +244,10 @@ if (!empty($akses_ditolak)) : ?>
         { render: function (v, t) { return t === 'display' ? (v ? ukuran(v) : '-') : v; } },
         { className: 'tebal', render: function (v, t) { return t === 'display' ? ukuran(v) : v; } },
         { render: function (v, t) { return t === 'display' ? (v ? ukuran(v) : '-') : v; } },
+        { className: 'macet', render: function (v, t) {
+            if (t !== 'display') { return v[1]; }
+            return v[0] ? '<span class="pv-macet" title="' + nf(v[0]) + ' rekaman macet, total ' + ukuran(v[1]) + '">' + nf(v[0]) + ' · ' + ukuran(v[1]) + '</span>' : '-';
+          } },
         { render: function (v, t) { return t === 'display' ? ukuran(v) : v; } }
       ],
       language: {
@@ -264,14 +278,14 @@ if (!empty($akses_ditolak)) : ?>
     $('#pv_muat').on('click', function () {
       var $b = $(this).prop('disabled', true);
       $.ajax({ url: URL_DATA, dataType: 'json', timeout: 120000 }).done(function (r) {
-        if (r && r.code == 200 && r.data) { isiKartu(r.data); isiTabel(r.data); }
+        if (r && r.code == 200 && r.data) { isiKartu(r.data); isiMacet(r.data); isiTabel(r.data); }
         else { banner('bahaya', 'fa-exclamation-triangle', (r && r.message) || 'Data gagal dimuat.'); }
       }).fail(function (x) {
         banner('bahaya', 'fa-exclamation-triangle', 'Data gagal dimuat (' + (x.status || 'tidak ada respon') + '). Coba lagi.');
       }).always(function () { $b.prop('disabled', false); });
     });
 
-    if (DATA) { isiKartu(DATA); isiTabel(DATA); }
+    if (DATA) { isiKartu(DATA); isiMacet(DATA); isiTabel(DATA); }
     else { banner('bahaya', 'fa-exclamation-triangle', 'Data penyimpanan gagal dihitung. Klik Muat ulang.'); }
   }
 

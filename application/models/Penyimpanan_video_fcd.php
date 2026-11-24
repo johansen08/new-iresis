@@ -19,6 +19,13 @@ class Penyimpanan_video_fcd extends CI_Model
     const HARI_WASPADA = 90;
 
     /**
+     * Rekaman berstatus MEREKAM lebih lama dari ini dianggap macet. Browser membatasi
+     * rekaman 90 menit (packer_video.js) dan Cron::tutup_video_menggantung memakai
+     * ambang 120 menit, jadi di atas itu hampir pasti sesi yang tidak pernah ditutup.
+     */
+    const MACET_MENIT = 120;
+
+    /**
      * @return array|NULL NULL kalau query gagal
      */
     public function snapshot()
@@ -26,16 +33,20 @@ class Penyimpanan_video_fcd extends CI_Model
         $this->load->model('video_packing_fcd');
         $root = $this->video_packing_fcd->root_upload();
 
+        $batas_macet = date('Y-m-d H:i:s', time() - self::MACET_MENIT * 60);
         $db_debug = $this->db->db_debug;
         $this->db->db_debug = FALSE;
         $q = $this->db->query(
             "SELECT DATE(mulai_at) AS tgl, COUNT(*) AS total_video,
                     SUM(ukuran_byte) AS byte_webm, SUM(mp4_ukuran_byte) AS byte_mp4,
-                    SUM(durasi_detik) AS durasi
+                    SUM(durasi_detik) AS durasi,
+                    SUM(status = 'MEREKAM' AND mulai_at < ?) AS n_macet,
+                    SUM(CASE WHEN status = 'MEREKAM' AND mulai_at < ? THEN ukuran_byte ELSE 0 END) AS byte_macet
                FROM tblvideopacking
               WHERE status <> 'DIBATALKAN'
               GROUP BY DATE(mulai_at)
-              ORDER BY tgl ASC"
+              ORDER BY tgl ASC",
+            [$batas_macet, $batas_macet]
         );
         $this->db->db_debug = $db_debug;
 
@@ -47,11 +58,15 @@ class Penyimpanan_video_fcd extends CI_Model
         $hari = [];
         $kumulatif = 0;
         $total_video = 0;
+        $macet_n = 0;
+        $macet_byte = 0;
         foreach ($q->result_array() as $r) {
             $webm = (int) $r['byte_webm'];
             $mp4  = (int) $r['byte_mp4'];
             $kumulatif += $webm + $mp4;
             $total_video += (int) $r['total_video'];
+            $macet_n += (int) $r['n_macet'];
+            $macet_byte += (int) $r['byte_macet'];
             $hari[] = [
                 'tanggal'     => $r['tgl'],
                 'total_video' => (int) $r['total_video'],
@@ -59,6 +74,8 @@ class Penyimpanan_video_fcd extends CI_Model
                 'byte_mp4'    => $mp4,
                 'byte_total'  => $webm + $mp4,
                 'durasi'      => (int) $r['durasi'],
+                'n_macet'     => (int) $r['n_macet'],
+                'byte_macet'  => (int) $r['byte_macet'],
                 'kumulatif'   => $kumulatif,
             ];
         }
@@ -91,6 +108,7 @@ class Penyimpanan_video_fcd extends CI_Model
             'terpakai_video' => (int) $terpakai_video,
             'total_video'    => $total_video,
             'perkiraan'      => $perkiraan,
+            'macet'          => ['jumlah' => $macet_n, 'byte' => $macet_byte, 'menit' => self::MACET_MENIT],
             'hari_perkiraan' => self::HARI_PERKIRAAN,
             'hari'           => array_reverse($hari), // terbaru di atas
             'dihitung_pada'  => date('Y-m-d H:i:s'),
