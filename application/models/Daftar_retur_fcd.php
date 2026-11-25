@@ -875,6 +875,36 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /**
+     * Hasil Buka Retur khusus RETUR KOMPLAIN (is_komplain = 1) untuk sekumpulan resi: kategori ke mana barangnya
+     * (REJECT, BUKAN_BARANG_KITA, KE_DISPLAY, dst) beserta total qty. Prod + arsip, baris yang sama tidak dihitung dua kali.
+     * Hanya membaca.
+     *
+     * @return array resi(huruf besar) => array(status_detail_buka => total qty)
+     */
+    public function hasil_buka_komplain(array $resi)
+    {
+        $out = array();
+        $resi = array_values(array_unique(array_map('strval', $resi)));
+        if (!$resi) return $out;
+        $dilihat = array();   // id_bukaretur yang sudah dihitung
+        foreach (array_chunk($resi, 500) as $grup) {
+            $in = implode(',', array_map(array($this->db, 'escape'), $grup));
+            foreach ($this->_skema('tblbukaretur') as $sk) {
+                foreach ($this->db->query("SELECT id_bukaretur, resi_buka, status_detail_buka, qty FROM {$sk}.tblbukaretur
+                    WHERE resi_buka IN ({$in}) AND is_komplain = 1")->result() as $x) {
+                    if (isset($dilihat[$x->id_bukaretur])) continue;
+                    $dilihat[$x->id_bukaretur] = true;
+                    $k = strtoupper((string) $x->resi_buka);
+                    $st = trim((string) $x->status_detail_buka);
+                    if ($st === '') $st = '-';
+                    $out[$k][$st] = (isset($out[$k][$st]) ? $out[$k][$st] : 0) + (int) $x->qty;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Rincian tiap tahap untuk sekumpulan resi (kartu progres & Excel): tanggal-jam + petugas.
      * Dibaca langsung dari tabel sumber (prod + arsip), hanya untuk resi yang diminta.
      *   terima = scan Terima Retur PERTAMA (tblresiretur), buka = scan Buka Retur TERAKHIR (tblbukaretur),

@@ -100,6 +100,16 @@ class Daftar_retur extends MY_Controller
             array_map(function ($x) { return (string) $x->no_resi; }, $rows), $jenis
         );
 
+        // Kategori hasil buka retur komplain: hanya dibaca di tab Sudah Verifikasi, untuk resi yang punya scan komplain.
+        $hasil_komplain = array();
+        if ($status === Daftar_retur_fcd::POSISI_SUDAH_VERIF) {
+            $resi_k = array();
+            foreach ($rows as $r) {
+                if (((int) $r->ir_k + (int) $r->bk_k) > 0) $resi_k[] = (string) $r->no_resi;
+            }
+            $hasil_komplain = $this->daftar_retur_fcd->hasil_buka_komplain($resi_k);
+        }
+
         $data = array();
         foreach ($rows as $r) {
             $data[] = array(
@@ -116,6 +126,9 @@ class Daftar_retur extends MY_Controller
                 $this->_badge_umur($r),
                 $this->_sel_progress($r, isset($rincian[strtoupper((string) $r->no_resi)]) ? $rincian[strtoupper((string) $r->no_resi)] : array()),
                 $this->_lencana_status($r),   // kolom 11: status retur Jubelio, tampil di semua tab
+                $status === Daftar_retur_fcd::POSISI_SUDAH_VERIF
+                    ? $this->_lencana_hasil_komplain($r, isset($hasil_komplain[strtoupper((string) $r->no_resi)]) ? $hasil_komplain[strtoupper((string) $r->no_resi)] : array())
+                    : '',   // kolom 12: kategori hasil buka retur komplain, hanya tab Sudah Verifikasi
             );
         }
 
@@ -484,6 +497,35 @@ class Daftar_retur extends MY_Controller
             $out .= '<span class="dr-sr dr-sr-warn" title="Jubelio belum final: sudah diverifikasi di iresis, tetapi di Jubelio retur ini belum SELESAI / DITOLAK. Accounting perlu menuntaskannya di Jubelio."><i class="fa fa-exclamation-triangle"></i></span>';
         }
         return $out !== '' ? $out : '-';
+    }
+
+    /**
+     * Kategori hasil buka retur KOMPLAIN (tab Sudah Verifikasi): satu lencana per kategori + total qty, mis. REJECT x2,
+     * BUKAN BARANG KITA x1. Resi tanpa scan komplain = '-'; komplain yang belum punya hasil buka = "Belum ada hasil buka".
+     * Label & warna sama dengan drawer detail (LABEL_HASIL / NADA_HASIL di view).
+     */
+    private function _lencana_hasil_komplain($r, array $hasil)
+    {
+        if (((int) $r->ir_k + (int) $r->bk_k) < 1) return '-';
+        if (!$hasil) return '<span class="dd-pill dd-p-abu" title="Ada scan retur komplain, tetapi belum ada hasil Buka Retur">Belum ada hasil buka</span>';
+
+        $label = array(
+            'KE_DISPLAY' => 'KE DISPLAY', 'REJECT' => 'REJECT', 'REFUND' => 'REFUND', 'PENUKARAN_BERES' => 'PENDINGAN BERES (PB)',
+            'REQUEST_DARI_PEMBELI' => 'REQUEST DARI PEMBELI', 'KURANG' => 'KURANG KIRIM', 'BUKAN_BARANG_KITA' => 'BUKAN BARANG KITA',
+            'DIPAKAI_ADMIN' => 'DIPAKAI ADMIN', 'BARANG_TIDAK_ADA' => 'BARANG TIDAK ADA', 'BUKAN_RETUR' => 'BUKAN RETUR',
+            'ALASAN_LAINNYA' => 'ALASAN LAINNYA', 'PAKET_HILANG' => 'PAKET HILANG',
+        );
+        $nada = array(
+            'KE_DISPLAY' => 'hijau', 'BUKAN_RETUR' => 'biru', 'REJECT' => 'merah', 'BARANG_TIDAK_ADA' => 'merah', 'PAKET_HILANG' => 'merah',
+            'BUKAN_BARANG_KITA' => 'kuning', 'KURANG' => 'kuning', 'DIPAKAI_ADMIN' => 'ungu', 'PENUKARAN_BERES' => 'teal', 'REFUND' => 'teal',
+        );
+        $out = '';
+        foreach ($hasil as $st => $qty) {
+            $teks = isset($label[$st]) ? $label[$st] : $st;
+            $out .= '<span class="dd-pill dd-p-' . (isset($nada[$st]) ? $nada[$st] : 'abu') . '" style="margin:1px 3px 1px 0;" title="'
+                . $this->_h($teks . ': ' . $qty . ' pcs') . '">' . $this->_h($teks) . ' &times;' . (int) $qty . '</span>';
+        }
+        return $out;
     }
 
     /** Tanggal dua baris: tanggal tebal, jam redup di bawahnya. */
