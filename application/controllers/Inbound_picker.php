@@ -165,7 +165,7 @@ class Inbound_picker extends MY_Controller
         // Jubelio) atau dibatalkan manual (tblprintresi.batal) TIDAK boleh ikut
         // dipindah ke packer — scan packer satuan menolaknya, sinkron massal
         // harus konsisten. Dihitung terpisah supaya operator tahu ada yang dilewati.
-        $this->db->select('rab.id_resi, pr.status_pesanan, pr.batal');
+        $this->db->select('rab.id_resi, rab.status_performa_id AS status_picker, pr.status_pesanan, pr.batal');
         $this->db->from('tblresiambilbarang rab');
         $this->db->join('tblprintresi pr', 'pr.id_printresi = rab.id_resi', 'inner');
         $this->db->join('tblpacking p', 'p.id_resi = rab.id_resi', 'left');
@@ -204,16 +204,30 @@ class Inbound_picker extends MY_Controller
         $packer_status = $this->kpi_fcd->get_user_status_performa($id_packer);
         $packer_status_id = $packer_status ? $packer_status->id_statusperforma : $normal_packer_status_id;
 
+        // Resi yang di-pick dengan status 1_SKU_PICKER (resi spesial) wajib masuk
+        // ke packer sebagai 1_SKU_PACKER, bukan status aktif packer saat sinkron
+        // (kasus 16 Nov 2026: 471 resi 1_SKU_PICKER tercatat NORMAL di packer).
+        $id_1sku_picker = $this->kpi_fcd->get_status_id_by_name('1_SKU_PICKER');
+        $id_1sku_packer = $this->kpi_fcd->get_status_id_by_name('1_SKU');
+
         $tanggal_packing = date('Y-m-d H:i:s');
         $batch = [];
+        $jumlah_per_status = [];
 
         foreach ($resis_to_sync as $row) {
+            $status_resi = $packer_status_id;
+            if ($id_1sku_picker && $id_1sku_packer
+                && (int) $row['status_picker'] === (int) $id_1sku_picker) {
+                $status_resi = $id_1sku_packer;
+            }
+            $jumlah_per_status[$status_resi] = ($jumlah_per_status[$status_resi] ?? 0) + 1;
+
             $batch[] = [
                 'id_resi' => $row['id_resi'],
                 'tanggal_packing' => $tanggal_packing,
                 'packer_pegawai' => $id_packer,
                 'keterangan' => 'SYNC_FROM_PICKER',
-                'status_performa_id' => $packer_status_id
+                'status_performa_id' => $status_resi
             ];
         }
 
@@ -236,7 +250,9 @@ class Inbound_picker extends MY_Controller
         // Log KPI packer cukup SEKALI dengan total resi, bukan N kali @1 resi.
         // Hasil akhir di tblkpi identik (jumlah_resi bertambah sebanyak $count),
         // tapi menghemat ±9.000 query (1 SELECT + 1 UPDATE per resi).
-        $this->kpi_fcd->log_transaksi_harian($id_packer, $packer_status_id, 'PACKING', $count);
+        foreach ($jumlah_per_status as $id_status_kpi => $jumlah_kpi) {
+            $this->kpi_fcd->log_transaksi_harian($id_packer, $id_status_kpi, 'PACKING', $jumlah_kpi);
+        }
 
         $this->db->trans_complete();
 

@@ -64,7 +64,7 @@ class Lost_scan_selesai_fcd extends CI_Model
         // Picking (kalau belum ada)
         // ------------------------------------------------------------------
         $ada_picking = $this->db->query(
-            "SELECT id_resiambilbarang FROM tblresiambilbarang WHERE id_resi = ? LIMIT 1",
+            "SELECT id_resiambilbarang, status_performa_id FROM tblresiambilbarang WHERE id_resi = ? LIMIT 1",
             [$id_resi]
         )->row();
         $perlu_picker = empty($ada_picking);
@@ -128,7 +128,16 @@ class Lost_scan_selesai_fcd extends CI_Model
                 return $this->batal($prev_debug, 400, $packer, 'PACKER_TIDAK_VALID');
             }
 
-            if (!$this->tulis_packing($id_resi, $packer, $no_absen_packer, $now)) {
+            // Resi yang di-pick 1_SKU_PICKER harus tercatat 1_SKU_PACKER di packer,
+            // bukan NORMAL_PACKER, supaya laporan picker dan packer tetap sejalan.
+            $status_packer = $this->id_status('NORMAL_PACKER');
+            if (!empty($ada_picking)
+                && (int) $ada_picking->status_performa_id === (int) $this->id_status('1_SKU_PICKER')
+                && $this->id_status('1_SKU_PACKER')) {
+                $status_packer = $this->id_status('1_SKU_PACKER');
+            }
+
+            if (!$this->tulis_packing($id_resi, $packer, $no_absen_packer, $now, $status_packer)) {
                 return $this->batal($prev_debug, 500, 'Gagal membuat baris packing', 'SAVE_FAILED');
             }
 
@@ -188,14 +197,14 @@ class Lost_scan_selesai_fcd extends CI_Model
         return $resi;
     }
 
-    private function tulis_packing($id_resi, $packer, $no_absen_packer, $now)
+    private function tulis_packing($id_resi, $packer, $no_absen_packer, $now, $status_packer)
     {
         $this->db->insert('tblpacking', [
             'id_resi'            => $id_resi,
             'tanggal_packing'    => $now,
             'packer_pegawai'     => (int) $packer->id_user,
             'keterangan'         => self::PENANDA_PICKING . ' (no absen ' . sprintf('%04d', $no_absen_packer) . ')',
-            'status_performa_id' => $this->id_status('NORMAL_PACKER'),
+            'status_performa_id' => $status_packer,
         ]);
 
         return $this->db->affected_rows() > 0;
