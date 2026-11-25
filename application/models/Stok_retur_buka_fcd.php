@@ -25,7 +25,7 @@ class Stok_retur_buka_fcd extends CI_Model
             $resi_pilih = array_flip(array_map('strtoupper', array_map('strval', $resi_pilih)));
         }
         $kolom = "b.id_bukaretur, b.resi_buka, b.sku, b.qty, b.no_pesanan, b.toko, b.is_komplain,
-                    b.tanggal_buka_retur, s.nama_sku, s.no_rak, s.link_foto, s.foto_lokal";
+                    b.tanggal_buka_retur, s.nama_sku, s.no_rak, s.link_foto, s.foto_lokal, s.bundle";
         if ($pakai_status_acc) {
             // Cetak serah terima dari tab Sudah dibuka (Daftar Retur): hanya baris KE_DISPLAY yang belum di-ACC
             // accounting (status_acc = 0) -- aturan yang sama dengan isi tab. Prod dulu, lalu arsip untuk baris
@@ -75,6 +75,7 @@ class Stok_retur_buka_fcd extends CI_Model
                     'foto' => trim((string) $b['link_foto']),
                     'foto_lokal' => foto_sku_lokal_url($b['link_foto'], $b['foto_lokal']),
                     'stok' => 0, 'komplain' => false, 'resi' => array(),
+                    'is_bundle' => strtoupper(trim((string) $b['bundle'])) === 'TRUE',
                 );
             }
             $per[$k]['stok'] += $qty;
@@ -115,15 +116,55 @@ class Stok_retur_buka_fcd extends CI_Model
      * Baris kertas serah terima Retur -> Restok dari hasil stok(): satu baris per SKU, qty = stok SKU itu
      * (angka yang sama dengan menu Stok Retur Buka), terurut rak lalu SKU.
      *
+     * SKU bundling (tblsku.bundle = True) diganti SKU anakannya (isi bundle dari Jubelio, qty = qty bundle x qty komponen),
+     * karena yang dikembalikan ke display adalah barang anakannya. Anakan yang sama digabung dengan SKU biasa. Bila isi
+     * bundle gagal dibaca, baris bundle tetap dicetak apa adanya dengan tanda "(BUNDLE, isi belum terurai)".
+     *
      * @return array list of ['sku', 'rak', 'qty']
      */
     public function baris_serah_terima(array $rows)
     {
-        $det = array();
+        $per = array();       // KEY SKU (huruf besar) => baris
+        $perlu_rak = array(); // SKU anakan yang rak-nya harus dicari
         foreach ($rows as $r) {
-            if ((int) $r['stok'] <= 0) continue;
-            $det[] = array('sku' => $r['sku'], 'rak' => (string) $r['rak'], 'qty' => (int) $r['stok']);
+            $qty = (int) $r['stok'];
+            if ($qty <= 0) continue;
+            $isi = array();
+            if (!empty($r['is_bundle'])) {
+                try {
+                    $this->load->library('jubelio_stok');
+                    $isi = $this->jubelio_stok->komponen($r['sku']);
+                } catch (Exception $e) {
+                    log_message('error', 'Serah terima retur: isi bundle ' . $r['sku'] . ' gagal dibaca: ' . $e->getMessage());
+                    $isi = array();
+                }
+            }
+            if (empty($isi)) {
+                $k = strtoupper($r['sku']);
+                if (isset($per[$k])) { $per[$k]['qty'] += $qty; continue; }
+                $per[$k] = array('sku' => $r['sku'] . (!empty($r['is_bundle']) ? ' (BUNDLE, isi belum terurai)' : ''),
+                    'rak' => (string) $r['rak'], 'qty' => $qty);
+                continue;
+            }
+            foreach ($isi as $kom) {
+                $k = strtoupper($kom['sku']);
+                $q = $qty * (int) $kom['qty'];
+                if (isset($per[$k])) { $per[$k]['qty'] += $q; continue; }
+                $per[$k] = array('sku' => $kom['sku'], 'rak' => '', 'qty' => $q);
+                $perlu_rak[$k] = $kom['sku'];
+            }
         }
+        if ($perlu_rak) {
+            $q = $this->db->query(
+                'SELECT id_sku, TRIM(COALESCE(no_rak, "")) AS no_rak FROM tblsku WHERE id_sku IN (' . implode(',', array_fill(0, count($perlu_rak), '?')) . ')',
+                array_values($perlu_rak)
+            )->result_array();
+            foreach ($q as $s) {
+                $k = strtoupper($s['id_sku']);
+                if (isset($per[$k])) $per[$k]['rak'] = (string) $s['no_rak'];
+            }
+        }
+        $det = array_values($per);
         usort($det, function ($x, $y) { return strcmp($x['rak'], $y['rak']) ?: strcmp($x['sku'], $y['sku']); });
         return $det;
     }
