@@ -189,8 +189,9 @@ class Daftar_retur_fcd extends CI_Model
                          (SELECT COUNT(*) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1),
                          (SELECT COUNT(*) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND b.is_komplain = 1 AND b.status_acc = 1)
                        ) AS av_k,
-                       (EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1)
-                        OR EXISTS (SELECT 1 FROM {$arsip}.tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1)) AS vf,
+                       IF(EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = g.resi_l),
+                          EXISTS (SELECT 1 FROM tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1),
+                          EXISTS (SELECT 1 FROM {$arsip}.tblreturverifikasi v WHERE v.no_resi = g.resi_l AND v.verified = 1)) AS vf,
                        GREATEST(
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01'),
                          COALESCE((SELECT MAX(COALESCE(b.tanggal_buka_retur, b.created_at)) FROM {$arsip}.tblbukaretur b WHERE b.resi_buka = g.resi_l AND {$biasa_b}), '1000-01-01')
@@ -315,8 +316,8 @@ class Daftar_retur_fcd extends CI_Model
                        GREATEST(COALESCE(bp.bk_k, 0), COALESCE(ba.bk_k, 0)) AS bk_k,
                        GREATEST(COALESCE(bp.av_b, 0), COALESCE(ba.av_b, 0)) AS av_b,
                        GREATEST(COALESCE(bp.av_k, 0), COALESCE(ba.av_k, 0)) AS av_k,
-                       (vp.r IS NOT NULL OR va.r IS NOT NULL) AS vf,
-                       NULLIF(GREATEST(COALESCE(vp.t, '1000-01-01'), COALESCE(va.t, '1000-01-01')), '1000-01-01') AS vf_at,
+                       IF(vp.r IS NOT NULL, vp.v = 1, va.r IS NOT NULL) AS vf,
+                       IF(vp.r IS NOT NULL, vp.t, va.t) AS vf_at,
                        NULLIF(GREATEST(COALESCE(bp.ac_b, '1000-01-01'), COALESCE(ba.ac_b, '1000-01-01')), '1000-01-01') AS ac_b,
                        NULLIF(GREATEST(COALESCE(bp.ac_k, '1000-01-01'), COALESCE(ba.ac_k, '1000-01-01')), '1000-01-01') AS ac_k,
                        NULLIF(GREATEST(COALESCE(bp.tb_b, '1000-01-01'), COALESCE(ba.tb_b, '1000-01-01')), '1000-01-01') AS tb_b,
@@ -360,7 +361,7 @@ class Daftar_retur_fcd extends CI_Model
                 LEFT JOIN ({$r_arsip}) ra ON ra.noresi = g.resi_l
                 LEFT JOIN ({$b_prod}) bp ON bp.resi_buka = g.resi_l
                 LEFT JOIN ({$b_arsip}) ba ON ba.resi_buka = g.resi_l
-                LEFT JOIN (SELECT no_resi AS r, MAX(verified_at) AS t FROM {$prod}.tblreturverifikasi WHERE verified = 1 GROUP BY no_resi) vp ON vp.r = g.resi_l
+                LEFT JOIN (SELECT no_resi AS r, MAX(verified) AS v, MAX(IF(verified = 1, verified_at, NULL)) AS t FROM {$prod}.tblreturverifikasi GROUP BY no_resi) vp ON vp.r = g.resi_l
                 LEFT JOIN (SELECT no_resi AS r, MAX(verified_at) AS t FROM {$arsip}.tblreturverifikasi WHERE verified = 1 GROUP BY no_resi) va ON va.r = g.resi_l
             ) f
         ";
@@ -488,7 +489,8 @@ class Daftar_retur_fcd extends CI_Model
             // Sudah diverifikasi accounting -> tab Sudah verif. Dua penanda yang dipakai:
             //  1. menu Verifikasi Retur (tblreturverifikasi.verified = 1, per resi) -- penanda utama accounting;
             //  2. Accounting > Returan Buka (tblbukaretur.status_acc = 1) bila SEMUA baris buka sudah di-ACC.
-            // Keduanya hanya bisa naik 0 -> 1, jadi aman terhadap salinan arsip yang basi.
+            // Penanda 1 bisa diturunkan accounting (uncheck): bila prod punya barisnya, nilai prod menang atas arsip
+            // (arsip hanya dipakai bila barisnya sudah dipurna dari prod), supaya salinan arsip yang basi tidak menghidupkannya lagi.
             if ((int) $r->vf === 1) return self::POSISI_SUDAH_VERIF;
             $n_acc = ($pakai_b ? (int) $r->av_b : 0) + ($pakai_k ? (int) $r->av_k : 0);
             return ($n_acc >= $n_buka) ? self::POSISI_SUDAH_VERIF : self::POSISI_SUDAH_DIBUKA;
@@ -805,6 +807,17 @@ class Daftar_retur_fcd extends CI_Model
     }
 
     /** Skema yang perlu dibaca untuk $tabel: prod, plus arsip bila tabelnya sudah ada di sana. */
+    /**
+     * Syarat tambahan untuk membaca tblreturverifikasi dari arsip: resi yang masih punya baris di prod dibaca dari prod saja
+     * (uncheck accounting di prod tidak boleh dikalahkan salinan arsip yang basi). Untuk skema prod hasilnya kosong.
+     */
+    private function _syarat_verif_arsip($sk, $kolom_resi)
+    {
+        $prod = '`' . $this->db->database . '`';
+        if ($sk === $prod) return '';
+        return " AND NOT EXISTS (SELECT 1 FROM {$prod}.tblreturverifikasi pv WHERE pv.no_resi = {$kolom_resi})";
+    }
+
     private function _skema($tabel)
     {
         $skema = array('`' . $this->db->database . '`');
@@ -916,7 +929,7 @@ class Daftar_retur_fcd extends CI_Model
                 }
             }
             foreach ($this->_skema('tblreturverifikasi') as $sk) {
-                foreach ($this->db->query("SELECT no_resi, verified_at t, verified_by p FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1")->result() as $x) {
+                foreach ($this->db->query("SELECT no_resi, verified_at t, verified_by p FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1" . $this->_syarat_verif_arsip($sk, $sk . '.tblreturverifikasi.no_resi'))->result() as $x) {
                     $simpan('verif', $x->no_resi, $x->t, $x->p);
                 }
             }
@@ -1005,7 +1018,7 @@ class Daftar_retur_fcd extends CI_Model
         }
         foreach ($this->_skema('tblreturverifikasi') as $sk) {
             foreach ($this->db->query("SELECT id, verified, catatan, verified_by, verified_at
-                FROM {$sk}.tblreturverifikasi WHERE no_resi = {$e} AND verified = 1")->result_array() as $x) {
+                FROM {$sk}.tblreturverifikasi WHERE no_resi = {$e} AND verified = 1" . $this->_syarat_verif_arsip($sk, $sk . '.tblreturverifikasi.no_resi'))->result_array() as $x) {
                 $verif[(int) $x['id']] = $x;
             }
         }
@@ -1174,7 +1187,7 @@ class Daftar_retur_fcd extends CI_Model
                 }
             } else {
                 foreach ($this->_skema('tblreturverifikasi') as $sk) {
-                    foreach ($this->db->query("SELECT no_resi, MAX(verified_at) t FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1 GROUP BY no_resi")->result() as $x) {
+                    foreach ($this->db->query("SELECT no_resi, MAX(verified_at) t FROM {$sk}.tblreturverifikasi WHERE no_resi IN ({$in}) AND verified = 1" . $this->_syarat_verif_arsip($sk, $sk . '.tblreturverifikasi.no_resi') . " GROUP BY no_resi")->result() as $x) {
                         $isi($peta, $x->no_resi, $x->t, false);
                     }
                 }
