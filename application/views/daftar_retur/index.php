@@ -464,7 +464,7 @@ $BASE = rtrim(base_url(), '/') . '/';
     <div class="dr-tab" data-status="SUDAH_DIBUKA" title="Sudah scan buka, belum dicetak serah terima">Sudah Buka <span class="n" id="n_SUDAH_DIBUKA">-</span></div>
     <div class="dr-tab" data-status="SUDAH_SERAH" title="Sudah dicetak serah terima, belum diverifikasi accounting (bisa Cetak Ulang)">Sudah Serah Terima <span class="n" id="n_SUDAH_SERAH">-</span></div>
     <div class="dr-tab" data-status="SUDAH_VERIF" title="Sudah diverifikasi accounting, tetapi status di Jubelio masih BARANG RETUR (accounting perlu menuntaskannya di Jubelio)">Sudah Verifikasi <span class="n" id="n_SUDAH_VERIF">-</span></div>
-    <div class="dr-tab" data-status="SELESAI" title="Status di Jubelio sudah SELESAI, DITOLAK, SELESAI (PESANAN COMPLETED), SELESAI (DATA LAMA), DITOLAK (PENYESUAIAN), SELESAI (PENGEMBALIAN DANA), SELESAI (BUKAN BARANG KITA), atau SELESAI (REJECT); bisa difilter Status retur">Selesai <span class="n" id="n_SELESAI">-</span></div>
+    <div class="dr-tab" data-status="SELESAI" title="Status di Jubelio sudah SELESAI, DITOLAK, SELESAI (PESANAN COMPLETED), SELESAI (DATA LAMA), DITOLAK (PENYESUAIAN), SELESAI (PENGEMBALIAN DANA), SELESAI (BUKAN BARANG KITA), SELESAI (REJECT), atau SELESAI (BARANG TIDAK ADA); bisa difilter Status retur">Selesai <span class="n" id="n_SELESAI">-</span></div>
   </div>
 
   <!-- Filter -->
@@ -520,7 +520,7 @@ $BASE = rtrim(base_url(), '/') . '/';
           </div>
         </span></th>
         <th>Progress</th>
-        <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED) / SELESAI (DATA LAMA) / DITOLAK (PENYESUAIAN) / SELESAI (PENGEMBALIAN DANA) / SELESAI (BUKAN BARANG KITA) / SELESAI (REJECT)). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
+        <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED) / SELESAI (DATA LAMA) / DITOLAK (PENYESUAIAN) / SELESAI (PENGEMBALIAN DANA) / SELESAI (BUKAN BARANG KITA) / SELESAI (REJECT) / SELESAI (BARANG TIDAK ADA)). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
         <th title="Kategori hasil Buka Retur untuk retur komplain (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) dan jumlah pcs-nya. Hanya tampil di tab Sudah Verifikasi.">Hasil Buka Komplain</th>
       </tr>
     </thead>
@@ -558,7 +558,7 @@ $(document).ready(function () {
     var BASE = '<?= $BASE ?>';
     var statusAktif = '';
     var jenisAktif = 'B,K';        // centang filter jenis retur; '-' = tidak ada
-    var STATUS_SEMUA = 'SELESAI,DITOLAK,BARANG RETUR,SELESAI (PESANAN COMPLETED),SELESAI (DATA LAMA),DITOLAK (PENYESUAIAN),SELESAI (PENGEMBALIAN DANA),SELESAI (BUKAN BARANG KITA),SELESAI (REJECT)';
+    var STATUS_SEMUA = 'SELESAI,DITOLAK,BARANG RETUR,SELESAI (PESANAN COMPLETED),SELESAI (DATA LAMA),DITOLAK (PENYESUAIAN),SELESAI (PENGEMBALIAN DANA),SELESAI (BUKAN BARANG KITA),SELESAI (REJECT),SELESAI (BARANG TIDAK ADA)';
     var statusRetAktif = STATUS_SEMUA;   // centang filter status retur (tab Semua); '-' = tidak ada
     var segarkanBerikut = false;   // true = lewati cache server (tombol atur ulang)
     var timerMuat = null, mulaiMuat = 0;
@@ -854,7 +854,7 @@ $(document).ready(function () {
     // diambil dari data server (json.opsi), kosong = semua). Untuk filter dinamis juga daftarkan kuncinya di FIL dan di ajax.data + export.
     var KAT = [
         { k: 'jenis', t: 'Jenis retur', i: 'fa-exchange', tipe: 'semua', opsi: [['B', 'Ekspedisi', 'Retur ekspedisi (gagal kirim)'], ['K', 'Komplain', 'Pengembalian barang dari customer']] },
-        { k: 'status', t: 'Status Retur', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio (status_retur SELESAI)'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)'], ['SELESAI (PESANAN COMPLETED)', 'SELESAI (PESANAN COMPLETED)', 'Pesanan ternyata berubah COMPLETED di Jubelio (dicek otomatis 3x sehari); status final'], ['SELESAI (DATA LAMA)', 'SELESAI (DATA LAMA)', 'Pesanan lama (> 3 bulan) yang sudah tidak ada di Jubelio; status final ditetapkan manual'], ['DITOLAK (PENYESUAIAN)', 'DITOLAK (PENYESUAIAN)', 'Retur ditolak lewat penyesuaian manual; status final'], ['SELESAI (PENGEMBALIAN DANA)', 'SELESAI (PENGEMBALIAN DANA)', 'Dana pesanan sudah dikembalikan (refund); status final'], ['SELESAI (BUKAN BARANG KITA)', 'SELESAI (BUKAN BARANG KITA)', 'Barang yang kembali ternyata bukan barang kita; status final'], ['SELESAI (REJECT)', 'SELESAI (REJECT)', 'Barang retur direject; status final']] },
+        { k: 'status', t: 'Status Retur', i: 'fa-tag', tipe: 'semua', opsi: [['SELESAI', 'SELESAI', 'Retur selesai diproses di Jubelio (status_retur SELESAI)'], ['DITOLAK', 'DITOLAK', 'Pengajuan retur ditolak'], ['BARANG RETUR', 'BARANG RETUR', 'Retur ekspedisi (paket kembali ke toko)'], ['SELESAI (PESANAN COMPLETED)', 'SELESAI (PESANAN COMPLETED)', 'Pesanan ternyata berubah COMPLETED di Jubelio (dicek otomatis 3x sehari); status final'], ['SELESAI (DATA LAMA)', 'SELESAI (DATA LAMA)', 'Pesanan lama (> 3 bulan) yang sudah tidak ada di Jubelio; status final ditetapkan manual'], ['DITOLAK (PENYESUAIAN)', 'DITOLAK (PENYESUAIAN)', 'Retur ditolak lewat penyesuaian manual; status final'], ['SELESAI (PENGEMBALIAN DANA)', 'SELESAI (PENGEMBALIAN DANA)', 'Dana pesanan sudah dikembalikan (refund); status final'], ['SELESAI (BUKAN BARANG KITA)', 'SELESAI (BUKAN BARANG KITA)', 'Barang yang kembali ternyata bukan barang kita; status final'], ['SELESAI (REJECT)', 'SELESAI (REJECT)', 'Barang retur direject; status final'], ['SELESAI (BARANG TIDAK ADA)', 'SELESAI (BARANG TIDAK ADA)', 'Barang retur tidak ada atau tidak ditemukan; status final']] },
         { k: 'kurir', t: 'Kurir', i: 'fa-truck', tipe: 'dinamis', cari: 'Cari kurir...' },
         { k: 'mp', t: 'Marketplace', i: 'fa-shopping-bag', tipe: 'dinamis', cari: 'Cari marketplace...' },
         { k: 'toko', t: 'Toko', i: 'fa-home', tipe: 'dinamis', cari: 'Cari toko...' },
@@ -1183,7 +1183,7 @@ $(document).ready(function () {
         BUKAN_BARANG_KITA: 'kuning', KURANG: 'kuning', DIPAKAI_ADMIN: 'ungu', PENUKARAN_BERES: 'teal', REFUND: 'teal'
     };
     var NADA_TAHAP = ['abu', 'biru', 'teal', 'ungu', 'hijau'];
-    var NADA_JUB = { 'SELESAI': 'hijau', 'DITOLAK': 'merah', 'BARANG RETUR': 'kuning', 'SELESAI (PESANAN COMPLETED)': 'hijau', 'SELESAI (DATA LAMA)': 'hijau', 'DITOLAK (PENYESUAIAN)': 'merah', 'SELESAI (PENGEMBALIAN DANA)': 'hijau', 'SELESAI (BUKAN BARANG KITA)': 'hijau', 'SELESAI (REJECT)': 'hijau' };
+    var NADA_JUB = { 'SELESAI': 'hijau', 'DITOLAK': 'merah', 'BARANG RETUR': 'kuning', 'SELESAI (PESANAN COMPLETED)': 'hijau', 'SELESAI (DATA LAMA)': 'hijau', 'DITOLAK (PENYESUAIAN)': 'merah', 'SELESAI (PENGEMBALIAN DANA)': 'hijau', 'SELESAI (BUKAN BARANG KITA)': 'hijau', 'SELESAI (REJECT)': 'hijau', 'SELESAI (BARANG TIDAK ADA)': 'hijau' };
     var NAMA_JENIS = { B: 'Retur ekspedisi', K: 'Retur komplain' };
     var reqDetail = null;
 
