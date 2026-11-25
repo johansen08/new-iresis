@@ -175,7 +175,7 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap table.dataTable thead th { position:sticky; top:50px; z-index:5; background:#f9fafb; color:#6b7280; font-weight:600; border:0; padding:9px 22px 9px 8px; font-size:12px;
                                     vertical-align:middle; white-space:nowrap; box-shadow:0 1px 0 #e5e7eb; }
 #dr_wrap table.dataTable thead th:nth-child(9) { z-index:7; }
-#dr_wrap table.dataTable tbody td { height:37px; border:0; border-bottom:1px solid #f1f5f9; padding:0 8px; vertical-align:middle; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#dr_wrap table.dataTable tbody td { height:37px; border:0; border-bottom:1px solid #cbd5e1; padding:0 8px; vertical-align:middle; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #dr_wrap table.dataTable thead th:first-child { border-radius:6px 0 0 6px; }
 #dr_wrap table.dataTable thead th:last-child { border-radius:0 6px 6px 0; }
 /* Tgl Pesan (kolom 2) & Tgl Retur (kolom 3) disembunyikan: sudah ada di kartu Progress (Dipesan, Diretur). Kolom tetap ada agar urutan indeks tidak bergeser. */
