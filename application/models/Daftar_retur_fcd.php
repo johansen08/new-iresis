@@ -61,7 +61,7 @@ class Daftar_retur_fcd extends CI_Model
     const CACHE_SEMUA_DETIK = 600;
 
     /** Nilai tblreturjubelio.status_retur yang bisa dipilih di filter tab Semua. */
-    const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR', 'SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)', 'DITOLAK (PENYESUAIAN)', 'SELESAI (PENGEMBALIAN DANA)');
+    const STATUS_RETUR = array('SELESAI', 'DITOLAK', 'BARANG RETUR', 'SELESAI (PESANAN COMPLETED)', 'SELESAI (DATA LAMA)', 'DITOLAK (PENYESUAIAN)', 'SELESAI (PENGEMBALIAN DANA)', 'SELESAI (BUKAN BARANG KITA)');
 
     /**
      * Status retur FINAL buatan iresis (bukan dari Excel Jubelio): pesanan yang tadinya RETURNED ternyata berubah COMPLETED di Jubelio.
@@ -81,11 +81,14 @@ class Daftar_retur_fcd extends CI_Model
     /** Status retur FINAL buatan iresis: dana pesanan sudah dikembalikan (refund) sehingga retur fisik tidak ditunggu lagi (24 Nov 2026). Upload Excel TIDAK boleh menimpanya. */
     const STATUS_PENGEMBALIAN_DANA = 'SELESAI (PENGEMBALIAN DANA)';
 
+    /** Status retur FINAL buatan iresis: barang yang kembali ternyata bukan barang kita (25 Nov 2026). Upload Excel TIDAK boleh menimpanya. */
+    const STATUS_BUKAN_BARANG_KITA = 'SELESAI (BUKAN BARANG KITA)';
+
     /** Bit status_retur (kolom stm) supaya penyaringan puluhan ribu baris tanpa explode/array_intersect per baris. */
-    const BIT_STATUS = array('SELESAI' => 1, 'DITOLAK' => 2, 'BARANG RETUR' => 4, 'SELESAI (PESANAN COMPLETED)' => 8, 'SELESAI (DATA LAMA)' => 16, 'DITOLAK (PENYESUAIAN)' => 32, 'SELESAI (PENGEMBALIAN DANA)' => 64);
+    const BIT_STATUS = array('SELESAI' => 1, 'DITOLAK' => 2, 'BARANG RETUR' => 4, 'SELESAI (PESANAN COMPLETED)' => 8, 'SELESAI (DATA LAMA)' => 16, 'DITOLAK (PENYESUAIAN)' => 32, 'SELESAI (PENGEMBALIAN DANA)' => 64, 'SELESAI (BUKAN BARANG KITA)' => 128);
 
     /** Gabungan bit status final (selain BARANG RETUR). */
-    const BIT_FINAL = 123;
+    const BIT_FINAL = 251;
 
     /**
      * Cache basi boleh disajikan (user tidak menunggu hitung ulang) selama tugas terjadwal "segarkan_daftar_retur" hidup:
@@ -226,7 +229,8 @@ class Daftar_retur_fcd extends CI_Model
                                    IF(SUM(status_retur = 'SELESAI (PESANAN COMPLETED)') > 0, 'SELESAI (PESANAN COMPLETED)', NULL),
                                    IF(SUM(status_retur = 'SELESAI (DATA LAMA)') > 0, 'SELESAI (DATA LAMA)', NULL),
                                    IF(SUM(status_retur = 'DITOLAK (PENYESUAIAN)') > 0, 'DITOLAK (PENYESUAIAN)', NULL),
-                                   IF(SUM(status_retur = 'SELESAI (PENGEMBALIAN DANA)') > 0, 'SELESAI (PENGEMBALIAN DANA)', NULL)) AS stat
+                                   IF(SUM(status_retur = 'SELESAI (PENGEMBALIAN DANA)') > 0, 'SELESAI (PENGEMBALIAN DANA)', NULL),
+                                   IF(SUM(status_retur = 'SELESAI (BUKAN BARANG KITA)') > 0, 'SELESAI (BUKAN BARANG KITA)', NULL)) AS stat
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
@@ -348,7 +352,8 @@ class Daftar_retur_fcd extends CI_Model
                                    IF(SUM(status_retur = 'SELESAI (PESANAN COMPLETED)') > 0, 'SELESAI (PESANAN COMPLETED)', NULL),
                                    IF(SUM(status_retur = 'SELESAI (DATA LAMA)') > 0, 'SELESAI (DATA LAMA)', NULL),
                                    IF(SUM(status_retur = 'DITOLAK (PENYESUAIAN)') > 0, 'DITOLAK (PENYESUAIAN)', NULL),
-                                   IF(SUM(status_retur = 'SELESAI (PENGEMBALIAN DANA)') > 0, 'SELESAI (PENGEMBALIAN DANA)', NULL)) AS stat
+                                   IF(SUM(status_retur = 'SELESAI (PENGEMBALIAN DANA)') > 0, 'SELESAI (PENGEMBALIAN DANA)', NULL),
+                                   IF(SUM(status_retur = 'SELESAI (BUKAN BARANG KITA)') > 0, 'SELESAI (BUKAN BARANG KITA)', NULL)) AS stat
                         FROM tblreturjubelio
                         WHERE no_resi IS NOT NULL AND no_resi <> ''
                         GROUP BY no_resi
