@@ -270,6 +270,27 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable thead th:nth-child(9)  { width:98px; }
   #dr_wrap table.dataTable thead th:nth-child(11) { width:150px; }
 }
+/* Tab Sudah Verifikasi punya kolom ke-12 (Detail Buka: lencana hasil buka + qty, boleh turun baris). Jumlah lebar kolom ~1270px:
+   di layar yang lebih sempit (<1500, area tabel < ~1270) tabel digeser mendatar, bukan memeras kolom lain sampai teksnya terpotong. */
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(4)  { width:122px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(5)  { width:160px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(6)  { width:164px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(7)  { width:150px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(8)  { width:80px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(9)  { width:98px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(10) { width:128px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(11) { width:170px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:200px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(12) { padding-top:4px; padding-bottom:4px; line-height:1.5; }
+@media (max-width: 1499px) {
+  #dr_wrap[data-tab="SUDAH_VERIF"] #dr_tablewrap { overflow-x:auto; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable { min-width:1270px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th { position:static; }
+}
+@media (min-width: 1680px) {
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(7)  { width:220px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:260px; }
+}
 /* Layar sempit (<= 1300: laptop kecil, tablet): tabel boleh digeser mendatar bila tidak muat; lebar minimal menjamin kolom Toko tetap terbaca.
    Judul kolom tidak lagi menempel (sticky tidak bekerja di dalam wadah yang bisa digeser). */
 @media (max-width: 1300px) {
@@ -521,7 +542,7 @@ $BASE = rtrim(base_url(), '/') . '/';
         </span></th>
         <th>Progress</th>
         <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED) / SELESAI (DATA LAMA) / DITOLAK (PENYESUAIAN) / SELESAI (PENGEMBALIAN DANA) / SELESAI (BUKAN BARANG KITA) / SELESAI (REJECT) / SELESAI (BARANG TIDAK ADA)). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
-        <th title="Kategori hasil Buka Retur untuk retur komplain (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) dan jumlah pcs-nya. Hanya tampil di tab Sudah Verifikasi.">Hasil Buka Komplain</th>
+        <th title="Hasil Buka Retur (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) beserta jumlah pcs-nya, misal REJECT ×1. Hanya tampil di tab Sudah Verifikasi.">Detail Buka</th>
       </tr>
     </thead>
     <tbody></tbody>

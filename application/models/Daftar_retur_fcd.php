@@ -896,17 +896,25 @@ class Daftar_retur_fcd extends CI_Model
      *
      * @return array resi(huruf besar) => array(status_detail_buka => total qty)
      */
-    public function hasil_buka_komplain(array $resi)
+    public function hasil_buka_komplain(array $resi, array $jenis = null)
     {
         $out = array();
         $resi = array_values(array_unique(array_map('strval', $resi)));
         if (!$resi) return $out;
+        // Jenis retur yang dibaca: default hanya komplain; Daftar Retur memakai filter jenis layar (biasa dan/atau komplain).
+        $kond = 'is_komplain = 1';
+        if ($jenis !== null) {
+            $k = array();
+            if (in_array(self::JENIS_BIASA, $jenis, true)) $k[] = '(is_komplain IS NULL OR is_komplain = 0)';
+            if (in_array(self::JENIS_KOMPLAIN, $jenis, true)) $k[] = 'is_komplain = 1';
+            $kond = $k ? '(' . implode(' OR ', $k) . ')' : '1=0';
+        }
         $dilihat = array();   // id_bukaretur yang sudah dihitung
         foreach (array_chunk($resi, 500) as $grup) {
             $in = implode(',', array_map(array($this->db, 'escape'), $grup));
             foreach ($this->_skema('tblbukaretur') as $sk) {
                 foreach ($this->db->query("SELECT id_bukaretur, resi_buka, status_detail_buka, qty FROM {$sk}.tblbukaretur
-                    WHERE resi_buka IN ({$in}) AND is_komplain = 1")->result() as $x) {
+                    WHERE resi_buka IN ({$in}) AND {$kond}")->result() as $x) {
                     if (isset($dilihat[$x->id_bukaretur])) continue;
                     $dilihat[$x->id_bukaretur] = true;
                     $k = strtoupper((string) $x->resi_buka);

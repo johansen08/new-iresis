@@ -100,14 +100,12 @@ class Daftar_retur extends MY_Controller
             array_map(function ($x) { return (string) $x->no_resi; }, $rows), $jenis
         );
 
-        // Kategori hasil buka retur komplain: hanya dibaca di tab Sudah Verifikasi, untuk resi yang punya scan komplain.
+        // Detail Buka (hasil buka retur + qty): hanya dibaca di tab Sudah Verifikasi, untuk resi di halaman ini.
         $hasil_komplain = array();
         if ($status === Daftar_retur_fcd::POSISI_SUDAH_VERIF) {
-            $resi_k = array();
-            foreach ($rows as $r) {
-                if (((int) $r->ir_k + (int) $r->bk_k) > 0) $resi_k[] = (string) $r->no_resi;
-            }
-            $hasil_komplain = $this->daftar_retur_fcd->hasil_buka_komplain($resi_k);
+            $hasil_komplain = $this->daftar_retur_fcd->hasil_buka_komplain(
+                array_map(function ($x) { return (string) $x->no_resi; }, $rows), $jenis
+            );
         }
 
         $data = array();
@@ -506,8 +504,7 @@ class Daftar_retur extends MY_Controller
      */
     private function _lencana_hasil_komplain($r, array $hasil)
     {
-        if (((int) $r->ir_k + (int) $r->bk_k) < 1) return '-';
-        if (!$hasil) return '<span class="dd-pill dd-p-abu" title="Ada scan retur komplain, tetapi belum ada hasil Buka Retur">Belum ada hasil buka</span>';
+        if (!$hasil) return '<span class="dd-pill dd-p-abu" title="Belum ada hasil Buka Retur untuk resi ini">Belum ada hasil buka</span>';
 
         $label = array(
             'KE_DISPLAY' => 'KE DISPLAY', 'REJECT' => 'REJECT', 'REFUND' => 'REFUND', 'PENUKARAN_BERES' => 'PENDINGAN BERES (PB)',
