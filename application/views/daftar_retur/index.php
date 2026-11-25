@@ -232,6 +232,9 @@ $BASE = rtrim(base_url(), '/') . '/';
 #dr_wrap:not(.mode-pilih) table.dataTable th:first-child, #dr_wrap:not(.mode-pilih) table.dataTable td:first-child { display:none; }
 /* Progress (kolom 10) dan Status Jubelio (kolom 11) tampil di semua tab; Status Jubelio paling akhir. */
 #dr_wrap table.dataTable tbody td:nth-child(11) { overflow:visible; }
+/* Hasil Buka Komplain (kolom 12): hanya tampil di tab Sudah Verifikasi */
+#dr_wrap:not([data-tab="SUDAH_VERIF"]) table.dataTable th:nth-child(12), #dr_wrap:not([data-tab="SUDAH_VERIF"]) table.dataTable td:nth-child(12) { display:none; }
+#dr_wrap table.dataTable tbody td:nth-child(12) { white-space:normal; overflow:visible; }
 .dr-sr { display:inline-block; margin-right:4px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:700; line-height:20px; white-space:nowrap; }
 .dr-sr-selesai { background:#dcfce7; color:#166534; }
 .dr-sr-tolak { background:#fee2e2; color:#b91c1c; }
@@ -518,6 +521,7 @@ $BASE = rtrim(base_url(), '/') . '/';
         </span></th>
         <th>Progress</th>
         <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED) / SELESAI (DATA LAMA) / DITOLAK (PENYESUAIAN) / SELESAI (PENGEMBALIAN DANA)). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
+        <th title="Kategori hasil Buka Retur untuk retur komplain (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) dan jumlah pcs-nya. Hanya tampil di tab Sudah Verifikasi.">Hasil Buka Komplain</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -673,7 +677,7 @@ $(document).ready(function () {
         pagingType: 'full_numbers',   // tombol « awal, ‹ sebelumnya, nomor, › berikutnya, » akhir
         lengthMenu: [[10, 15, 25, 50, 100], [10, 15, 25, 50, 100]],
         order: [[8, 'desc']],          // umur terbesar di atas
-        columnDefs: [{ targets: 0, orderable: false, searchable: false }],
+        columnDefs: [{ targets: 0, orderable: false, searchable: false }, { targets: 11, orderable: false }],
         drawCallback: function () {
             // pulihkan centang resi yang sudah dipilih (juga setelah ganti halaman / urutan)
             $('#dt_daftar_retur .dr-pilih').each(function () { this.checked = !!sel[$(this).attr('data-resi')]; });
