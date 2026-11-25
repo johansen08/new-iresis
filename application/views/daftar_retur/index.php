@@ -521,7 +521,7 @@ $BASE = rtrim(base_url(), '/') . '/';
         </span></th>
         <th>Progress</th>
         <th title="Status retur dari Jubelio (kolom status_retur: BARANG RETUR / SELESAI / DITOLAK / SELESAI (PESANAN COMPLETED) / SELESAI (DATA LAMA) / DITOLAK (PENYESUAIAN) / SELESAI (PENGEMBALIAN DANA) / SELESAI (BUKAN BARANG KITA) / SELESAI (REJECT) / SELESAI (BARANG TIDAK ADA)). Ikon segitiga kuning = sudah diverifikasi di iresis, tetapi di Jubelio masih BARANG RETUR (belum final).">Status Retur</th>
-        <th title="Kategori hasil Buka Retur untuk retur komplain (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) dan jumlah pcs-nya. Hanya tampil di tab Sudah Verifikasi.">Hasil Buka Komplain</th>
+        <th title="Hasil Buka Retur (REJECT, BUKAN BARANG KITA, KE DISPLAY, dll) beserta jumlah pcs-nya, misal REJECT ×1. Hanya tampil di tab Sudah Verifikasi.">Detail Buka</th>
       </tr>
     </thead>
     <tbody></tbody>
