@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-24.3';
+    const BOOTSTRAP_VERSI = '2026-11-25.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -180,6 +180,7 @@ class MY_Controller extends CI_Controller
         $this->run_bonus_picker_migration();
         $this->run_bonus_packer_migration();
         $this->run_daftar_retur_penjualan_migration();
+        $this->run_dashboard_retur_new_menu_migration();
         $this->run_stok_retur_buka_menu_migration();
         $this->run_tanggal_pencairan_mp_migration();
         $this->run_status_dicek_migration();
@@ -2855,6 +2856,54 @@ class MY_Controller extends CI_Controller
                         'createdby' => 1
                     ]);
                 }
+            }
+        }
+    }
+
+    /**
+     * Menu "Dashboard Retur New" (TIM RETUR, uri retur/dashboard-retur-new): progres retur 6 tahap + peringkat MP / Kurir / Toko.
+     * Hak akses disalin dari menu Daftar Retur Penjualan (angkanya dari data yang sama); hanya menambah, tidak pernah menghapus.
+     */
+    protected function run_dashboard_retur_new_menu_migration()
+    {
+        $uri = 'retur/dashboard-retur-new';
+
+        $menu = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => $uri])->row();
+        $saudara = $this->db->order_by('id', 'ASC')->limit(1)->get_where('menu', ['uri' => 'retur/daftar-retur-penjualan'])->row();
+        if (!$menu) {
+            if (!$saudara) {
+                return;
+            }
+            $this->db->insert('menu', [
+                'name'        => 'Dashboard Retur New',
+                'parentid'    => $saudara->parentid,
+                'uri'         => $uri,
+                'icon'        => 'fa fa-bar-chart-o',
+                'sortorder'   => 2,
+                'description' => 'Progres retur 6 tahap dan peringkat per marketplace, kurir, dan toko (data sama dengan Daftar Retur Penjualan).',
+                'isactive'    => 1,
+                'createdby'   => 1,
+                'created'     => date('Y-m-d H:i:s')
+            ]);
+            $menu_id = $this->db->insert_id();
+        } else {
+            $menu_id = $menu->id;
+        }
+
+        $role_boleh = [1];
+        if ($saudara) {
+            foreach ($this->db->get_where('roleaccess', ['menuid' => $saudara->id])->result() as $r) {
+                $role_boleh[] = (int) $r->roleid;
+            }
+        }
+        foreach (array_unique($role_boleh) as $roleid) {
+            if (!$this->db->get_where('roleaccess', ['roleid' => $roleid, 'menuid' => $menu_id])->row()) {
+                $this->db->insert('roleaccess', [
+                    'roleid'    => $roleid,
+                    'menuid'    => $menu_id,
+                    'created'   => date('Y-m-d H:i:s'),
+                    'createdby' => 1
+                ]);
             }
         }
     }
