@@ -16,7 +16,7 @@ Efeknya pada `tblprintresi`:
   data lama itu tidak diisi ulang dan baru terganti bila `status_pesanan` resinya berubah.
 * `status_label_mp` = kolom **Status** Excel (label asli marketplace; dicari lewat judul kolom, di ekspor sekarang kolom X).
   Diisi untuk resi baru dan resi yang `status_pesanan`-nya berubah. Resi lama yang statusnya tetap hanya disentuh bila
-  labelnya **Paket Hilang** atau label tersimpannya berubah, jadi `NULL` pada resi lama bukan berarti tanpa label.
+  labelnya **Paket Hilang**, **Ready To Ship** pada pesanan PROCESSING (dipakai Cek Paket RTS), atau label tersimpannya berubah, jadi `NULL` pada resi lama bukan berarti tanpa label.
   File / sumber tanpa kolom itu (mis. core-api) tidak mengubah `status_label_mp`.
 * **Hitungan penjualan:** `status_pesanan = 'COMPLETED' AND COALESCE(status_label_mp,'') <> 'Paket Hilang'`, per bulan
   `tanggal_pesan`, jumlahkan `tbldetailprintresi.jumlah`. Resi di luar jendela unggah 90 hari tidak terisi otomatis.
