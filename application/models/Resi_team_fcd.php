@@ -830,6 +830,7 @@ class Resi_team_fcd extends CI_Model
             rk.tanggal_resikeluar as tanggal_ho,
             k.nama_kurir as kurir,
             pr.status_wms,
+            pr.status_label_mp,
             pr.status_pesanan,
             pr.batal
         ');
