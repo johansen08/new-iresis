@@ -39,9 +39,9 @@ Bila lolos: `UPDATE tblsku SET kategori_sku` per SKU (pencocokan `BINARY`) dalam
 
 ### Info "Upload kategori terakhir"
 
-Tampil di bawah judul kedua menu (Update Kategori SKU dan Kategori SKU), bergaya sama dengan "Update otomatis terakhir" di Daftar Retur Penjualan: waktu, pengunggah, jumlah SKU diupload, dan jumlah yang berubah (nama berkas muncul saat kursor di atas waktu). Di menu upload, info langsung diperbarui setelah upload berhasil. Upload yang ditolak tidak dihitung.
+Tampil di bawah judul kedua menu (Update Kategori SKU dan Kategori SKU), bergaya sama dengan "Update otomatis terakhir" di Daftar Retur Penjualan: waktu dan pengunggah (nama berkas muncul saat kursor di atas waktu); jumlah SKU tidak ditampilkan, hanya disimpan. Di menu upload, info langsung diperbarui setelah upload berhasil. Upload yang ditolak tidak dihitung.
 
-Sumbernya `tblkategori_sku_upload` (satu baris per upload berhasil, termasuk yang tidak mengubah apa pun). Bila tabel itu masih kosong, dipakai batch terakhir di `tblkategori_sku_riwayat`; untuk data lama ini jumlah SKU diupload tidak diketahui sehingga hanya jumlah yang berubah yang tampil. View bersama: `views/kategori_sku/_upload_terakhir.php`.
+Sumbernya `tblkategori_sku_upload` (satu baris per upload berhasil, termasuk yang tidak mengubah apa pun). Bila tabel itu masih kosong, dipakai batch terakhir di `tblkategori_sku_riwayat`; untuk data lama ini jumlah SKU diupload dan nama berkas tidak diketahui. View bersama: `views/kategori_sku/_upload_terakhir.php`.
 
 ---
 
