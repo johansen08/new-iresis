@@ -508,16 +508,17 @@
         dbMap = dbResult.map;
         const list = Object.values(dbMap);
         
-        // Filter for "Ready to ship" status locally
-        // WP Status (status_wms) usually contains "Ready to Ship"
+        // Ready to Ship = kolom "Status" Jubelio (status_label_mp) dan pesanan masih PROCESSING.
+        // Label bisa tertinggal saat status berubah lewat sumber tanpa kolom itu, jadi status ikut dicek.
+        // status_wms tidak dipakai: isinya status gudang (mis. FINISH_PICK), bukan Ready to Ship.
         rtsRows = list.filter(row => {
-            const status = (row.status_wms || '').toUpperCase();
-            return status.includes('READY TO SHIP') || status.includes('RTS');
+            return (row.status_pesanan || '').toUpperCase() === 'PROCESSING'
+                && (row.status_label_mp || '').toUpperCase() === 'READY TO SHIP';
         }).map(row => {
             return {
                 noresi: row.noresi,
                 kurir: row.kurir,
-                status: row.status_wms || row.status_pesanan || 'Ready to Ship',
+                status: row.status_label_mp,
                 tanggal: row.tanggal
             };
         });
