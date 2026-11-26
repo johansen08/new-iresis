@@ -159,7 +159,7 @@ class Receipt_fcd extends CI_Model
             , sp_packer.status_name as packer_status
             , retur.tanggal_resiretur as tanggal_diterima
             , (SELECT MAX(tanggal_buka_retur) FROM tblbukaretur WHERE resi_buka = t.noresi) as tanggal_dibuka
-            , (SELECT GROUP_CONCAT(DISTINCT status_detail_buka SEPARATOR ", ") FROM tblbukaretur WHERE resi_buka = t.noresi) as status_dibuka
+            , (SELECT GROUP_CONCAT(DISTINCT status_label_mp_buka SEPARATOR ", ") FROM tblbukaretur WHERE resi_buka = t.noresi) as status_dibuka
             , verif.verified_at as tanggal_acc'
         );
 
@@ -1686,6 +1686,23 @@ class Receipt_fcd extends CI_Model
                 return '';
             };
 
+            // Kolom "Status" (label asli marketplace, mis. "Paket Hilang") -> tblprintresi.status_label_mp.
+            // NULL = file ini tidak membawa kolom itu (atau migrasi belum jalan): status_label_mp tidak disentuh.
+            $kol_label = $this->db->field_exists('status_label_mp', 'tblprintresi')
+                ? $this->cari_kolom_status_label_mp($receiptData) : null;
+            $label_baris = function (array $row) use ($kol_label) {
+                $teks = $kol_label === null ? '' : mb_substr(trim((string)($row[$kol_label] ?? '')), 0, 50);
+                return $teks !== '' ? $teks : null;
+            };
+            // Resi lama yang statusnya TIDAK berubah hanya disentuh bila labelnya "Paket Hilang",
+            // atau sudah punya label tersimpan yang kini beda. Tanpa batasan ini unggahan 90 hari
+            // akan meng-UPDATE ratusan ribu baris lama hanya untuk mengisi kolom baru.
+            $perlu_isi_label = function (?string $baru, string $lama) {
+                if ($baru === null || strcasecmp($baru, $lama) === 0) return false;
+                return $lama !== '' || strcasecmp($baru, 'Paket Hilang') === 0;
+            };
+            $label_lama_map = [];
+
             // Check for existing records with status-based logic
             $existing_noresi = [];
             $update_candidates = [];
@@ -1698,7 +1715,8 @@ class Receipt_fcd extends CI_Model
                 $noresi_chunks = array_chunk($noresi_list, $chunk_size);
 
                 foreach ($noresi_chunks as $chunk) {
-                    $this->db->select('noresi, status_pesanan, id_printresi, tanggal_retur');
+                    $this->db->select('noresi, status_pesanan, id_printresi, tanggal_retur'
+                        . ($kol_label !== null ? ', status_label_mp' : ''));
                     $this->db->from('tblprintresi');
                     $this->db->where_in('noresi', $chunk);
                     $existing_result = $this->db->get()->result();
@@ -1706,9 +1724,10 @@ class Receipt_fcd extends CI_Model
                     foreach ($existing_result as $row) {
                         $status = strtoupper(trim($row->status_pesanan ?? ''));
                         $existing_status_map[$row->noresi] = $status;
+                        $label_lama_map[$row->noresi] = trim((string) ($row->status_label_mp ?? ''));
                         if ($status === 'COMPLETED') {
-                            // Skip - status is COMPLETED, do not update
-                            $existing_noresi[$row->noresi] = 'completed_skip';
+                            // Skip - status is COMPLETED, do not update (kecuali status_label_mp, lihat di bawah)
+                            $existing_noresi[$row->noresi] = (int) $row->id_printresi;
                             $total_duplicate_skip++;
                         } else {
                             // Can be updated - status is null, empty string, or anything except COMPLETED
@@ -1725,6 +1744,7 @@ class Receipt_fcd extends CI_Model
             $batch_header_map = [];
             $batch_detail_map = [];
             $batch_update_map = [];
+            $batch_label_map = [];   // resi COMPLETED lama: hanya status_label_mp yang diisi
             $total_updated = 0;
 
             $lapor('olah', 'Mengolah ' . number_format(count($receiptData), 0, ',', '.') . ' baris data...', 30);
@@ -1744,6 +1764,17 @@ class Receipt_fcd extends CI_Model
 
                 // Skip if already exists and is COMPLETED
                 if (isset($existing_noresi[$noresi])) {
+                    // "Paket Hilang" datang sebagai COMPLETED dan bisa baru muncul setelah resinya
+                    // COMPLETED di sini, jadi hanya status_label_mp yang boleh menyusul.
+                    $label = $label_baris($row);
+                    if ($new_status_upper === 'COMPLETED' && $perlu_isi_label($label, $label_lama_map[$noresi] ?? '')) {
+                        $batch_label_map[$noresi] = [
+                            'id_printresi'  => $existing_noresi[$noresi],
+                            'status_label_mp' => $label,
+                            'modified_at'   => date('Y-m-d H:i:s'),
+                            'modified_by'   => $user_id
+                        ];
+                    }
                     continue; // This will be counted in total_duplicate_skip already
                 }
 
@@ -1806,6 +1837,10 @@ class Receipt_fcd extends CI_Model
                             'modified_at'         => date('Y-m-d H:i:s'),
                             'modified_by'         => $user_id
                         ];
+                        // Status berubah: label lama ikut diganti (bisa jadi kosong).
+                        if ($kol_label !== null) {
+                            $batch_update_map[$noresi]['status_label_mp'] = $label_baris($row);
+                        }
                         // Hanya timpa nomorpicklist kalau ada nilai baru - jangan kosongkan
                         // yang sudah ada (sumber data spt Jubelio core-api tidak punya field ini).
                         if (!empty($row['C'])) {
@@ -1836,7 +1871,16 @@ class Receipt_fcd extends CI_Model
                                 'modified_at'   => date('Y-m-d H:i:s'),
                                 'modified_by'   => $user_id
                             ];
-                        } else {
+                        }
+                        $label = $label_baris($row);
+                        if ($perlu_isi_label($label, $label_lama_map[$noresi] ?? '')) {
+                            $batch_update_map[$noresi] = array_merge($batch_update_map[$noresi] ?? [
+                                'id_printresi' => $update_candidates[$noresi]['id_printresi'],
+                                'modified_at'  => date('Y-m-d H:i:s'),
+                                'modified_by'  => $user_id
+                            ], ['status_label_mp' => $label]);
+                        }
+                        if (!isset($batch_update_map[$noresi])) {
                             $total_skip_update_same_status++;
                         }
                     }
@@ -1910,6 +1954,9 @@ class Receipt_fcd extends CI_Model
                         'created_at'          => $now,
                         'created_by'          => $user_id
                     ];
+                    if ($kol_label !== null) {
+                        $batch_header_map[$noresi]['status_label_mp'] = $label_baris($row);
+                    }
                 }
 
                 // Detail: sum per noresi + no_pesanan + sku
@@ -2051,6 +2098,12 @@ class Receipt_fcd extends CI_Model
                 $total_updated = $jumlah_update;
             }
 
+            foreach (array_chunk(array_values($batch_label_map), 200) as $chunk) {
+                if ($this->db->update_batch('tblprintresi', $chunk, 'id_printresi') === FALSE) {
+                    throw new Exception('Gagal mengisi label status resi: ' . $this->pesan_error_db());
+                }
+            }
+
             // Complete transaction
             $lapor('commit', 'Menyelesaikan transaksi database...', 96);
             $this->db->trans_complete();
@@ -2062,6 +2115,9 @@ class Receipt_fcd extends CI_Model
             $this->db->db_debug = $db_debug_awal;
 
             $message = "Total Data Terinput: $total_success_insert | Dilewati: $total_skip_insert | Duplikat: $total_duplicate_skip | Diupdate: $total_updated | Data Tidak Berubah: $total_skip_update_same_status";
+            if ($kol_label !== null) {
+                $message .= ' | Label status diisi pada resi COMPLETED lama: ' . count($batch_label_map);
+            }
             log_message('info', $message);
 
             return $message;
@@ -2073,6 +2129,23 @@ class Receipt_fcd extends CI_Model
             log_message('error', $error_message);
             return $error_message;
         }
+    }
+
+    /**
+     * Huruf kolom berjudul persis "Status" pada baris judul (ekspor Jubelio: kolom X). Dicari lewat
+     * judul, bukan huruf tetap, supaya tidak tertukar dengan STATUS_PESANAN / "Status WMS" dan file
+     * lama atau data API tanpa kolom itu menghasilkan null.
+     */
+    private function cari_kolom_status_label_mp(array $receiptData): ?string
+    {
+        foreach ($receiptData as $row) {
+            if (($row['A'] ?? null) !== 'NO_PESANAN') continue;
+            foreach ($row as $kolom => $judul) {
+                if (strcasecmp(trim((string) $judul), 'Status') === 0) return $kolom;
+            }
+            return null;
+        }
+        return null;
     }
 
     /** Pesan error terakhir dari driver DB, untuk dilampirkan ke Exception. */

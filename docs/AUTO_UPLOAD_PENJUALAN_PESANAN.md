@@ -10,7 +10,14 @@ Efeknya pada `tblprintresi`:
   tanggal pesan/batas kirim/pengiriman/selesai, kurir, marketplace, toko, `status_wms`.
 * `tanggal_retur` diisi dari kolom **TGL_RETUR + WAKTU_RETUR** (tanggal & jam retur). Bila Excel membawa nilai baru yang
   beda dengan DB, nilainya ditimpa; baris tanpa tanggal retur **tidak** mengosongkan yang sudah ada.
-* Resi yang sudah `COMPLETED` di IRESIS tidak diubah (aturan lama `insert_receipt`); resi baru di rentang itu di-insert.
+* Resi yang sudah `COMPLETED` di IRESIS tidak diubah (aturan lama `insert_receipt`), kecuali `status_label_mp` (di bawah);
+  resi baru di rentang itu di-insert.
+* `status_label_mp` = kolom **Status** Excel (label asli marketplace; dicari lewat judul kolom, di ekspor sekarang kolom X).
+  Diisi untuk resi baru dan resi yang `status_pesanan`-nya berubah. Resi lama yang statusnya tetap hanya disentuh bila
+  labelnya **Paket Hilang** atau label tersimpannya berubah, jadi `NULL` pada resi lama bukan berarti tanpa label.
+  File / sumber tanpa kolom itu (mis. core-api) tidak mengubah `status_label_mp`.
+* **Hitungan penjualan:** `status_pesanan = 'COMPLETED' AND COALESCE(status_label_mp,'') <> 'Paket Hilang'`, per bulan
+  `tanggal_pesan`, jumlahkan `tbldetailprintresi.jumlah`. Resi di luar jendela unggah 90 hari tidak terisi otomatis.
 
 ## Alur (jalur laporan hasil sniff 21 Nov 2026, tanpa browser)
 

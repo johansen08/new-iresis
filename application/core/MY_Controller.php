@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-26.1';
+    const BOOTSTRAP_VERSI = '2026-11-26.2';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -202,6 +202,7 @@ class MY_Controller extends CI_Controller
         $this->run_kategori_sku_migration();
         $this->run_daftar_kategori_sku_migration();
         $this->run_serah_terima_retur_migration();
+        $this->run_status_label_mp_migration();
 
         @file_put_contents($penanda, self::BOOTSTRAP_VERSI, LOCK_EX);
 
@@ -3005,6 +3006,30 @@ class MY_Controller extends CI_Controller
             $ada_kol = $this->db->query('SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?', array($arsip, 'tblprintresi', 'tanggal_pencairan'))->row();
             if ($ada_db && !$ada_kol) {
                 $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `tanggal_pencairan` DATETIME DEFAULT NULL");
+            }
+        }
+    }
+
+    /**
+     * Label asli marketplace dari kolom "Status" ekspor Jubelio (mis. "Paket Hilang", yang
+     * STATUS_PESANAN-nya COMPLETED), diisi Receipt_fcd::insert_receipt(). NULL = belum pernah diisi.
+     * Di ujung tabel dan NULL agar ALTER bersifat INSTANT; skema arsip disamakan (lihat catatan di
+     * run_tanggal_pencairan_mp_migration).
+     */
+    protected function run_status_label_mp_migration()
+    {
+        if (!$this->db->field_exists('status_label_mp', 'tblprintresi')) {
+            $this->db->query("ALTER TABLE `tblprintresi`
+                ADD COLUMN `status_label_mp` VARCHAR(50) DEFAULT NULL");
+        }
+
+        $this->config->load('arsip', TRUE, TRUE);
+        $arsip = (string) $this->config->item('db_arsip', 'arsip');
+        if (preg_match('/^[A-Za-z0-9_]+$/', $arsip)) {
+            $ada_db = $this->db->query('SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?', array($arsip, 'tblprintresi'))->row();
+            $ada_kol = $this->db->query('SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?', array($arsip, 'tblprintresi', 'status_label_mp'))->row();
+            if ($ada_db && !$ada_kol) {
+                $this->db->query("ALTER TABLE `{$arsip}`.`tblprintresi` ADD COLUMN `status_label_mp` VARCHAR(50) DEFAULT NULL");
             }
         }
     }

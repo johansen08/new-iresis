@@ -79,7 +79,8 @@ class Cron extends CI_Controller
             // PhpSpreadsheet untuk .xls -- hasilnya identik dengan toArray() lama.
             $file = $_FILES['receiptFile']['tmp_name'];
             $this->load->library('xlsx_cepat');
-            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'W');
+            // Sampai AA: kolom "Status" (X) ada di kanan W.
+            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'AA');
 
             $this->load->model('receipt_fcd');
             // admin_pegawai NOT NULL tanpa default: user_id wajib bernilai valid ('0' = sistem), bukan null
