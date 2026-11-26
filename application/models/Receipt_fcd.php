@@ -1699,12 +1699,14 @@ class Receipt_fcd extends CI_Model
                 $teks = $kol_label === null ? '' : mb_substr(trim((string)($row[$kol_label] ?? '')), 0, 50);
                 return $teks !== '' ? $teks : null;
             };
-            // Resi lama yang statusnya TIDAK berubah hanya disentuh bila labelnya "Paket Hilang",
+            // Resi lama yang statusnya TIDAK berubah hanya disentuh bila labelnya "Paket Hilang"
+            // (hitungan penjualan), "Ready To Ship" pada pesanan PROCESSING (Cek Paket RTS),
             // atau sudah punya label tersimpan yang kini beda. Tanpa batasan ini unggahan 90 hari
             // akan meng-UPDATE ratusan ribu baris lama hanya untuk mengisi kolom baru.
-            $perlu_isi_label = function (?string $baru, string $lama) {
+            $perlu_isi_label = function (?string $baru, string $lama, string $status) {
                 if ($baru === null || strcasecmp($baru, $lama) === 0) return false;
-                return $lama !== '' || strcasecmp($baru, 'Paket Hilang') === 0;
+                return $lama !== '' || strcasecmp($baru, 'Paket Hilang') === 0
+                    || ($status === 'PROCESSING' && strcasecmp($baru, 'Ready To Ship') === 0);
             };
             $label_lama_map = [];
 
@@ -1772,7 +1774,7 @@ class Receipt_fcd extends CI_Model
                     // "Paket Hilang" datang sebagai COMPLETED dan bisa baru muncul setelah resinya
                     // COMPLETED di sini, jadi hanya status_label_mp yang boleh menyusul.
                     $label = $label_baris($row);
-                    if ($new_status_upper === 'COMPLETED' && $perlu_isi_label($label, $label_lama_map[$noresi] ?? '')) {
+                    if ($new_status_upper === 'COMPLETED' && $perlu_isi_label($label, $label_lama_map[$noresi] ?? '', $new_status_upper)) {
                         $batch_label_map[$noresi] = [
                             'id_printresi'  => $existing_noresi[$noresi],
                             'status_label_mp' => $label,
@@ -1880,7 +1882,7 @@ class Receipt_fcd extends CI_Model
                             ];
                         }
                         $label = $label_baris($row);
-                        if ($perlu_isi_label($label, $label_lama_map[$noresi] ?? '')) {
+                        if ($perlu_isi_label($label, $label_lama_map[$noresi] ?? '', $new_status_upper)) {
                             $batch_update_map[$noresi] = array_merge($batch_update_map[$noresi] ?? [
                                 'id_printresi' => $update_candidates[$noresi]['id_printresi'],
                                 'modified_at'  => date('Y-m-d H:i:s'),
