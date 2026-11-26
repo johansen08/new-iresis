@@ -120,6 +120,9 @@ if (!empty($akses_ditolak)) : ?>
     #kd-root .kd-card-data { grid-column:1 / -1; order:-1; }
   }
   #kd-root .kd-belum { color:#ea580c; font-weight:700; }
+  #kd-root .kd-th-belum:empty { display:none; }
+  #kd-root .kd-th-belum { padding:2px 7px; border:1px solid #fdba74; border-radius:999px; background:#fff7ed; color:#c2410c; font-size:11.5px; font-weight:700; letter-spacing:0; font-variant-numeric:tabular-nums; }
+  #kd-root .kd-total-hp { display:none; }
   #kd-root .kd-sort { display:inline-flex; align-items:center; gap:6px; padding:0; border:0; background:none; color:inherit; font-size:inherit; font-weight:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; white-space:nowrap; }
   #kd-root .kd-sort:hover, #kd-root .kd-sort.aktif { color:var(--kd-primary); }
   #kd-root .kd-sort .fa-sort { color:#cbd5e1; }
@@ -168,6 +171,8 @@ if (!empty($akses_ditolak)) : ?>
     #kd-root .kd-count { margin-left:0; }
     #kd-root .kd-info { grid-template-columns:1fr; }
     #kd-root .kd-p-kursor { display:none; }
+    #kd-root .kd-total-hp:not(:empty) { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; padding:10px 12px; border:1px solid #fdba74; border-radius:10px; background:#fff7ed; font-size:13px; color:#7c2d12; }
+    #kd-root .kd-total-hp > strong { width:100%; font-size:12px; }
     #kd-root .kd-hitung { width:100%; height:44px; justify-content:center; font-size:15px; }
     #kd-root .kd-table-wrap.menghitung::before { display:none; }
     #kd-root .kd-urut { display:block; width:100%; height:44px; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:var(--kd-text); font-size:15px; }
@@ -244,7 +249,7 @@ if (!empty($akses_ditolak)) : ?>
           <div class="kd-contoh-kotak"><span class="kd-contoh-angka">1.250</span><span class="kd-contoh-nama">Final</span></div>
           <div class="kd-contoh-kotak oranye"><span class="kd-contoh-angka">1.250</span><span class="kd-contoh-nama">Masih bisa berubah</span></div>
         </div>
-        <p class="kd-card-kaki">Orange = masih ada pesanan <b>SHIPPED</b>, <b>PROCESSING</b>, dll.</p>
+        <p class="kd-card-kaki">Orange = masih ada pesanan <b>SHIPPED</b>, <b>PROCESSING</b>, dll. <b class="kd-belum">(103)</b> di judul kolom = total pcs belum final.</p>
       </section>
 
       <section class="kd-card kd-card-data" id="kd-data" data-keadaan="muat" aria-labelledby="kd-j3">
@@ -258,9 +263,10 @@ if (!empty($akses_ditolak)) : ?>
         </div>
       </section>
     </div>
+    <div class="kd-total-hp" id="kd-total-hp"></div>
     <div class="kd-table-wrap" id="kd-wrap">
       <table class="kd-table">
-        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $j => $b) : ?><th class="kd-jual" aria-sort="none"><button type="button" class="kd-sort" data-urut="<?= (int) $j ?>" title="Urutkan penjualan <?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?> <i class="fa fa-sort"></i></button></th><?php endforeach; ?></tr></thead>
+        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $j => $b) : ?><th class="kd-jual" aria-sort="none"><button type="button" class="kd-sort" data-urut="<?= (int) $j ?>" title="Urutkan penjualan <?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?> <span class="kd-th-belum" data-bulan="<?= (int) $j ?>"></span> <i class="fa fa-sort"></i></button></th><?php endforeach; ?></tr></thead>
         <tbody id="kd-body"><tr><td colspan="<?= 4 + count($bulan_jual) ?>" class="kd-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
@@ -345,10 +351,23 @@ if (!empty($akses_ditolak)) : ?>
     $('#kd-body').html(html || '<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
   }
 
+  /** "(103)" di judul tiap kolom bulan = total pcs belum final seluruh SKU yang cocok; kosong bila 0. */
+  function tulisTotalBelum(total) {
+    var hp = '';
+    BULAN.forEach(function (label, j) {
+      var v = total ? total[j] : 0, teks = v > 0 ? '(' + fmt(v) + ')' : '';
+      $('#kd-root .kd-th-belum[data-bulan="' + j + '"]').text(teks)
+        .attr('title', v > 0 ? fmt(v) + ' pcs belum final (semua SKU sesuai pencarian dan filter)' : '');
+      if (v > 0) { hp += '<span class="kd-belum">' + esc(label) + ' ' + teks + '</span>'; }
+    });
+    $('#kd-total-hp').html(hp ? '<strong>Total pcs belum final</strong>' + hp : '');
+  }
+
   function gambar(d, awal) {
     baris = d.baris;
     nomorAwal = awal;
     gambarBaris();
+    tulisTotalBelum(d.total_belum);
     terimaInfo(d.jual_info);
     $('#kd-count').text(fmt(d.total) + ' SKU');
     $('#kd-hal').text('Halaman ' + d.halaman + ' / ' + d.total_halaman);

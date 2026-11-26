@@ -115,6 +115,9 @@ tiap ganti bulan. Ikut di layar dan Export Excel.
 * **Angka orange** (layar dan Excel) = SKU itu di bulan itu masih punya pesanan belum final (status selain
   COMPLETED / RETURNED / CANCELED). Ditandai per angka, bukan seluruh kolom. Pesanan + SKU yang sudah punya salinan
   berstatus final (resi lama yang diganti) diabaikan. Pesanan tanpa nomor resi tidak ada di iresis, jadi tidak ikut.
+* **Judul kolom** membawa total pcs belum final, mis. `NOV/26 (103)`: jumlah semua SKU yang cocok dengan pencarian /
+  filter (bukan hanya halaman tampil). Tidak tampil bila 0. Ikut di judul Export Excel; di HP tampil sebagai ringkasan
+  di atas daftar.
 * **Sort** per kolom bulan: klik judul (terbanyak, tersedikit, kembali urut SKU); di HP lewat pilihan "Urut".
   Berlaku untuk semua SKU yang cocok (bukan hanya halaman tampil) dan ikut di Export Excel.
 * Cache `application/cache/penjualan_sku_YYYY-MM.json`, masa berlaku 30 menit. Layar **selalu** tampil dari cache
