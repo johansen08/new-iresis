@@ -60,7 +60,23 @@ if (!empty($akses_ditolak)) : ?>
   #kd-root .kd-table > tbody > tr:last-child > td { border-bottom:0; }
   #kd-root .kd-sku { font-weight:600; color:var(--kd-ink); }
   #kd-root .kd-table > thead > tr > th.kd-jual, #kd-root .kd-table > tbody > tr > td.kd-jual { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  #kd-root .kd-ket { margin:8px 2px 0; font-size:12px; color:var(--kd-muted); }
+  #kd-root .kd-info { display:flex; flex-wrap:wrap; align-items:stretch; gap:10px; margin:0 0 14px; }
+  #kd-root .kd-info-item, #kd-root .kd-info-waktu { display:flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid; border-radius:10px; }
+  #kd-root .kd-info-item { flex:1 1 260px; }
+  #kd-root .kd-info-jual { border-color:#c7d2fe; background:#eef2ff; }
+  #kd-root .kd-info-oranye { border-color:#fdba74; background:#fff7ed; box-shadow:inset 4px 0 0 #ea580c; }
+  #kd-root .kd-info-ikon { flex:none; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:9px; font-size:14px; font-weight:700; color:#fff; }
+  #kd-root .kd-info-jual .kd-info-ikon { background:var(--kd-primary); }
+  #kd-root .kd-info-oranye .kd-info-ikon { background:#ea580c; }
+  #kd-root .kd-info-teks { display:flex; flex-direction:column; gap:2px; min-width:0; text-align:left; }
+  #kd-root .kd-info-teks > strong { font-size:13.5px; line-height:1.35; color:var(--kd-ink); }
+  #kd-root .kd-info-teks > span { font-size:12px; line-height:1.45; color:#475569; }
+  #kd-root .kd-info-oranye .kd-info-teks > strong { color:#c2410c; }
+  #kd-root .kd-info-waktu { flex:0 0 auto; border-color:var(--kd-line); background:var(--kd-bg); }
+  #kd-root .kd-info-waktu > i { font-size:20px; color:#64748b; }
+  #kd-root .kd-info-waktu strong { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #kd-root .kd-info-waktu.gagal { border-color:#fecaca; background:#fef2f2; }
+  #kd-root .kd-info-waktu.gagal > i, #kd-root .kd-info-waktu.gagal strong { color:#b91c1c; }
   #kd-root .kd-belum { color:#ea580c; font-weight:700; }
   #kd-root .kd-sort { display:inline-flex; align-items:center; gap:6px; padding:0; border:0; background:none; color:inherit; font-size:inherit; font-weight:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; white-space:nowrap; }
   #kd-root .kd-sort:hover, #kd-root .kd-sort.aktif { color:var(--kd-primary); }
@@ -108,6 +124,9 @@ if (!empty($akses_ditolak)) : ?>
     #kd-root .kd-ms-panel { left:0; right:0; }
     #kd-root .kd-ms-opt { padding:12px 10px; font-size:15px; }
     #kd-root .kd-count { margin-left:0; }
+    #kd-root .kd-info { flex-direction:column; }
+    #kd-root .kd-info-item { flex:none; }
+    #kd-root .kd-info-kursor { display:none; }
     #kd-root .kd-urut { display:block; width:100%; height:44px; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:var(--kd-text); font-size:15px; }
     #kd-root .kd-xls { width:100%; justify-content:center; height:44px; font-size:15px; }
     #kd-root .kd-body { padding:12px 12px 8px; }
@@ -164,13 +183,27 @@ if (!empty($akses_ditolak)) : ?>
       <span class="kd-count" id="kd-count"></span>
       <button type="button" class="kd-xls" id="kd-export" title="Unduh daftar (sesuai pencarian dan filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
+    <!-- Cara membaca kolom bulan: sengaja di atas tabel supaya terbaca sebelum angkanya. -->
+    <div class="kd-info" role="note" aria-label="Keterangan kolom penjualan">
+      <div class="kd-info-item kd-info-jual">
+        <span class="kd-info-ikon" aria-hidden="true"><i class="fa fa-bar-chart"></i></span>
+        <span class="kd-info-teks"><strong>Angka bulan = pcs terjual</strong><span>Pesanan <b>COMPLETED</b> tanpa <b>Paket Hilang</b>, menurut tanggal pesan</span></span>
+      </div>
+      <div class="kd-info-item kd-info-oranye">
+        <span class="kd-info-ikon" aria-hidden="true">123</span>
+        <span class="kd-info-teks"><strong>Angka orange = belum final</strong><span>Masih ada pesanan <b>SHIPPED / PROCESSING</b> dll, angka masih bisa berubah. <span class="kd-info-kursor">Arahkan kursor ke angka untuk lihat pcs-nya.</span></span></span>
+      </div>
+      <div class="kd-info-waktu" id="kd-waktu" aria-live="polite">
+        <i class="fa fa-clock-o" aria-hidden="true"></i>
+        <span class="kd-info-teks"><strong id="kd-dihitung">Menghitung...</strong><span>Diperbarui tiap 30 menit</span></span>
+      </div>
+    </div>
     <div class="kd-table-wrap">
       <table class="kd-table">
         <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $j => $b) : ?><th class="kd-jual" aria-sort="none"><button type="button" class="kd-sort" data-urut="<?= (int) $j ?>" title="Urutkan penjualan <?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?> <i class="fa fa-sort"></i></button></th><?php endforeach; ?></tr></thead>
         <tbody id="kd-body"><tr><td colspan="<?= 4 + count($bulan_jual) ?>" class="kd-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
-    <div class="kd-ket">Angka bulan = pcs terjual (pesanan COMPLETED tanpa Paket Hilang, menurut tanggal pesan). <span class="kd-belum">Angka orange</span> = masih ada pesanan belum final (mis. SHIPPED, PROCESSING), angkanya masih bisa berubah. <span id="kd-dihitung"></span></div>
     <div class="kd-pager">
       <div class="kd-pager-ctl">Tampilkan
         <select id="kd-ukuran"><option>25</option><option selected>50</option><option>100</option></select> baris</div>
@@ -250,7 +283,9 @@ if (!empty($akses_ditolak)) : ?>
         '<td data-label="No Rak">' + (r.no_rak ? esc(r.no_rak) : '<span class="kd-kosong">&ndash;</span>') + '</td>' +
         '<td data-label="Kategori">' + pil(r.kategori_sku) + '</td>' + selJual(r.jual, r.belum) + '</tr>';
     });
-    $('#kd-dihitung').text(d.jual_dihitung ? 'Dihitung ' + d.jual_dihitung + ', diperbarui tiap 30 menit.' : 'Data penjualan sedang tidak tersedia.');
+    var w = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(d.jual_dihitung || '');
+    $('#kd-dihitung').text(w ? 'Dihitung ' + w[3] + '/' + w[2] + '/' + w[1] + ' ' + w[4] : 'Data penjualan tidak tersedia');
+    $('#kd-waktu').toggleClass('gagal', !w);
     $('#kd-body').html(html || '<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
     $('#kd-count').text(fmt(d.total) + ' SKU');
     $('#kd-hal').text('Halaman ' + d.halaman + ' / ' + d.total_halaman);
