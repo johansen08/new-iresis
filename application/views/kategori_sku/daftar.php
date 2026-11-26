@@ -61,6 +61,11 @@ if (!empty($akses_ditolak)) : ?>
   #kd-root .kd-sku { font-weight:600; color:var(--kd-ink); }
   #kd-root .kd-table > thead > tr > th.kd-jual, #kd-root .kd-table > tbody > tr > td.kd-jual { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
   #kd-root .kd-ket { margin:8px 2px 0; font-size:12px; color:var(--kd-muted); }
+  #kd-root .kd-belum { color:#ea580c; font-weight:700; }
+  #kd-root .kd-sort { display:inline-flex; align-items:center; gap:6px; padding:0; border:0; background:none; color:inherit; font-size:inherit; font-weight:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; white-space:nowrap; }
+  #kd-root .kd-sort:hover, #kd-root .kd-sort.aktif { color:var(--kd-primary); }
+  #kd-root .kd-sort .fa-sort { color:#cbd5e1; }
+  #kd-root .kd-urut { display:none; }
   #kd-root .kd-kosong { color:#94a3b8; }
   #kd-root .kd-empty { padding:36px 12px !important; text-align:center; color:var(--kd-muted); }
   #kd-root .kd-empty i { display:block; font-size:26px; margin-bottom:8px; color:#cbd5e1; }
@@ -103,6 +108,7 @@ if (!empty($akses_ditolak)) : ?>
     #kd-root .kd-ms-panel { left:0; right:0; }
     #kd-root .kd-ms-opt { padding:12px 10px; font-size:15px; }
     #kd-root .kd-count { margin-left:0; }
+    #kd-root .kd-urut { display:block; width:100%; height:44px; padding:0 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:var(--kd-text); font-size:15px; }
     #kd-root .kd-xls { width:100%; justify-content:center; height:44px; font-size:15px; }
     #kd-root .kd-body { padding:12px 12px 8px; }
     /* tabel -> kartu per SKU */
@@ -147,16 +153,24 @@ if (!empty($akses_ditolak)) : ?>
           <div class="kd-ms-foot"><button type="button" id="kd-ms-reset">Reset</button></div>
         </div>
       </div>
+      <!-- Di HP judul kolom disembunyikan (tampilan kartu), jadi urutan dipilih dari sini. -->
+      <select class="kd-urut" id="kd-urut" aria-label="Urutkan">
+        <option value="">Urut: SKU</option>
+        <?php foreach ($bulan_jual as $j => $b) : ?>
+        <option value="<?= (int) $j ?>:desc"><?= htmlspecialchars($b) ?> terbanyak</option>
+        <option value="<?= (int) $j ?>:asc"><?= htmlspecialchars($b) ?> tersedikit</option>
+        <?php endforeach; ?>
+      </select>
       <span class="kd-count" id="kd-count"></span>
       <button type="button" class="kd-xls" id="kd-export" title="Unduh daftar (sesuai pencarian dan filter) sebagai file Excel"><i class="fa fa-file-excel-o"></i> Export Excel</button>
     </div>
     <div class="kd-table-wrap">
       <table class="kd-table">
-        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $b) : ?><th class="kd-jual"><?= htmlspecialchars($b) ?></th><?php endforeach; ?></tr></thead>
+        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $j => $b) : ?><th class="kd-jual" aria-sort="none"><button type="button" class="kd-sort" data-urut="<?= (int) $j ?>" title="Urutkan penjualan <?= htmlspecialchars($b) ?>"><?= htmlspecialchars($b) ?> <i class="fa fa-sort"></i></button></th><?php endforeach; ?></tr></thead>
         <tbody id="kd-body"><tr><td colspan="<?= 4 + count($bulan_jual) ?>" class="kd-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
-    <div class="kd-ket">Angka bulan = pcs terjual (pesanan COMPLETED tanpa Paket Hilang, menurut tanggal pesan). <span id="kd-dihitung"></span></div>
+    <div class="kd-ket">Angka bulan = pcs terjual (pesanan COMPLETED tanpa Paket Hilang, menurut tanggal pesan). <span class="kd-belum">Angka orange</span> = masih ada pesanan belum final (mis. SHIPPED, PROCESSING), angkanya masih bisa berubah. <span id="kd-dihitung"></span></div>
     <div class="kd-pager">
       <div class="kd-pager-ctl">Tampilkan
         <select id="kd-ukuran"><option>25</option><option selected>50</option><option>100</option></select> baris</div>
@@ -187,6 +201,7 @@ if (!empty($akses_ditolak)) : ?>
   var BELUM = '<?= htmlspecialchars($belum_ada, ENT_QUOTES) ?>';
   var BULAN = <?= json_encode(array_values($bulan_jual), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
   var LEBAR = 4 + BULAN.length;
+  var urut = '', arah = 'desc';
   var hal = 1, total = 0, totalHal = 1, kat = [], baris = [], reqKe = 0, timer = null;
 
   function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
@@ -205,11 +220,24 @@ if (!empty($akses_ditolak)) : ?>
   }
 
   /** Sel pcs per bulan; null = data penjualan gagal dihitung (strip, bukan 0). */
-  function selJual(jual) {
+  function selJual(jual, belum) {
     return BULAN.map(function (label, j) {
-      var v = jual ? jual[j] : null;
-      return '<td class="kd-jual" data-label="' + escAttr(label) + '">' + (v === null || v === undefined ? '<span class="kd-kosong">&ndash;</span>' : fmt(v)) + '</td>';
+      var v = jual ? jual[j] : null, isi;
+      if (v === null || v === undefined) { isi = '<span class="kd-kosong">&ndash;</span>'; }
+      else if (belum && belum[j] > 0) { isi = '<span class="kd-belum" title="' + fmt(belum[j]) + ' pcs belum final">' + fmt(v) + '</span>'; }
+      else { isi = fmt(v); }
+      return '<td class="kd-jual" data-label="' + escAttr(label) + '">' + isi + '</td>';
     }).join('');
+  }
+
+  /** Samakan panah judul kolom dan pilihan HP dengan urutan aktif. */
+  function tandaiUrut() {
+    $('#kd-root .kd-sort').each(function () {
+      var aktif = $(this).attr('data-urut') === urut;
+      $(this).toggleClass('aktif', aktif).find('i').attr('class', 'fa ' + (aktif ? (arah === 'asc' ? 'fa-sort-asc' : 'fa-sort-desc') : 'fa-sort'));
+      $(this).closest('th').attr('aria-sort', aktif ? (arah === 'asc' ? 'ascending' : 'descending') : 'none');
+    });
+    $('#kd-urut').val(urut === '' ? '' : urut + ':' + arah);
   }
 
   function gambar(d, awal) {
@@ -220,7 +248,7 @@ if (!empty($akses_ditolak)) : ?>
       html += '<tr><td class="kd-kosong kd-no">' + (awal + i + 1) + '</td>' +
         '<td class="kd-sku" data-label="SKU"><span class="kd-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '</span></span></td>' +
         '<td data-label="No Rak">' + (r.no_rak ? esc(r.no_rak) : '<span class="kd-kosong">&ndash;</span>') + '</td>' +
-        '<td data-label="Kategori">' + pil(r.kategori_sku) + '</td>' + selJual(r.jual) + '</tr>';
+        '<td data-label="Kategori">' + pil(r.kategori_sku) + '</td>' + selJual(r.jual, r.belum) + '</tr>';
     });
     $('#kd-dihitung').text(d.jual_dihitung ? 'Dihitung ' + d.jual_dihitung + ', diperbarui tiap 30 menit.' : 'Data penjualan sedang tidak tersedia.');
     $('#kd-body').html(html || '<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
@@ -234,7 +262,7 @@ if (!empty($akses_ditolak)) : ?>
   function muat() {
     var ini = ++reqKe, ukuran = parseInt($('#kd-ukuran').val(), 10) || 50;
     $.ajax({ url: 'purchasing/kategori-sku/get-data', type: 'POST', dataType: 'json', timeout: 120000,
-      data: { q: $.trim($('#kd-cari').val()), kat: kat, halaman: hal, ukuran: ukuran },
+      data: { q: $.trim($('#kd-cari').val()), kat: kat, halaman: hal, ukuran: ukuran, urut: urut, arah: arah },
       success: function (r) {
         if (ini !== reqKe) { return; }
         if (r.code !== 200) { $('#kd-body').html('<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-exclamation-triangle"></i>' + esc(r.message) + '</td></tr>'); return; }
@@ -282,6 +310,20 @@ if (!empty($akses_ditolak)) : ?>
   $(document).off('click.kdms').on('click.kdms', tutupKategori);
   $(document).off('keydown.kdms').on('keydown.kdms', function (e) { if (e.key === 'Escape') { tutupKategori(); } });
 
+  // sort per bulan: klik judul berputar terbanyak -> tersedikit -> kembali urut SKU
+  $('#kd-root').on('click', '.kd-sort', function () {
+    var k = $(this).attr('data-urut');
+    if (urut !== k) { urut = k; arah = 'desc'; }
+    else if (arah === 'desc') { arah = 'asc'; }
+    else { urut = ''; arah = 'desc'; }
+    tandaiUrut(); hal = 1; muat();
+  });
+  $('#kd-urut').on('change', function () {
+    var p = this.value.split(':');
+    urut = p[0]; arah = p[1] || 'desc';
+    tandaiUrut(); hal = 1; muat();
+  });
+
   $('#kd-cari').on('input', function () { clearTimeout(timer); timer = setTimeout(function () { hal = 1; muat(); }, 300); });
   $('#kd-ukuran').on('change', function () { hal = 1; muat(); });
   $('#kd-prev').on('click', function () { if (hal > 1) { hal--; muat(); } });
@@ -292,7 +334,7 @@ if (!empty($akses_ditolak)) : ?>
     if (!total) { alert('Tidak ada data untuk diekspor.'); return; }
     tombol.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyiapkan...');
     var x = new XMLHttpRequest();
-    x.open('GET', 'purchasing/kategori-sku/export?' + $.param({ q: $.trim($('#kd-cari').val()), kat: kat }));
+    x.open('GET', 'purchasing/kategori-sku/export?' + $.param({ q: $.trim($('#kd-cari').val()), kat: kat, urut: urut, arah: arah }));
     x.responseType = 'blob'; x.timeout = 120000;
     var pulih = function () { tombol.prop('disabled', false).html('<i class="fa fa-file-excel-o"></i> Export Excel'); };
     x.onload = function () {

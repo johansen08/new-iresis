@@ -14,6 +14,8 @@ class Daftar_kategori_sku_fcd extends CI_Model
     const JUMLAH_BULAN = 3;
     /** Umur cache penjualan (detik). Menghitung ulang semua SKU makan ±11 detik, jadi tidak tiap halaman. */
     const CACHE_PENJUALAN_DETIK = 1800;
+    /** Status pesanan yang sudah final. Selain ini (SHIPPED, PROCESSING, dst.) angka bulannya masih bisa berubah. */
+    const STATUS_FINAL = "'COMPLETED','RETURNED','CANCELED'";
     const NAMA_BULAN = [1 => 'JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEPT', 'OKT', 'NOV', 'DES'];
 
     /** Daftar kategori yang ada beserta jumlah SKU, terbanyak dulu. Nilai NULL/kosong digabung jadi BELUM_ADA. */
@@ -51,7 +53,8 @@ class Daftar_kategori_sku_fcd extends CI_Model
      * Pcs terjual per SKU per bulan (urutan = bulan_penjualan()), dari cache bila masih segar.
      * Penjualan = pesanan COMPLETED selain "Paket Hilang" (status_label_mp), bulan menurut tanggal_pesan.
      *
-     * @return array|null {bulan: [label], dihitung: 'Y-m-d H:i', data: {SKU_BESAR: [pcs, pcs, pcs]}};
+     * @return array|null {bulan: [label], dihitung: 'Y-m-d H:i', data: {SKU_BESAR: [pcs, pcs, pcs]},
+     *                    belum: {SKU_BESAR: [pcs belum final, ...]}};
      *                    null bila gagal dihitung (layar menampilkan strip, bukan angka 0).
      */
     public function penjualan()
@@ -99,7 +102,7 @@ class Daftar_kategori_sku_fcd extends CI_Model
     {
         if (!is_file($berkas)) return null;
         $isi = json_decode((string) @file_get_contents($berkas), true);
-        return isset($isi['bulan'], $isi['dihitung'], $isi['data']) ? $isi : null;
+        return isset($isi['bulan'], $isi['dihitung'], $isi['data'], $isi['belum']) ? $isi : null;
     }
 
     /**
@@ -119,25 +122,38 @@ class Daftar_kategori_sku_fcd extends CI_Model
         }
         $dari   = $bulan[count($bulan) - 1]['dari'];
         $sampai = $bulan[0]['sampai'];
-        $pilih  = function ($db, $tambahan = '') use ($kolom, $dari, $sampai) {
+        $final  = self::STATUS_FINAL;
+        $pilih  = function ($db, $saring) use ($kolom, $dari, $sampai) {
             return 'SELECT d.sku, ' . implode(', ', $kolom) . "
                 FROM `$db`.tblprintresi p JOIN `$db`.tbldetailprintresi d ON d.id_resi = p.id_printresi
-                WHERE p.status_pesanan = 'COMPLETED'
-                  AND (p.status_label_mp IS NULL OR p.status_label_mp <> 'Paket Hilang')
-                  AND p.tanggal_pesan >= '$dari' AND p.tanggal_pesan < '$sampai' $tambahan
+                WHERE $saring AND p.tanggal_pesan >= '$dari' AND p.tanggal_pesan < '$sampai'
                 GROUP BY d.sku";
         };
+        $terjual = "p.status_pesanan = 'COMPLETED' AND (p.status_label_mp IS NULL OR p.status_label_mp <> 'Paket Hilang')";
+        $belum   = "(p.status_pesanan IS NULL OR p.status_pesanan NOT IN ($final))";
+        // Resi lama yang diganti (mis. nomor resi Lazada berubah) tertinggal SHIPPED selamanya. Pesanan + SKU
+        // yang sudah punya salinan berstatus final tidak dihitung belum final.
+        $tanpa_salinan_final = function ($db) use ($final) {
+            return "AND NOT EXISTS (SELECT 1 FROM `$db`.tbldetailprintresi d2
+                JOIN `$db`.tblprintresi p2 ON p2.id_printresi = d2.id_resi
+                WHERE d2.no_pesanan = d.no_pesanan AND d2.sku = d.sku AND p2.status_pesanan IN ($final))";
+        };
 
-        $query = [$pilih($prod)];
+        $query = [
+            ['data', $pilih($prod, $terjual)],
+            ['belum', $pilih($prod, "$belum " . $tanpa_salinan_final($prod))],
+        ];
         if ($arsip !== '' && $arsip !== $prod) {
-            $query[] = $pilih($arsip, "AND NOT EXISTS (SELECT 1 FROM `$prod`.tblprintresi l WHERE l.noresi = p.noresi)");
+            $hanya_arsip = "AND NOT EXISTS (SELECT 1 FROM `$prod`.tblprintresi l WHERE l.noresi = p.noresi)";
+            $query[] = ['data', $pilih($arsip, "$terjual $hanya_arsip")];
+            // Pesanan belum final hanya dicari di prod: baris yang tinggal di arsip tidak pernah diperbarui lagi.
         }
 
         set_time_limit(0);
         $debug_awal = $this->db->db_debug;
         $this->db->db_debug = FALSE;
-        $data = [];
-        foreach ($query as $sql) {
+        $hasil = ['data' => [], 'belum' => []];
+        foreach ($query as list($jenis, $sql)) {
             $q = $this->db->query($sql);
             if ($q === FALSE) {
                 $err = $this->db->error();
@@ -147,14 +163,14 @@ class Daftar_kategori_sku_fcd extends CI_Model
             }
             foreach ($q->result_array() as $r) {
                 $sku = $this->kunci_sku($r['sku']);
-                if (!isset($data[$sku])) $data[$sku] = array_fill(0, count($bulan), 0);
-                foreach (array_keys($bulan) as $i) $data[$sku][$i] += (int) $r["b$i"];
+                if (!isset($hasil[$jenis][$sku])) $hasil[$jenis][$sku] = array_fill(0, count($bulan), 0);
+                foreach (array_keys($bulan) as $i) $hasil[$jenis][$sku][$i] += (int) $r["b$i"];
             }
             $q->free_result();
         }
         $this->db->db_debug = $debug_awal;
 
-        return ['bulan' => array_column($bulan, 'label'), 'dihitung' => date('Y-m-d H:i'), 'data' => $data];
+        return ['bulan' => array_column($bulan, 'label'), 'dihitung' => date('Y-m-d H:i')] + $hasil;
     }
 
     /** Kunci pencocokan SKU antara tblsku dan detail resi (tanpa beda huruf besar-kecil / spasi tepi). */
@@ -168,6 +184,36 @@ class Daftar_kategori_sku_fcd extends CI_Model
     {
         if ($penjualan === null) return array_fill(0, self::JUMLAH_BULAN, null);
         return $penjualan['data'][$this->kunci_sku($sku)] ?? array_fill(0, self::JUMLAH_BULAN, 0);
+    }
+
+    /** Pcs belum final per bulan satu SKU (> 0 berarti angka bulan itu masih bisa berubah). */
+    public function belum_final_sku($penjualan, $sku)
+    {
+        return $penjualan['belum'][$this->kunci_sku($sku)] ?? array_fill(0, self::JUMLAH_BULAN, 0);
+    }
+
+    /**
+     * Urutkan baris SKU menurut pcs satu bulan. $urut = indeks bulan ('0' = bulan berjalan); nilai lain atau
+     * data penjualan tidak tersedia = urutan asal (SKU) dipertahankan. Angka sama diurutkan menurut SKU.
+     */
+    private function urutkan(array $rows, $penjualan, $urut, $arah)
+    {
+        if ($penjualan === null || !ctype_digit((string) $urut) || (int) $urut >= self::JUMLAH_BULAN) {
+            return $rows;
+        }
+        $i = (int) $urut;
+        $nilai = [];
+        foreach ($rows as $k => $r) {
+            $nilai[$k] = $this->penjualan_sku($penjualan, $r['id_sku'])[$i];
+        }
+        $tanda = $arah === 'asc' ? 1 : -1;
+        $kunci = array_keys($rows);
+        usort($kunci, function ($a, $b) use ($nilai, $tanda) {
+            return $nilai[$a] === $nilai[$b] ? $a <=> $b : $tanda * ($nilai[$a] <=> $nilai[$b]);
+        });
+        return array_map(function ($k) use ($rows) {
+            return $rows[$k];
+        }, $kunci);
     }
 
     /** Klausa WHERE + bind untuk kata kunci dan filter kategori (dipakai layar dan ekspor). */
@@ -204,13 +250,14 @@ class Daftar_kategori_sku_fcd extends CI_Model
         return [$where ? ' WHERE ' . implode(' AND ', $where) : '', $bind];
     }
 
-    /** Semua SKU yang cocok (tanpa paging) untuk ekspor Excel, urut SKU. */
-    public function semua($q, array $kategori)
+    /** Semua SKU yang cocok (tanpa paging) untuk ekspor Excel; urut SKU, atau menurut penjualan bila diminta. */
+    public function semua($q, array $kategori, $penjualan = null, $urut = '', $arah = 'desc')
     {
         list($sql_where, $bind) = $this->bangun_where($q, $kategori);
-        return $this->db->query(
+        $rows = $this->db->query(
             "SELECT id_sku, kategori_sku, no_rak FROM tblsku" . $sql_where . " ORDER BY id_sku ASC", $bind
         )->result_array();
+        return $this->urutkan($rows, $penjualan, $urut, $arah);
     }
 
     /**
@@ -219,7 +266,7 @@ class Daftar_kategori_sku_fcd extends CI_Model
      *
      * @return array {total, baris: [{id_sku, kategori_sku, no_rak, foto, foto_lokal}]}
      */
-    public function halaman($q, array $kategori, $halaman, $ukuran)
+    public function halaman($q, array $kategori, $halaman, $ukuran, $penjualan = null, $urut = '', $arah = 'desc')
     {
         list($sql_where, $bind) = $this->bangun_where($q, $kategori);
 
@@ -228,11 +275,14 @@ class Daftar_kategori_sku_fcd extends CI_Model
         $maks    = max(1, (int) ceil($total / $ukuran));
         $halaman = min(max(1, (int) $halaman), $maks);
 
-        $rows = $this->db->query(
-            "SELECT id_sku, kategori_sku, no_rak, link_foto, foto_lokal FROM tblsku" . $sql_where .
-            " ORDER BY id_sku ASC LIMIT " . (int) $ukuran . " OFFSET " . (int) (($halaman - 1) * $ukuran),
-            $bind
-        )->result_array();
+        $awal   = (int) (($halaman - 1) * $ukuran);
+        $dasar  = "SELECT id_sku, kategori_sku, no_rak, link_foto, foto_lokal FROM tblsku" . $sql_where . " ORDER BY id_sku ASC";
+        if ($penjualan !== null && ctype_digit((string) $urut)) {
+            // Angka penjualan ada di cache, bukan di SQL: urutkan semua SKU yang cocok, baru ambil satu halaman.
+            $rows = array_slice($this->urutkan($this->db->query($dasar, $bind)->result_array(), $penjualan, $urut, $arah), $awal, $ukuran);
+        } else {
+            $rows = $this->db->query($dasar . " LIMIT " . (int) $ukuran . " OFFSET " . $awal, $bind)->result_array();
+        }
         foreach ($rows as &$r) {
             // Foto SKU untuk klien: URL asli + salinan lokal (assets/js/foto_sku.js memilih yang bisa dimuat).
             $r['foto']       = trim((string) $r['link_foto']);

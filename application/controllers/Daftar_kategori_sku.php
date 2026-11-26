@@ -51,20 +51,23 @@ class Daftar_kategori_sku extends MY_Controller
         ], 'kategori_sku/daftar');
     }
 
-    /** POST: q, kat[] (kategori terpilih; kosong = semua), halaman, ukuran (25/50/100). */
+    /** POST: q, kat[] (kategori terpilih; kosong = semua), halaman, ukuran (25/50/100), urut (indeks bulan), arah (asc/desc). */
     public function get_data()
     {
         $kat = array_values(array_filter((array) $this->input->post('kat'), 'is_string'));
         $q       = (string) $this->input->post('q');
         $halaman = (int) $this->input->post('halaman');
         $ukuran  = (int) $this->input->post('ukuran');
+        $urut    = (string) $this->input->post('urut');
+        $arah    = (string) $this->input->post('arah');
         // Lepas kunci session: hitungan penjualan bisa ±11 detik saat cache kedaluwarsa.
         session_write_close();
 
-        $data      = $this->daftar_kategori_sku_fcd->halaman($q, $kat, $halaman, $ukuran);
         $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
+        $data      = $this->daftar_kategori_sku_fcd->halaman($q, $kat, $halaman, $ukuran, $penjualan, $urut, $arah);
         foreach ($data['baris'] as &$b) {
-            $b['jual'] = $this->daftar_kategori_sku_fcd->penjualan_sku($penjualan, $b['id_sku']);
+            $b['jual']  = $this->daftar_kategori_sku_fcd->penjualan_sku($penjualan, $b['id_sku']);
+            $b['belum'] = $this->daftar_kategori_sku_fcd->belum_final_sku($penjualan, $b['id_sku']);
         }
         unset($b);
         $data['jual_dihitung'] = $penjualan['dihitung'] ?? null;
@@ -72,7 +75,7 @@ class Daftar_kategori_sku extends MY_Controller
         $this->make_ajax_response(200, 'OK', $data);
     }
 
-    /** GET: q, kat[] (sama dengan layar). Unduh semua SKU yang cocok sebagai xlsx rapi: header tebal, rata tengah, garis tegak dan datar. */
+    /** GET: q, kat[], urut, arah (sama dengan layar). Unduh semua SKU yang cocok sebagai xlsx rapi: header tebal, rata tengah, garis tegak dan datar. */
     public function export()
     {
         ini_set('memory_limit', '1024M');
@@ -80,9 +83,11 @@ class Daftar_kategori_sku extends MY_Controller
         $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
         $q     = (string) $this->input->get('q');
         session_write_close();
-        $baris = $this->daftar_kategori_sku_fcd->semua($q, $kat);
+        $urut  = (string) $this->input->get('urut');
+        $arah  = (string) $this->input->get('arah');
         $bulan = array_column($this->daftar_kategori_sku_fcd->bulan_penjualan(), 'label');
         $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
+        $baris = $this->daftar_kategori_sku_fcd->semua($q, $kat, $penjualan, $urut, $arah);
 
         $kolom = array_merge(['No', 'SKU', 'No Rak', 'Kategori SKU'], $bulan);
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($kolom));
@@ -100,8 +105,13 @@ class Daftar_kategori_sku extends MY_Controller
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             }
             // Pcs sebagai angka supaya bisa dijumlah / diurutkan di Excel; kosong bila data tidak tersedia.
+            $belum = $this->daftar_kategori_sku_fcd->belum_final_sku($penjualan, $b['id_sku']);
             foreach ($this->daftar_kategori_sku_fcd->penjualan_sku($penjualan, $b['id_sku']) as $j => $pcs) {
-                if ($pcs !== null) $ws->setCellValueByColumnAndRow(5 + $j, $r, $pcs);
+                if ($pcs === null) continue;
+                $ws->setCellValueByColumnAndRow(5 + $j, $r, $pcs);
+                if ($belum[$j] > 0) {
+                    $ws->getStyleByColumnAndRow(5 + $j, $r)->getFont()->setBold(TRUE)->getColor()->setRGB('EA580C');
+                }
             }
             $r++;
         }
