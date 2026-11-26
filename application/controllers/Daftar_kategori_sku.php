@@ -60,7 +60,7 @@ class Daftar_kategori_sku extends MY_Controller
         $ukuran  = (int) $this->input->post('ukuran');
         $urut    = (string) $this->input->post('urut');
         $arah    = (string) $this->input->post('arah');
-        // Lepas kunci session: hitungan penjualan bisa ±11 detik saat cache kedaluwarsa.
+        // Lepas kunci session supaya permintaan lain dari pengguna yang sama tidak antre.
         session_write_close();
 
         $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
@@ -70,9 +70,36 @@ class Daftar_kategori_sku extends MY_Controller
             $b['belum'] = $this->daftar_kategori_sku_fcd->belum_final_sku($penjualan, $b['id_sku']);
         }
         unset($b);
-        $data['jual_dihitung'] = $penjualan['dihitung'] ?? null;
+        $data['jual_info'] = $this->daftar_kategori_sku_fcd->info_penjualan($penjualan);
 
         $this->make_ajax_response(200, 'OK', $data);
+    }
+
+    /** POST: hitung ulang penjualan sekarang (tombol "Hitung ulang" dan pembaruan otomatis tiap 30 menit). */
+    public function hitung_ulang()
+    {
+        if ($this->input->method() !== 'post') {
+            $this->make_ajax_response(400, INVALID_REQUEST_METHOD);
+        }
+        session_write_close();
+        // Hitungan tetap diselesaikan walau pengguna menutup halaman.
+        ignore_user_abort(TRUE);
+
+        $status = $this->daftar_kategori_sku_fcd->hitung_ulang();
+        if ($status === 'gagal') {
+            $this->make_ajax_response(500, 'Penjualan gagal dihitung. Angka sebelumnya tetap dipakai.');
+        }
+        $this->make_ajax_response(200, 'OK', [
+            'status' => $status,
+            'info'   => $this->daftar_kategori_sku_fcd->info_penjualan($this->daftar_kategori_sku_fcd->penjualan()),
+        ]);
+    }
+
+    /** GET: progres hitungan, dipantau layar selama hitungan berjalan. */
+    public function status_hitung()
+    {
+        session_write_close();
+        $this->make_ajax_response(200, 'OK', $this->daftar_kategori_sku_fcd->status_hitung());
     }
 
     /** GET: q, kat[], urut, arah (sama dengan layar). Unduh semua SKU yang cocok sebagai xlsx rapi: header tebal, rata tengah, garis tegak dan datar. */
@@ -86,7 +113,13 @@ class Daftar_kategori_sku extends MY_Controller
         $urut  = (string) $this->input->get('urut');
         $arah  = (string) $this->input->get('arah');
         $bulan = array_column($this->daftar_kategori_sku_fcd->bulan_penjualan(), 'label');
+        // File unduhan harus memuat angka segar: hitung dulu bila cache basi. Bila sedang dihitung orang lain
+        // atau gagal, angka tersimpan yang dipakai.
         $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
+        if ($this->daftar_kategori_sku_fcd->info_penjualan($penjualan)['basi']) {
+            $this->daftar_kategori_sku_fcd->hitung_ulang();
+            $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
+        }
         $baris = $this->daftar_kategori_sku_fcd->semua($q, $kat, $penjualan, $urut, $arah);
 
         $kolom = array_merge(['No', 'SKU', 'No Rak', 'Kategori SKU'], $bulan);

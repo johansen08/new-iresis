@@ -12,8 +12,16 @@ class Daftar_kategori_sku_fcd extends CI_Model
     const UKURAN_BOLEH = [25, 50, 100];
     /** Jumlah kolom bulan penjualan (bulan berjalan + 2 bulan sebelumnya). */
     const JUMLAH_BULAN = 3;
-    /** Umur cache penjualan (detik). Menghitung ulang semua SKU makan ±11 detik, jadi tidak tiap halaman. */
+    /** Umur cache penjualan (detik). Lewat dari ini dianggap basi dan dihitung ulang. */
     const CACHE_PENJUALAN_DETIK = 1800;
+    /**
+     * Hitungan dipecah menjadi potongan rentang id_printresi yang dikerjakan beberapa koneksi sekaligus
+     * (uji 26 Nov 2026: 1 koneksi 11,5 dtk, 6 koneksi 2,3 dtk, hasil identik). 24 potongan > 6 koneksi supaya
+     * potongan yang padat tidak membuat koneksi lain menganggur, sekaligus jadi satuan progres.
+     */
+    const POTONGAN_PER_DATABASE = 24;
+    const KONEKSI_PARALEL = 6;
+    const BATAS_HITUNG_DETIK = 180;
     /** Status pesanan yang sudah final. Selain ini (SHIPPED, PROCESSING, dst.) angka bulannya masih bisa berubah. */
     const STATUS_FINAL = "'COMPLETED','RETURNED','CANCELED'";
     const NAMA_BULAN = [1 => 'JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEPT', 'OKT', 'NOV', 'DES'];
@@ -50,127 +58,292 @@ class Daftar_kategori_sku_fcd extends CI_Model
     }
 
     /**
-     * Pcs terjual per SKU per bulan (urutan = bulan_penjualan()), dari cache bila masih segar.
+     * Hasil hitungan tersimpan (berapa pun umurnya), TANPA menghitung. Layar memakai ini supaya tabel tidak
+     * pernah menunggu hitungan; kesegarannya dilihat lewat info_penjualan().
+     *
      * Penjualan = pesanan COMPLETED selain "Paket Hilang" (status_label_mp), bulan menurut tanggal_pesan.
      *
-     * @return array|null {bulan: [label], dihitung: 'Y-m-d H:i', data: {SKU_BESAR: [pcs, pcs, pcs]},
-     *                    belum: {SKU_BESAR: [pcs belum final, ...]}};
-     *                    null bila gagal dihitung (layar menampilkan strip, bukan angka 0).
+     * @return array|null {bulan: [label], dihitung: 'Y-m-d H:i', waktu: epoch, durasi: detik,
+     *                    data: {SKU_BESAR: [pcs, pcs, pcs]}, belum: {SKU_BESAR: [pcs belum final, ...]}}
      */
     public function penjualan()
     {
-        $bulan  = $this->bulan_penjualan();
-        $berkas = APPPATH . 'cache/penjualan_sku_' . substr($bulan[0]['dari'], 0, 7) . '.json';
-
-        $cache = $this->baca_cache_penjualan($berkas);
-        if ($cache && time() - filemtime($berkas) < self::CACHE_PENJUALAN_DETIK) {
-            return $cache;
-        }
-
-        // Hanya satu request yang menghitung; yang lain menunggu lalu memakai hasilnya.
-        $kunci = @fopen(APPPATH . 'cache/penjualan_sku.lock', 'c');
-        if ($kunci) {
-            @flock($kunci, LOCK_EX);
-            clearstatcache();
-            $baru = $this->baca_cache_penjualan($berkas);
-            if ($baru && time() - filemtime($berkas) < self::CACHE_PENJUALAN_DETIK) {
-                $cache = $baru;
-                $hasil = $baru;
-            }
-        }
-
-        if (!isset($hasil)) {
-            $hasil = $this->hitung_penjualan($bulan);
-            if ($hasil !== null) {
-                $sementara = $berkas . '.tmp';
-                if (@file_put_contents($sementara, json_encode($hasil)) !== false) {
-                    @rename($sementara, $berkas);
-                }
-            }
-        }
-
-        if ($kunci) {
-            @flock($kunci, LOCK_UN);
-            @fclose($kunci);
-        }
-
-        // Gagal menghitung: pakai cache lama bila ada (jam hitungnya tetap tampil di layar).
-        return $hasil !== null ? $hasil : $cache;
-    }
-
-    private function baca_cache_penjualan($berkas)
-    {
+        $berkas = $this->berkas_penjualan();
         if (!is_file($berkas)) return null;
         $isi = json_decode((string) @file_get_contents($berkas), true);
-        return isset($isi['bulan'], $isi['dihitung'], $isi['data'], $isi['belum']) ? $isi : null;
+        return isset($isi['bulan'], $isi['dihitung'], $isi['waktu'], $isi['data'], $isi['belum']) ? $isi : null;
+    }
+
+    /** Ringkasan kesegaran cache untuk layar. umur = detik sejak dihitung. */
+    public function info_penjualan($penjualan)
+    {
+        $umur = $penjualan === null ? null : max(0, time() - (int) $penjualan['waktu']);
+        return [
+            'ada'      => $penjualan !== null,
+            'dihitung' => $penjualan['dihitung'] ?? null,
+            'durasi'   => $penjualan['durasi'] ?? null,
+            'umur'     => $umur,
+            'masa'     => self::CACHE_PENJUALAN_DETIK,
+            'basi'     => $umur === null || $umur >= self::CACHE_PENJUALAN_DETIK,
+        ];
     }
 
     /**
-     * Hitung dari prod, ditambah resi yang sudah dipindah ke arsip (purna, retensi 60 hari) dan tidak ada
-     * lagi di prod. Nama database ditulis lengkap supaya hasilnya sama di Mode Arsip.
+     * Hitung ulang dan simpan ke cache. Hanya satu proses yang boleh menghitung; yang lain langsung mendapat
+     * 'sibuk' (layar lalu memantau progres lewat status_hitung()).
+     *
+     * @return string 'selesai' | 'sibuk' | 'gagal'
      */
-    private function hitung_penjualan(array $bulan)
+    public function hitung_ulang()
+    {
+        $kunci = @fopen($this->berkas_kunci(), 'c');
+        if (!$kunci) {
+            log_message('error', 'Penjualan per SKU: berkas kunci tidak bisa dibuka');
+            return 'gagal';
+        }
+        if (!@flock($kunci, LOCK_EX | LOCK_NB)) {
+            @fclose($kunci);
+            return 'sibuk';
+        }
+
+        set_time_limit(0);
+        $mulai = microtime(true);
+        $this->tulis_progres('proses', 0, 0);
+        try {
+            $hasil = $this->hitung_penjualan($this->bulan_penjualan(), function ($selesai, $total) {
+                $this->tulis_progres('proses', $selesai, $total);
+            });
+            $hasil['durasi'] = round(microtime(true) - $mulai, 1);
+            $this->tulis_json($this->berkas_penjualan(), $hasil);
+            $this->tulis_progres('selesai', 1, 1);
+            $status = 'selesai';
+        } catch (Throwable $e) {
+            log_message('error', 'Penjualan per SKU gagal dihitung: ' . $e->getMessage());
+            $this->tulis_progres('gagal', 0, 0);
+            $status = 'gagal';
+        }
+        @flock($kunci, LOCK_UN);
+        @fclose($kunci);
+        return $status;
+    }
+
+    /** Progres hitungan yang sedang / terakhir berjalan: {status: diam|proses|selesai|gagal, selesai, total}. */
+    public function status_hitung()
+    {
+        $berkas = $this->berkas_progres();
+        $isi = is_file($berkas) ? json_decode((string) @file_get_contents($berkas), true) : null;
+        if (!isset($isi['status'])) return ['status' => 'diam', 'selesai' => 0, 'total' => 0];
+
+        // "proses" tapi kuncinya bebas = proses PHP-nya mati di tengah jalan.
+        if ($isi['status'] === 'proses' && ($kunci = @fopen($this->berkas_kunci(), 'c'))) {
+            if (@flock($kunci, LOCK_EX | LOCK_NB)) {
+                $ulang = json_decode((string) @file_get_contents($berkas), true);
+                if (($ulang['status'] ?? '') === 'proses') $isi['status'] = 'gagal';
+                else $isi = $ulang ?: $isi;
+                @flock($kunci, LOCK_UN);
+            }
+            @fclose($kunci);
+        }
+        return $isi;
+    }
+
+    private function berkas_penjualan()
+    {
+        return APPPATH . 'cache/penjualan_sku_' . substr($this->bulan_penjualan()[0]['dari'], 0, 7) . '.json';
+    }
+
+    private function berkas_progres()
+    {
+        return APPPATH . 'cache/penjualan_sku_progres.json';
+    }
+
+    private function berkas_kunci()
+    {
+        return APPPATH . 'cache/penjualan_sku.lock';
+    }
+
+    private function tulis_progres($status, $selesai, $total)
+    {
+        $this->tulis_json($this->berkas_progres(), ['status' => $status, 'selesai' => $selesai, 'total' => $total]);
+    }
+
+    /** Tulis lewat berkas sementara + rename supaya pembaca tidak pernah mendapat JSON setengah jadi. */
+    private function tulis_json($berkas, array $isi)
+    {
+        $sementara = $berkas . '.tmp';
+        if (@file_put_contents($sementara, json_encode($isi)) === false) {
+            throw new RuntimeException('Cache tidak bisa ditulis: ' . $berkas);
+        }
+        // Di Windows rename bisa ditolak sesaat bila berkas tujuan sedang dibaca.
+        for ($coba = 0; $coba < 20; $coba++) {
+            if (@rename($sementara, $berkas)) return;
+            usleep(25000);
+        }
+        throw new RuntimeException('Cache tidak bisa diganti: ' . $berkas);
+    }
+
+    /**
+     * Daftar query potongan: [jenis_kolom, sql]. Prod: terjual dan belum final sekali jalan. Arsip: hanya resi
+     * terjual yang sudah dipindah (purna, retensi 60 hari) dan tidak ada lagi di prod; pesanan belum final
+     * tidak dicari di arsip karena baris yang tinggal di sana tidak pernah diperbarui lagi. Nama database
+     * ditulis lengkap supaya hasilnya sama di Mode Arsip.
+     */
+    private function susun_potongan(array $bulan)
     {
         require_once APPPATH . 'config/secrets_load.php';
         $this->config->load('arsip', TRUE, TRUE);
         $prod  = (string) iresis_secret('db_database', 'iresis_prod');
         $arsip = (string) $this->config->item('db_arsip', 'arsip');
 
-        $kolom = [];
-        foreach ($bulan as $i => $b) {
-            $kolom[] = "SUM(IF(p.tanggal_pesan >= '{$b['dari']}' AND p.tanggal_pesan < '{$b['sampai']}', d.jumlah, 0)) AS b$i";
-        }
-        $dari   = $bulan[count($bulan) - 1]['dari'];
-        $sampai = $bulan[0]['sampai'];
-        $final  = self::STATUS_FINAL;
-        $pilih  = function ($db, $saring) use ($kolom, $dari, $sampai) {
-            return 'SELECT d.sku, ' . implode(', ', $kolom) . "
-                FROM `$db`.tblprintresi p JOIN `$db`.tbldetailprintresi d ON d.id_resi = p.id_printresi
-                WHERE $saring AND p.tanggal_pesan >= '$dari' AND p.tanggal_pesan < '$sampai'
-                GROUP BY d.sku";
-        };
+        $final   = self::STATUS_FINAL;
         $terjual = "p.status_pesanan = 'COMPLETED' AND (p.status_label_mp IS NULL OR p.status_label_mp <> 'Paket Hilang')";
         $belum   = "(p.status_pesanan IS NULL OR p.status_pesanan NOT IN ($final))";
         // Resi lama yang diganti (mis. nomor resi Lazada berubah) tertinggal SHIPPED selamanya. Pesanan + SKU
         // yang sudah punya salinan berstatus final tidak dihitung belum final.
-        $tanpa_salinan_final = function ($db) use ($final) {
-            return "AND NOT EXISTS (SELECT 1 FROM `$db`.tbldetailprintresi d2
-                JOIN `$db`.tblprintresi p2 ON p2.id_printresi = d2.id_resi
-                WHERE d2.no_pesanan = d.no_pesanan AND d2.sku = d.sku AND p2.status_pesanan IN ($final))";
-        };
+        $tanpa_salinan_final = "NOT EXISTS (SELECT 1 FROM `$prod`.tbldetailprintresi d2
+            JOIN `$prod`.tblprintresi p2 ON p2.id_printresi = d2.id_resi
+            WHERE d2.no_pesanan = d.no_pesanan AND d2.sku = d.sku AND p2.status_pesanan IN ($final))";
 
-        $query = [
-            ['data', $pilih($prod, $terjual)],
-            ['belum', $pilih($prod, "$belum " . $tanpa_salinan_final($prod))],
-        ];
+        $kolom_t = $kolom_b = [];
+        foreach ($bulan as $i => $b) {
+            $di_bulan  = "p.tanggal_pesan >= '{$b['dari']}' AND p.tanggal_pesan < '{$b['sampai']}'";
+            $kolom_t[] = "SUM(IF($di_bulan AND $terjual, d.jumlah, 0)) AS t$i";
+            $kolom_b[] = "SUM(IF($di_bulan AND $belum AND $tanpa_salinan_final, d.jumlah, 0)) AS b$i";
+        }
+        $rentang = "p.tanggal_pesan >= '{$bulan[count($bulan) - 1]['dari']}' AND p.tanggal_pesan < '{$bulan[0]['sampai']}'";
+
+        $sumber = [[$prod, array_merge($kolom_t, $kolom_b), "$rentang AND (($terjual) OR $belum)"]];
         if ($arsip !== '' && $arsip !== $prod) {
-            $hanya_arsip = "AND NOT EXISTS (SELECT 1 FROM `$prod`.tblprintresi l WHERE l.noresi = p.noresi)";
-            $query[] = ['data', $pilih($arsip, "$terjual $hanya_arsip")];
-            // Pesanan belum final hanya dicari di prod: baris yang tinggal di arsip tidak pernah diperbarui lagi.
+            $sumber[] = [$arsip, $kolom_t, "$rentang AND $terjual
+                AND NOT EXISTS (SELECT 1 FROM `$prod`.tblprintresi l WHERE l.noresi = p.noresi)"];
         }
 
-        set_time_limit(0);
+        $potongan = [];
+        foreach ($sumber as list($db, $kolom, $syarat)) {
+            $q = $this->db->query("SELECT MIN(id_printresi) AS a, MAX(id_printresi) AS z FROM `$db`.tblprintresi");
+            if ($q === FALSE) throw new RuntimeException($this->db->error()['message'] ?? "gagal membaca $db");
+            $r = $q->row();
+            if ($r->a === null) continue;
+            $lebar = max(1, (int) ceil(($r->z - $r->a + 1) / self::POTONGAN_PER_DATABASE));
+            for ($dari = (int) $r->a; $dari <= (int) $r->z; $dari += $lebar) {
+                // FORCE INDEX (PRIMARY) + STRAIGHT_JOIN: tiap potongan hanya menyisir rentang id-nya sendiri.
+                $potongan[] = 'SELECT d.sku, ' . implode(', ', $kolom) . "
+                    FROM `$db`.tblprintresi p FORCE INDEX (PRIMARY)
+                    STRAIGHT_JOIN `$db`.tbldetailprintresi d ON d.id_resi = p.id_printresi
+                    WHERE p.id_printresi >= $dari AND p.id_printresi < " . ($dari + $lebar) . " AND $syarat
+                    GROUP BY d.sku";
+            }
+        }
+        return $potongan;
+    }
+
+    /** @param callable $lapor fn(int $selesai, int $total), dipanggil tiap satu potongan rampung. */
+    private function hitung_penjualan(array $bulan, callable $lapor)
+    {
         $debug_awal = $this->db->db_debug;
         $this->db->db_debug = FALSE;
-        $hasil = ['data' => [], 'belum' => []];
-        foreach ($query as list($jenis, $sql)) {
-            $q = $this->db->query($sql);
-            if ($q === FALSE) {
-                $err = $this->db->error();
-                log_message('error', 'Penjualan per SKU gagal dihitung: ' . ($err['message'] ?? '-'));
-                $this->db->db_debug = $debug_awal;
-                return null;
-            }
-            foreach ($q->result_array() as $r) {
-                $sku = $this->kunci_sku($r['sku']);
-                if (!isset($hasil[$jenis][$sku])) $hasil[$jenis][$sku] = array_fill(0, count($bulan), 0);
-                foreach (array_keys($bulan) as $i) $hasil[$jenis][$sku][$i] += (int) $r["b$i"];
-            }
-            $q->free_result();
-        }
-        $this->db->db_debug = $debug_awal;
+        try {
+            $potongan = $this->susun_potongan($bulan);
+            $total    = count($potongan);
+            $hasil    = ['data' => [], 'belum' => []];
+            $selesai  = 0;
+            $olah = function (array $rows) use (&$hasil, &$selesai, $total, $bulan, $lapor) {
+                $this->gabungkan($hasil, $rows, count($bulan));
+                $lapor(++$selesai, $total);
+            };
+            $lapor(0, $total);
 
-        return ['bulan' => array_column($bulan, 'label'), 'dihitung' => date('Y-m-d H:i')] + $hasil;
+            $koneksi = $this->koneksi_paralel();
+            if ($koneksi) {
+                $this->jalankan_paralel($koneksi, $potongan, $olah);
+            } else {
+                // Cadangan bila koneksi tambahan tidak tersedia: satu per satu lewat koneksi aplikasi.
+                foreach ($potongan as $sql) {
+                    $q = $this->db->query($sql);
+                    if ($q === FALSE) throw new RuntimeException($this->db->error()['message'] ?? 'query gagal');
+                    $olah($q->result_array());
+                    $q->free_result();
+                }
+            }
+        } finally {
+            $this->db->db_debug = $debug_awal;
+        }
+
+        return ['bulan' => array_column($bulan, 'label'), 'dihitung' => date('Y-m-d H:i'), 'waktu' => time()] + $hasil;
+    }
+
+    private function gabungkan(array &$hasil, array $rows, $jumlah_bulan)
+    {
+        foreach ($rows as $r) {
+            $sku = $this->kunci_sku($r['sku']);
+            foreach (['data' => 't', 'belum' => 'b'] as $jenis => $awalan) {
+                for ($i = 0; $i < $jumlah_bulan; $i++) {
+                    $pcs = (int) ($r[$awalan . $i] ?? 0);
+                    if ($pcs === 0) continue;
+                    if (!isset($hasil[$jenis][$sku])) $hasil[$jenis][$sku] = array_fill(0, $jumlah_bulan, 0);
+                    $hasil[$jenis][$sku][$i] += $pcs;
+                }
+            }
+        }
+    }
+
+    /** Koneksi baca-saja tambahan untuk query paralel; array kosong bila tidak bisa dibuat. */
+    private function koneksi_paralel()
+    {
+        $koneksi = [];
+        if (!function_exists('mysqli_poll') || $this->db->dbdriver !== 'mysqli') return $koneksi;
+        for ($i = 0; $i < self::KONEKSI_PARALEL; $i++) {
+            try {
+                $c = mysqli_init();
+                if (!@$c->real_connect($this->db->hostname, $this->db->username, $this->db->password, $this->db->database, !empty($this->db->port) ? (int) $this->db->port : null)) {
+                    break;
+                }
+                $c->set_charset($this->db->char_set);
+                $c->query('SET SESSION TRANSACTION READ ONLY');
+                $koneksi[] = $c;
+            } catch (Throwable $e) {
+                log_message('error', 'Penjualan per SKU: koneksi paralel gagal: ' . $e->getMessage());
+                break;
+            }
+        }
+        return $koneksi;
+    }
+
+    private function jalankan_paralel(array $koneksi, array $antrean, callable $olah)
+    {
+        $bebas = $koneksi;
+        $sibuk = [];
+        $batas = microtime(true) + self::BATAS_HITUNG_DETIK;
+        try {
+            while ($antrean || $sibuk) {
+                while ($antrean && $bebas) {
+                    $c = array_pop($bebas);
+                    if ($c->query(array_shift($antrean), MYSQLI_ASYNC) === FALSE) throw new RuntimeException($c->error);
+                    $sibuk[$c->thread_id] = $c;
+                }
+                $baca = $galat = $tolak = array_values($sibuk);
+                $siap = mysqli_poll($baca, $galat, $tolak, 0, 100000);
+                if (microtime(true) > $batas) throw new RuntimeException('melewati ' . self::BATAS_HITUNG_DETIK . ' detik');
+                if (!$siap) continue;
+                if ($galat || $tolak) throw new RuntimeException('koneksi paralel bermasalah');
+                foreach ($baca as $c) {
+                    $res = $c->reap_async_query();
+                    if (!$res) throw new RuntimeException($c->error);
+                    $olah($res->fetch_all(MYSQLI_ASSOC));
+                    $res->free();
+                    unset($sibuk[$c->thread_id]);
+                    $bebas[] = $c;
+                }
+            }
+        } finally {
+            // Koneksi yang masih menjalankan query dihentikan di server supaya tidak membebani setelah gagal.
+            foreach ($sibuk as $c) {
+                $this->db->query('KILL QUERY ' . (int) $c->thread_id);
+            }
+            foreach ($koneksi as $c) {
+                @$c->close();
+            }
+        }
     }
 
     /** Kunci pencocokan SKU antara tblsku dan detail resi (tanpa beda huruf besar-kecil / spasi tepi). */
