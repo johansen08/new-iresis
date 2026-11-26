@@ -27,7 +27,8 @@ if (!empty($akses_ditolak)) : ?>
   .ks-btn-sec:hover, .ks-btn-sec:focus { background:var(--ks-bg); color:var(--ks-text); border-color:#cbd5e1; }
 
   #ks-root .ks-title { margin:0; font-size:20px; font-weight:700; color:var(--ks-ink); }
-  #ks-root .ks-sub { margin:2px 0 14px; font-size:13px; color:var(--ks-muted); }
+  #ks-root .ks-sub { margin:2px 0 0; font-size:13px; color:var(--ks-muted); }
+  #ks-root #ks-info { margin-bottom:14px; }
   #ks-root .ks-grid { display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; align-items:start; }
   #ks-root .ks-card { background:#fff; border:1px solid var(--ks-line); border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
   #ks-root .ks-card h3 { margin:0 0 12px; font-size:15px; font-weight:700; color:var(--ks-ink); display:flex; align-items:center; gap:8px; }
@@ -84,6 +85,7 @@ if (!empty($akses_ditolak)) : ?>
 <div id="ks-root">
   <h2 class="ks-title">Update Kategori SKU</h2>
   <p class="ks-sub">Upload Excel berisi SKU dan kategori untuk mengisi kolom kategori di data SKU.</p>
+  <div id="ks-info"><?php $this->load->view('kategori_sku/_upload_terakhir', ['upload_terakhir' => $upload_terakhir]); ?></div>
 
   <div class="ks-grid">
     <div class="ks-card">
@@ -193,6 +195,7 @@ if (!empty($akses_ditolak)) : ?>
           popup(true, 'Upload berhasil',
             '<div class="ks-stat"><div><b>' + fmt(d.total) + '</b><span>SKU berhasil</span></div><div><b>' + fmt(d.berubah) + '</b><span>Berubah</span></div><div><b>' + fmt(d.sama) + '</b><span>Sudah sama</span></div></div>' +
             '<p class="ks-catatan">Kategori ' + fmt(d.total) + ' SKU sudah diperbarui. Kode batch: <b>' + esc(d.batch) + '</b></p>');
+          if (d.info_html) { $('#ks-info').html(d.info_html); }
           pilih(null);
         } else {
           var li = '', g = d.galat || [r.message];

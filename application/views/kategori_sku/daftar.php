@@ -130,6 +130,7 @@ if (!empty($akses_ditolak)) : ?>
   <div class="kd-head">
     <h2 class="kd-title">Kategori SKU</h2>
     <p class="kd-sub">Daftar SKU dengan gambar, no. rak, dan kategorinya. Untuk mengubah kategori, gunakan menu Update Kategori SKU.</p>
+    <?php $this->load->view('kategori_sku/_upload_terakhir', ['upload_terakhir' => $upload_terakhir]); ?>
   </div>
 
   <div class="kd-body">

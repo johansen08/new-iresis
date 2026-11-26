@@ -43,7 +43,10 @@ class Kategori_sku extends MY_Controller
 
     public function index()
     {
-        $this->show(['default_kategori' => Kategori_sku_fcd::DEFAULT_KATEGORI], 'kategori_sku/index');
+        $this->show([
+            'default_kategori' => Kategori_sku_fcd::DEFAULT_KATEGORI,
+            'upload_terakhir'  => $this->kategori_sku_fcd->upload_terakhir(),
+        ], 'kategori_sku/index');
     }
 
     /** Unduh template Excel: header SKU + Kategori, kolom teks, dan sheet petunjuk. Tanpa baris contoh. */
@@ -127,6 +130,7 @@ class Kategori_sku extends MY_Controller
         }
         $this->make_ajax_response(200, 'Update kategori SKU berhasil.', [
             'total' => $h['total'], 'berubah' => $h['berubah'], 'sama' => $h['sama'], 'batch' => $h['batch'],
+            'info_html' => $this->load->view('kategori_sku/_upload_terakhir', ['upload_terakhir' => $this->kategori_sku_fcd->upload_terakhir()], TRUE),
         ]);
     }
 

@@ -15,6 +15,7 @@ class Daftar_kategori_sku extends MY_Controller
         parent::__construct();
         $this->tolak_role_tanpa_akses();
         $this->load->model('daftar_kategori_sku_fcd');
+        $this->load->model('kategori_sku_fcd');
     }
 
     /** Penolakan tetap JSON valid (show_404 mengirim HTML dan merusak SPA). */
@@ -45,6 +46,7 @@ class Daftar_kategori_sku extends MY_Controller
         $this->show([
             'kategori' => $this->daftar_kategori_sku_fcd->daftar_kategori(),
             'belum_ada' => Daftar_kategori_sku_fcd::BELUM_ADA,
+            'upload_terakhir' => $this->kategori_sku_fcd->upload_terakhir(),
         ], 'kategori_sku/daftar');
     }
 
