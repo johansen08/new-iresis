@@ -59,6 +59,8 @@ if (!empty($akses_ditolak)) : ?>
   #kd-root .kd-table > tbody > tr:hover > td { background:#f1f5ff; }
   #kd-root .kd-table > tbody > tr:last-child > td { border-bottom:0; }
   #kd-root .kd-sku { font-weight:600; color:var(--kd-ink); }
+  #kd-root .kd-table > thead > tr > th.kd-jual, #kd-root .kd-table > tbody > tr > td.kd-jual { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #kd-root .kd-ket { margin:8px 2px 0; font-size:12px; color:var(--kd-muted); }
   #kd-root .kd-kosong { color:#94a3b8; }
   #kd-root .kd-empty { padding:36px 12px !important; text-align:center; color:var(--kd-muted); }
   #kd-root .kd-empty i { display:block; font-size:26px; margin-bottom:8px; color:#cbd5e1; }
@@ -150,10 +152,11 @@ if (!empty($akses_ditolak)) : ?>
     </div>
     <div class="kd-table-wrap">
       <table class="kd-table">
-        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th></tr></thead>
-        <tbody id="kd-body"><tr><td colspan="4" class="kd-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
+        <thead><tr><th style="width:56px">#</th><th>SKU</th><th>No Rak</th><th>Kategori</th><?php foreach ($bulan_jual as $b) : ?><th class="kd-jual"><?= htmlspecialchars($b) ?></th><?php endforeach; ?></tr></thead>
+        <tbody id="kd-body"><tr><td colspan="<?= 4 + count($bulan_jual) ?>" class="kd-empty"><i class="fa fa-spinner fa-spin"></i>Memuat data...</td></tr></tbody>
       </table>
     </div>
+    <div class="kd-ket">Angka bulan = pcs terjual (pesanan COMPLETED tanpa Paket Hilang, menurut tanggal pesan). <span id="kd-dihitung"></span></div>
     <div class="kd-pager">
       <div class="kd-pager-ctl">Tampilkan
         <select id="kd-ukuran"><option>25</option><option selected>50</option><option>100</option></select> baris</div>
@@ -182,6 +185,8 @@ if (!empty($akses_ditolak)) : ?>
 <script>
 (function () {
   var BELUM = '<?= htmlspecialchars($belum_ada, ENT_QUOTES) ?>';
+  var BULAN = <?= json_encode(array_values($bulan_jual), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+  var LEBAR = 4 + BULAN.length;
   var hal = 1, total = 0, totalHal = 1, kat = [], baris = [], reqKe = 0, timer = null;
 
   function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
@@ -199,6 +204,14 @@ if (!empty($akses_ditolak)) : ?>
       '<button type="button" class="kd-eye" data-i="' + r.__i + '" title="Lihat gambar penuh" aria-label="Lihat gambar penuh"><i class="fa fa-eye"></i></button></span>';
   }
 
+  /** Sel pcs per bulan; null = data penjualan gagal dihitung (strip, bukan 0). */
+  function selJual(jual) {
+    return BULAN.map(function (label, j) {
+      var v = jual ? jual[j] : null;
+      return '<td class="kd-jual" data-label="' + escAttr(label) + '">' + (v === null || v === undefined ? '<span class="kd-kosong">&ndash;</span>' : fmt(v)) + '</td>';
+    }).join('');
+  }
+
   function gambar(d, awal) {
     var html = '';
     baris = d.baris;
@@ -207,9 +220,10 @@ if (!empty($akses_ditolak)) : ?>
       html += '<tr><td class="kd-kosong kd-no">' + (awal + i + 1) + '</td>' +
         '<td class="kd-sku" data-label="SKU"><span class="kd-skucell">' + thumb(r) + '<span>' + esc(r.id_sku) + '</span></span></td>' +
         '<td data-label="No Rak">' + (r.no_rak ? esc(r.no_rak) : '<span class="kd-kosong">&ndash;</span>') + '</td>' +
-        '<td data-label="Kategori">' + pil(r.kategori_sku) + '</td></tr>';
+        '<td data-label="Kategori">' + pil(r.kategori_sku) + '</td>' + selJual(r.jual) + '</tr>';
     });
-    $('#kd-body').html(html || '<tr><td colspan="4" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
+    $('#kd-dihitung').text(d.jual_dihitung ? 'Dihitung ' + d.jual_dihitung + ', diperbarui tiap 30 menit.' : 'Data penjualan sedang tidak tersedia.');
+    $('#kd-body').html(html || '<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
     $('#kd-count').text(fmt(d.total) + ' SKU');
     $('#kd-hal').text('Halaman ' + d.halaman + ' / ' + d.total_halaman);
     $('#kd-prev').prop('disabled', d.halaman <= 1);
@@ -219,18 +233,18 @@ if (!empty($akses_ditolak)) : ?>
   /** Ambil satu halaman dari server; permintaan lama yang terlambat dibuang (reqKe). */
   function muat() {
     var ini = ++reqKe, ukuran = parseInt($('#kd-ukuran').val(), 10) || 50;
-    $.ajax({ url: 'purchasing/kategori-sku/get-data', type: 'POST', dataType: 'json', timeout: 60000,
+    $.ajax({ url: 'purchasing/kategori-sku/get-data', type: 'POST', dataType: 'json', timeout: 120000,
       data: { q: $.trim($('#kd-cari').val()), kat: kat, halaman: hal, ukuran: ukuran },
       success: function (r) {
         if (ini !== reqKe) { return; }
-        if (r.code !== 200) { $('#kd-body').html('<tr><td colspan="4" class="kd-empty"><i class="fa fa-exclamation-triangle"></i>' + esc(r.message) + '</td></tr>'); return; }
+        if (r.code !== 200) { $('#kd-body').html('<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-exclamation-triangle"></i>' + esc(r.message) + '</td></tr>'); return; }
         var d = r.data;
         hal = d.halaman; total = d.total; totalHal = d.total_halaman;
         gambar(d, (d.halaman - 1) * d.ukuran);
       },
       error: function (xhr) {
         if (ini !== reqKe) { return; }
-        $('#kd-body').html('<tr><td colspan="4" class="kd-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
+        $('#kd-body').html('<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-exclamation-triangle"></i>Gagal memuat data. ' + esc((xhr.responseText || '').substring(0, 160)) + '</td></tr>');
       }
     });
   }
