@@ -20,8 +20,5 @@ $u = isset($upload_terakhir) ? $upload_terakhir : null;
   <?php if ($u['oleh'] !== '') : ?>
   <span class="ku-item"><i class="fa fa-user"></i> Oleh: <b><?= htmlspecialchars($u['oleh']) ?></b></span>
   <?php endif; ?>
-  <span class="ku-item"><i class="fa fa-tags"></i>
-    <?php if ($u['total'] !== null) : ?><b><?= number_format($u['total'], 0, ',', '.') ?></b> SKU diupload,<?php endif; ?>
-    <b><?= number_format($u['berubah'], 0, ',', '.') ?></b> SKU berubah</span>
   <?php endif; ?>
 </div>
