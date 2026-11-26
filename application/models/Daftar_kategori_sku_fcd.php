@@ -366,15 +366,17 @@ class Daftar_kategori_sku_fcd extends CI_Model
     }
 
     /**
-     * Total pcs belum final per bulan untuk sekumpulan SKU (angka dalam kurung di judul kolom).
-     * null bila data penjualan tidak tersedia.
+     * Jumlah SKU yang angka penjualannya belum final per bulan, dari sekumpulan SKU (angka dalam kurung di
+     * judul kolom; sama dengan banyaknya angka orange di kolom itu). null bila data penjualan tidak tersedia.
      */
-    public function total_belum_final($penjualan, array $rows)
+    public function jumlah_sku_belum_final($penjualan, array $rows)
     {
         if ($penjualan === null) return null;
         $total = array_fill(0, self::JUMLAH_BULAN, 0);
         foreach ($rows as $r) {
-            foreach ($this->belum_final_sku($penjualan, $r['id_sku']) as $i => $pcs) $total[$i] += $pcs;
+            foreach ($this->belum_final_sku($penjualan, $r['id_sku']) as $i => $pcs) {
+                if ($pcs > 0) $total[$i]++;
+            }
         }
         return $total;
     }
@@ -479,10 +481,10 @@ class Daftar_kategori_sku_fcd extends CI_Model
         unset($r);
 
         // Judul kolom menjumlah SEMUA SKU yang cocok dengan pencarian / filter, bukan hanya halaman tampil.
-        $total_belum = $penjualan === null ? null : $this->total_belum_final(
+        $sku_belum = $penjualan === null ? null : $this->jumlah_sku_belum_final(
             $penjualan, $this->db->query("SELECT id_sku FROM tblsku" . $sql_where, $bind)->result_array()
         );
 
-        return ['total_belum' => $total_belum, 'total' => $total, 'halaman' => $halaman, 'total_halaman' => $maks, 'ukuran' => $ukuran, 'baris' => $rows];
+        return ['sku_belum' => $sku_belum, 'total' => $total, 'halaman' => $halaman, 'total_halaman' => $maks, 'ukuran' => $ukuran, 'baris' => $rows];
     }
 }

@@ -124,9 +124,9 @@ class Daftar_kategori_sku extends MY_Controller
 
         $kolom = array_merge(['No', 'SKU', 'No Rak', 'Kategori SKU'], $bulan);
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($kolom));
-        // Sama dengan layar: judul kolom bulan membawa total pcs belum final, mis. "NOV/26 (103)".
-        foreach ((array) $this->daftar_kategori_sku_fcd->total_belum_final($penjualan, $baris) as $j => $pcs) {
-            if ($pcs > 0) $kolom[4 + $j] .= ' (' . number_format($pcs, 0, ',', '.') . ')';
+        // Sama dengan layar: judul kolom bulan membawa jumlah SKU yang angkanya belum final, mis. "NOV/26 (103)".
+        foreach ((array) $this->daftar_kategori_sku_fcd->jumlah_sku_belum_final($penjualan, $baris) as $j => $n) {
+            if ($n > 0) $kolom[4 + $j] .= ' (' . number_format($n, 0, ',', '.') . ')';
         }
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $ws = $ss->getActiveSheet();

@@ -249,7 +249,7 @@ if (!empty($akses_ditolak)) : ?>
           <div class="kd-contoh-kotak"><span class="kd-contoh-angka">1.250</span><span class="kd-contoh-nama">Final</span></div>
           <div class="kd-contoh-kotak oranye"><span class="kd-contoh-angka">1.250</span><span class="kd-contoh-nama">Masih bisa berubah</span></div>
         </div>
-        <p class="kd-card-kaki">Orange = masih ada pesanan <b>SHIPPED</b>, <b>PROCESSING</b>, dll. <b class="kd-belum">(103)</b> di judul kolom = total pcs belum final.</p>
+        <p class="kd-card-kaki">Orange = masih ada pesanan <b>SHIPPED</b>, <b>PROCESSING</b>, dll. <b class="kd-belum">(103)</b> di judul kolom = jumlah SKU yang angkanya belum final.</p>
       </section>
 
       <section class="kd-card kd-card-data" id="kd-data" data-keadaan="muat" aria-labelledby="kd-j3">
@@ -351,23 +351,23 @@ if (!empty($akses_ditolak)) : ?>
     $('#kd-body').html(html || '<tr><td colspan="' + LEBAR + '" class="kd-empty"><i class="fa fa-search"></i>Tidak ada SKU yang cocok dengan pencarian / filter.</td></tr>');
   }
 
-  /** "(103)" di judul tiap kolom bulan = total pcs belum final seluruh SKU yang cocok; kosong bila 0. */
-  function tulisTotalBelum(total) {
+  /** "(103)" di judul tiap kolom bulan = jumlah SKU (dari semua yang cocok) yang angkanya belum final; kosong bila 0. */
+  function tulisSkuBelum(jumlah) {
     var hp = '';
     BULAN.forEach(function (label, j) {
-      var v = total ? total[j] : 0, teks = v > 0 ? '(' + fmt(v) + ')' : '';
+      var v = jumlah ? jumlah[j] : 0, teks = v > 0 ? '(' + fmt(v) + ')' : '';
       $('#kd-root .kd-th-belum[data-bulan="' + j + '"]').text(teks)
-        .attr('title', v > 0 ? fmt(v) + ' pcs belum final (semua SKU sesuai pencarian dan filter)' : '');
+        .attr('title', v > 0 ? fmt(v) + ' SKU angka penjualannya belum final (sesuai pencarian dan filter)' : '');
       if (v > 0) { hp += '<span class="kd-belum">' + esc(label) + ' ' + teks + '</span>'; }
     });
-    $('#kd-total-hp').html(hp ? '<strong>Total pcs belum final</strong>' + hp : '');
+    $('#kd-total-hp').html(hp ? '<strong>Jumlah SKU belum final</strong>' + hp : '');
   }
 
   function gambar(d, awal) {
     baris = d.baris;
     nomorAwal = awal;
     gambarBaris();
-    tulisTotalBelum(d.total_belum);
+    tulisSkuBelum(d.sku_belum);
     terimaInfo(d.jual_info);
     $('#kd-count').text(fmt(d.total) + ' SKU');
     $('#kd-hal').text('Halaman ' + d.halaman + ' / ' + d.total_halaman);
