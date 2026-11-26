@@ -1689,7 +1689,12 @@ class Receipt_fcd extends CI_Model
             // Kolom "Status" (label asli marketplace, mis. "Paket Hilang") -> tblprintresi.status_label_mp.
             // NULL = file ini tidak membawa kolom itu (atau migrasi belum jalan): status_label_mp tidak disentuh.
             $kol_label = $this->db->field_exists('status_label_mp', 'tblprintresi')
-                ? $this->cari_kolom_status_label_mp($receiptData) : null;
+                ? $this->cari_kolom_judul($receiptData, 'Status') : null;
+            // status_wms: di ekspor Excel diambil dari kolom berjudul "Status WMS" (kolom W di sana
+            // berisi NAMA BARANG). Data tanpa baris judul (core-api) menaruh wms_status di W.
+            // NULL = Excel tanpa kolom itu: status_wms tidak disentuh.
+            $kol_wms = $this->baris_judul($receiptData) === null
+                ? 'W' : $this->cari_kolom_judul($receiptData, 'Status WMS');
             $label_baris = function (array $row) use ($kol_label) {
                 $teks = $kol_label === null ? '' : mb_substr(trim((string)($row[$kol_label] ?? '')), 0, 50);
                 return $teks !== '' ? $teks : null;
@@ -1833,10 +1838,12 @@ class Receipt_fcd extends CI_Model
                             'tanggal_pengiriman'  => $combineDateTime($excelDateToPhpDate($row['J'] ?? null), $excelTimeToPhpTime($row['K'] ?? null)),
                             'tanggal_selesai'     => $combineDateTime($excelDateToPhpDate($row['L'] ?? null), $excelTimeToPhpTime($row['M'] ?? null)),
                             'status_pesanan'      => $row['T'] ?? null,
-                            'status_wms'          => $row['W'] ?? null,
                             'modified_at'         => date('Y-m-d H:i:s'),
                             'modified_by'         => $user_id
                         ];
+                        if ($kol_wms !== null) {
+                            $batch_update_map[$noresi]['status_wms'] = $row[$kol_wms] ?? null;
+                        }
                         // Status berubah: label lama ikut diganti (bisa jadi kosong).
                         if ($kol_label !== null) {
                             $batch_update_map[$noresi]['status_label_mp'] = $label_baris($row);
@@ -1946,7 +1953,7 @@ class Receipt_fcd extends CI_Model
                         'tanggal_selesai'     => $combineDateTime($excelDateToPhpDate($row['L'] ?? null), $excelTimeToPhpTime($row['M'] ?? null)),
                         'tanggal_retur'       => $combineDateTime($excelDateToPhpDate($row['U'] ?? null), $excelTimeToPhpTime($row['V'] ?? null)),
                         'status_pesanan'      => $row['T'] ?? null,
-                        'status_wms'          => $row['W'] ?? null,
+                        'status_wms'          => $kol_wms !== null ? ($row[$kol_wms] ?? null) : null,
                         'batal'               => '',
                         'keterangan'          => '',
                         'nomorpicklist'       => $row['C'] ?? '',
@@ -2131,19 +2138,24 @@ class Receipt_fcd extends CI_Model
         }
     }
 
-    /**
-     * Huruf kolom berjudul persis "Status" pada baris judul (ekspor Jubelio: kolom X). Dicari lewat
-     * judul, bukan huruf tetap, supaya tidak tertukar dengan STATUS_PESANAN / "Status WMS" dan file
-     * lama atau data API tanpa kolom itu menghasilkan null.
-     */
-    private function cari_kolom_status_label_mp(array $receiptData): ?string
+    /** Baris judul ekspor Excel Jubelio (kolom A = NO_PESANAN); null untuk data tanpa judul (core-api). */
+    private function baris_judul(array $receiptData): ?array
     {
         foreach ($receiptData as $row) {
-            if (($row['A'] ?? null) !== 'NO_PESANAN') continue;
-            foreach ($row as $kolom => $judul) {
-                if (strcasecmp(trim((string) $judul), 'Status') === 0) return $kolom;
-            }
-            return null;
+            if (($row['A'] ?? null) === 'NO_PESANAN') return $row;
+        }
+        return null;
+    }
+
+    /**
+     * Huruf kolom yang judulnya persis $judul (tanpa beda huruf besar/kecil). Dicari lewat judul,
+     * bukan huruf tetap, supaya "Status", "Status WMS", dan STATUS_PESANAN tidak tertukar.
+     * Null bila tidak ada baris judul atau kolomnya.
+     */
+    private function cari_kolom_judul(array $receiptData, string $judul): ?string
+    {
+        foreach ($this->baris_judul($receiptData) ?? [] as $kolom => $isi) {
+            if (strcasecmp(trim((string) $isi), $judul) === 0) return $kolom;
         }
         return null;
     }

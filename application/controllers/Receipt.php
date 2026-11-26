@@ -416,7 +416,7 @@ class Receipt extends MY_Controller
 
             $this->load->library('xlsx_cepat');
             $jalur = null;
-            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'AA', $jalur); // sampai AA: kolom "Status" (X)
+            $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'AA', $jalur); // sampai AA: "Status" (X) dan "Status WMS" (AA)
             $rowCount = count($dataRaw);
             $lama_baca = round(microtime(true) - $mulai, 1);
 
