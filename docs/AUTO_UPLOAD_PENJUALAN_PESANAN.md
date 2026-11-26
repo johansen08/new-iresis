@@ -12,6 +12,8 @@ Efeknya pada `tblprintresi`:
   beda dengan DB, nilainya ditimpa; baris tanpa tanggal retur **tidak** mengosongkan yang sudah ada.
 * Resi yang sudah `COMPLETED` di IRESIS tidak diubah (aturan lama `insert_receipt`), kecuali `status_label_mp` (di bawah);
   resi baru di rentang itu di-insert.
+* `status_wms` = kolom berjudul **Status WMS** (kolom AA). Sampai 26 Nov 2026 yang tersimpan adalah kolom W (nama barang);
+  data lama itu tidak diisi ulang dan baru terganti bila `status_pesanan` resinya berubah.
 * `status_label_mp` = kolom **Status** Excel (label asli marketplace; dicari lewat judul kolom, di ekspor sekarang kolom X).
   Diisi untuk resi baru dan resi yang `status_pesanan`-nya berubah. Resi lama yang statusnya tetap hanya disentuh bila
   labelnya **Paket Hilang** atau label tersimpannya berubah, jadi `NULL` pada resi lama bukan berarti tanpa label.

@@ -9,7 +9,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * dan log scan. Hanya kolom yang benar-benar terisi di database yang dipakai --
  * kolom yang selalu kosong atau konstan sengaja tidak diambil (tblresikeluar.
  * tanggal_cetak selalu '0000-00-00', status_kurangan selalu 'Tidak', status_rts selalu 0,
- * tblprintresi.status_wms berisi nama produk).
+ * tblprintresi.status_wms pada resi yang diunggah lewat Excel sampai 26 Nov 2026 berisi nama produk).
  *
  * Satu resi (tblprintresi) hanya memuat SATU nomor pesanan (tbldetailprintresi.no_pesanan).
  *

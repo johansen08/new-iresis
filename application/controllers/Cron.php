@@ -79,7 +79,7 @@ class Cron extends CI_Controller
             // PhpSpreadsheet untuk .xls -- hasilnya identik dengan toArray() lama.
             $file = $_FILES['receiptFile']['tmp_name'];
             $this->load->library('xlsx_cepat');
-            // Sampai AA: kolom "Status" (X) ada di kanan W.
+            // Sampai AA: kolom "Status" (X) dan "Status WMS" (AA) ada di kanan W.
             $dataRaw = $this->xlsx_cepat->baca_dengan_fallback($file, 'AA');
 
             $this->load->model('receipt_fcd');
