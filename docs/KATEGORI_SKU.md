@@ -102,3 +102,16 @@ Di bawah 768 px tabel berubah menjadi kartu per SKU, filter dan tombol berukuran
 - 18 Nov 2026: menu Kategori SKU (daftar baca-saja, gambar, pencarian, filter multi-pilih).
 - 19 Nov 2026: Export Excel menu Kategori SKU.
 - 26 Nov 2026: info "Upload kategori terakhir" di kedua menu + tabel `tblkategori_sku_upload`.
+
+## Kolom penjualan di menu Kategori SKU (26 Nov 2026)
+
+Tiga kolom pcs terjual: bulan berjalan dan 2 bulan sebelumnya (mis. NOV/26, OKT/26, SEPT/26), bergeser sendiri
+tiap ganti bulan. Ikut di layar dan Export Excel.
+
+* Aturan: `status_pesanan = 'COMPLETED'` dan `status_label_mp` bukan `Paket Hilang`; bulan menurut `tanggal_pesan`;
+  jumlah `tbldetailprintresi.jumlah` per SKU. SHIPPED / PROCESSING / RETURNED / CANCELED tidak dihitung, jadi bulan
+  berjalan masih bertambah.
+* Sumber: prod + resi yang hanya ada di arsip (purna).
+* Cache `application/cache/penjualan_sku_YYYY-MM.json`, umur 30 menit (hitung ulang ±11 detik, dilakukan oleh
+  request pertama setelah kedaluwarsa). Hapus berkas itu untuk memaksa hitung ulang.
+* Logika: `Daftar_kategori_sku_fcd::penjualan()`.

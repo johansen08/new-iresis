@@ -47,6 +47,7 @@ class Daftar_kategori_sku extends MY_Controller
             'kategori' => $this->daftar_kategori_sku_fcd->daftar_kategori(),
             'belum_ada' => Daftar_kategori_sku_fcd::BELUM_ADA,
             'upload_terakhir' => $this->kategori_sku_fcd->upload_terakhir(),
+            'bulan_jual' => array_column($this->daftar_kategori_sku_fcd->bulan_penjualan(), 'label'),
         ], 'kategori_sku/daftar');
     }
 
@@ -54,12 +55,21 @@ class Daftar_kategori_sku extends MY_Controller
     public function get_data()
     {
         $kat = array_values(array_filter((array) $this->input->post('kat'), 'is_string'));
-        $this->make_ajax_response(200, 'OK', $this->daftar_kategori_sku_fcd->halaman(
-            (string) $this->input->post('q'),
-            $kat,
-            (int) $this->input->post('halaman'),
-            (int) $this->input->post('ukuran')
-        ));
+        $q       = (string) $this->input->post('q');
+        $halaman = (int) $this->input->post('halaman');
+        $ukuran  = (int) $this->input->post('ukuran');
+        // Lepas kunci session: hitungan penjualan bisa ±11 detik saat cache kedaluwarsa.
+        session_write_close();
+
+        $data      = $this->daftar_kategori_sku_fcd->halaman($q, $kat, $halaman, $ukuran);
+        $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
+        foreach ($data['baris'] as &$b) {
+            $b['jual'] = $this->daftar_kategori_sku_fcd->penjualan_sku($penjualan, $b['id_sku']);
+        }
+        unset($b);
+        $data['jual_dihitung'] = $penjualan['dihitung'] ?? null;
+
+        $this->make_ajax_response(200, 'OK', $data);
     }
 
     /** GET: q, kat[] (sama dengan layar). Unduh semua SKU yang cocok sebagai xlsx rapi: header tebal, rata tengah, garis tegak dan datar. */
@@ -68,10 +78,14 @@ class Daftar_kategori_sku extends MY_Controller
         ini_set('memory_limit', '1024M');
         set_time_limit(0);
         $kat   = array_values(array_filter((array) $this->input->get('kat'), 'is_string'));
-        $baris = $this->daftar_kategori_sku_fcd->semua((string) $this->input->get('q'), $kat);
+        $q     = (string) $this->input->get('q');
+        session_write_close();
+        $baris = $this->daftar_kategori_sku_fcd->semua($q, $kat);
+        $bulan = array_column($this->daftar_kategori_sku_fcd->bulan_penjualan(), 'label');
+        $penjualan = $this->daftar_kategori_sku_fcd->penjualan();
 
-        $kolom = ['No', 'SKU', 'No Rak', 'Kategori SKU'];
-        $akhir = 'D';
+        $kolom = array_merge(['No', 'SKU', 'No Rak', 'Kategori SKU'], $bulan);
+        $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($kolom));
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $ws = $ss->getActiveSheet();
         $ws->setTitle('Kategori SKU');
@@ -84,6 +98,10 @@ class Daftar_kategori_sku extends MY_Controller
             // Teks eksplisit supaya SKU angka panjang tidak berubah jadi notasi ilmiah / rumus.
             foreach ([2 => (string) $b['id_sku'], 3 => (string) $b['no_rak'], 4 => trim((string) $b['kategori_sku'])] as $c => $v) {
                 $ws->setCellValueExplicit(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r, $v, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            }
+            // Pcs sebagai angka supaya bisa dijumlah / diurutkan di Excel; kosong bila data tidak tersedia.
+            foreach ($this->daftar_kategori_sku_fcd->penjualan_sku($penjualan, $b['id_sku']) as $j => $pcs) {
+                if ($pcs !== null) $ws->setCellValueByColumnAndRow(5 + $j, $r, $pcs);
             }
             $r++;
         }
@@ -98,8 +116,11 @@ class Daftar_kategori_sku extends MY_Controller
         $head->getFont()->setBold(TRUE)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
         $ws->getRowDimension(1)->setRowHeight(24);
-        foreach ([6, 26, 18, 18] as $i => $w) {
+        foreach (array_merge([6, 26, 18, 18], array_fill(0, count($bulan), 14)) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
+        }
+        if ($r > 2) {
+            $ws->getStyle('E2:' . $akhir . $terakhir)->getNumberFormat()->setFormatCode('#,##0');
         }
         $ws->freezePane('A2');
         if ($r > 2) {
