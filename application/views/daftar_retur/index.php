@@ -270,26 +270,37 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable thead th:nth-child(9)  { width:98px; }
   #dr_wrap table.dataTable thead th:nth-child(11) { width:150px; }
 }
-/* Tab Sudah Verifikasi punya kolom ke-12 (Detail Buka: lencana hasil buka + qty, boleh turun baris). Jumlah lebar kolom ~1270px:
-   di layar yang lebih sempit (<1500, area tabel < ~1270) tabel digeser mendatar, bukan memeras kolom lain sampai teksnya terpotong. */
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(4)  { width:122px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(5)  { width:160px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(6)  { width:164px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(7)  { width:150px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(8)  { width:80px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(9)  { width:98px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(10) { width:128px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(11) { width:170px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:200px; }
-#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(12) { padding-top:4px; padding-bottom:4px; line-height:1.5; }
-@media (max-width: 1499px) {
-  #dr_wrap[data-tab="SUDAH_VERIF"] #dr_tablewrap { overflow-x:auto; }
-  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable { min-width:1270px; }
-  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th { position:static; }
-}
+/* Tab Sudah Verifikasi punya kolom ke-12 (Detail Buka: lencana hasil buka + qty). SEMUA kolom harus muat tanpa digeser:
+   jumlah lebar ~1084px (muat tanpa digeser di layar 1366 ke atas, sisa lebar dibagi rata oleh table-layout:fixed). Isi yang panjang
+   turun baris di dalam selnya sendiri, tidak pernah menimpa kolom sebelah. */
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th { padding-left:6px; padding-right:21px; white-space:normal; line-height:1.25; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(4)  { width:106px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(5)  { width:122px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(6)  { width:166px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(7)  { width:104px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(8)  { width:74px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(9)  { width:82px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(10) { width:126px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(11) { width:142px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:162px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td { padding-left:6px; padding-right:6px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(8) { padding-right:12px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(8) { padding-right:16px; }
+/* tanggal verifikasi: tanggal di atas, jam di bawah */
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(4) { white-space:normal; line-height:1.3; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(4) .dr-t1, #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(4) .dr-t2 { display:block; margin-left:0; }
+/* Status Retur & Detail Buka: lencana panjang / lebih dari satu turun baris di dalam sel */
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(11), #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(12) { white-space:normal; overflow:hidden; padding-top:3px; padding-bottom:3px; line-height:1.4; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(11) .dr-sr { white-space:normal; max-width:100%; line-height:16px; padding-top:2px; padding-bottom:2px; margin:1px 2px 1px 0; padding-left:6px; padding-right:6px; vertical-align:middle; border-radius:9px; }
+#dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable tbody td:nth-child(12) .dd-pill { display:block; font-size:11px; padding-left:7px; padding-right:7px; width:-moz-fit-content; width:fit-content; max-width:100%; white-space:normal; line-height:16px; padding-top:2px; padding-bottom:2px; border-radius:9px; }
+/* di bawah 1680 awalan MP di sel Toko dibuang (tetap ada di tooltip) supaya nama toko terbaca */
+@media (max-width: 1679px) { #dr_wrap[data-tab="SUDAH_VERIF"] .dr-mpx { display:none; } }
 @media (min-width: 1680px) {
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(5)  { width:170px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(6)  { width:180px; }
   #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(7)  { width:220px; }
-  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:260px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(11) { width:180px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable thead th:nth-child(12) { width:230px; }
 }
 /* Layar sempit (<= 1300: laptop kecil, tablet): tabel boleh digeser mendatar bila tidak muat; lebar minimal menjamin kolom Toko tetap terbaca.
    Judul kolom tidak lagi menempel (sticky tidak bekerja di dalam wadah yang bisa digeser). */
@@ -298,6 +309,7 @@ $BASE = rtrim(base_url(), '/') . '/';
   #dr_wrap table.dataTable { min-width:980px; }
   #dr_wrap[data-tab="SUDAH_DIBUKA"] table.dataTable { min-width:1080px; }
   #dr_wrap[data-tab="SUDAH_SERAH"] table.dataTable { min-width:1130px; }
+  #dr_wrap[data-tab="SUDAH_VERIF"] table.dataTable { min-width:1084px; }
   #dr_wrap table.dataTable thead th { position:static; }
 }
 /* Tablet / ponsel: filter memenuhi lebar, panel pilihan tidak keluar layar, paging menumpuk */
