@@ -112,6 +112,11 @@ tiap ganti bulan. Ikut di layar dan Export Excel.
   jumlah `tbldetailprintresi.jumlah` per SKU. SHIPPED / PROCESSING / RETURNED / CANCELED tidak dihitung, jadi bulan
   berjalan masih bertambah.
 * Sumber: prod + resi yang hanya ada di arsip (purna).
+* **Angka orange** (layar dan Excel) = SKU itu di bulan itu masih punya pesanan belum final (status selain
+  COMPLETED / RETURNED / CANCELED). Ditandai per angka, bukan seluruh kolom. Pesanan + SKU yang sudah punya salinan
+  berstatus final (resi lama yang diganti) diabaikan. Pesanan tanpa nomor resi tidak ada di iresis, jadi tidak ikut.
+* **Sort** per kolom bulan: klik judul (terbanyak, tersedikit, kembali urut SKU); di HP lewat pilihan "Urut".
+  Berlaku untuk semua SKU yang cocok (bukan hanya halaman tampil) dan ikut di Export Excel.
 * Cache `application/cache/penjualan_sku_YYYY-MM.json`, umur 30 menit (hitung ulang ±11 detik, dilakukan oleh
   request pertama setelah kedaluwarsa). Hapus berkas itu untuk memaksa hitung ulang.
 * Logika: `Daftar_kategori_sku_fcd::penjualan()`.
