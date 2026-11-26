@@ -124,6 +124,10 @@ class Daftar_kategori_sku extends MY_Controller
 
         $kolom = array_merge(['No', 'SKU', 'No Rak', 'Kategori SKU'], $bulan);
         $akhir = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($kolom));
+        // Sama dengan layar: judul kolom bulan membawa total pcs belum final, mis. "NOV/26 (103)".
+        foreach ((array) $this->daftar_kategori_sku_fcd->total_belum_final($penjualan, $baris) as $j => $pcs) {
+            if ($pcs > 0) $kolom[4 + $j] .= ' (' . number_format($pcs, 0, ',', '.') . ')';
+        }
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $ws = $ss->getActiveSheet();
         $ws->setTitle('Kategori SKU');
@@ -159,7 +163,7 @@ class Daftar_kategori_sku extends MY_Controller
         $head->getFont()->setBold(TRUE)->getColor()->setRGB('FFFFFF');
         $head->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('4F46E5');
         $ws->getRowDimension(1)->setRowHeight(24);
-        foreach (array_merge([6, 26, 18, 18], array_fill(0, count($bulan), 14)) as $i => $w) {
+        foreach (array_merge([6, 26, 18, 18], array_fill(0, count($bulan), 18)) as $i => $w) {
             $ws->getColumnDimensionByColumn($i + 1)->setWidth($w);
         }
         if ($r > 2) {
