@@ -117,6 +117,15 @@ tiap ganti bulan. Ikut di layar dan Export Excel.
   berstatus final (resi lama yang diganti) diabaikan. Pesanan tanpa nomor resi tidak ada di iresis, jadi tidak ikut.
 * **Sort** per kolom bulan: klik judul (terbanyak, tersedikit, kembali urut SKU); di HP lewat pilihan "Urut".
   Berlaku untuk semua SKU yang cocok (bukan hanya halaman tampil) dan ikut di Export Excel.
-* Cache `application/cache/penjualan_sku_YYYY-MM.json`, umur 30 menit (hitung ulang ±11 detik, dilakukan oleh
-  request pertama setelah kedaluwarsa). Hapus berkas itu untuk memaksa hitung ulang.
-* Logika: `Daftar_kategori_sku_fcd::penjualan()`.
+* Cache `application/cache/penjualan_sku_YYYY-MM.json`, masa berlaku 30 menit. Layar **selalu** tampil dari cache
+  (tabel tidak pernah menunggu hitungan). Bila basi / belum ada, layar memanggil `hitung-ulang` di latar; selama
+  halaman terbuka pembaruan juga terpicu sendiri tiap 30 menit. Halaman tertutup = tidak ada yang menghitung, dan
+  pembuka berikutnya yang memicunya. Export Excel menghitung dulu bila cache basi.
+* Tombol **Hitung ulang** -> `POST purchasing/kategori-sku/hitung-ulang`; progres dipantau lewat
+  `GET purchasing/kategori-sku/status-hitung` (`penjualan_sku_progres.json`). Satu hitungan saja pada satu waktu
+  (`penjualan_sku.lock`); permintaan lain mendapat `sibuk` lalu ikut memantau. Gagal = cache lama tetap dipakai,
+  layar mencoba lagi 5 menit kemudian.
+* **Paralel:** 24 potongan rentang `id_printresi` per database, dikerjakan 6 koneksi baca-saja (mysqli async).
+  Uji 26 Nov 2026 di prod: ±2,2 dtk (satu koneksi ±13 dtk), hasil identik. Bila koneksi tambahan tidak bisa dibuat,
+  otomatis satu per satu. Setelan: `POTONGAN_PER_DATABASE`, `KONEKSI_PARALEL`.
+* Memaksa hitung ulang cukup lewat tombol. Logika: `Daftar_kategori_sku_fcd::hitung_ulang()`.
