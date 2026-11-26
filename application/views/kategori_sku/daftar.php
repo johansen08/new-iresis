@@ -20,9 +20,7 @@ if (!empty($akses_ditolak)) : ?>
     font-family:'Inter','Segoe UI',sans-serif; color:#1e293b;
   }
   #kd-root input, #kd-root select, #kd-root button { font-family:inherit; }
-  #kd-root .kd-head { padding:4px 0 14px; }
-  #kd-root .kd-title { margin:0; font-size:20px; font-weight:700; color:var(--kd-ink); }
-  #kd-root .kd-sub { margin:2px 0 0; font-size:13px; color:var(--kd-muted); }
+  #kd-root .kd-head { padding:0 0 12px; }
 
   #kd-root .kd-body { padding:16px 18px 12px; background:#fff; border:1px solid var(--kd-line); border-radius:14px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
   #kd-root .kd-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; }
@@ -128,8 +126,6 @@ if (!empty($akses_ditolak)) : ?>
 
 <div id="kd-root">
   <div class="kd-head">
-    <h2 class="kd-title">Kategori SKU</h2>
-    <p class="kd-sub">Daftar SKU dengan gambar, no. rak, dan kategorinya. Untuk mengubah kategori, gunakan menu Update Kategori SKU.</p>
     <?php $this->load->view('kategori_sku/_upload_terakhir', ['upload_terakhir' => $upload_terakhir]); ?>
   </div>
 
