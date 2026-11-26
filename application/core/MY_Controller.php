@@ -108,7 +108,7 @@ class MY_Controller extends CI_Controller
      * berkas ini. Itulah satu-satunya pemicu agar blok migrasi dijalankan ulang
      * di server, sekaligus membuang cache pohon menu semua pengguna.
      */
-    const BOOTSTRAP_VERSI = '2026-11-25.1';
+    const BOOTSTRAP_VERSI = '2026-11-26.1';
 
     /**
      * Menjalankan seluruh migrasi + auto-create menu SEKALI saja per versi.
@@ -2020,6 +2020,18 @@ class MY_Controller extends CI_Controller
             PRIMARY KEY (id),
             KEY idx_katriwayat_batch (batch),
             KEY idx_katriwayat_sku (id_sku)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+
+        // Satu baris per upload yang berhasil (termasuk yang tidak mengubah apa pun), untuk info "Upload terakhir".
+        $this->db->query("CREATE TABLE IF NOT EXISTS tblkategori_sku_upload (
+            batch VARCHAR(30) NOT NULL,
+            nama_file VARCHAR(255) NULL DEFAULT NULL,
+            total INT UNSIGNED NOT NULL DEFAULT 0,
+            berubah INT UNSIGNED NOT NULL DEFAULT 0,
+            id_user INT NULL DEFAULT NULL,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (batch),
+            KEY idx_katupload_waktu (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
 
         $uri  = 'purchasing/update-kategori-sku';

@@ -37,6 +37,12 @@ Bila lolos: `UPDATE tblsku SET kategori_sku` per SKU (pencocokan `BINARY`) dalam
 
 `tblkategori_sku_riwayat` (batch, id_sku, kategori_lama, kategori_baru, id_user, created_at) mencatat setiap SKU yang nilainya berubah, per kode batch, sebagai dasar pengembalian manual. Dibuat oleh `run_kategori_sku_migration()`.
 
+### Info "Upload kategori terakhir"
+
+Tampil di bawah judul kedua menu (Update Kategori SKU dan Kategori SKU), bergaya sama dengan "Update otomatis terakhir" di Daftar Retur Penjualan: waktu, pengunggah, jumlah SKU diupload, dan jumlah yang berubah (nama berkas muncul saat kursor di atas waktu). Di menu upload, info langsung diperbarui setelah upload berhasil. Upload yang ditolak tidak dihitung.
+
+Sumbernya `tblkategori_sku_upload` (satu baris per upload berhasil, termasuk yang tidak mengubah apa pun). Bila tabel itu masih kosong, dipakai batch terakhir di `tblkategori_sku_riwayat`; untuk data lama ini jumlah SKU diupload tidak diketahui sehingga hanya jumlah yang berubah yang tampil. View bersama: `views/kategori_sku/_upload_terakhir.php`.
+
 ---
 
 ## B. Menu Kategori SKU (daftar baca-saja)
@@ -95,3 +101,4 @@ Di bawah 768 px tabel berubah menjadi kartu per SKU, filter dan tombol berukuran
 - 17 Nov 2026: Update Kategori SKU (upload Excel + riwayat).
 - 18 Nov 2026: menu Kategori SKU (daftar baca-saja, gambar, pencarian, filter multi-pilih).
 - 19 Nov 2026: Export Excel menu Kategori SKU.
+- 26 Nov 2026: info "Upload kategori terakhir" di kedua menu + tabel `tblkategori_sku_upload`.

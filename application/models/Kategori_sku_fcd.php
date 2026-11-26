@@ -111,6 +111,7 @@ class Kategori_sku_fcd extends CI_Model
         foreach (array_chunk($st_riwayat, 500) as $potong) {
             $this->db->insert_batch('tblkategori_sku_riwayat', $potong);
         }
+        $this->db->insert('tblkategori_sku_upload', ['batch' => $batch, 'nama_file' => mb_substr((string) $nama_file, 0, 255), 'total' => count($siap), 'berubah' => $berubah, 'id_user' => (int) $id_user, 'created_at' => $now]);
         $this->db->trans_complete();
         $ok = $this->db->trans_status() !== FALSE;
         $this->db->db_debug = $db_debug;
@@ -119,6 +120,40 @@ class Kategori_sku_fcd extends CI_Model
             return $this->gagal(['Database menolak penyimpanan. Tidak ada data yang diubah. Coba lagi; bila berulang hubungi admin.']);
         }
         return ['ok' => TRUE, 'galat' => [], 'total_galat' => 0, 'total' => count($siap), 'berubah' => $berubah, 'sama' => count($siap) - $berubah, 'batch' => $batch, 'nama_file' => $nama_file];
+    }
+
+    /**
+     * Upload berhasil yang paling akhir. Upload sebelum tblkategori_sku_upload ada hanya terekam di riwayat
+     * (hanya SKU yang berubah), jadi untuk itu total dan nama berkas tidak diketahui (NULL).
+     *
+     * @return array|null {waktu, oleh, nama_file, total, berubah}
+     */
+    public function upload_terakhir()
+    {
+        $u = null;
+        // table_exists: database arsip (Mode Arsip) bisa belum punya tabel ini.
+        if ($this->db->table_exists('tblkategori_sku_upload')) {
+            $u = $this->db->query('SELECT created_at, id_user, nama_file, total, berubah FROM tblkategori_sku_upload ORDER BY created_at DESC, batch DESC LIMIT 1')->row_array();
+        }
+        if (!$u && $this->db->table_exists('tblkategori_sku_riwayat')) {
+            $u = $this->db->query('SELECT MAX(created_at) AS created_at, MAX(id_user) AS id_user, NULL AS nama_file, NULL AS total, COUNT(*) AS berubah
+                                     FROM tblkategori_sku_riwayat GROUP BY batch ORDER BY created_at DESC LIMIT 1')->row_array();
+        }
+        if (!$u) {
+            return null;
+        }
+        $user = $this->db->query('SELECT name, username FROM tbluser WHERE id_user = ?', [(int) $u['id_user']])->row_array();
+        $oleh = '';
+        if ($user) {
+            $oleh = trim((string) $user['name']) !== '' ? trim((string) $user['name']) : trim((string) $user['username']);
+        }
+        return [
+            'waktu'     => $u['created_at'],
+            'oleh'      => $oleh,
+            'nama_file' => $u['nama_file'],
+            'total'     => $u['total'] === null ? null : (int) $u['total'],
+            'berubah'   => (int) $u['berubah'],
+        ];
     }
 
     private function gagal(array $galat)
