@@ -244,9 +244,9 @@ class Picking_fcd extends CI_Model
             $nama = array_shift($bagian);
             $role = $bagian ? implode(' - ', $bagian) : '-';
 
-            // Pengecualian: FADILLAH (QC), ENOS (QC), SAHRUL (RESI), dan REIHAN (PICK)
-            // boleh dipilih di Upload Resi Spesial walau jabatannya bukan PICKER.
-            $pengecualian = ['FADILLAH' => 'QC', 'ENOS' => 'QC', 'SAHRUL' => 'RESI', 'REIHAN' => 'PICK'];
+            // Pengecualian: FADILLAH (QC), ENOS (QC), SAHRUL (RESI), REIHAN (PICK), dan
+            // MUSTAQIM (QC) boleh dipilih di Upload Resi Spesial walau jabatannya bukan PICKER.
+            $pengecualian = ['FADILLAH' => 'QC', 'ENOS' => 'QC', 'SAHRUL' => 'RESI', 'REIHAN' => 'PICK', 'MUSTAQIM' => 'QC'];
             $diizinkan = isset($pengecualian[strtoupper($nama)])
                 && strcasecmp($role, $pengecualian[strtoupper($nama)]) === 0;
 
