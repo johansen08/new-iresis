@@ -30,6 +30,12 @@ if (!empty($akses_ditolak)) : ?>
 .pv-alert.aman { background:#f0fdfa; border-color:#99f6e4; color:#115e59; }
 .pv-alert.tidak_tahu { background:#f3f4f6; border-color:#e5e7eb; color:#4b5563; }
 
+/* Pemberitahuan wajib hapus video lama (sisa ruang di bawah batas) */
+.pv-wajib { display:flex; align-items:flex-start; gap:14px; margin-bottom:12px; padding:14px 18px; border-radius:8px; background:#b91c1c; color:#fff; font-size:13.5px; line-height:1.55; }
+.pv-wajib[hidden] { display:none; }
+.pv-wajib > i { flex:none; margin-top:3px; font-size:26px; }
+.pv-wajib strong { display:block; margin-bottom:2px; font-size:16px; letter-spacing:.2px; }
+
 /* Kartu ringkasan */
 .pv-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
 .pv-card { border:1px solid #e5e7eb; border-radius:8px; padding:14px 16px; background:#fff; }
@@ -101,6 +107,7 @@ if (!empty($akses_ditolak)) : ?>
     <div class="sub" id="pv_sub"></div>
   </div>
 
+  <div class="pv-wajib" id="pv_wajib" role="alert" hidden></div>
   <div class="pv-alert" id="pv_alert" role="alert" hidden></div>
   <div class="pv-alert waspada" id="pv_macet" role="alert" hidden></div>
 
@@ -212,6 +219,17 @@ if (!empty($akses_ditolak)) : ?>
     }
   }
 
+  // Sisa ruang <= batas (200 GB): tampil terus sampai ruang drive benar-benar bertambah.
+  function isiWajibHapus(d) {
+    var a = $e('pv_wajib');
+    a.hidden = !d.wajib_hapus;
+    if (!d.wajib_hapus) { return; }
+    $e('pv_c_sisa').className = 'pv-card bahaya';
+    a.innerHTML = '<i class="fa fa-trash"></i><div><strong>WAJIB HAPUS VIDEO LAMA SEKARANG</strong>'
+      + 'Sisa ruang HDD backup tinggal <b>' + ukuran(d.sisa) + '</b> (batas ' + ukuran(d.batas_wajib_hapus) + '). '
+      + 'Segera hapus video-video lama di folder <b>' + esc(d.folder) + '</b>, lalu kosongkan Recycle Bin agar ruangnya benar-benar bebas.</div>';
+  }
+
   function isiMacet(d) {
     var m = d.macet, a = $e('pv_macet');
     if (!m || !m.jumlah) { a.hidden = true; return; }
@@ -279,14 +297,14 @@ if (!empty($akses_ditolak)) : ?>
     $('#pv_muat').on('click', function () {
       var $b = $(this).prop('disabled', true);
       $.ajax({ url: URL_DATA, dataType: 'json', timeout: 120000 }).done(function (r) {
-        if (r && r.code == 200 && r.data) { isiKartu(r.data); isiMacet(r.data); isiTabel(r.data); }
+        if (r && r.code == 200 && r.data) { isiKartu(r.data); isiWajibHapus(r.data); isiMacet(r.data); isiTabel(r.data); }
         else { banner('bahaya', 'fa-exclamation-triangle', (r && r.message) || 'Data gagal dimuat.'); }
       }).fail(function (x) {
         banner('bahaya', 'fa-exclamation-triangle', 'Data gagal dimuat (' + (x.status || 'tidak ada respon') + '). Coba lagi.');
       }).always(function () { $b.prop('disabled', false); });
     });
 
-    if (DATA) { isiKartu(DATA); isiMacet(DATA); isiTabel(DATA); }
+    if (DATA) { isiKartu(DATA); isiWajibHapus(DATA); isiMacet(DATA); isiTabel(DATA); }
     else { banner('bahaya', 'fa-exclamation-triangle', 'Data penyimpanan gagal dihitung. Klik Muat ulang.'); }
   }
 
