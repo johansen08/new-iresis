@@ -18,6 +18,9 @@ class Penyimpanan_video_fcd extends CI_Model
     const HARI_BAHAYA = 30;
     const HARI_WASPADA = 90;
 
+    /** Sisa ruang drive di titik ini atau kurang = video lama wajib dihapus (200 GB satuan Windows). */
+    const BATAS_WAJIB_HAPUS_BYTE = 200 * 1024 * 1024 * 1024;
+
     /**
      * Rekaman berstatus MEREKAM lebih lama dari ini dianggap macet. Browser membatasi
      * rekaman 90 menit (packer_video.js) dan Cron::tutup_video_menggantung memakai
@@ -108,6 +111,8 @@ class Penyimpanan_video_fcd extends CI_Model
             'terpakai_video' => (int) $terpakai_video,
             'total_video'    => $total_video,
             'perkiraan'      => $perkiraan,
+            'wajib_hapus'    => $drive_ok && $sisa <= self::BATAS_WAJIB_HAPUS_BYTE,
+            'batas_wajib_hapus' => self::BATAS_WAJIB_HAPUS_BYTE,
             'macet'          => ['jumlah' => $macet_n, 'byte' => $macet_byte, 'menit' => self::MACET_MENIT],
             'hari_perkiraan' => self::HARI_PERKIRAAN,
             'hari'           => array_reverse($hari), // terbaru di atas
