@@ -34,7 +34,11 @@ Urutan pengecekan, dan kode hasil yang dikembalikan:
 1. Jenis tidak valid → `jenis_belum_dipilih`. Resi kosong → `kosong`.
 2. `resolusi_noresi_retur()` memetakan resi balik kurir (mis. `JZ…`) ke resi pengiriman Iresis
    lewat `tblreturjubelio` → `tbldetailprintresi` (hanya jika memetakan ke tepat satu resi),
-   sekaligus menarik resi lama dari arsip. Resi balik ditampilkan di banner.
+   sekaligus menarik resi lama dari arsip. Resi balik ditampilkan di banner. Bila pesanannya
+   tidak ada sama sekali di prod (sudah dipurna), resinya dicari di DB arsip
+   (`Arsip_fcd::noresi_arsip_by_pesanan()`, hanya bila tepat satu resi) lalu ditarik ke prod.
+   Sebelum 27 Nov 2026 cadangan ini tidak ada, sehingga resi balik pesanan yang sudah
+   diarsipkan (14 retur Lazada Maret–Juli 2026) berakhir **tidak ditemukan**.
 3. Resi tidak ada di `tblprintresi` → `tidak_ditemukan`.
 4. `status_pesanan` mengandung `CANCEL` atau `batal = 1` → `cancel`.
 5. Sudah ada baris pada jenis yang sama → `double`.

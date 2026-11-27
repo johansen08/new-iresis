@@ -46,7 +46,8 @@ if (!function_exists('resolusi_noresi_retur')) {
 	 * tblreturjubelio. Kalau $noresi tidak ada di tblprintresi, cari lewat
 	 * tblreturjubelio.no_resi -> no_pesanan -> tbldetailprintresi.no_pesanan dan
 	 * kembalikan resi pengiriman aslinya. Hanya bila pesanannya memetakan ke
-	 * tepat SATU resi; selain itu $noresi dikembalikan apa adanya.
+	 * tepat SATU resi; selain itu $noresi dikembalikan apa adanya. Pesanan yang
+	 * rinciannya sudah tidak ada di prod dicari juga di DB arsip.
 	 * Sekaligus memanggil pastikan_resi_live() untuk resi yang dikembalikan.
 	 */
 	function resolusi_noresi_retur($noresi)
@@ -92,6 +93,20 @@ if (!function_exists('resolusi_noresi_retur')) {
 			if (count($cari) === 1) {
 				pastikan_resi_live($cari[0]->noresi);
 				return $cari[0]->noresi;
+			}
+
+			// Pesanannya tidak ada sama sekali di prod = kemungkinan sudah dipurna:
+			// cari resinya di arsip, lalu tarik ke prod. Dikembalikan hanya bila resinya
+			// benar-benar ada di prod sesudahnya; kalau penarikan gagal, hasilnya tetap
+			// "tidak ditemukan" seperti sebelumnya.
+			if (count($cari) === 0) {
+				if (!isset($CI->Arsip_fcd)) {
+					$CI->load->model('Arsip_fcd');
+				}
+				$asli = $CI->Arsip_fcd->noresi_arsip_by_pesanan($jub->no_pesanan);
+				if ($asli !== NULL && in_array(pastikan_resi_live($asli), array('ditarik', 'live'), TRUE)) {
+					return $asli;
+				}
 			}
 		} catch (Throwable $e) {
 			log_message('error', "resolusi_noresi_retur($noresi): " . $e->getMessage());

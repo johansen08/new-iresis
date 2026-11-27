@@ -116,6 +116,41 @@ class Arsip_fcd extends CI_Model
         }
     }
 
+    /**
+     * Cari resi pengiriman sebuah nomor pesanan di DB ARSIP (hanya membaca).
+     * Dipakai resolusi_noresi_retur() ketika pesanannya sudah dipurna sehingga
+     * rinciannya tidak ada lagi di prod: tanpa ini resi balik kurir (JZ…/JNAP-…)
+     * tidak pernah ketemu resi aslinya, jadi tarik_balik() tidak pernah terpanggil.
+     *
+     * Kembalian: noresi bila pesanan itu memetakan ke tepat SATU resi, selain itu
+     * NULL (juga di Mode Arsip, bila arsip tidak disetel, atau bila query gagal).
+     */
+    public function noresi_arsip_by_pesanan($no_pesanan)
+    {
+        $no_pesanan = trim((string) $no_pesanan);
+        if ($no_pesanan === '' || $this->arsip === '' || $this->arsip === $this->prod
+            || $this->session->userdata('mode_arsip')) {
+            return NULL;
+        }
+
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        try {
+            $q = $this->db->query("SELECT DISTINCT p.noresi
+                FROM `{$this->arsip}`.`tbldetailprintresi` d
+                JOIN `{$this->arsip}`.`tblprintresi` p ON p.id_printresi = d.id_resi
+                WHERE d.no_pesanan = ? LIMIT 2", array($no_pesanan));
+            if (!$q) {
+                log_message('error', "noresi_arsip_by_pesanan($no_pesanan): " . $this->pesan_error());
+                return NULL;
+            }
+            $baris = $q->result();
+            return count($baris) === 1 ? $baris[0]->noresi : NULL;
+        } finally {
+            $this->db->db_debug = $debug_lama;
+        }
+    }
+
     // ------------------------------------------------------------------
     //  Orkestrasi
     // ------------------------------------------------------------------
