@@ -102,6 +102,7 @@ Di bawah 768 px tabel berubah menjadi kartu per SKU, filter dan tombol berukuran
 - 18 Nov 2026: menu Kategori SKU (daftar baca-saja, gambar, pencarian, filter multi-pilih).
 - 19 Nov 2026: Export Excel menu Kategori SKU.
 - 28 Nov 2026: kolom penjualan ditambah menjadi 5 bulan.
+- 28 Nov 2026: penanda belum final ikut membaca arsip (sebelumnya hanya prod, sehingga bulan lama tampak final).
 - 26 Nov 2026: info "Upload kategori terakhir" di kedua menu + tabel `tblkategori_sku_upload`.
 
 ## Kolom penjualan di menu Kategori SKU (26 Nov 2026)
@@ -112,10 +113,14 @@ bergeser sendiri tiap ganti bulan (jumlahnya `JUMLAH_BULAN`; cache dengan susuna
 * Aturan: `status_pesanan = 'COMPLETED'` dan `status_label_mp` bukan `Paket Hilang`; bulan menurut `tanggal_pesan`;
   jumlah `tbldetailprintresi.jumlah` per SKU. SHIPPED / PROCESSING / RETURNED / CANCELED tidak dihitung, jadi bulan
   berjalan masih bertambah.
-* Sumber: prod + resi yang hanya ada di arsip (purna).
+* Sumber: prod + resi yang hanya ada di arsip (purna), untuk angka terjual maupun penanda belum final.
 * **Angka orange** (layar dan Excel) = SKU itu di bulan itu masih punya pesanan belum final (status selain
-  COMPLETED / RETURNED / CANCELED). Ditandai per angka, bukan seluruh kolom. Pesanan + SKU yang sudah punya salinan
-  berstatus final (resi lama yang diganti) diabaikan. Pesanan tanpa nomor resi tidak ada di iresis, jadi tidak ikut.
+  COMPLETED / RETURNED / CANCELED / RESI DIGANTI). Ditandai per angka, bukan seluruh kolom. Pesanan + SKU yang sudah
+  punya salinan berstatus final di prod atau arsip (resi lama yang diganti) diabaikan. Pesanan tanpa nomor resi tidak
+  ada di iresis, jadi tidak ikut.
+* Baris yang hanya ada di arsip tidak diperbarui upload / cek status, jadi angka orange dari arsip menetap sampai
+  statusnya diperbaiki di database, walaupun di Jubelio mungkin sudah selesai. SKU yang bulan itu belum punya
+  penjualan COMPLETED tampil sebagai 0 berwarna orange.
 * **Judul kolom** membawa jumlah SKU yang angka penjualannya belum final, mis. `NOV/26 (103)` = 103 SKU berangka
   orange di bulan itu, dihitung dari semua SKU yang cocok dengan pencarian / filter (bukan hanya halaman tampil). Tidak tampil bila 0. Ikut di judul Export Excel; di HP tampil sebagai ringkasan
   di atas daftar.

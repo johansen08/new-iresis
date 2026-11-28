@@ -185,10 +185,10 @@ class Daftar_kategori_sku_fcd extends CI_Model
     }
 
     /**
-     * Daftar query potongan: [jenis_kolom, sql]. Prod: terjual dan belum final sekali jalan. Arsip: hanya resi
-     * terjual yang sudah dipindah (purna, retensi 60 hari) dan tidak ada lagi di prod; pesanan belum final
-     * tidak dicari di arsip karena baris yang tinggal di sana tidak pernah diperbarui lagi. Nama database
-     * ditulis lengkap supaya hasilnya sama di Mode Arsip.
+     * Daftar query potongan SQL. Terjual dan belum final dihitung sekali jalan, di prod dan di arsip. Dari arsip
+     * hanya resi yang sudah dipindah (purna, retensi 60 hari) dan tidak ada lagi di prod. Baris yang tinggal di
+     * arsip tidak diperbarui lagi, jadi yang belum final di sana tetap ditandai sampai statusnya diperbaiki.
+     * Nama database ditulis lengkap supaya hasilnya sama di Mode Arsip.
      */
     private function susun_potongan(array $bulan)
     {
@@ -199,12 +199,16 @@ class Daftar_kategori_sku_fcd extends CI_Model
 
         $final   = self::STATUS_FINAL;
         $terjual = "p.status_pesanan = 'COMPLETED' AND (p.status_label_mp IS NULL OR p.status_label_mp <> 'Paket Hilang')";
-        $belum   = "(p.status_pesanan IS NULL OR p.status_pesanan NOT IN ($final))";
+        // 'RESI DIGANTI' = penanda resi dobel; pesanannya sudah dihitung lewat resi penggantinya.
+        $belum   = "(p.status_pesanan IS NULL OR p.status_pesanan NOT IN ($final, 'RESI DIGANTI'))";
+        $pakai_arsip = $arsip !== '' && $arsip !== $prod;
         // Resi lama yang diganti (mis. nomor resi Lazada berubah) tertinggal SHIPPED selamanya. Pesanan + SKU
-        // yang sudah punya salinan berstatus final tidak dihitung belum final.
-        $tanpa_salinan_final = "NOT EXISTS (SELECT 1 FROM `$prod`.tbldetailprintresi d2
-            JOIN `$prod`.tblprintresi p2 ON p2.id_printresi = d2.id_resi
-            WHERE d2.no_pesanan = d.no_pesanan AND d2.sku = d.sku AND p2.status_pesanan IN ($final))";
+        // yang sudah punya salinan berstatus final (di prod atau arsip) tidak dihitung belum final.
+        $tanpa_salinan_final = implode(' AND ', array_map(function ($db) use ($final) {
+            return "NOT EXISTS (SELECT 1 FROM `$db`.tbldetailprintresi d2
+                JOIN `$db`.tblprintresi p2 ON p2.id_printresi = d2.id_resi
+                WHERE d2.no_pesanan = d.no_pesanan AND d2.sku = d.sku AND p2.status_pesanan IN ($final))";
+        }, $pakai_arsip ? [$prod, $arsip] : [$prod]));
 
         $kolom_t = $kolom_b = [];
         foreach ($bulan as $i => $b) {
@@ -214,14 +218,16 @@ class Daftar_kategori_sku_fcd extends CI_Model
         }
         $rentang = "p.tanggal_pesan >= '{$bulan[count($bulan) - 1]['dari']}' AND p.tanggal_pesan < '{$bulan[0]['sampai']}'";
 
-        $sumber = [[$prod, array_merge($kolom_t, $kolom_b), "$rentang AND (($terjual) OR $belum)"]];
-        if ($arsip !== '' && $arsip !== $prod) {
-            $sumber[] = [$arsip, $kolom_t, "$rentang AND $terjual
+        $kolom  = array_merge($kolom_t, $kolom_b);
+        $syarat_dasar = "$rentang AND (($terjual) OR $belum)";
+        $sumber = [[$prod, $syarat_dasar]];
+        if ($pakai_arsip) {
+            $sumber[] = [$arsip, "$syarat_dasar
                 AND NOT EXISTS (SELECT 1 FROM `$prod`.tblprintresi l WHERE l.noresi = p.noresi)"];
         }
 
         $potongan = [];
-        foreach ($sumber as list($db, $kolom, $syarat)) {
+        foreach ($sumber as list($db, $syarat)) {
             $q = $this->db->query("SELECT MIN(id_printresi) AS a, MAX(id_printresi) AS z FROM `$db`.tblprintresi");
             if ($q === FALSE) throw new RuntimeException($this->db->error()['message'] ?? "gagal membaca $db");
             $r = $q->row();
