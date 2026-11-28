@@ -10,8 +10,8 @@ class Daftar_kategori_sku_fcd extends CI_Model
     /** Nilai filter khusus untuk SKU yang kolom kategori_sku-nya NULL / kosong. */
     const BELUM_ADA = '__BELUM__';
     const UKURAN_BOLEH = [25, 50, 100];
-    /** Jumlah kolom bulan penjualan (bulan berjalan + 2 bulan sebelumnya). */
-    const JUMLAH_BULAN = 3;
+    /** Jumlah kolom bulan penjualan (bulan berjalan + 4 bulan sebelumnya). */
+    const JUMLAH_BULAN = 5;
     /** Umur cache penjualan (detik). Lewat dari ini dianggap basi dan dihitung ulang. */
     const CACHE_PENJUALAN_DETIK = 1800;
     /**
@@ -64,14 +64,16 @@ class Daftar_kategori_sku_fcd extends CI_Model
      * Penjualan = pesanan COMPLETED selain "Paket Hilang" (status_label_mp), bulan menurut tanggal_pesan.
      *
      * @return array|null {bulan: [label], dihitung: 'Y-m-d H:i', waktu: epoch, durasi: detik,
-     *                    data: {SKU_BESAR: [pcs, pcs, pcs]}, belum: {SKU_BESAR: [pcs belum final, ...]}}
+     *                    data: {SKU_BESAR: [pcs per bulan]}, belum: {SKU_BESAR: [pcs belum final, ...]}}
      */
     public function penjualan()
     {
         $berkas = $this->berkas_penjualan();
         if (!is_file($berkas)) return null;
         $isi = json_decode((string) @file_get_contents($berkas), true);
-        return isset($isi['bulan'], $isi['dihitung'], $isi['waktu'], $isi['data'], $isi['belum']) ? $isi : null;
+        if (!isset($isi['bulan'], $isi['dihitung'], $isi['waktu'], $isi['data'], $isi['belum'])) return null;
+        // Cache dengan susunan bulan lain (mis. dibuat sebelum jumlah kolom diubah) tidak bisa dipakai.
+        return $isi['bulan'] === array_column($this->bulan_penjualan(), 'label') ? $isi : null;
     }
 
     /** Ringkasan kesegaran cache untuk layar. umur = detik sejak dihitung. */
