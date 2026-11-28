@@ -188,6 +188,27 @@ Setelah bersih, nyalakan `purna_aktif = TRUE` supaya putaran malam mengarsipkan 
 lewat 60 hari tiap hari (±10 rb resi/hari, hitungan detik). Ukuran berkas `.ibd` **tidak**
 mengecil sampai `OPTIMIZE TABLE` (tahap 8); jumlah baris dan kerja indeks langsung turun.
 
+## 4d. Pencegahan resi masuk ulang (28 Nov 2026)
+
+**Kejadian.** Impor resi hanya mencari di prod, sehingga resi yang sudah dipurna dianggap baru dan di-insert
+dengan ID lain (terutama lewat unggah 90 hari, sedangkan retensi prod 60 hari). Sinkron malam lalu me-`REPLACE`
+header arsip: `noresi` unik, jadi header lama tergantikan, sementara rincian dan scan lama tetap memakai ID lama.
+Data yang sudah terlanjur putus **belum dipulihkan** oleh perubahan ini.
+
+**Pengaman:**
+
+| Tempat | Perilaku |
+|---|---|
+| `Receipt_fcd::insert_receipt()` (Upload Resi, `cron/auto_upload_resi`, `auto_upload_resi_api`) | resi yang tidak ada di prod dicek ke arsip (`Arsip_fcd::noresi_di_arsip`); yang ada dilewati dan dihitung di pesan hasil. Arsip tidak terbaca → seluruh impor dibatalkan |
+| `Receipt_fcd::save()` (simpan satu resi) | ditolak: `Nomor resi sudah ada di arsip` |
+| Sinkron dan purna, sebelum `REPLACE` ke `tblprintresi` | bila ada `noresi` prod yang di arsip ber-ID lain: `tblprintresi` tidak disalin, tercatat FAIL di `_arsip_log`, dan purna tidak jalan |
+
+Akibat yang disengaja: **status resi yang sudah di arsip tidak diperbarui oleh upload.**
+
+Kalau sinkron FAIL dengan pesan `... resi prod bernomor sama dengan resi arsip ber-ID lain`, jangan dipaksa:
+cari asal resi prod tersebut. Tabel lain tetap disalin, jadi rincian/scan resi prod itu di arsip belum punya induk
+sampai bentroknya diselesaikan.
+
 ## 5. Batasan yang disengaja
 
 - **Baris yang dihapus di prod tetap ada di arsip.** Arsip tidak pernah menghapus. Kalau
