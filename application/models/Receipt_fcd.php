@@ -125,6 +125,19 @@ class Receipt_fcd extends CI_Model
             return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah completed'];
         }
 
+        // Resi yang sudah dipurna tidak boleh dibuat ulang (lihat Arsip_fcd::noresi_di_arsip).
+        $this->load->model('Arsip_fcd');
+        $noresi = trim((string) ($receipt['noresi'] ?? ''));
+        try {
+            $di_arsip = $noresi !== '' && $this->Arsip_fcd->noresi_di_arsip([$noresi]);
+        } catch (Exception $e) {
+            log_message('error', "Receipt_fcd::save($noresi): " . $e->getMessage());
+            return ['error' => TRUE, 'code' => 500, 'message' => 'Gagal memeriksa arsip, resi belum disimpan'];
+        }
+        if ($di_arsip) {
+            return ['error' => TRUE, 'code' => 400, 'message' => 'Nomor resi sudah ada di arsip'];
+        }
+
         $receipt['tanggal_printresi'] = date('Y-m-d H:i:s');
         $receipt['admin_pegawai'] = $id_user;
 
@@ -1748,6 +1761,19 @@ class Receipt_fcd extends CI_Model
                 }
             }
 
+            // Resi yang tidak ada di prod belum tentu baru: bisa sudah dipurna ke arsip
+            // (retensi prod lebih pendek dari jendela unggah 90 hari). Resi seperti itu
+            // dilewati -- bila dimasukkan lagi, sinkron malam menimpa header lamanya di
+            // arsip dan memutus rincian serta riwayat scannya. Lihat docs/ARSIP_DATA.md.
+            $calon_baru = [];
+            $sudah_ada = array_change_key_case($existing_noresi + $update_candidates, CASE_UPPER);
+            foreach ($noresi_list as $n) {
+                if (!isset($sudah_ada[strtoupper(trim((string) $n))])) $calon_baru[] = $n;
+            }
+            $this->load->model('Arsip_fcd');
+            $di_arsip = $this->Arsip_fcd->noresi_di_arsip($calon_baru);
+            $dilewati_arsip = [];
+
             $batch_header_map = [];
             $batch_detail_map = [];
             $batch_update_map = [];
@@ -1766,6 +1792,13 @@ class Receipt_fcd extends CI_Model
                 // Skip header row or invalid data
                 if ($no_pesanan === 'NO_PESANAN' || !$no_pesanan || !$sku || !$noresi) {
                     $total_skip_insert++;
+                    continue;
+                }
+
+                // Sudah ada di arsip: jangan dimasukkan lagi ke prod
+                $kunci_resi = strtoupper(trim((string) $noresi));
+                if (isset($di_arsip[$kunci_resi])) {
+                    $dilewati_arsip[$kunci_resi] = true;
                     continue;
                 }
 
@@ -2126,6 +2159,9 @@ class Receipt_fcd extends CI_Model
             $message = "Total Data Terinput: $total_success_insert | Dilewati: $total_skip_insert | Duplikat: $total_duplicate_skip | Diupdate: $total_updated | Data Tidak Berubah: $total_skip_update_same_status";
             if ($kol_label !== null) {
                 $message .= ' | Label status diisi pada resi COMPLETED lama: ' . count($batch_label_map);
+            }
+            if ($dilewati_arsip) {
+                $message .= ' | Sudah di arsip (dilewati, tidak diperbarui): ' . count($dilewati_arsip) . ' resi';
             }
             log_message('info', $message);
 

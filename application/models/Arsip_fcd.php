@@ -151,6 +151,42 @@ class Arsip_fcd extends CI_Model
         }
     }
 
+    /**
+     * Dari daftar $noresi, mana saja yang sudah tersimpan di DB arsip. Dipakai
+     * sebelum MENAMBAH resi ke prod: resi yang sudah dipurna tidak boleh masuk
+     * lagi sebagai resi baru, sebab sinkron malam akan menimpa header lamanya di
+     * arsip (noresi unik) dan memutus rincian serta riwayat scannya.
+     *
+     * Kembalian: array [NORESI_HURUF_BESAR => TRUE]. Query gagal → Exception,
+     * supaya pemanggil membatalkan penambahan alih-alih menganggap resinya baru.
+     */
+    public function noresi_di_arsip(array $noresi)
+    {
+        $ada = array();
+        if (!$noresi || $this->arsip === '' || $this->arsip === $this->prod) {
+            return $ada;
+        }
+
+        $debug_lama = $this->db->db_debug;
+        $this->db->db_debug = FALSE;
+        try {
+            foreach (array_chunk(array_values($noresi), 1000) as $potong) {
+                $potong = array_map('strval', $potong);
+                $tanda  = implode(',', array_fill(0, count($potong), '?'));
+                $q = $this->q("SELECT noresi FROM `{$this->arsip}`.`tblprintresi` WHERE noresi IN ($tanda)", $potong);
+                if ($q === FALSE) {
+                    throw new Exception('Resi di arsip tidak bisa diperiksa: ' . $this->pesan_error());
+                }
+                foreach ($q->result() as $r) {
+                    $ada[strtoupper(trim($r->noresi))] = TRUE;
+                }
+            }
+        } finally {
+            $this->db->db_debug = $debug_lama;
+        }
+        return $ada;
+    }
+
     // ------------------------------------------------------------------
     //  Orkestrasi
     // ------------------------------------------------------------------
@@ -574,8 +610,30 @@ class Arsip_fcd extends CI_Model
     /** Salin seluruh isi tabel (master/kecil). Mengembalikan jumlah baris prod. */
     private function salin_penuh($t)
     {
+        $this->tolak_bentrok_resi($t, '1');
         $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t`");
         return $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t`");
+    }
+
+    /**
+     * Pengaman sebelum REPLACE ke tblprintresi arsip. noresi unik, jadi baris prod
+     * ber-noresi sama tetapi ber-id lain akan MENGGANTIKAN header lama di arsip dan
+     * memutus rincian serta scannya. Bila ada, berhenti (Exception) tanpa menyalin.
+     * $pilih = syarat WHERE atas baris prod, beralias p. Tabel lain: tidak diperiksa.
+     */
+    private function tolak_bentrok_resi($t, $pilih, array $binds = array())
+    {
+        if ($t !== 'tblprintresi') {
+            return;
+        }
+        $dari = "FROM `{$this->prod}`.`$t` p STRAIGHT_JOIN `{$this->arsip}`.`$t` a
+            ON a.noresi = p.noresi AND a.id_printresi <> p.id_printresi WHERE $pilih";
+        $n = $this->hitung("SELECT COUNT(*) n $dari", $binds);
+        if ($n > 0) {
+            $c = $this->ambil_row("SELECT p.noresi, p.id_printresi idp, a.id_printresi ida $dari LIMIT 1", $binds);
+            throw new Exception("$n resi prod bernomor sama dengan resi arsip ber-ID lain, tidak disalin"
+                . ($c ? " (contoh {$c->noresi}: id prod {$c->idp}, id arsip {$c->ida})" : ''));
+        }
     }
 
     /**
@@ -600,6 +658,7 @@ class Arsip_fcd extends CI_Model
                 break;
             }
             $maks = (int) $r->m;
+            $this->tolak_bentrok_resi($t, "p.`$pk` > ? AND p.`$pk` <= ?", array($wm, $maks));
             $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t`
                 WHERE `$pk` > ? AND `$pk` <= ?", array($wm, $maks));
             $disalin += $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t`
@@ -622,6 +681,7 @@ class Arsip_fcd extends CI_Model
         // dan ini bukan muat awal (saat muat awal semua baris toh baru disalin).
         if ($info['kolom_ubah'] !== NULL && $wm_awal > 0) {
             $hari = (int) $this->cfg['jendela_ubah_hari'];
+            $this->tolak_bentrok_resi($t, "p.`{$info['kolom_ubah']}` >= NOW() - INTERVAL $hari DAY AND p.`$pk` <= ?", array($wm_awal));
             $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t`
                 WHERE `{$info['kolom_ubah']}` >= NOW() - INTERVAL $hari DAY AND `$pk` <= ?", array($wm_awal));
             $disalin += $this->hitung("SELECT COUNT(*) n FROM `{$this->prod}`.`$t`
@@ -876,6 +936,7 @@ class Arsip_fcd extends CI_Model
                 // 1. Salin keluarga ke arsip (REPLACE = idempoten, menimpa versi lama di arsip).
                 foreach ($keluarga as $t => $a) {
                     $pilih = $this->pilih_sql($a, $ids, $nos, $this->prod);
+                    $this->tolak_bentrok_resi($t, $this->pilih_sql($a, $ids, $nos, $this->prod, 'p'));
                     $this->kueri("REPLACE INTO `{$this->arsip}`.`$t` SELECT * FROM `{$this->prod}`.`$t` WHERE $pilih");
                 }
 
